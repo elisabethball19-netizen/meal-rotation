@@ -96,6 +96,8 @@ function openMealSearch(){
     window.visualViewport?.removeEventListener('scroll',fitSearch);
   }
   function chooseMeal(mealId){
+    // Dismiss the mobile keyboard before positioning the selected meal's editor.
+    input.blur();
     closeSearch();
     rollbackEditorCategories();
     const meal=meals.find(m=>String(m.id)===String(mealId));
@@ -106,6 +108,13 @@ function openMealSearch(){
     menuCat=null;
     render();
     openEditor(meal.id);
+    // Mobile browsers can shift the viewport again as the keyboard closes.
+    // Align the editor's top with the viewport after that adjustment too.
+    setTimeout(()=>{
+      if(editId!==meal.id)return;
+      const editorPanel=$('editor').querySelector('.editor');
+      if(editorPanel)editorPanel.scrollIntoView({block:'start',behavior:'instant'});
+    },350);
   }
   function normalizeSearchText(value){
     return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim().replace(/\s+/g,' ');
@@ -121,13 +130,7 @@ function openMealSearch(){
   function updateResults(){
     results.replaceChildren();
     const q=normalizeSearchText(input.value);
-    if(!q){
-      const hint=document.createElement('p');
-      hint.textContent='Search all categories, including ideas. Select a meal to open it.';
-      hint.style.cssText='font-size:14px;color:#666;margin:8px 0';
-      results.append(hint);
-      return;
-    }
+    if(!q)return;
     const queryWords=searchWords(q);
     const seen=new Set();
     const matches=meals.filter(m=>{
