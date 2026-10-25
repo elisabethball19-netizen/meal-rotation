@@ -400,7 +400,7 @@ function showImportProgressDialog(message="Importing ingredients from website…
   overlay.addEventListener('keydown',onKey);
   actions.append(cancel);panel.append(heading,actions);overlay.append(panel);document.body.append(overlay);
   cancel.focus({preventScroll:true});
-  return {signal:controller.signal,cancelled,close:()=>overlay.remove()};
+  return {signal:controller.signal,cancelled,abort:()=>controller.abort(),close:()=>overlay.remove()};
 }
 function showAppMessage(message){
   return new Promise(resolve=>{
@@ -426,12 +426,64 @@ function getIngredientOcr(){
     ingredientOcrLoader=new Promise((resolve,reject)=>{
       const script=document.createElement('script');script.async=true;
       script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
-      script.onload=()=>window.Tesseract?resolve(window.Tesseract):reject(Error('Photo reader unavailable.'));
-      script.onerror=()=>reject(Error('Could not load the photo text reader. Check your internet connection.'));
+      let finished=false;
+      const settle=(error)=>{
+        if(finished)return;
+        finished=true;clearTimeout(timeout);
+        if(error){script.remove();reject(error)}
+        else resolve(window.Tesseract);
+      };
+      const timeout=setTimeout(()=>settle(Error('Photo text reader could not load. Check your connection and try again.')),25000);
+      script.onload=()=>settle(window.Tesseract?null:Error('Photo reader unavailable.'));
+      script.onerror=()=>settle(Error('Could not load the photo text reader. Check your internet connection.'));
       document.head.append(script);
     }).catch(e=>{ingredientOcrLoader=null;throw e});
   }
   return ingredientOcrLoader;
+}
+// Quickly recognize nearly uniform photographs without starting OCR. This
+// avoids spending minutes trying to read an image with no visible writing.
+async function ingredientPhotoIsBlank(file){
+  if(typeof createImageBitmap!=='function')return false;
+  let bitmap;
+  try{
+    bitmap=await createImageBitmap(file,{resizeWidth:80,resizeHeight:80,resizeQuality:'low'});
+    const canvas=document.createElement('canvas');canvas.width=80;canvas.height=80;
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)return false;
+    ctx.drawImage(bitmap,0,0,80,80);
+    const pixels=ctx.getImageData(0,0,80,80).data;
+    let sum=0,sumSquares=0,low=255,high=0,count=0;
+    for(let i=0;i<pixels.length;i+=4){
+      if(pixels[i+3]<24)continue;
+      const lum=(pixels[i]*299+pixels[i+1]*587+pixels[i+2]*114)/1000;
+      sum+=lum;sumSquares+=lum*lum;low=Math.min(low,lum);high=Math.max(high,lum);count++;
+    }
+    if(!count)return true;
+    const variance=Math.max(0,sumSquares/count-(sum/count)**2);
+    return Math.sqrt(variance)<4.5&&high-low<40;
+  }catch(e){return false}
+  finally{if(bitmap)bitmap.close()}
+}
+// A dedicated worker can be terminated if OCR is cancelled or times out.
+async function recognizeIngredientPhoto(file,signal){
+  const ocr=await getIngredientOcr();
+  if(signal.aborted)return '';
+  if(typeof ocr.createWorker!=='function'){
+    const result=await ocr.recognize(file,'eng');
+    return signal.aborted?'':(result?.data?.text||'');
+  }
+  let worker=null;
+  const stopWorker=()=>{if(worker)Promise.resolve(worker.terminate()).catch(()=>{})};
+  signal.addEventListener('abort',stopWorker,{once:true});
+  try{
+    worker=await ocr.createWorker('eng');
+    if(signal.aborted)return '';
+    const result=await worker.recognize(file);
+    return signal.aborted?'':(result?.data?.text||'');
+  }finally{
+    signal.removeEventListener('abort',stopWorker);
+    stopWorker();
+  }
 }
 function ingredientDialog(title,build){
   const shade=document.createElement('div');
@@ -458,16 +510,31 @@ function selectIngredientImportSource(hasRecipeUrl){
     });
   });
 }
-function requestIngredientSourceUrl(previous){
+function requestIngredientSourceUrl(previous,hasRecipeUrl=true){
   return new Promise(resolve=>{
     ingredientDialog('Ingredient import link',(panel,close)=>{
-      const hint=document.createElement('div');hint.textContent='This link is separate from your saved Recipe URL.';hint.style.cssText='font-size:14px;color:#666;margin-bottom:12px';panel.append(hint);
+      const hint=document.createElement('div');hint.textContent=hasRecipeUrl?'This ingredient source will not change your saved Recipe URL.':'Paste the website address that contains the ingredients.';hint.style.cssText='font-size:14px;color:#666;margin-bottom:12px';panel.append(hint);
       const field=document.createElement('input');field.type='url';field.placeholder='https://';field.value=previous||'';
       field.style.cssText='display:block;width:100%;padding:11px;border:1px solid #ccc;border-radius:9px;margin-bottom:15px;font-size:16px';panel.append(field);
       const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;justify-content:center';
       const submit=()=>{const url=field.value.trim();try{const parsed=new URL(url);if(!['https:','http:'].includes(parsed.protocol))throw Error()}catch(e){field.setCustomValidity('Enter a valid website link.');field.reportValidity();return}field.setCustomValidity('');close();resolve(url)};
       field.oninput=()=>field.setCustomValidity('');field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();submit()}};
       actions.append(ingredientModalButton('Import',submit),ingredientModalButton('Cancel',()=>{close();resolve(null)}));panel.append(actions);
+    });
+  });
+}
+function askUseIngredientLinkAsRecipe(){
+  return new Promise(resolve=>{
+    ingredientDialog('Save recipe link?',(panel,close)=>{
+      const question=document.createElement('p');
+      question.textContent='Do you want to use this as your recipe link as well?';
+      question.style.cssText='font-size:16px;margin:0 0 16px';panel.append(question);
+      const actions=document.createElement('div');actions.style.cssText='display:flex;gap:12px;justify-content:center';
+      actions.append(
+        ingredientModalButton('Yes',()=>{close();resolve(true)}),
+        ingredientModalButton('No',()=>{close();resolve(false)})
+      );
+      panel.append(actions);
     });
   });
 }
@@ -488,6 +555,19 @@ function cleanPhotoIngredientLine(value){
   line=line.replace(/(\d)\s*([¼½¾⅓⅔⅛⅜⅝⅞])/g,'$1 $2');
   line=line.replace(/\b(tbsp|tsp)\.(?=[a-z])/gi,'$1. ');
   line=line.replace(/\b(ml|g|kg|oz|lb)\.(?=[a-z])/gi,'$1. ');
+  // Restore word boundaries missed by OCR in ingredient quantities:
+  // "1cup(120 g.)" -> "1 cup (120 g.)", including a space after conversions.
+  line=line.replace(/([a-z])\s*\((?=\s*\d)/gi,'$1 (');
+  line=line.replace(/\)(?=[a-z])/gi,') ');
+  // A short, conservative list of common adjacent ingredient words that OCR
+  // sometimes merges. Avoid splitting arbitrary valid ingredient names.
+  line=line.replace(/\b(kosher|sea|table)(?=salt\b)/gi,'$1 ');
+  line=line.replace(/\b(granulated|brown|powdered|caster)(?=sugar\b)/gi,'$1 ');
+  line=line.replace(/\b(unsalted|salted)(?=butter\b)/gi,'$1 ');
+  line=line.replace(/\b(whole|skim)(?=milk\b)/gi,'$1 ');
+  line=line.replace(/\b(black|white)(?=pepper\b)/gi,'$1 ');
+  line=line.replace(/\b(baking)(?=(?:powder|soda)\b)/gi,'$1 ');
+  line=line.replace(/\b(olive|vegetable|coconut)(?=oil\b)/gi,'$1 ');
   line=line.replace(/\s+([,.])/g,'$1').replace(/([,;])(?=\S)/g,'$1 ');
   line=line.replace(/\s{2,}/g,' ').trim();
   return line;
@@ -636,16 +716,27 @@ $('toggleIngredients').onclick=()=>displayIngredients(true);
 $('hideIngredients').onclick=()=>displayIngredients(false);
 $('ingredientLinkButton').onclick=async()=>{
   const recipeUrl=$('url').value.trim();
-  const choice=await selectIngredientImportSource(!!recipeUrl);
-  if(!choice||editId!==m.id)return;
-  const importUrl=choice==='recipe'?recipeUrl:await requestIngredientSourceUrl(ingredientImportUrl);
+  let importUrl=null,choice='other';
+  if(recipeUrl){
+    choice=await selectIngredientImportSource(true);
+    if(!choice||editId!==m.id)return;
+    importUrl=choice==='recipe'?recipeUrl:await requestIngredientSourceUrl(ingredientImportUrl,true);
+  }else{
+    // No saved recipe URL: go straight to link entry; don't display a
+    // disabled "Import from recipe link" choice.
+    importUrl=await requestIngredientSourceUrl(ingredientImportUrl,false);
+    if(!importUrl||editId!==m.id)return;
+    const useAsRecipe=await askUseIngredientLinkAsRecipe();
+    if(editId!==m.id)return;
+    if(useAsRecipe)$('url').value=importUrl;
+  }
   if(!importUrl||editId!==m.id)return;
   const progress=showImportProgressDialog();
   try{
     const result=await Promise.race([importIngredientsFromWebsite(importUrl,progress.signal).then(lines=>({lines})),progress.cancelled]);
     if(!result.cancelled&&editId===m.id&&ingredientField.isConnected){
       mergeIngredientDraft(result.lines.map(cleanImportedIngredientDescriptors));
-      // Keep an optional different import URL separate from the recipe link.
+      // The import source remains independently editable from the recipe URL.
       ingredientImportUrl=choice==='other'?importUrl:'';
     }
   }catch(e){
@@ -655,18 +746,33 @@ $('ingredientLinkButton').onclick=async()=>{
 async function importFromIngredientPhoto(file){
   if(!file||!file.type.startsWith('image/'))return;
   const progress=showImportProgressDialog('Reading ingredients from photo…');
+  let deadline=null;
   try{
+    // OCR can hang for an empty or extremely difficult picture on some phones.
+    // Finish with a useful message instead of leaving the progress box open.
+    const timedOut=new Promise(resolve=>{
+      deadline=setTimeout(()=>resolve({timedOut:true}),60000);
+    });
     const result=await Promise.race([
       (async()=>{
-        const ocr=await getIngredientOcr();
+        if(await ingredientPhotoIsBlank(file))return {blank:true};
         if(progress.signal.aborted)return {cancelled:true};
-        const recognized=await ocr.recognize(file,'eng');
-        return {text:recognized?.data?.text||''};
+        return {text:await recognizeIngredientPhoto(file,progress.signal)};
       })(),
-      progress.cancelled
+      progress.cancelled,
+      timedOut
     ]);
+    if(result.timedOut)progress.abort();
     progress.close();
     if(result.cancelled||editId!==m.id||!ingredientField.isConnected)return;
+    if(result.timedOut){
+      await showAppMessage('The photo could not be read in time. Try a closer photo of the ingredients or enter them manually.');
+      return;
+    }
+    if(result.blank){
+      await showAppMessage('No readable ingredients found in that photo. Try a photo containing an ingredient list.');
+      return;
+    }
     const originalText=String(result.text||'').trim();
     if(!originalText){await showAppMessage('No readable text was found in the photo. Try a clearer picture or enter ingredients manually.');return}
     const extracted=extractPhotoIngredientLines(originalText);
@@ -675,8 +781,11 @@ async function importFromIngredientPhoto(file){
     if(reviewed!==null&&editId===m.id&&ingredientField.isConnected){mergeIngredientDraft(reviewed.split(/\r?\n/))}
   }catch(e){
     progress.close();
-    if(!progress.signal.aborted&&editId===m.id)showAppMessage('Photo ingredients could not be read. Check your connection or enter them manually.');
-  }finally{progress.close()}
+    if(!progress.signal.aborted&&editId===m.id)await showAppMessage('Photo ingredients could not be read. Check your connection or enter them manually.');
+  }finally{
+    if(deadline!==null)clearTimeout(deadline);
+    progress.close();
+  }
 }
 $('ingredientGalleryInput').onchange=e=>{const file=e.target.files?.[0];e.target.value='';if(file)importFromIngredientPhoto(file)};
 $('ingredientCameraInput').onchange=e=>{const file=e.target.files?.[0];e.target.value='';if(file)importFromIngredientPhoto(file)};
