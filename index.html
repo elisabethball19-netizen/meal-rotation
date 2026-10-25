@@ -243,7 +243,122 @@ function renderTopGroceries(list){
   const undoLink=document.createElement('span');undoLink.textContent='Undo';undoLink.style.cssText='cursor:pointer;text-decoration:none'+(groceryUndo?'':' ;opacity:.45;pointer-events:none');undoLink.onclick=()=>{if(!history.length)return;redoHistory.push(captureState());restoreState(JSON.parse(history.pop()))};controls.append(undoLink);body.append(controls);
   list.append(section);
 }
-let editorCategoryBaseline=null,editorDraftCategories=null;function rollbackEditorCategories(){if(!editorCategoryBaseline)return;meals=JSON.parse(editorCategoryBaseline.meals);id=editorCategoryBaseline.id;try{localStorage.setItem('mealRotationSelectedIngredientsV1',editorCategoryBaseline.selections)}catch(e){}editorCategoryBaseline=null;editorDraftCategories=null;persist()}function openEditor(n){rollbackEditorCategories();editorCategoryBaseline={meals:JSON.stringify(meals),id,selections:localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}'};const editor=$('editor');if(editor&&editor.parentNode&&editor.parentNode.id==='list'){document.body.insertBefore(editor,$('list'))}editId=n;const selectedMeal=meals.find(x=>x.id===n);editorDraftCategories=selectedMeal?[...new Set((selectedMeal.linkGroup?meals.filter(x=>x.linkGroup===selectedMeal.linkGroup):[selectedMeal]).map(x=>x.cat).filter(Boolean))]:[];renderEditor();placeEditorInline();requestAnimationFrame(()=>{const panel=$('editor').querySelector('.editor');if(panel)panel.scrollIntoView({block:'start',behavior:'instant'});});}function renderEditor(){let m=meals.find(x=>x.id===editId);if(!m){$('editor').innerHTML='';return}$('editor').innerHTML=`<div class="editor"><label>Meal name</label><input id="name" type="text" value="${esc(m.name)}"><label>Category</label><div id="categoryRows"></div><div class="grid"><div><label>Prep time (min)</label><input id="prep" type="number" min="0" value="${esc(m.prep)}"></div><div><label>Total time (min)</label><input id="totaltime" type="number" min="0" value="${esc(m.total!==undefined&&m.total!==''?m.total:(m.prep!==''||m.cook!==''?(Number(m.prep)||0)+(Number(m.cook)||0):''))}"></div></div><label>Recipe URL (optional)</label><input id="url" type="text" placeholder="https://" value="${esc(m.url)}"><button id="toggleIngredients" class="smallbtn" type="button">Show ingredients</button><div id="ingredientsPanel" class="ingredients-panel hidden"><label>Ingredients (one per line; include quantity if known)</label><textarea id="ingredients" class="ingredients-input" placeholder="1 onion\n2 cloves garlic\n1 lb chicken">${esc((m.ingredients||[]).join('\n'))}</textarea></div><label><input id="rotation" type="checkbox" ${m.rotation?'checked':''}> Add to rotation</label><div class="actions"><button id="save" type="button" title="Save" aria-label="Save"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg></button><button id="delete" type="button" title="Delete" aria-label="Delete"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m3 0-1 15H6L5 6m5 4v7m4-7v7"/></svg></button><button id="cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div></div>`;function categoryMembers(){return m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[m]}
+// Ingredient import: read a public recipe page, preferring Recipe JSON-LD when available.
+// Browsers cannot read many recipe sites directly because of CORS, so use public
+// page-reading fallbacks. No API key, account data, or saved meals are transmitted.
+function ingredientLine(value){
+  if(value&&typeof value==='object'){
+    if(typeof value.text==='string')value=value.text;
+    else if(typeof value.name==='string')value=[value.value,value.unitText||value.unitCode,value.name].filter(x=>x!==undefined&&x!==null&&String(x).trim()).join(' ');
+    else if(value.item)value=value.item;
+    else return '';
+  }
+  return String(value??'').replace(/<[^>]*>/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+}
+function uniqueIngredientLines(lines){
+  const seen=new Set();return lines.map(ingredientLine).filter(line=>{const k=line.toLowerCase();if(!line||seen.has(k))return false;seen.add(k);return true}).slice(0,120);
+}
+function recipeIngredientsFromObject(obj){
+  const recipes=[];const visited=new Set();
+  function visit(value,depth=0){
+    if(!value||typeof value!=='object'||depth>12||visited.has(value))return;
+    visited.add(value);
+    if(Array.isArray(value)){value.forEach(x=>visit(x,depth+1));return}
+    const type=value['@type'];
+    if((typeof type==='string'&&/(?:^|[:/])Recipe$/i.test(type))||(Array.isArray(type)&&type.some(x=>/(?:^|[:/])Recipe$/i.test(String(x))))){recipes.push(value)}
+    for(const [k,v] of Object.entries(value))if(v&&typeof v==='object'&&['@graph','mainEntity','mainEntityOfPage','item','itemListElement','subjectOf','about','recipe'].includes(k))visit(v,depth+1);
+  }
+  visit(obj);
+  for(const recipe of recipes){
+    let raw=recipe.recipeIngredient??recipe.ingredients;
+    if(raw&&typeof raw==='object'&&!Array.isArray(raw)&&Array.isArray(raw.itemListElement))raw=raw.itemListElement;
+    const values=Array.isArray(raw)?raw:typeof raw==='string'?raw.split(/\r?\n/):raw?[raw]:[];
+    const lines=uniqueIngredientLines(values);
+    if(lines.length)return lines;
+  }
+  return [];
+}
+function recipeIngredientsFromMarkup(html){
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  const jsonNodes=[...doc.querySelectorAll('script[type="application/ld+json"]')];
+  for(const node of jsonNodes){
+    try{const ingredients=recipeIngredientsFromObject(JSON.parse(node.textContent.trim()));if(ingredients.length)return ingredients}catch(e){}
+  }
+  const semantic=[...doc.querySelectorAll('[itemprop="recipeIngredient"], [itemprop="ingredients"]')];
+  const semanticLines=uniqueIngredientLines(semantic.map(el=>el.getAttribute('content')||el.textContent));
+  if(semanticLines.length)return semanticLines;
+  const selectors=['[data-ingredient-name]','[data-testid="ingredient-list"] li','[class*="ingredient-list"] li','[class*="ingredients-list"] li','[class*="recipe-ingredient"] li','li[class*="ingredient"]','[class*="wprm-recipe-ingredient"]'];
+  for(const selector of selectors){
+    const nodes=[...doc.querySelectorAll(selector)];
+    const lines=uniqueIngredientLines(nodes.map(el=>el.getAttribute('data-ingredient-name')||el.textContent));
+    if(lines.length>=2)return lines;
+  }
+  return [];
+}
+function recipeIngredientsFromMarkdown(markdown){
+  const source=String(markdown).split(/\r?\n/).slice(0,12000);
+  let best=[];
+  for(let i=0;i<source.length;i++){
+    const heading=source[i].trim().replace(/^#{1,6}\s*/, '').replace(/\*\*/g,'').replace(/:$/,'').trim();
+    if(!/^ingredients(?:\s+for\s+.{1,50})?$/i.test(heading))continue;
+    const candidates=[];let seenItem=false;
+    for(let j=i+1;j<Math.min(source.length,i+135);j++){
+      const line=source[j].trim();
+      if(/^#{1,6}\s/.test(line)&&seenItem)break;
+      if(/^(?:directions|instructions|method|steps|preparation|nutrition|notes|equipment|reviews|you(?:'|’)ll need|how to make|print recipe|related recipes)\b/i.test(line.replace(/^#{1,6}\s*/,''))&&seenItem)break;
+      if(!line){if(seenItem&&source.slice(j+1,j+4).every(x=>!x.trim()))break;continue}
+      if(/^[-*+]\s+/.test(line)||/^\d+[.)]\s+/.test(line)){
+        const item=line.replace(/^(?:[-*+]\s+|\d+[.)]\s+)/,'').replace(/^\[[ xX]\]\s*/, '').replace(/\*\*/g,'').replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').trim();
+        if(item&&!/^(?:image|video|pin it|save|print)$/i.test(item)){candidates.push(item);seenItem=true}
+      }else if(seenItem&&/^\s*(?:[-–]|[0-9]|[¼½¾⅓⅔]|\d+\s*(?:cup|tbsp|tsp|oz|lb|g|ml|clove|pinch))/.test(line)&&!/^\d+\.\s+(?:preheat|heat|stir|mix|bake|cook|place)\b/i.test(line)){
+        candidates.push(line.replace(/^[-–]\s*/,''));
+      }else if(seenItem&&/^(?:\w+[\s'-]*){1,6}:$/.test(line)){continue}
+      else if(seenItem)break;
+    }
+    const lines=uniqueIngredientLines(candidates);
+    if(lines.length>best.length)best=lines;
+  }
+  return best.length>=2?best:[];
+}
+function extractRecipeIngredients(payload){
+  const value=String(payload||'').trim();if(!value)return [];
+  if(value[0]==='{'||value[0]==='['){
+    try{const obj=JSON.parse(value);const direct=recipeIngredientsFromObject(obj);if(direct.length)return direct;
+      if(typeof obj?.data?.content==='string')return extractRecipeIngredients(obj.data.content);
+      if(typeof obj?.contents==='string')return extractRecipeIngredients(obj.contents);
+      if(typeof obj?.content==='string')return extractRecipeIngredients(obj.content);
+    }catch(e){}
+  }
+  if(/<!doctype|<html|application\/ld\+json|itemprop=|class=["'][^"']*ingredient/i.test(value)){
+    const lines=recipeIngredientsFromMarkup(value);if(lines.length)return lines;
+  }
+  return recipeIngredientsFromMarkdown(value);
+}
+async function importIngredientsFromWebsite(value){
+  let parsed;try{parsed=new URL(value)}catch(e){throw Error('Enter a valid recipe URL to import ingredients.')}
+  if(!['http:','https:'].includes(parsed.protocol))throw Error('Enter a valid website URL.');
+  const address=parsed.href;
+  // Public page readers receive only the recipe URL and return its public page.
+  const readers=['https://api.allorigins.win/raw?url='+encodeURIComponent(address),
+    'https://r.jina.ai/'+address];
+  async function request(endpoint,limit=14000){
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),limit);
+    try{
+      const response=await fetch(endpoint,{signal:controller.signal,credentials:'omit'});
+      if(!response.ok)throw Error('The recipe website could not be read.');
+      const raw=await response.text();
+      if(raw.length>2500000)throw Error('Recipe page too large.');
+      const ingredients=extractRecipeIngredients(raw);
+      if(!ingredients.length)throw Error('No ingredients found.');
+      return ingredients;
+    }finally{clearTimeout(timer)}
+  }
+  // Only use a third-party reader if the original website is inaccessible.
+  if(parsed.protocol==='https:'){try{return await request(address,4500)}catch(e){}}
+  try{return await Promise.any(readers.map(endpoint=>request(endpoint)))}
+  catch(e){throw Error('Ingredients could not be imported from this website. You can add them manually.')} 
+}
+let editorCategoryBaseline=null,editorDraftCategories=null;function rollbackEditorCategories(){if(!editorCategoryBaseline)return;meals=JSON.parse(editorCategoryBaseline.meals);id=editorCategoryBaseline.id;try{localStorage.setItem('mealRotationSelectedIngredientsV1',editorCategoryBaseline.selections)}catch(e){}editorCategoryBaseline=null;editorDraftCategories=null;persist()}function openEditor(n){rollbackEditorCategories();editorCategoryBaseline={meals:JSON.stringify(meals),id,selections:localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}'};const editor=$('editor');if(editor&&editor.parentNode&&editor.parentNode.id==='list'){document.body.insertBefore(editor,$('list'))}editId=n;const selectedMeal=meals.find(x=>x.id===n);editorDraftCategories=selectedMeal?[...new Set((selectedMeal.linkGroup?meals.filter(x=>x.linkGroup===selectedMeal.linkGroup):[selectedMeal]).map(x=>x.cat).filter(Boolean))]:[];renderEditor();placeEditorInline();requestAnimationFrame(()=>{const panel=$('editor').querySelector('.editor');if(panel)panel.scrollIntoView({block:'start',behavior:'instant'});});}function renderEditor(){let m=meals.find(x=>x.id===editId);if(!m){$('editor').innerHTML='';return}$('editor').innerHTML=`<div class="editor"><label>Meal name</label><input id="name" type="text" value="${esc(m.name)}"><label>Category</label><div id="categoryRows"></div><div class="grid"><div><label>Prep time (min)</label><input id="prep" type="number" min="0" value="${esc(m.prep)}"></div><div><label>Total time (min)</label><input id="totaltime" type="number" min="0" value="${esc(m.total!==undefined&&m.total!==''?m.total:(m.prep!==''||m.cook!==''?(Number(m.prep)||0)+(Number(m.cook)||0):''))}"></div></div><label>Recipe URL (optional)</label><input id="url" type="text" placeholder="https://" value="${esc(m.url)}"><label class="import-ingredients-option" style="display:flex;align-items:center;gap:8px;margin:10px 0 6px;font-size:14px"><input id="importIngredients" type="checkbox" checked style="width:19px;height:19px;margin:0;flex:0 0 19px"> Import ingredients</label><div id="importStatus" role="status" aria-live="polite" class="muted" style="display:none;margin:0 0 8px"></div><button id="toggleIngredients" class="smallbtn" type="button">Show ingredients</button><div id="ingredientsPanel" class="ingredients-panel hidden"><label>Ingredients (one per line; include quantity if known)</label><textarea id="ingredients" class="ingredients-input" placeholder="1 onion\n2 cloves garlic\n1 lb chicken">${esc((m.ingredients||[]).join('\n'))}</textarea></div><label><input id="rotation" type="checkbox" ${m.rotation?'checked':''}> Add to rotation</label><div class="actions"><button id="save" type="button" title="Save" aria-label="Save"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg></button><button id="delete" type="button" title="Delete" aria-label="Delete"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m3 0-1 15H6L5 6m5 4v7m4-7v7"/></svg></button><button id="cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div></div>`;function categoryMembers(){return m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[m]}
 if(!editorDraftCategories)editorDraftCategories=[...new Set(categoryMembers().map(x=>x.cat).filter(Boolean))];
 function renderCategoryRows(){
   const holder=$('categoryRows');if(!holder)return;holder.innerHTML='';
@@ -292,7 +407,29 @@ function askAddMealCategory(){return new Promise(resolve=>{
     editorDraftCategories.push(misc);
   }
   const originalIngredients=Array.isArray(m.ingredients)?m.ingredients:[];
-  const nextIngredients=$('ingredientsPanel').classList.contains('hidden')?originalIngredients:$('ingredients').value.split(/\n/).map(x=>x.trim()).filter(Boolean);
+  let nextIngredients=$('ingredientsPanel').classList.contains('hidden')?originalIngredients:$('ingredients').value.split(/\n/).map(x=>x.trim()).filter(Boolean);
+  let importFailure=false;
+  const websiteUrl=$('url').value.trim();
+  // Only fetch on new/changed links or when a linked recipe has no ingredients yet.
+  // This preserves manual ingredient edits and avoids fetching on unrelated saves.
+  if($('importIngredients').checked&&websiteUrl&&(websiteUrl!==(m.url||'')||!nextIngredients.length)){
+    const button=$('save'),notice=$('importStatus');
+    const cancelButton=$('cancel'),deleteButton=$('delete');
+    button.disabled=true;cancelButton.disabled=true;deleteButton.disabled=true;
+    notice.style.display='block';notice.textContent='Importing ingredients from website…';
+    try{
+      const incoming=await importIngredientsFromWebsite(websiteUrl);
+      if(editId!==m.id||!button.isConnected)return;
+      nextIngredients=uniqueIngredientLines([...nextIngredients,...incoming]);
+      $('ingredients').value=nextIngredients.join('\n');
+      notice.textContent='Imported '+incoming.length+' ingredients.';
+    }catch(e){
+      if(editId!==m.id||!button.isConnected)return;
+      importFailure=true;
+      notice.textContent=e.message||'Could not import ingredients.';
+    }finally{button.disabled=false;cancelButton.disabled=false;deleteButton.disabled=false}
+  }
+
   const contentChanged=($('name').value.trim()||'Untitled meal')!==m.name||$('prep').value!==String(m.prep??'')||$('totaltime').value!==String(m.total!==undefined&&m.total!==''?m.total:(m.prep!==''||m.cook!==''?(Number(m.prep)||0)+(Number(m.cook)||0):''))||$('url').value.trim()!==(m.url||'')||$('rotation').checked!==!!m.rotation||JSON.stringify(nextIngredients)!==JSON.stringify(originalIngredients);
   const priorMembers=categoryMembers();
   const applyAll=priorMembers.length>1&&contentChanged?await askLinkedChange('Save changes to all linked meals?',true):false;
@@ -302,7 +439,7 @@ function askAddMealCategory(){return new Promise(resolve=>{
   m.name=$('name').value.trim()||'Untitled meal';
   m.cat=editorDraftCategories.includes(oldcat)?oldcat:editorDraftCategories[0];
   m.prep=$('prep').value;m.total=$('totaltime').value;m.cook='';m.url=$('url').value.trim();
-  if(!$('ingredientsPanel').classList.contains('hidden'))m.ingredients=nextIngredients;
+  if(!$('ingredientsPanel').classList.contains('hidden')||(nextIngredients.length&&!originalIngredients.length)||JSON.stringify(nextIngredients)!==JSON.stringify(originalIngredients))m.ingredients=nextIngredients;
   m.rotation=$('rotation').checked;
   // Remove deselected category records; reuse unchanged records and create only missing links.
   const others=priorMembers.filter(x=>x.id!==m.id&&editorDraftCategories.includes(x.cat)&&x.cat!==m.cat);
@@ -321,6 +458,7 @@ function askAddMealCategory(){return new Promise(resolve=>{
   if(linkGroup&&applyAll){const shared={name:m.name,prep:m.prep,cook:m.cook,total:m.total,url:m.url,rotation:m.rotation,ingredients:Array.isArray(m.ingredients)?[...m.ingredients]:[]};meals.forEach(x=>{if(x.linkGroup===linkGroup&&x.id!==m.id)Object.assign(x,shared,{ingredients:[...shared.ingredients]})})}
   if(!showTop)active=m.cat;
   editorCategoryBaseline=null;editorDraftCategories=null;editId=null;render();
+  if(importFailure)alert('Meal saved, but ingredients could not be imported. You can enter them manually in Show ingredients.');
 };
 $('cancel').onclick=()=>{rollbackEditorCategories();editId=null;render()};$('delete').onclick=async()=>{const linked=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[];let all=false;if(linked.length>1){all=await askLinkedChange('Delete all linked meals?',true);if(all===null)return}else if(!await appDialog('Delete this meal?',null,'yesno'))return;snapshot();meals=meals.filter(x=>all?x.linkGroup!==m.linkGroup:x.id!==m.id);if(!all&&linked.length===2){const remaining=meals.find(x=>x.linkGroup===m.linkGroup);if(remaining)remaining.linkGroup=''}editorCategoryBaseline=null;editorDraftCategories=null;editId=null;render()}}function placeEditorInline(){const editor=$('editor');if(showTop){const row=document.querySelector('#list [data-meal-id="'+String(editId)+'"]');const wrap=row&&row.closest('.top-recipe-wrap');if(wrap&&wrap.parentNode){wrap.insertAdjacentElement('afterend',editor)}else if(editor.parentNode!==document.body){document.body.insertBefore(editor,$('list'))}return;}const row=document.querySelector('#list [data-meal-id=\"'+String(editId)+'\"]');if(row&&row.parentNode){row.insertAdjacentElement('afterend',editor)}else if(editor.parentNode!==document.body){document.body.insertBefore(editor,$('list'))}}function render(){persist();renderTabs();renderMenu();renderList();if(editId){renderEditor();placeEditorInline()}else{$('editor').innerHTML='';const e=$('editor');if(e.parentNode!==document.body)document.body.insertBefore(e,$('list'))}}document.addEventListener('contextmenu',e=>{if(!e.target.closest('input,textarea,select')){e.preventDefault();e.stopPropagation()}});document.addEventListener('selectstart',e=>{if(!e.target.closest('input,textarea,select'))e.preventDefault()});document.addEventListener('pointerdown',e=>{if(menuCat&&!$('catmenu').classList.contains('hidden')&&!$('catmenu').contains(e.target)&&!$('tabs').contains(e.target)){menuCat=null;renderMenu()}});render()})();
 </script></body></html>
