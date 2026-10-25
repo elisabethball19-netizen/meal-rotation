@@ -71,6 +71,13 @@ function openMealSearch(){
   input.setAttribute('aria-label','Search meal names');
   input.autocomplete='off';
   input.style.cssText='width:100%;min-height:46px;padding:9px 12px;border:1px solid #ccc;border-radius:9px;background:#fff;color:#242424;font-size:16px';
+  const exactLabel=document.createElement('label');
+  exactLabel.style.cssText='display:flex;align-items:center;gap:9px;font-size:15px;cursor:pointer';
+  const exactMatch=document.createElement('input');
+  exactMatch.type='checkbox';
+  exactMatch.id='searchExactMatch';
+  exactMatch.style.cssText='width:19px;height:19px;margin:0;flex:0 0 19px';
+  exactLabel.append(exactMatch,document.createTextNode('Exact match'));
   const results=document.createElement('div');
   results.setAttribute('aria-live','polite');
   results.style.cssText='overflow-y:auto;min-height:100px;flex:1;overscroll-behavior:contain';
@@ -100,9 +107,20 @@ function openMealSearch(){
     render();
     openEditor(meal.id);
   }
+  function normalizeSearchText(value){
+    return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim().replace(/\s+/g,' ');
+  }
+  function searchWords(value){return normalizeSearchText(value).match(/[\p{L}\p{N}]+/gu)||[]}
+  function singularSearchWord(word){
+    if(word.length>4&&word.endsWith('ies'))return word.slice(0,-3)+'y';
+    if(word.length>4&&word.endsWith('oes'))return word.slice(0,-2);
+    if(word.length>4&&/(ches|shes|sses|xes|zes)$/.test(word))return word.slice(0,-2);
+    if(word.length>3&&word.endsWith('s')&&!/(ss|us|is)$/.test(word))return word.slice(0,-1);
+    return word;
+  }
   function updateResults(){
     results.replaceChildren();
-    const q=input.value.toLocaleLowerCase().trim();
+    const q=normalizeSearchText(input.value);
     if(!q){
       const hint=document.createElement('p');
       hint.textContent='Search all categories, including ideas. Select a meal to open it.';
@@ -110,8 +128,16 @@ function openMealSearch(){
       results.append(hint);
       return;
     }
+    const queryWords=searchWords(q);
     const seen=new Set();
-    const matches=meals.filter(m=>String(m.name||'').toLocaleLowerCase().includes(q)).filter(m=>{
+    const matches=meals.filter(m=>{
+      const mealName=normalizeSearchText(m.name);
+      if(exactMatch.checked)return mealName===q;
+      const mealWords=searchWords(mealName);
+      return queryWords.length>0&&queryWords.every(word=>mealWords.some(candidate=>
+        candidate.includes(word)||singularSearchWord(candidate)===singularSearchWord(word)
+      ));
+    }).filter(m=>{
       const key=m.linkGroup?'linked:'+m.linkGroup:'single:'+m.id;
       if(seen.has(key))return false;
       seen.add(key);
@@ -144,6 +170,7 @@ function openMealSearch(){
   closeButton.onclick=closeSearch;
   shade.onclick=event=>{if(event.target===shade)closeSearch()};
   input.oninput=updateResults;
+  exactMatch.onchange=updateResults;
   input.onkeydown=event=>{
     if(event.key==='Enter'){
       const first=results.querySelector('button');
@@ -151,7 +178,7 @@ function openMealSearch(){
     }
   };
   header.append(title,closeButton);
-  panel.append(header,input,results);
+  panel.append(header,input,exactLabel,results);
   shade.append(panel);
   document.body.append(shade);
   document.addEventListener('keydown',onKeyDown);
