@@ -471,13 +471,106 @@ function requestIngredientSourceUrl(previous){
     });
   });
 }
-function reviewPhotoIngredients(text){
+// Clean photo OCR before asking the user to review it. This runs locally in the browser.
+// It deliberately favors omission of uncertain page text over inventing ingredients.
+function cleanPhotoIngredientLine(value){
+  let line=String(value||'').replace(/[\u00a0\u2000-\u200b]/g,' ').trim();
+  // OCR often reads an empty checkbox as "(J", "[]", a bullet or a circled glyph.
+  for(let n=0;n<3;n++){
+    const cleaned=line.replace(/^(?:(?:\[\s*\]|\(\s*[JjVvUu✓✔]?\s*\)?|[☐☑☒□▢◻◯○✓✔•●])\s*|[-–*]\s+|[|¦]\s*)/u,'').trim();
+    if(cleaned===line)break;
+    line=cleaned;
+  }
+  line=line.replace(/^[()\[\]{}]+\s*/,'').trim();
+  // Fix common OCR mistakes such as "3Tbsp.unsalted" and "1cup (235ml.)".
+  line=line.replace(/^([Il|])\s+(?=(?:cups?|tbsp\.?|tsp\.?|tablespoons?|teaspoons?|lbs?|pounds?|oz\.?|ounces?|eggs?|cloves?)\b)/i,'1 ');
+  line=line.replace(/(\d|[¼½¾⅓⅔⅛⅜⅝⅞])(?=[a-z])/gi,'$1 ');
+  line=line.replace(/(\d)\s*([¼½¾⅓⅔⅛⅜⅝⅞])/g,'$1 $2');
+  line=line.replace(/\b(tbsp|tsp)\.(?=[a-z])/gi,'$1. ');
+  line=line.replace(/\b(ml|g|kg|oz|lb)\.(?=[a-z])/gi,'$1. ');
+  line=line.replace(/\s+([,.])/g,'$1').replace(/([,;])(?=\S)/g,'$1 ');
+  line=line.replace(/\s{2,}/g,' ').trim();
+  return line;
+}
+// Remove instructions about handling/temperature from imported ingredients.
+// Keep quantities, ingredient varieties (e.g. unsalted, whole, frozen) and
+// shopping-relevant cuts or sizes (e.g. diced, minced, thinly sliced).
+// Only automatic imports are cleaned: manually typed/reviewed wording is kept.
+function cleanImportedIngredientDescriptors(value){
+  let line=ingredientLine(value);
+  if(!line)return '';
+  const temp='(?:at\\s+|brought\\s+to\\s+)?room[\\s-]+temp(?:erature)?';
+  const preparation='(?:'+temp+'|divided(?:\\s+into\\s+\\d+\\s+(?:parts?|portions?|batches?))?|softened|melted|thawed|cooled(?:\\s+slightly)?|chilled|warmed|lightly\\s+beaten|well\\s+beaten|beaten(?:\\s+lightly)?|whisked|peeled|seeded|de-?seeded|cored|stemmed|de-?veined|rinsed|well[\\s-]+drained|un-?drained|drained|washed|sifted|toasted|blanched|well\\s+shaken|shaken|stirred|scrubbed|stems?\\s+removed|spooned\\s+and\\s+leveled|patted\\s+dry|patted\\s+down|brought\\s+to\\s+a\\s+boil|separated)';
+  // Parenthetical temperature/prep notes, but not quantity conversions like (235 ml).
+  const prepParentheses=new RegExp('\\s*\\(\\s*(?:'+preparation+'|optional|for\\s+(?:serving|garnish|garnishing)|to\\s+taste)\\s*\\)','gi');
+  line=line.replace(prepParentheses,'');
+  // Strip serving and usage notes at the end without altering the ingredient name.
+  line=line.replace(/(?:\s*[,;]?\s*(?:plus\s+(?:more|extra)(?:\s+[^,;]*)?|for\s+(?:serving|garnish(?:ing)?|dusting|greasing|drizzling|topping|brushing)(?:\s+[^,;]*)?|to\s+taste|as\s+needed|if\s+desired|optional))\s*$/i,'');
+  const prep=new RegExp('\\b'+preparation+'\\b','gi');
+  // First remove unwanted descriptors, preserving adjacent preparation cuts.
+  line=line.replace(prep,'');
+  // Also remove standalone temperature notes such as ', cold' or ', hot'.
+  line=line.replace(/[,;]\s*(?:very\s+)?(?:ice[\s-]*cold|cold|hot|warm|lukewarm|boiling)\s*(?=[,;]|$)/gi,'');
+  // Temperature adjectives directly modifying cooking liquids/eggs/butter.
+  // Do not alter product descriptions such as "hot sauce" or "frozen peas".
+  line=line.replace(/\b(?:ice[\s-]*cold|lukewarm|boiling|very\s+cold|cold|hot|warm)\s+(?=(?:water|milk|eggs?|butter|broth|stock|cream|juice)\b)/gi,'');
+  // Clean punctuation left by removed phrases: ", and diced" -> ", diced".
+  line=line.replace(/\s+,\s*,/g,',').replace(/,\s*(?:and\s+)?(?=,|;|$)/gi,'');
+  line=line.replace(/,\s*and\s+/gi,', ').replace(/\s+and\s*(?=,|;|$)/gi,'');
+  line=line.replace(/\s*[,;]\s*[,;]+/g,', ').replace(/\s*[,;]\s*$/,'');
+  line=line.replace(/\(\s*(?:(?:and|or)\s*)?\)/gi,'').replace(/\s{2,}/g,' ').replace(/\s+([,;])/g,'$1').replace(/\s*[,;]\s*$/,'').trim();
+  return line;
+}
+function extractPhotoIngredientLines(raw){
+  const original=String(raw||'').replace(/\r\n?/g,'\n');
+  const rows=original.split('\n').map(cleanPhotoIngredientLine).filter(Boolean);
+  const heading=/^(?:the\s+)?ingredients?(?:\s*[:：]|\s*\([^)]*\))?\s*$/i;
+  const headingIndex=rows.findIndex(x=>heading.test(x));
+  const candidates=headingIndex<0?rows:rows.slice(headingIndex+1);
+  const stop=/^(?:directions?|instructions?|method|preparation|steps?|how to (?:make|cook|prepare)|recipe notes?|notes for this recipe|nutrition(?:al)?(?:\s+(?:information|facts|info))?|keep (?:the )?screen awake|shop recipe|shop ingredients|shop the recipe|related recipes|you may also like|comments?|reviews?|rate (?:this|the) recipe|frequently asked questions|advertisement|sponsored|video|watch video|print recipe|recipe card)\b/i;
+  const noise=/^(?:save|print|i made it|made it|share|download|get it on|app store|google play|play store|see all nutrition|see nutritional|jump to recipe|skip to recipe|back to top|search|follow us|sign up|subscribe|log in|login|rating|rate it|cook mode|servings?|yield|author|total time|prep time|cook time|calories|reviews?|view recipe|add to cart|shop|select all|scale|metric|us customary|cost|recipe by|read more|more information)\b/i;
+  const qty=/^(?:(?:\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|[¼½¾⅓⅔⅛⅜⅝⅞])(?:\s+(?:\d+\s*\/\s*\d+|[¼½¾⅓⅔⅛⅜⅝⅞]))?|one|two|three|four|five|six|seven|eight|nine|ten|a|an|pinch|dash|handful)\b\s*[-–]?\s+|^[¼½¾⅓⅔⅛⅜⅝⅞]\s*/i;
+  const cookStep=/^(?:\d+\s*[.)]\s*)?(?:preheat|bake|roast|heat|whisk|stir|combine|mix|add the|cook|pour|place|set aside|transfer|bring to|boil|simmer|serve|remove|cover|refrigerate|whip|beat|grease|line a)\b/i;
+  const results=[];
+  let ended=false;
+  for(const entry of candidates){
+    if(stop.test(entry)){ended=true;break}
+    if(noise.test(entry)||/https?:\/\/|www\.|@|©|®|\b(?:app store|google play|download|print|rating|stars|subscribe|privacy policy|cookie|affiliate|advertis|copyright|replies)\b/i.test(entry))continue;
+    if(/^\d{1,2}:\d{2}\b/.test(entry)||/[#<>]/.test(entry)||/^[^a-zA-Z]*$/.test(entry))continue;
+    if(cookStep.test(entry)||/[!?]$/.test(entry))continue;
+    if(entry.length>160||entry.split(/\s+/).length>23)continue;
+    if(/^(?:for (?:the|a) .+|(?:wet|dry|optional|garnish|topping|filling|sauce|dough|batter) ingredients?)\s*:?$/i.test(entry))continue;
+    const hasAmount=qty.test(entry);
+    // If no ingredient heading was found, accept only quantity-led lines. This
+    // avoids pulling in navigation, ads and page headings from full screenshots.
+    if(!hasAmount&&headingIndex<0)continue;
+    // A wrapped continuation such as "temperature" belongs to the prior line.
+    if(!hasAmount&&results.length&&/(?:,|\b(?:room|and|or|to|of|at|for|plus|finely|roughly|freshly))$/i.test(results[results.length-1])){
+      results[results.length-1]+=' '+entry;
+      continue;
+    }
+    // Inside an ingredient section, allow genuinely unmeasured ingredients
+    // such as "salt and pepper to taste" or "fresh cilantro".
+    if(!hasAmount&&(entry.split(/\s+/).length>12||/^[A-Z][a-z]+:/.test(entry)))continue;
+    results.push(entry);
+  }
+  return {lines:uniqueIngredientLines(results.map(cleanImportedIngredientDescriptors)),hadHeading:headingIndex>=0,removedLines:Math.max(0,rows.length-results.length),ended};
+}
+function reviewPhotoIngredients(text,originalText){
   return new Promise(resolve=>{
     ingredientDialog('Review photo ingredients',(panel,close)=>{
-      const hint=document.createElement('div');hint.textContent='Review the detected text. Keep only the ingredients, one per line, before adding them.';
+      const hint=document.createElement('div');hint.textContent='Only likely ingredients are shown. Common scanning errors were cleaned up. Check quantities and wording before adding.';
       hint.style.cssText='font-size:14px;color:#666;margin-bottom:10px';panel.append(hint);
       const area=document.createElement('textarea');area.className='ingredients-input';area.value=text;
       area.style.cssText='width:100%;min-height:185px;margin-bottom:12px';panel.append(area);
+      // Keep the raw scan available in case the automatic filter omitted a line.
+      if(originalText&&String(originalText).trim()!==String(text).trim()){
+        const details=document.createElement('details');details.style.cssText='margin:0 0 16px;font-size:14px;color:#555';
+        const summary=document.createElement('summary');summary.textContent='View original scanned text';summary.style.cssText='cursor:pointer;padding:5px 0';
+        const raw=document.createElement('textarea');raw.readOnly=true;raw.className='ingredients-input';raw.value=originalText;
+        raw.setAttribute('aria-label','Original scanned text');raw.style.cssText='width:100%;min-height:110px;margin-top:8px;font-size:14px';
+        details.append(summary,raw);panel.append(details);
+      }
       const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;justify-content:center;flex-wrap:wrap';
       actions.append(ingredientModalButton('Add ingredients',()=>{close();resolve(area.value)}),ingredientModalButton('Cancel',()=>{close();resolve(null)}));panel.append(actions);
     });
@@ -551,7 +644,7 @@ $('ingredientLinkButton').onclick=async()=>{
   try{
     const result=await Promise.race([importIngredientsFromWebsite(importUrl,progress.signal).then(lines=>({lines})),progress.cancelled]);
     if(!result.cancelled&&editId===m.id&&ingredientField.isConnected){
-      mergeIngredientDraft(result.lines);
+      mergeIngredientDraft(result.lines.map(cleanImportedIngredientDescriptors));
       // Keep an optional different import URL separate from the recipe link.
       ingredientImportUrl=choice==='other'?importUrl:'';
     }
@@ -574,9 +667,11 @@ async function importFromIngredientPhoto(file){
     ]);
     progress.close();
     if(result.cancelled||editId!==m.id||!ingredientField.isConnected)return;
-    const recognized=String(result.text||'').split(/\r?\n/).map(x=>x.replace(/^\s*[•*–-]\s*/,'').trim()).filter(Boolean).join('\n');
-    if(!recognized){await showAppMessage('No readable text was found in the photo. Try a clearer picture or enter ingredients manually.');return}
-    const reviewed=await reviewPhotoIngredients(recognized);
+    const originalText=String(result.text||'').trim();
+    if(!originalText){await showAppMessage('No readable text was found in the photo. Try a clearer picture or enter ingredients manually.');return}
+    const extracted=extractPhotoIngredientLines(originalText);
+    if(!extracted.lines.length){await showAppMessage('No clear ingredient list was found. Try a close-up photo of just the ingredients, or enter them manually.');return}
+    const reviewed=await reviewPhotoIngredients(extracted.lines.join('\n'),originalText);
     if(reviewed!==null&&editId===m.id&&ingredientField.isConnected){mergeIngredientDraft(reviewed.split(/\r?\n/))}
   }catch(e){
     progress.close();
