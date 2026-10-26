@@ -757,7 +757,8 @@ function extractPhotoIngredientLines(raw){
   // original OCR rows so that wrapped ingredients can be reassembled first.
   const original=String(raw||'').replace(/\r\n?/g,'\n');
   const rows=original.split('\n').map(cleanPhotoIngredientLine).filter(Boolean);
-  const heading=/^(?:the\s+)?ingredients?(?:\s*[:：]|\s*\([^)]*\))?\s*$/i;
+  // OCR can read the icon beside 'Ingredients' as stray letters (e.g. 'ina Ingredients').
+  const heading=/^(?:(?:the|[a-z]{1,5})\s+)?ingredients?(?:\s*[:：.]|\s*\([^)]*\))?\s*$/i;
   const headingIndex=rows.findIndex(x=>heading.test(x));
   const candidates=headingIndex<0?rows:rows.slice(headingIndex+1);
   const stop=/^(?:directions?|instructions?|instruct[il1]ons?|method|preparation|steps?|how to (?:make|cook|prepare)|recipe notes?|notes for this recipe|nutrition(?:al)?(?:\s+(?:information|facts|info))?|keep (?:the )?screen awake|shop recipe|shop ingredients|shop the recipe|related recipes|you may also like|comments?|reviews?|rate (?:this|the) recipe|frequently asked questions|advertisement|sponsored|video|watch video|print recipe|recipe card)\b/i;
@@ -798,10 +799,17 @@ function extractPhotoIngredientLines(raw){
         continue;
       }
     }
-    // Without a visible heading, accept only amount-led items rather than
-    // general page copy. With the heading, preserve amount-free ingredients
-    // like "Lime wedges" and "salt and pepper".
-    if(!hasAmount&&headingIndex<0)continue;
+    // Even if the title was unreadable, keep a short, quantity-free item
+    // embedded among known ingredients, such as 'Lime wedges' or 'Fresh basil'.
+    // Do not accept unrelated introductory text before the first ingredients.
+    if(!hasAmount&&headingIndex<0){
+      const words=entry.split(/\s+/);
+      const nearbyIngredient=results.some(x=>qty.test(x))&&
+        candidates.slice(i+1,i+4).some(x=>qty.test(x.replace(/^optional\s*[:\-]\s*/i,''))||section.test(x));
+      const ingredientPhrase=words.length<=5&&/^[a-z][a-z\s,'’\-/]*$/i.test(entry)&&
+        !/^(?:this|these|those|you|your|my|our|try|use|recipe|delicious|perfect|all|more|made|good|ready|next)\b/i.test(entry);
+      if(!nearbyIngredient||!ingredientPhrase)continue;
+    }
     if(!hasAmount&&(entry.split(/\s+/).length>10||/^\d+\s*[x×]\s*scale/i.test(entry)))continue;
     results.push(entry);
   }
