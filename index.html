@@ -11,7 +11,12 @@
 #list.top-summary .top-recipe-wrap:has(.top-recipe-ingredients) > .meal{border-bottom:0}
 #list.top-summary .top-recipe-ingredients{border-bottom:0!important}
 #list.top-summary .top-ingredient-arrow svg{width:20px;height:20px;display:block;stroke:#555;stroke-width:2;fill:none}
-#list.top-summary .meal:has(.times){height:auto;min-height:57px;padding:5px 2px}
+/* When cooking times are shown, keep Top Meals as compact as category rows.
+   Scope these changes to timed Top Meals, leaving untimed rows untouched. */
+#list.top-summary .meal:has(.times){height:auto;min-height:44px;padding:3px 2px 4px}
+#list.top-summary .meal:has(.times) .mealname{padding-bottom:0}
+#list.top-summary .meal:has(.times) .times{margin-top:3px;line-height:1.2}
+#list.top-summary:has(.meal .times) .section{padding:5px 12px!important;min-height:0}
 .tab, #list .section, .shopgroup, .top-groceries > button { text-transform: uppercase; }
 /* Keep the ingredient-import and rotation checkboxes precisely aligned. */
 .editor .meal-checkbox-option{display:flex;align-items:center;gap:8px;margin:10px 0 6px;font-size:14px}
