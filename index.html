@@ -250,10 +250,12 @@ const radio=document.createElement('input');radio.type='radio';radio.name='first
   name.oncontextmenu=e=>e.preventDefault();
 }
 function getDisplayedWeekdayMeals(){const shown=[];const categoryDayIndex={};orderedDays().forEach(day=>{const c=weekdayCategories[day];if(!cats.includes(c))return;const categoryMeals=meals.filter(m=>m.cat===c&&m.rotation);const index=categoryDayIndex[c]||0;categoryDayIndex[c]=index+1;let meal=categoryMeals[index];const overrideId=weekdayMealOverrides[day];if(overrideId!==undefined){const override=categoryMeals.find(m=>String(m.id)===String(overrideId));if(override)meal=override}if(meal)shown.push({day,cat:c,meal})});return shown}
-// Persist the current weekly-plan meal IDs so a recipe brought back into the
-// plan starts with a fresh, unchecked grocery selection. Rotation actions pass
-// their BEFORE state explicitly, rather than relying only on a later redraw.
-function resetGroceriesForNewTopMeals(previousIdsOverride=null, rotatedIds=[]){
+// Keep grocery-list membership independent from checked-off grocery items.
+// Only a meal ENTERING Top Recipes gets its existing grocery checkmarks reset;
+// never clear mealRotationSelectedIngredientsV1, which determines what remains
+// on the grocery list. The current plan is persisted so view changes do not
+// repeatedly uncheck the same ingredients.
+function resetGroceriesForNewTopMeals(previousIdsOverride=null){
   const storageKey='mealRotationLastTopMealIdsV1';
   const currentIds=[...new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)))];
   let previousIds=null;
@@ -265,48 +267,31 @@ function resetGroceriesForNewTopMeals(previousIdsOverride=null, rotatedIds=[]){
       if(Array.isArray(stored))previousIds=new Set(stored.map(String));
     }catch(e){}
   }
-  // A recipe still visible on another weekday has not left the weekly plan.
-  const resetIds=new Set(rotatedIds.map(String).filter(mealId=>!currentIds.includes(mealId)));
   if(previousIds){
-    // Also handle meals entering because of weekday overrides or category edits.
-    currentIds.forEach(mealId=>{if(!previousIds.has(mealId))resetIds.add(mealId)});
+    const enteringIds=currentIds.filter(mealId=>!previousIds.has(mealId));
+    if(enteringIds.length){
+      const normalize=line=>String(line).toLowerCase().replace(/\s+/g,' ').trim();
+      // Check-off status is global by ingredient text. Reopening the newly
+      // rotated-in recipe should show every selected grocery item unchecked.
+      let selected={};
+      try{
+        const stored=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');
+        if(stored&&typeof stored==='object'&&!Array.isArray(stored))selected=stored;
+      }catch(e){}
+      enteringIds.forEach(mealId=>{
+        // Keep chosen ingredients exactly as saved: DO NOT set selected[mealId]=[].
+        const lines=selected[mealId];
+        if(Array.isArray(lines))lines.forEach(line=>checkedIngredients.delete(normalize(line)));
+      });
+      try{
+        localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));
+      }catch(e){}
+    }
   }
-  if(resetIds.size){
-    const selectionKey='mealRotationSelectedIngredientsV1';
-    let selected={};
-    try{
-      const stored=JSON.parse(localStorage.getItem(selectionKey)||'{}');
-      if(stored&&typeof stored==='object'&&!Array.isArray(stored))selected=stored;
-    }catch(e){}
-    const normalize=line=>String(line).toLowerCase().replace(/\s+/g,' ').trim();
-    // Checked-off ingredients are shared by text across meals. Keep a checkmark
-    // when an unaffected, currently displayed recipe still needs that item.
-    const retainedKeys=new Set();
-    currentIds.forEach(mealId=>{
-      if(resetIds.has(mealId))return;
-      const chosen=selected[mealId];
-      if(Array.isArray(chosen))chosen.forEach(line=>retainedKeys.add(normalize(line)));
-    });
-    resetIds.forEach(mealId=>{
-      const meal=meals.find(x=>String(x.id)===mealId);
-      if(meal&&Array.isArray(meal.ingredients)){
-        meal.ingredients.forEach(line=>{
-          const key=normalize(line);
-          if(!retainedKeys.has(key))checkedIngredients.delete(key);
-        });
-      }
-      // Do not remove the stored ingredients themselves; only grocery choices.
-      selected[mealId]=[];
-    });
-    try{
-      localStorage.setItem(selectionKey,JSON.stringify(selected));
-      localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));
-    }catch(e){}
-  }
-  // First load establishes a baseline without deleting the user's groceries.
+  // An existing installation should not lose checks just for loading this file.
   try{localStorage.setItem(storageKey,JSON.stringify(currentIds))}catch(e){}
 }
-function moveDisplayedMealsToBottom(selectedDays=null){const beforeIds=new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)));const shown=getDisplayedWeekdayMeals().filter(x=>!selectedDays||selectedDays.has(x.day));const shownByCategory={};shown.forEach(({cat,meal})=>{if(!shownByCategory[cat])shownByCategory[cat]=[];if(!shownByCategory[cat].some(m=>String(m.id)===String(meal.id)))shownByCategory[cat].push(meal)});if(!Object.keys(shownByCategory).length)return;snapshot();Object.entries(shownByCategory).forEach(([c,items])=>{const slots=[];meals.forEach((m,i)=>{if(m.cat===c&&m.rotation)slots.push(i)});const current=slots.map(i=>meals[i]);const shownIds=new Set(items.map(m=>String(m.id)));const reordered=current.filter(m=>!shownIds.has(String(m.id))).concat(items.filter(m=>current.some(x=>String(x.id)===String(m.id))));slots.forEach((slot,i)=>{meals[slot]=reordered[i]})});shown.forEach(({day})=>{if(!selectedDays||selectedDays.has(day))delete weekdayMealOverrides[day]});saveWeekdayMealOverrides();resetGroceriesForNewTopMeals(beforeIds,shown.map(({meal})=>String(meal.id)));persist();topIngredientExpanded.clear();renderList()}
+function moveDisplayedMealsToBottom(selectedDays=null){const beforeIds=new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)));const shown=getDisplayedWeekdayMeals().filter(x=>!selectedDays||selectedDays.has(x.day));const shownByCategory={};shown.forEach(({cat,meal})=>{if(!shownByCategory[cat])shownByCategory[cat]=[];if(!shownByCategory[cat].some(m=>String(m.id)===String(meal.id)))shownByCategory[cat].push(meal)});if(!Object.keys(shownByCategory).length)return;snapshot();Object.entries(shownByCategory).forEach(([c,items])=>{const slots=[];meals.forEach((m,i)=>{if(m.cat===c&&m.rotation)slots.push(i)});const current=slots.map(i=>meals[i]);const shownIds=new Set(items.map(m=>String(m.id)));const reordered=current.filter(m=>!shownIds.has(String(m.id))).concat(items.filter(m=>current.some(x=>String(x.id)===String(m.id))));slots.forEach((slot,i)=>{meals[slot]=reordered[i]})});shown.forEach(({day})=>{if(!selectedDays||selectedDays.has(day))delete weekdayMealOverrides[day]});saveWeekdayMealOverrides();resetGroceriesForNewTopMeals(beforeIds);persist();topIngredientExpanded.clear();renderList()}
 function openRotateOptions(){
  const overlay=document.createElement('div');
  overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10002;display:flex;align-items:center;justify-content:center;padding:18px';
