@@ -93,6 +93,8 @@
  .meal-plan-grocery .master-grocery-list{overflow:visible;max-height:none;}
 .master-grocery-plan-filters{display:flex;flex-wrap:wrap;gap:8px 17px;margin:10px 0 14px;padding:12px 0;border-bottom:1px solid #dedede;}
 .master-grocery-plan-filters strong{display:block;flex:0 0 100%;font-size:14px;}
+.meal-plan-grocery > .top-controls{display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:0;border:0;background:transparent;}
+.meal-plan-grocery > .top-controls .iconbtn{flex:0 0 36px;}
 .master-grocery-plan-filters label{display:inline-flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;}
 .master-grocery-plan-filters input{width:19px;height:19px;margin:0;}
 .master-grocery-fab svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
@@ -241,12 +243,13 @@ body:has(.editor) .unified-nav-fab{display:none!important}
 .all-meals-entry{padding:5px 0!important}.all-meals-meal-row{min-height:32px!important}.all-meals-day{padding-top:10px!important;padding-bottom:7px!important}.all-meals-day h3{margin-bottom:3px!important}
 /* Overview pages do not display pinned category shortcuts. */
 body.overview-without-category-pins #categoryButtons{display:none!important;}
-/* Center both plan labels and meal details within each compact overview row. */
-.all-meals-entry{display:flex;flex-direction:column;justify-content:center;}
-.all-meals-meal-row{align-items:center;}
-.all-meals-plan-label{align-self:center;}
-.all-meals-empty{align-items:center;min-height:42px;}
-.all-meals-empty strong{align-self:center;}
+/* Vertically center each plan label and meal without centering text horizontally. */
+.all-meals-entry{display:block;}
+.all-meals-meal-row{display:flex;align-items:center;}
+.all-meals-plan-label{align-self:auto;text-align:left;}
+.all-meals-empty{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;min-height:42px;}
+.all-meals-empty strong{align-self:auto;text-align:left;}
+.all-meals-empty span{flex:1;min-width:0;text-align:left;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Soup','Tacos','Over Rice','Meat & Mash','Misc','Easy'],active='Soup',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in Top Meals and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -1109,7 +1112,7 @@ function getMasterGroceryItems(){
    ['all','All Meals','<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h3M14 14h3M8 18h3M14 18h3"/>',()=>{showTop=true;groceryTabActive=false;allMealsActive=true;render()}],
    ['grocery','Master Grocery List','<circle cx="9" cy="20" r="1"/><circle cx="19" cy="20" r="1"/><path d="M2 3h2l2.5 12h12L22 7H5"/>',()=>{showTop=true;allMealsActive=false;groceryTabActive=true;render()}]
   ];
-  destinations.filter(d=>d[0]!==current).forEach(([key,title,art,action],index)=>{
+  destinations.filter(d=>d[0]!==current && (showMealPlanTabs && mealPlans.length>1 || (d[0]!=='all' && d[0]!=='grocery'))).forEach(([key,title,art,action],index)=>{
    const b=document.createElement('button');b.type='button';b.className='smallbtn add-meal-floating unified-nav-fab';
    b.title=title;b.setAttribute('aria-label',title);b.dataset.destination=key;
    b.style.bottom='calc('+(138-index*61)+'px + env(safe-area-inset-bottom,0px))';
@@ -1121,7 +1124,6 @@ function getMasterGroceryItems(){
   const panel=document.createElement('section');panel.className='meal-plan-grocery';panel.setAttribute('aria-label','Master grocery list');
   const heading=document.createElement('h2');heading.textContent='Master grocery list';panel.append(heading);
   const filters=document.createElement('div');filters.className='master-grocery-plan-filters';
-  const filterHeading=document.createElement('strong');filterHeading.textContent='Include meal plans';filters.append(filterHeading);
   const rows=document.createElement('div');rows.className='master-grocery-list';
   function updateRows(){
    rows.replaceChildren();
@@ -1152,7 +1154,10 @@ function getMasterGroceryItems(){
    };
    const name=document.createElement('span');name.textContent=plan.name;lab.append(input,name);filters.append(lab);
   }
-  panel.append(filters,rows);list.append(panel);updateRows();
+  panel.append(filters);
+  const toolbar=list.querySelector(':scope > .top-controls');
+  if(toolbar)panel.append(toolbar);
+  panel.append(rows);list.append(panel);updateRows();
  }
  function toggleMasterGroceryTab(){
   if(!(showMealPlanTabs&&mealPlans.length>1))return;
