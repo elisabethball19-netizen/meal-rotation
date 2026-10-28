@@ -346,7 +346,20 @@ try{const stored=JSON.parse(localStorage.getItem('mealRotationWeekdayColorsV1')|
 function saveWeekdayColors(){try{localStorage.setItem('mealRotationWeekdayColorsV1',JSON.stringify(weekdayColors))}catch(e){}}
 function deriveWeekdayColors(legacy=categoryColors){return Object.fromEntries(weekdays.map(day=>{const cat=getDayCategories(day)[0];return [day,cat?(legacy[cat]||defaultColorForCat(cat)):weekdayColorDefaults[day]]}))}
 const colorForDay=day=>weekdayColors[day]||weekdayColorDefaults[day]||'#ffffff';
-const colorForCat=c=>{const day=orderedDays().find(d=>getDayCategories(d).includes(c));return day?colorForDay(day):'#ffffff'};
+// A category assigned to several weekdays displays every assigned day's color.
+// This is derived from the active plan, so no saved category data is changed.
+const colorForCat=c=>{
+ const colors=[...new Set(orderedDays().filter(d=>getDayCategories(d).includes(c)).map(colorForDay))];
+ if(!colors.length)return '#ffffff';
+ if(colors.length===1)return colors[0];
+ const stops=colors.flatMap((color,i)=>[`${color} ${100*i/colors.length}%`,`${color} ${100*(i+1)/colors.length}%`]);
+ return `linear-gradient(90deg, ${stops.join(', ')})`;
+};
+function applyCategoryBackground(element,category){
+ const color=colorForCat(category);
+ element.style.background=color;
+}
+
 function orderedDays(){const n=weekdays.indexOf(startWeekday);return weekdays.slice(n<0?0:n).concat(weekdays.slice(0,n<0?0:n))}function clearOverridesForCat(c){
   for(const day of weekdays){
     delete weekdayMealOverrides[weekdaySlotKey(day,c)];
@@ -1290,7 +1303,7 @@ if(showTop){
   lastTopPinnedCategories=new Set(effectivePins);
   getCategoryButtonOrder().forEach(c=>{
     if(!effectivePins.has(c)&&!expandedCats.includes(c))return;
-    const b=document.createElement('button');b.type='button';b.style.background=colorForCat(c);
+    const b=document.createElement('button');b.type='button';applyCategoryBackground(b,c);
     b.dataset.category=c;b.className='tab';b.textContent=c;
     let timer=null,longDone=false;
     b.onclick=()=>{if(longDone){longDone=false;return}navigateAfterSettings(()=>{active=c;persist();openMasterCategories(c)})};
@@ -1952,7 +1965,7 @@ function renderMasterCategories(list){
  for(const category of getCategoryButtonOrder()){
   const categoryMeals=meals.filter(m=>m.cat===category);
   const card=document.createElement('section');card.className='master-category-card';card.dataset.category=category;
-  const header=document.createElement('div');header.className='master-category-header';header.style.backgroundColor=colorForCat(category);
+  const header=document.createElement('div');header.className='master-category-header';applyCategoryBackground(header,category);
   const expanded=masterExpandedCategories.has(category);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';
   toggle.setAttribute('aria-expanded',String(expanded));toggle.setAttribute('aria-label',(expanded?'Collapse ':'Expand ')+category);
