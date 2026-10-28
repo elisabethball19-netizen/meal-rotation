@@ -185,6 +185,21 @@ body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inse
 .master-categories-actions{flex-wrap:nowrap;align-items:center;flex-shrink:0;}
 .master-categories-actions .iconbtn{flex:0 0 36px;width:36px;height:36px;}
 
+/* Meal Categories: keep the existing Home action accessible as a floating button. */
+body:has(.master-categories) #summary{
+ position:fixed!important;
+ right:max(16px,calc((100vw - 760px)/2 + 16px));
+ bottom:calc(16px + env(safe-area-inset-bottom,0px));
+ z-index:1000;
+ width:50px;height:50px;
+ border:1px solid #b9c7d8!important;
+ border-radius:12px!important;
+ background:#fff!important;
+ box-shadow:0 3px 10px rgba(0,0,0,.16)!important;
+ padding:10px!important;
+}
+body:has(.master-categories) #summary svg{width:28px;height:28px;}
+body:has(.master-categories):has(.editor) #summary{display:none!important;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Soup','Tacos','Over Rice','Meat & Mash','Misc','Easy'],active='Soup',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in Top Meals and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
