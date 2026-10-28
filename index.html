@@ -1824,14 +1824,14 @@ function renderMasterCategories(list){
  const pins=masterPinnedSet();
  for(const [label,expand,svg] of [['Expand all',true,'<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/><path d="m6 3 6 6 6-6"/></svg>'],['Collapse all',false,'<svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/><path d="m6 21 6-6 6 6"/></svg>']]){
   const b=document.createElement('button');b.type='button';b.className='iconbtn';b.title=label;b.setAttribute('aria-label',label);b.innerHTML=svg;
-  b.onclick=()=>{masterExpandedCategories.clear();for(const c of (expand?cats:pins))masterExpandedCategories.add(c);renderList()};tools.append(b);
+  b.onclick=()=>{masterExpandedCategories.clear();for(const c of (expand?cats:[]))masterExpandedCategories.add(c);renderList()};tools.append(b);
  }
  heading.append(tools);wrap.append(heading);
  for(const category of cats){
   const categoryMeals=meals.filter(m=>m.cat===category);
   const card=document.createElement('section');card.className='master-category-card';
   const header=document.createElement('div');header.className='master-category-header';header.style.backgroundColor=colorForCat(category);
-  const expanded=masterExpandedCategories.has(category)||pins.has(category);
+  const expanded=masterExpandedCategories.has(category);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';
   toggle.setAttribute('aria-expanded',String(expanded));toggle.setAttribute('aria-label',(expanded?'Collapse ':'Expand ')+category);
   toggle.innerHTML=expanded?'<svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg>':'<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>';
