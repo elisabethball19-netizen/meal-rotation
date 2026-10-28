@@ -159,7 +159,7 @@ body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inse
 .category-picker-row .category-direct-action{flex:0 0 38px;width:38px;height:42px;}
 .top-add-category{font-size:27px!important;line-height:1;font-weight:400;}
 /* Larger, easier-to-tap Add Group button beside meal-plan tabs. */
-.tab-actions .top-add-group{width:52px!important;min-width:52px;height:52px!important;padding:0!important;font-size:39px!important;font-weight:500;line-height:1;display:grid;place-items:center;touch-action:manipulation;}
+.tab-actions .top-add-group{width:36px!important;min-width:36px;height:36px!important;padding:4px!important;font-size:28px!important;font-weight:400;line-height:1;display:grid;place-items:center;touch-action:manipulation;}
 .master-categories{display:flex;flex-direction:column;gap:10px;padding-bottom:80px;}
 .master-categories-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 2px 4px;}
 .master-categories-heading h2{font-size:19px;margin:0;font-weight:650;}
@@ -876,12 +876,27 @@ function recipeImportMinutes(value){
  if(hrs||mins)return Math.round(Number(hrs?.[1]||0)*60+Number(mins?.[1]||0));
  return /^\d+$/.test(s)?Number(s):'';
 }
+// Use the RecipeSage share URL format, including for previously imported legacy links.
+const recipeSageUuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function recipeSageShareUrl(recipeId){return 'https://android.recipesage.com/api/share/recipe/'+encodeURIComponent(recipeId)}
+function correctedRecipeSageUrl(meal){
+ const old=String(meal.url||'').trim();
+ const legacy=old.match(/^https?:\/\/(?:www\.)?recipesage\.com\/app\/recipes\/([0-9a-f-]{36})(?:[/?#].*)?$/i);
+ if(legacy&&recipeSageUuidPattern.test(legacy[1]))return recipeSageShareUrl(legacy[1]);
+ // An existing, unrelated recipe URL should not be replaced.
+ if(old)return old;
+ const recipeId=String(meal.recipeSageId||meal.importSourceId||'').trim();
+ return recipeSageUuidPattern.test(recipeId)?recipeSageShareUrl(recipeId):old;
+}
+function repairImportedRecipeSageLinks(){
+ for(const meal of meals){const corrected=correctedRecipeSageUrl(meal);if(corrected!==meal.url)meal.url=corrected;}
+}
 function recipeImportUrl(r){
  const safe=v=>typeof v==='string'&&/^https?:\/\//i.test(v.trim())?v.trim():'';
  const direct=safe(r.url)||safe(r.mainEntityOfPage)||safe(r.recipeUrl);
- if(direct)return direct;
+ if(direct)return correctedRecipeSageUrl({url:direct});
  const sourceId=String(r.identifier||'').trim();
- if(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sourceId))return 'https://recipesage.com/app/recipes/'+encodeURIComponent(sourceId);
+ if(recipeSageUuidPattern.test(sourceId))return recipeSageShareUrl(sourceId);
  return safe(r.isBasedOn)||safe(r.sourceUrl)||'';
 }
 function recipeImportSourceUrl(r){const u=r.isBasedOn||r.sourceUrl||'';return typeof u==='string'&&/^https?:\/\//i.test(u.trim())?u.trim():''}
@@ -1244,11 +1259,7 @@ function navigateToOverviewMeal(planId,mealId){
  if(!meal)return;
  loadMealPlan(planId);
  openMasterCategories(meal.cat);
- requestAnimationFrame(()=>requestAnimationFrame(()=>{
-  const card=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===meal.cat);
-  const row=card&&[...card.querySelectorAll('[data-meal-id]')].find(el=>el.dataset.mealId===String(mealId));
-  if(row)row.scrollIntoView({behavior:'smooth',block:'center'});
- }));
+
 }
 function addOverviewHomeButton(){
  if(!showTop||!(groceryTabActive||allMealsActive))return;
@@ -3248,7 +3259,7 @@ $('save').onclick=async()=>{
   if(!showTop)active=m.cat;
   editorCategoryBaseline=null;editorDraftCategories=null;editId=null;render();restoreMealEditorScroll();
 };
-$('cancel').onclick=()=>{rollbackEditorCategories();editId=null;render();restoreMealEditorScroll()};$('delete').onclick=async()=>{const linked=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[];let all=false;if(linked.length>1){all=await askLinkedChange('Delete all linked meals?',true);if(all===null)return}else if(!await appDialog('Delete this meal?',null,'yesno'))return;snapshot();meals=meals.filter(x=>all?x.linkGroup!==m.linkGroup:x.id!==m.id);if(!all&&linked.length===2){const remaining=meals.find(x=>x.linkGroup===m.linkGroup);if(remaining)remaining.linkGroup=''}editorCategoryBaseline=null;editorDraftCategories=null;editId=null;render();restoreMealEditorScroll()}}function placeEditorInline(){const editor=$('editor');if(showTop){const row=document.querySelector('#list [data-meal-id="'+String(editId)+'"]');const wrap=row&&row.closest('.top-recipe-wrap');if(wrap&&wrap.parentNode){wrap.insertAdjacentElement('afterend',editor)}else if(editor.parentNode!==document.body){document.body.insertBefore(editor,$('list'))}return;}const row=document.querySelector('#list [data-meal-id=\"'+String(editId)+'\"]');if(row&&row.parentNode){row.insertAdjacentElement('afterend',editor)}else if(editor.parentNode!==document.body){document.body.insertBefore(editor,$('list'))}}function render(){if(!showTop&&!masterCategoriesView)setMasterCategoriesView(true);if(!showTop&&!masterExpansionInitialized){masterExpansionInitialized=true;masterExpandedCategories.clear();}persist();rememberCurrentView();renderTabs();renderMenu();renderList();if(editId){renderEditor();placeEditorInline()}else{$('editor').innerHTML='';const e=$('editor');if(e.parentNode!==document.body)document.body.insertBefore(e,$('list'))}}document.addEventListener('contextmenu',e=>{if(!e.target.closest('input,textarea,select')){e.preventDefault();e.stopPropagation()}});document.addEventListener('selectstart',e=>{if(!e.target.closest('input,textarea,select'))e.preventDefault()});document.addEventListener('pointerdown',e=>{if(menuCat&&!$('catmenu').classList.contains('hidden')&&!$('catmenu').contains(e.target)&&!$('tabs').contains(e.target)){menuCat=null;renderMenu()}});
+$('cancel').onclick=()=>{rollbackEditorCategories();editId=null;render();restoreMealEditorScroll()};$('delete').onclick=async()=>{const linked=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[];let all=false;if(linked.length>1){all=await askLinkedChange('Delete all linked meals?',true);if(all===null)return}else if(!await appDialog('Delete this meal?',null,'yesno'))return;snapshot();meals=meals.filter(x=>all?x.linkGroup!==m.linkGroup:x.id!==m.id);if(!all&&linked.length===2){const remaining=meals.find(x=>x.linkGroup===m.linkGroup);if(remaining)remaining.linkGroup=''}editorCategoryBaseline=null;editorDraftCategories=null;editId=null;render();restoreMealEditorScroll()}}function placeEditorInline(){const editor=$('editor');if(showTop){const row=document.querySelector('#list [data-meal-id="'+String(editId)+'"]');const wrap=row&&row.closest('.top-recipe-wrap');if(wrap&&wrap.parentNode){wrap.insertAdjacentElement('afterend',editor)}else if(editor.parentNode!==document.body){document.body.insertBefore(editor,$('list'))}return;}const row=document.querySelector('#list [data-meal-id=\"'+String(editId)+'\"]');if(row&&row.parentNode){row.insertAdjacentElement('afterend',editor)}else if(editor.parentNode!==document.body){document.body.insertBefore(editor,$('list'))}}function render(){repairImportedRecipeSageLinks();if(!showTop&&!masterCategoriesView)setMasterCategoriesView(true);if(!showTop&&!masterExpansionInitialized){masterExpansionInitialized=true;masterExpandedCategories.clear();}persist();rememberCurrentView();renderTabs();renderMenu();renderList();if(editId){renderEditor();placeEditorInline()}else{$('editor').innerHTML='';const e=$('editor');if(e.parentNode!==document.body)document.body.insertBefore(e,$('list'))}}document.addEventListener('contextmenu',e=>{if(!e.target.closest('input,textarea,select')){e.preventDefault();e.stopPropagation()}});document.addEventListener('selectstart',e=>{if(!e.target.closest('input,textarea,select'))e.preventDefault()});document.addEventListener('pointerdown',e=>{if(menuCat&&!$('catmenu').classList.contains('hidden')&&!$('catmenu').contains(e.target)&&!$('tabs').contains(e.target)){menuCat=null;renderMenu()}});
 // Outside-tap handling for inline meal editors and both settings panels.
 // A single tap should first close the open pane, then perform the tapped action.
 // When there are edits, finish the confirmation before replaying that tap.
