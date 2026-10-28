@@ -374,6 +374,12 @@ function initializeMasterCategoryExpansion(extraCategory){
 function openMasterCategories(focusCategory){
  setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;
  initializeMasterCategoryExpansion(focusCategory);editId=null;menuCat=null;render();
+ if(focusCategory&&cats.includes(focusCategory)){
+  requestAnimationFrame(()=>{
+   const card=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===focusCategory);
+   if(card)card.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+ }
 }
 
 function setMasterCategoriesView(value){masterCategoriesView=!!value;try{sessionStorage.setItem('mealRotationMasterCategoriesV1',String(masterCategoriesView))}catch(e){}}
@@ -1829,7 +1835,7 @@ function renderMasterCategories(list){
  heading.append(tools);wrap.append(heading);
  for(const category of cats){
   const categoryMeals=meals.filter(m=>m.cat===category);
-  const card=document.createElement('section');card.className='master-category-card';
+  const card=document.createElement('section');card.className='master-category-card';card.dataset.category=category;
   const header=document.createElement('div');header.className='master-category-header';header.style.backgroundColor=colorForCat(category);
   const expanded=masterExpandedCategories.has(category);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';
