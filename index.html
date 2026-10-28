@@ -207,6 +207,22 @@ body:has(#list.top-summary):has(.master-grocery-fab) #summary{bottom:calc(138px 
 body:has(#list.top-summary):has(.editor) #summary{display:none!important;}
 body:has(.master-categories) #summary{background:#edf3fa!important;border-color:#8fa9cb!important;box-shadow:0 4px 12px rgba(37,56,85,.27)!important;}
 
+/* Align the floating navigation vertically, with Home at the top. */
+body:has(.master-categories) #summary,
+body:has(.master-categories) .all-meals-fab,
+body:has(.master-categories) .master-grocery-fab,
+body:has(#list.top-summary) .overview-home-fab,
+body:has(#list.top-summary) .all-meals-fab,
+body:has(#list.top-summary) .master-grocery-fab{
+ right:max(16px,calc((100vw - 760px)/2 + 16px))!important;
+ width:50px!important;height:50px!important;
+}
+body:has(.master-categories) #summary{bottom:calc(138px + env(safe-area-inset-bottom,0px))!important;}
+body:has(.master-categories) .all-meals-fab{bottom:calc(77px + env(safe-area-inset-bottom,0px))!important;}
+body:has(.master-categories) .master-grocery-fab{bottom:calc(16px + env(safe-area-inset-bottom,0px))!important;}
+body:has(#list.top-summary) .overview-home-fab{bottom:calc(138px + env(safe-area-inset-bottom,0px))!important;}
+body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inset-bottom,0px))!important;}
+body:has(#list.top-summary) .master-grocery-fab{bottom:calc(16px + env(safe-area-inset-bottom,0px))!important;}
 /* Keep each complete time value and label together when wrapping. */
 .times .time-segment{display:inline-block;white-space:nowrap}
 .times .time-separator{white-space:normal}
