@@ -158,6 +158,8 @@ body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inse
 /* Category management: direct rename/delete actions and compact master view. */
 .category-picker-row .category-direct-action{flex:0 0 38px;width:38px;height:42px;}
 .top-add-category{font-size:27px!important;line-height:1;font-weight:400;}
+/* Larger, easier-to-tap Add Group button beside meal-plan tabs. */
+.tab-actions .top-add-group{width:52px!important;min-width:52px;height:52px!important;padding:0!important;font-size:39px!important;font-weight:500;line-height:1;display:grid;place-items:center;touch-action:manipulation;}
 .master-categories{display:flex;flex-direction:column;gap:10px;padding-bottom:80px;}
 .master-categories-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 2px 4px;}
 .master-categories-heading h2{font-size:19px;margin:0;font-weight:650;}
@@ -1207,6 +1209,9 @@ function getMasterGroceryItems(){
     check.onchange=()=>{
      if(check.checked)checkedIngredients.add(key);else checkedIngredients.delete(key);
      try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}
+     // Refresh the grocery rows after each selection so the hide-selected
+     // preference is applied immediately, without leaving a stale checked row.
+     updateRows();
     };
     const name=document.createElement('span');name.textContent=line;row.append(check,name);rows.append(row);
    });
@@ -1234,8 +1239,16 @@ function getMasterGroceryItems(){
  }
 function navigateToOverviewPlan(planId){loadMealPlan(planId);window.scrollTo({top:0,behavior:'instant'})}
 function navigateToOverviewMeal(planId,mealId){
- loadMealPlan(planId);topIngredientExpanded.add(String(mealId));renderList();
- requestAnimationFrame(()=>{const row=[...document.querySelectorAll('#list [data-meal-id]')].find(el=>el.dataset.mealId===String(mealId));if(row)row.scrollIntoView({behavior:'smooth',block:'center'})});
+ // Open the selected meal inside its group, rather than returning to My Rotation.
+ const meal=meals.find(m=>String(m.id)===String(mealId));
+ if(!meal)return;
+ loadMealPlan(planId);
+ openMasterCategories(meal.cat);
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  const card=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===meal.cat);
+  const row=card&&[...card.querySelectorAll('[data-meal-id]')].find(el=>el.dataset.mealId===String(mealId));
+  if(row)row.scrollIntoView({behavior:'smooth',block:'center'});
+ }));
 }
 function addOverviewHomeButton(){
  if(!showTop||!(groceryTabActive||allMealsActive))return;
@@ -1266,7 +1279,8 @@ function renderAllMealsOverview(list){
       const entry=document.createElement('div');entry.className='all-meals-entry';entry.dataset.mealId=String(meal.id);
       const row=document.createElement('div');row.className='all-meals-meal-row';
       const label=document.createElement('strong');label.className='all-meals-plan-label';
-      label.textContent=plan.name+(dayEntries.length>1?' · '+cat:'');
+      label.textContent=plan.name;
+      if(dayEntries.length>1){label.append(document.createElement('br'),document.createTextNode(cat));}
       const content=document.createElement('div');content.className='all-meals-meal-content';
       const name=document.createElement('button');name.type='button';name.className='mealname';name.textContent=meal.name;
       name.onclick=()=>navigateToOverviewMeal(plan.id,meal.id);
