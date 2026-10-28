@@ -2037,7 +2037,7 @@ function renderMasterCategories(list){
   const header=document.createElement('div');header.className='master-category-header';header.style.background=masterDisplayColor(category);
   const expanded=masterExpandedCategories.has(category);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(expanded));
-  toggle.onclick=()=>{masterExpansionInitialized=true;if(masterExpandedCategories.has(category))masterExpandedCategories.delete(category);else{masterExpandedCategories.clear();masterExpandedCategories.add(category)}renderList()};
+  toggle.onclick=()=>{masterExpansionInitialized=true;const opening=!masterExpandedCategories.has(category);if(opening){masterExpandedCategories.clear();masterExpandedCategories.add(category)}else masterExpandedCategories.delete(category);renderList();if(opening)requestAnimationFrame(()=>{const target=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category);if(target)target.scrollIntoView({behavior:'smooth',block:'start'});});};
   const chevron=document.createElementNS('http://www.w3.org/2000/svg','svg');chevron.setAttribute('viewBox','0 0 24 24');chevron.setAttribute('aria-hidden','true');chevron.innerHTML=expanded?'<path d="m6 15 6-6 6 6"/>':'<path d="m6 9 6 6 6-6"/>';toggle.append(chevron);
   const name=document.createElement('strong');name.textContent=category;toggle.append(name);
   const count=document.createElement('span');count.className='master-category-count';count.textContent=categoryMeals.length+' '+(categoryMeals.length===1?'meal':'meals');toggle.append(count);
