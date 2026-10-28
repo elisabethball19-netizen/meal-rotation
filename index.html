@@ -1125,7 +1125,7 @@ function getMasterGroceryItems(){
    ['all','All Meals','<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h3M14 14h3M8 18h3M14 18h3"/>',()=>{showTop=true;groceryTabActive=false;allMealsActive=true;render()}],
    ['grocery','Master Grocery List','<circle cx="9" cy="20" r="1"/><circle cx="19" cy="20" r="1"/><path d="M2 3h2l2.5 12h12L22 7H5"/>',()=>{showTop=true;allMealsActive=false;groceryTabActive=true;render()}]
   ];
-  destinations.forEach(([key,title,art,action],index)=>{
+  destinations.filter(([key])=>showMealPlanTabs||key==='top'||key==='categories').forEach(([key,title,art,action],index)=>{
    const b=document.createElement('button');b.type='button';b.className='smallbtn add-meal-floating unified-nav-fab';
    b.title=title;b.setAttribute('aria-label',title);b.dataset.destination=key;
    if(key===current){b.classList.add('current-view');b.setAttribute('aria-current','page');}
@@ -1235,7 +1235,7 @@ function openDayCategoryPicker(day){
  const panel=document.createElement('div');panel.style.cssText='background:#fff;border-radius:14px;padding:18px;width:min(420px,100%);max-height:80vh;overflow:auto';
  const heading=document.createElement('h3');heading.textContent='Categories for '+day;heading.style.margin='0 0 12px';panel.append(heading);
  const assigned=getDayCategories(day);
- for(const cat of cats){const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 4px';const cb=document.createElement('input');cb.type='checkbox';cb.value=cat;cb.checked=assigned.includes(cat);cb.style.width='20px';cb.style.height='20px';label.append(cb,document.createTextNode(cat));panel.append(label)}
+ for(const cat of getCategoryButtonOrder()){const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 4px';const cb=document.createElement('input');cb.type='checkbox';cb.value=cat;cb.checked=assigned.includes(cat);cb.style.width='20px';cb.style.height='20px';label.append(cb,document.createTextNode(cat));panel.append(label)}
  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;margin-top:12px';
  const save=document.createElement('button');save.className='smallbtn';save.textContent='Save';save.onclick=()=>{const selected=[...panel.querySelectorAll('input:checked')].map(x=>x.value);shade.remove();setDayCategories(day,selected.length?selected:[EMPTY_DAY_ASSIGNMENT])};
  const cancel=document.createElement('button');cancel.className='smallbtn';cancel.textContent='Cancel';cancel.onclick=()=>shade.remove();actions.append(save,cancel);panel.append(actions);shade.append(panel);shade.onclick=e=>{if(e.target===shade)shade.remove()};document.body.append(shade);
@@ -1248,9 +1248,13 @@ function getVisibleTopMeals(){
 // A chosen first weekday can also reorder the pinned category buttons in
 // this meal plan, without changing the global category order or other plans.
 function getCategoryButtonOrder(){
- const plan=mealPlans.find(p=>p.id===activePlanId);
- const preference=Array.isArray(plan?.pinnedDisplayOrder)?plan.pinnedDisplayOrder:[];
- return [...new Set([...preference,...cats])].filter(c=>cats.includes(c));
+ // Assigned categories follow the displayed weekday sequence; unassigned categories
+ // retain their existing manual order. This does not mutate saved category data.
+ const assigned=[];
+ for(const day of orderedDays())for(const c of getDayCategories(day)){
+  if(cats.includes(c)&&!assigned.includes(c))assigned.push(c);
+ }
+ return [...assigned,...cats.filter(c=>!assigned.includes(c))];
 }
 function rotatePinnedCategoriesToWeekdayOrder(){
  const plan=mealPlans.find(p=>p.id===activePlanId);
@@ -1934,7 +1938,7 @@ function renderMasterCategories(list){
  const heading=document.createElement('div');heading.className='master-categories-heading';
  const title=document.createElement('h2');title.textContent='Meal Categories';heading.append(title);
  wrap.append(heading);
- for(const category of cats){
+ for(const category of getCategoryButtonOrder()){
   const categoryMeals=meals.filter(m=>m.cat===category);
   const card=document.createElement('section');card.className='master-category-card';card.dataset.category=category;
   const header=document.createElement('div');header.className='master-category-header';header.style.backgroundColor=colorForCat(category);
