@@ -261,6 +261,8 @@ body:has(.all-meals-overview) #list > .top-controls{border-bottom:1px solid #ded
 .all-meals-day .all-meals-meal-content{display:flex;flex-direction:column;justify-content:center;align-self:stretch;}
 .all-meals-day .all-meals-meal-content .mealname{margin:0!important;padding:0!important;align-self:stretch;text-align:left!important;}
 .all-meals-day .all-meals-empty{width:100%;min-height:40px!important;align-items:center!important;}
+/* Allow the last category and its controls to scroll clear of the four floating navigation buttons. */
+body{padding-bottom:calc(310px + env(safe-area-inset-bottom, 0px));}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Soup','Tacos','Over Rice','Meat & Mash','Misc','Easy'],active='Soup',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in Top Meals and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -1134,7 +1136,7 @@ function getMasterGroceryItems(){
  }
  function renderMasterGroceryTab(list){
   const panel=document.createElement('section');panel.className='meal-plan-grocery';panel.setAttribute('aria-label','Master grocery list');
-  const heading=document.createElement('h2');heading.textContent='Master grocery list';panel.append(heading);
+  const heading=document.createElement('h2');heading.textContent='Master Grocery List';panel.append(heading);
   const filters=document.createElement('div');filters.className='master-grocery-plan-filters';
   const rows=document.createElement('div');rows.className='master-grocery-list';
   function updateRows(){
@@ -2049,7 +2051,7 @@ const topControls=document.createElement('div');topControls.className='top-contr
 appendMealPlanSettingsGear(topControls);
 list.append(topControls);placeViewToolbar(topControls);
 appendMealPlanSettingsPanel(list);
-if(allMealsActive){renderAllMealsOverview(list);addFloatingViewButtons();return;}
+if(allMealsActive){renderAllMealsOverview(list);const overviewHeading=list.querySelector('.all-meals-overview > h2');if(overviewHeading)list.insertBefore(overviewHeading,topControls);addFloatingViewButtons();return;}
 addFloatingViewButtons();
 
 const displayedTop=getDisplayedWeekdayMeals();
