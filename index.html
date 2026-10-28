@@ -1469,7 +1469,7 @@ shareLabel.append(shareCheck,document.createTextNode('Show manually pinned categ
 const additionalPinsHeading=document.createElement('strong');additionalPinsHeading.textContent='Additional category shortcuts';additionalPinsHeading.style.cssText='display:block;margin-top:10px';pinGroup.content.append(additionalPinsHeading);const pinChoices=document.createElement('div');pinChoices.style.cssText='display:flex;flex-wrap:wrap;gap:10px 16px;width:100%';pinGroup.content.append(pinChoices);cats.forEach(c=>{const lab=document.createElement('label');lab.style.cssText='display:inline-flex;align-items:center;gap:8px;padding:4px 0';const check=document.createElement('input');check.type='checkbox';check.checked=pinnedCats.includes(c);check.onchange=()=>{pinnedCats=check.checked?[...new Set([...pinnedCats,c])]:pinnedCats.filter(x=>x!==c);localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));saveActiveMealPlan();renderTabs()};lab.append(check,document.createTextNode(c));pinChoices.append(lab)});
 
 };let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/></svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
-const displayGroup=makeSettingsGroup('display','Display');if(!upperSplit||!showTop)populateTimeSettings(displayGroup.content);panel.append(displayGroup.details);
+const displayGroup=makeSettingsGroup('display','Display');populateTimeSettings(displayGroup.content);panel.append(displayGroup.details);
 let exportBtn=document.createElement('button');exportBtn.textContent='Export backup';exportBtn.onclick=()=>{persist();let blob=new Blob([JSON.stringify({version:1,cats,active,meals,weekdayCategories,weekdayMealOverrides,weekdayColors,timeDisplayPrefs,masterOpenMode,masterPinsOverride,autoPinTopCategories,applyPinsToAllTabs,pinnedCats,expandedCats,mealPlans:{plans:mealPlans,activeId:activePlanId},showMealPlanTabs},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='meal-rotation-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};let restoreBtn=document.createElement('button');restoreBtn.textContent='Restore backup';restoreBtn.onclick=()=>{let input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=()=>{let file=input.files&&input.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let d=JSON.parse(reader.result);if(!Array.isArray(d.cats)||!Array.isArray(d.meals))throw new Error();snapshot();cats=d.cats;meals=d.meals;if(d.weekdayCategories&&typeof d.weekdayCategories==='object')weekdayCategories=d.weekdayCategories;if(typeof d.autoPinTopCategories==='boolean'){autoPinTopCategories=d.autoPinTopCategories;localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}if(typeof d.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=d.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(d.masterOpenMode))masterOpenMode=d.masterOpenMode;if(typeof d.masterPinsOverride==='boolean')masterPinsOverride=d.masterPinsOverride;saveMasterOpeningPrefs();if(Array.isArray(d.pinnedCats)){pinnedCats=d.pinnedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats))}if(Array.isArray(d.expandedCats)){expandedCats=d.expandedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}if(d.weekdayMealOverrides&&typeof d.weekdayMealOverrides==='object')weekdayMealOverrides=d.weekdayMealOverrides;if(d.mealPlans)restoreMealPlansFromBackup(d.mealPlans);if(typeof d.showMealPlanTabs==='boolean'){showMealPlanTabs=d.showMealPlanTabs;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))};saveWeekdayCategories();saveWeekdayMealOverrides();if(d.categoryColors&&typeof d.categoryColors==='object'&&!Array.isArray(d.categoryColors)){categoryColors=Object.fromEntries(Object.entries(d.categoryColors).filter(([c,color])=>typeof c==='string'&&/^#[0-9a-fA-F]{6}$/.test(color)));saveCategoryColors()}weekdayColors=d.weekdayColors&&typeof d.weekdayColors==='object'&&!Array.isArray(d.weekdayColors)?Object.fromEntries(Object.entries(d.weekdayColors).filter(([day,color])=>weekdays.includes(day)&&/^#[0-9a-fA-F]{6}$/.test(color))):deriveWeekdayColors(categoryColors);saveWeekdayColors();if(d.timeDisplayPrefs){setTimeDisplayPrefs(d.timeDisplayPrefs);saveTimeDisplayPrefs()}active=cats.includes(d.active)?d.active:(cats[0]||'Soup');id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;render();panel.classList.add('hidden');settings.setAttribute('aria-expanded','false')}catch(e){alert('That backup file could not be read.')}};reader.readAsText(file)};input.click()};let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=()=>{panel.classList.add('hidden');settings.setAttribute('aria-expanded','false')};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipe files or Trello boards into Ideas';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=displayGroup;
  const planOption=document.createElement('label');planOption.style.cssText='display:flex;align-items:center;gap:8px;font-size:14px;width:100%';
  const planCheck=document.createElement('input');planCheck.type='checkbox';planCheck.checked=showMealPlanTabs;
@@ -1486,9 +1486,7 @@ let exportBtn=document.createElement('button');exportBtn.textContent='Export bac
  }
  if(settingsBaseline===null)settingsBaseline=captureSettingsDraft();
  activeSettingsPanel='upper';
- if(!splitPlanSettings()||!showTop){
-  renderTopSettingsPanel();panel.insertBefore(topPanel,displayGroup.details);
- }
+ renderTopSettingsPanel();panel.insertBefore(topPanel,displayGroup.details);
  panel.classList.remove('hidden');settings.classList.add('active');settings.setAttribute('aria-expanded','true');
  };t.append(actions,panel,categoryRow);if(menuCat&&cats.includes(menuCat)){const menu=$('catmenu');categoryRow.append(menu)}if(splitPlanSettings()&&document.querySelector('#list .meal-plan-tabs'))document.querySelector('#list .meal-plan-tabs').after(categoryRow);if(keepSettingsOpen){settings.click();t.querySelectorAll('details[data-settings-group]').forEach(d=>{d.open=openSettingsGroups.has(d.dataset.settingsGroup)})}}// Capture the category before opening a dialog: a click on the dialog is outside
 // the category toolbar and will clear menuCat via the document pointer handler.
@@ -1894,35 +1892,10 @@ function openMealSwipeMenu(meal){
  document.body.append(shade);
 }
 function bindMealSwipe(row,m){let startX=0,startY=0,tracking=false,swipedAt=0,touchStart=null;function finish(dx,dy,e){if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.2)return false;swipedAt=Date.now();if(e&&e.cancelable)e.preventDefault();if(e)e.stopPropagation();if(dx<0){openEditor(m.id)}else{openMealSwipeMenu(m)}return true}row.addEventListener('touchstart',e=>{touchStart=null;if(e.target.closest('.move,.check'))return;const t=e.touches[0];if(t)touchStart={x:t.clientX,y:t.clientY}},{passive:true});row.addEventListener('touchend',e=>{if(!touchStart)return;const t=e.changedTouches[0],start=touchStart;touchStart=null;if(t)finish(t.clientX-start.x,t.clientY-start.y,e)},{passive:false});row.addEventListener('touchcancel',()=>{touchStart=null});row.addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse')return;if(e.button!==0||e.target.closest('.move,.check'))return;startX=e.clientX;startY=e.clientY;tracking=true});row.addEventListener('pointerup',e=>{if(!tracking)return;tracking=false;finish(e.clientX-startX,e.clientY-startY,e)},{passive:false});row.addEventListener('pointercancel',()=>{tracking=false});row.addEventListener('click',e=>{if(Date.now()-swipedAt<700){e.preventDefault();e.stopPropagation();swipedAt=0}},true)}
-function appendMealPlanSettingsGear(topControls){
-if(splitPlanSettings()){
- const lowerButton=document.createElement('button');lowerButton.id='planSettings';lowerButton.type='button';
- lowerButton.className='iconbtn top-action-icon'+(lowerSettingsVisible?' active':'');
- lowerButton.title='Settings for '+(mealPlans.find(p=>p.id===activePlanId)?.name||'this meal plan');
- lowerButton.setAttribute('aria-label','Meal-plan settings');lowerButton.setAttribute('aria-expanded',String(lowerSettingsVisible));
- lowerButton.style.cssText='width:36px;height:36px;border:0;background:transparent;padding:4px;display:grid;place-items:center';
- lowerButton.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/></svg>';
- lowerButton.onclick=async()=>{
-  if(lowerSettingsVisible){await finishSettings('ask');render();return}
-  if(settingsBaseline!==null&&activeSettingsPanel==='upper'){
-   await finishSettings('ask');render();document.getElementById('planSettings')?.click();return;
-  }
-  if(settingsBaseline===null)settingsBaseline=captureSettingsDraft();
-  activeSettingsPanel='lower';lowerSettingsVisible=true;renderList();
- };
- topControls.append(lowerButton);
-}
-}
-function appendMealPlanSettingsPanel(list){
-if(splitPlanSettings()&&lowerSettingsVisible){
- const panel=document.createElement('div');panel.id='planSettingsPanel';panel.className='settings-panel';
- const times=makeSettingsGroup('display','Display');populateTimeSettings(times.content);panel.append(times.details);
- topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.className='settings-sections';
- renderTopSettingsPanel();panel.append(topPanel);
- for(const group of panel.querySelectorAll('details[data-settings-group]'))group.open=lowerOpenGroups.has(group.dataset.settingsGroup);
- panel.append(makeSettingsFooter());list.append(panel);
-}
-}
+// Top Meals uses the single Settings button in the main toolbar.
+// Keep these callers as no-ops so other view toolbars remain unchanged.
+function appendMealPlanSettingsGear(topControls){}
+function appendMealPlanSettingsPanel(list){}
 function placeViewToolbar(controls){
  const tabBar=document.querySelector('#list .meal-plan-tabs');
  const categoryRow=document.getElementById('categoryButtons');
