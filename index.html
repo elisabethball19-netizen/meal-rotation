@@ -73,7 +73,7 @@
 .meal-plan-tab-name{border:0;background:transparent;min-height:39px;padding:6px 8px;font-size:14px;max-width:135px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .meal-plan-tab-action{border:0;background:transparent;color:#555;font-size:19px;min-width:26px;min-height:34px;padding:0 3px;}
 .meal-plan-add{font-size:27px;border:0;background:transparent;min-width:40px;flex:0 0 40px;}
-.settings-footer{position:sticky;bottom:0;z-index:5;background:#f7f7f7;width:100%;display:flex;justify-content:space-around;align-items:center;gap:12px;margin-top:12px;padding:12px 2px 0;border-top:1px solid #ddd;}
+.settings-footer{position:sticky;bottom:0;z-index:5;background:#f7f7f7;width:100%;display:flex;justify-content:space-around;align-items:center;gap:12px;margin-top:12px;padding:12px 2px 0;border-top:0;}
 .settings-footer button{flex:1;border:0!important;background:transparent!important;color:#333;min-height:46px;display:grid;place-items:center;}
 .settings-footer button svg{width:28px;height:28px;}
 .category-button-row{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 14px;width:100%;}
@@ -169,13 +169,13 @@ body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inse
 .master-category-count{color:#646a74;font-size:12px;white-space:nowrap;}
 .master-category-meals{padding:0 12px 10px;border-top:1px solid #e2e2e2;}
 .master-category-group-label{font-size:11px;letter-spacing:.08em;color:#666;padding:12px 0 5px;text-transform:uppercase;}
-.master-category-meal{display:flex;gap:8px;align-items:center;border-bottom:1px solid #eee;min-height:45px;padding:5px 0;}
+.master-category-meal{display:flex;gap:5px;align-items:center;border-bottom:1px solid #eee;min-height:45px;padding:5px 0;}
 .master-category-meal:last-child{border-bottom:0;}
 .master-category-meal-name{min-width:0;flex:1;text-align:left;background:none;border:0;font-size:15px;color:#242424;padding:5px 0;overflow-wrap:anywhere;}
 .master-category-meal .check{width:20px;height:20px;flex:0 0 20px;margin:0 5px 0 0;}
 .master-category-meal .iconbtn{flex:0 0 32px;width:32px;height:34px;min-width:32px;}
 .master-category-meal .iconbtn svg{width:21px;height:21px;}
-.master-category-meal .move{flex:0 0 24px;min-width:24px;padding:0;border:0;background:transparent;font-size:24px;line-height:1.1;}
+.master-category-meal .move{flex:0 0 19px;width:19px;min-width:19px;padding:0;border:0;background:transparent;font-size:24px;line-height:1.1;}
 .master-category-header{transition:background-color .1s;}
 .master-category-reorder{display:flex;align-items:center;gap:2px;flex:0 0 auto}.master-category-reorder .iconbtn{width:34px;height:36px}.master-category-reorder .iconbtn svg{width:23px;height:23px}
 .master-category-meal .linked-meal-dot{font-size:21px;color:#697383;padding:0 2px;}
@@ -1317,7 +1317,7 @@ shareCheck.onchange=()=>{applyPinsToAllTabs=shareCheck.checked;localStorage.setI
 shareLabel.append(shareCheck,document.createTextNode('Apply pins to all tabs'));pinGroup.content.append(shareLabel);
 const pinChoices=document.createElement('div');pinChoices.style.cssText='display:flex;flex-wrap:wrap;gap:10px 16px;width:100%';pinGroup.content.append(pinChoices);cats.forEach(c=>{const lab=document.createElement('label');lab.style.cssText='display:inline-flex;align-items:center;gap:8px;padding:4px 0';const check=document.createElement('input');check.type='checkbox';check.checked=pinnedCats.includes(c);check.onchange=()=>{pinnedCats=check.checked?[...new Set([...pinnedCats,c])]:pinnedCats.filter(x=>x!==c);localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));saveActiveMealPlan();renderTabs()};lab.append(check,document.createTextNode(c));pinChoices.append(lab)});
 const openingGroup=document.createElement('div');openingGroup.style.cssText='border-top:1px solid #ddd;margin-top:14px;padding-top:11px;display:flex;flex-direction:column;gap:8px';
-const subtitle=document.createElement('strong');subtitle.textContent='Master Categories when switching from Top Meals';openingGroup.append(subtitle);
+const subtitle=document.createElement('strong');subtitle.textContent='Meal Categories when switching from Top Meals';openingGroup.append(subtitle);
 function addOpeningOption(mode,label){const row=document.createElement('label');row.style.cssText='display:flex;align-items:flex-start;gap:8px;font-size:14px';const cb=document.createElement('input');cb.type='checkbox';cb.checked=masterOpenMode===mode;cb.setAttribute('aria-label',label);cb.onchange=()=>{masterOpenMode=cb.checked?mode:'all';saveMasterOpeningPrefs();for(const other of openingGroup.querySelectorAll('input[data-master-mode]'))other.checked=other.dataset.masterMode===masterOpenMode;};cb.dataset.masterMode=mode;row.append(cb,document.createTextNode(label));openingGroup.append(row)}
 addOpeningOption('current','Expand categories used in the selected tab');
 addOpeningOption('across','Expand categories used across all tabs');
@@ -1835,10 +1835,10 @@ function shiftMasterCategory(category,dir){
  persist();renderList();
 }
 function renderMasterCategories(list){
- const wrap=document.createElement('section');wrap.className='master-categories';wrap.setAttribute('aria-label','Master Categories');
+ const wrap=document.createElement('section');wrap.className='master-categories';wrap.setAttribute('aria-label','Meal Categories');
  const featuredColorById=new Map();for(const entry of getDisplayedWeekdayMeals()){if(!featuredColorById.has(String(entry.meal.id)))featuredColorById.set(String(entry.meal.id),colorForDay(entry.day))}
  const heading=document.createElement('div');heading.className='master-categories-heading';
- const title=document.createElement('h2');title.textContent='Master Categories';heading.append(title);
+ const title=document.createElement('h2');title.textContent='Meal Categories';heading.append(title);
  wrap.append(heading);
  for(const category of cats){
   const categoryMeals=meals.filter(m=>m.cat===category);
