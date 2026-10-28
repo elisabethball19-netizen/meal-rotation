@@ -1201,7 +1201,7 @@ function getMasterGroceryItems(){
    const visibleCount=showMealPlanTabs?4:2;
    b.style.bottom='calc('+(16+(visibleCount-1-index)*61)+'px + env(safe-area-inset-bottom,0px))';
    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+art+'</svg>';
-   b.onclick=()=>navigateAfterSettings(action);document.body.append(b);
+   b.onclick=()=>navigateAfterSettings(()=>{action();window.scrollTo(0,0);requestAnimationFrame(()=>{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0})});document.body.append(b);
   });
  }
  function renderMasterGroceryTab(list){
@@ -1473,25 +1473,26 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
     outer.append(categoryRows);weekGroup.content.append(outer);
   });
 }
-;const oldTopSettings=renderTopSettingsPanel;renderTopSettingsPanel=function(){oldTopSettings();const pinGroup=makeSettingsGroup('groups','Group Shortcuts');topPanel.append(pinGroup.details);const pinHeading=document.createElement('strong');pinHeading.textContent='Group Shortcuts';pinGroup.content.append(pinHeading);const autoLabel=document.createElement('label');
+;const oldTopSettings=renderTopSettingsPanel;renderTopSettingsPanel=function(){oldTopSettings();const pinGroup=makeSettingsGroup('groups','Group Shortcuts');topPanel.append(pinGroup.details);const autoLabel=document.createElement('label');
 autoLabel.style.cssText='display:flex;align-items:center;gap:8px;width:100%;font-size:14px;padding:6px 0';
 const autoCheck=document.createElement('input');autoCheck.type='checkbox';autoCheck.checked=autoPinTopCategories;
-autoCheck.setAttribute('aria-label',"Automatically show this tab's weekday groups");
+autoCheck.setAttribute('aria-label',"Enable smart shortcuts");
 autoCheck.onchange=()=>{
   snapshot();autoPinTopCategories=autoCheck.checked;
   saveActiveMealPlan();
   localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories));
   renderTabs();
 };
-const autoText=document.createElement('span');autoText.textContent="Automatically show this tab's weekday groups";
+const autoText=document.createElement('span');autoText.textContent="Enable smart shortcuts";
 autoLabel.append(autoCheck,autoText);
 pinGroup.content.append(autoLabel);
+const shortcutHelp=document.createElement('button');shortcutHelp.type='button';shortcutHelp.textContent='?';shortcutHelp.title='What are smart shortcuts?';shortcutHelp.setAttribute('aria-label','Help: smart shortcuts');shortcutHelp.style.cssText='display:inline-flex;align-items:center;justify-content:center;border:1px solid #888;border-radius:50%;width:23px;height:23px;min-width:23px;padding:0;font-size:15px;font-weight:bold;background:transparent;color:inherit;cursor:pointer';shortcutHelp.onclick=()=>appDialog('Smart shortcuts automatically display shortcuts for the groups assigned to weekdays in the currently selected meal-plan tab. You can also choose additional shortcuts below.',null,'confirm');autoLabel.append(shortcutHelp);
 const shareLabel=document.createElement('label');shareLabel.style.cssText='display:flex;align-items:center;gap:8px;width:100%;font-size:14px;padding:6px 0';
 const shareCheck=document.createElement('input');shareCheck.type='checkbox';shareCheck.checked=applyPinsToAllTabs;
-shareCheck.setAttribute('aria-label','Show manually pinned groups across all tabs');
+shareCheck.setAttribute('aria-label','Show my selected shortcuts in all tabs');
 shareCheck.onchange=()=>{applyPinsToAllTabs=shareCheck.checked;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs));renderTabs()};
-shareLabel.append(shareCheck,document.createTextNode('Show manually pinned groups across all tabs'));pinGroup.content.append(shareLabel);
-const additionalPinsHeading=document.createElement('strong');additionalPinsHeading.textContent='Additional group shortcuts';additionalPinsHeading.style.cssText='display:block;margin-top:10px';pinGroup.content.append(additionalPinsHeading);const pinChoices=document.createElement('div');pinChoices.style.cssText='display:flex;flex-wrap:wrap;gap:10px 16px;width:100%';pinGroup.content.append(pinChoices);cats.forEach(c=>{const lab=document.createElement('label');lab.style.cssText='display:inline-flex;align-items:center;gap:8px;padding:4px 0';const check=document.createElement('input');check.type='checkbox';check.checked=pinnedCats.includes(c);check.onchange=()=>{pinnedCats=check.checked?[...new Set([...pinnedCats,c])]:pinnedCats.filter(x=>x!==c);localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));saveActiveMealPlan();renderTabs()};lab.append(check,document.createTextNode(c));pinChoices.append(lab)});
+shareLabel.append(shareCheck,document.createTextNode('Show my selected shortcuts in all tabs'));if(showMealPlanTabs&&mealPlans.length>1)pinGroup.content.append(shareLabel);
+const additionalPinsHeading=document.createElement('strong');additionalPinsHeading.textContent='Select additional shortcuts';additionalPinsHeading.style.cssText='display:block;margin-top:10px';pinGroup.content.append(additionalPinsHeading);const pinChoices=document.createElement('div');pinChoices.style.cssText='display:flex;flex-wrap:wrap;gap:10px 16px;width:100%';pinGroup.content.append(pinChoices);cats.forEach(c=>{const lab=document.createElement('label');lab.style.cssText='display:inline-flex;align-items:center;gap:8px;padding:4px 0';const check=document.createElement('input');check.type='checkbox';check.checked=pinnedCats.includes(c);check.onchange=()=>{pinnedCats=check.checked?[...new Set([...pinnedCats,c])]:pinnedCats.filter(x=>x!==c);localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));saveActiveMealPlan();renderTabs()};lab.append(check,document.createTextNode(c));pinChoices.append(lab)});
 
 };let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/></svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
 const displayGroup=makeSettingsGroup('display','Display');populateTimeSettings(displayGroup.content);panel.append(displayGroup.details);
@@ -2036,7 +2037,7 @@ function renderMasterCategories(list){
   const header=document.createElement('div');header.className='master-category-header';header.style.background=masterDisplayColor(category);
   const expanded=masterExpandedCategories.has(category);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(expanded));
-  toggle.onclick=()=>{masterExpansionInitialized=true;if(masterExpandedCategories.has(category))masterExpandedCategories.delete(category);else masterExpandedCategories.add(category);renderList()};
+  toggle.onclick=()=>{masterExpansionInitialized=true;if(masterExpandedCategories.has(category))masterExpandedCategories.delete(category);else{masterExpandedCategories.clear();masterExpandedCategories.add(category)}renderList()};
   const chevron=document.createElementNS('http://www.w3.org/2000/svg','svg');chevron.setAttribute('viewBox','0 0 24 24');chevron.setAttribute('aria-hidden','true');chevron.innerHTML=expanded?'<path d="m6 15 6-6 6 6"/>':'<path d="m6 9 6 6 6-6"/>';toggle.append(chevron);
   const name=document.createElement('strong');name.textContent=category;toggle.append(name);
   const count=document.createElement('span');count.className='master-category-count';count.textContent=categoryMeals.length+' '+(categoryMeals.length===1?'meal':'meals');toggle.append(count);
