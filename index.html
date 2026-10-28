@@ -1941,12 +1941,29 @@ function openMasterCategoryEditMenu(category){
  const title=document.createElement('h3');title.textContent='Edit '+category;title.style.cssText='margin:0 0 15px';dialog.append(title);
  const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;justify-content:space-around;gap:8px';
  function iconAction(kind,text,act){const b=document.createElement('button');b.type='button';b.className='iconbtn';setIconButton(b,kind,text);b.style.cssText='width:52px;height:48px';b.onclick=act;row.append(b)}
- function shift(dir){const at=cats.indexOf(category),next=at+dir;if(at<0||next<0||next>=cats.length)return;snapshot();[cats[at],cats[next]]=[cats[next],cats[at]];
-  // Keep custom category-button ordering consistent with manually reordered categories.
-  for(const plan of mealPlans)if(Array.isArray(plan.pinnedDisplayOrder)){const order=plan.pinnedDisplayOrder;const a=order.indexOf(category),b=order.indexOf(cats[at]);if(a>=0&&b>=0)[order[a],order[b]]=[order[b],order[a]]}
-  persist();render();
+ // Weekday assignments determine the order of assigned categories. Only unassigned
+ // categories can be manually reordered, within their own group.
+ const unassignedCategories=()=>cats.filter(c=>!orderedDays().some(day=>masterDisplayCategories(day).includes(c)));
+ function shift(dir){
+  const unassigned=unassignedCategories(),pos=unassigned.indexOf(category),next=pos+dir;
+  if(pos<0||next<0||next>=unassigned.length)return;
+  const a=cats.indexOf(category),b=cats.indexOf(unassigned[next]);
+  if(a<0||b<0)return;
+  snapshot();[cats[a],cats[b]]=[cats[b],cats[a]];
+  persist();renderList();refreshMoveButtons();
  }
- iconAction('left','Move category up',()=>shift(-1));iconAction('right','Move category down',()=>shift(1));
+ const moveLeft=document.createElement('button'),moveRight=document.createElement('button');
+ for(const [button,kind,label,dir] of [[moveLeft,'left','Move unassigned category earlier',-1],[moveRight,'right','Move unassigned category later',1]]){
+  button.type='button';button.className='iconbtn';setIconButton(button,kind,label);button.style.cssText='width:52px;height:48px';button.onclick=()=>shift(dir);row.append(button);
+ }
+ function refreshMoveButtons(){
+  const unassigned=unassignedCategories(),pos=unassigned.indexOf(category);
+  moveLeft.disabled=pos<=0;moveRight.disabled=pos<0||pos>=unassigned.length-1;
+  for(const button of [moveLeft,moveRight]){button.style.opacity=button.disabled?'0.3':'1';button.style.cursor=button.disabled?'not-allowed':'pointer'}
+  const hint=dialog.querySelector('.category-order-hint');if(hint)hint.textContent=pos<0?'Assigned categories follow weekday order.': 'Use arrows to reorder unassigned categories.';
+ }
+ const hint=document.createElement('p');hint.className='category-order-hint';hint.style.cssText='font-size:13px;color:#666;margin:0 0 12px';dialog.insertBefore(hint,row);
+ refreshMoveButtons();
  iconAction('rename','Rename category',()=>{overlay.remove();renameCategoryDirect(category)});
  iconAction('delete','Delete category',()=>{overlay.remove();openCategoryDeleteDialog(category)});
  iconAction('cancel','Cancel category editing',()=>overlay.remove());
