@@ -490,11 +490,14 @@ if(isPageReload){
   try{
     const previousView=sessionStorage.getItem(currentViewKey);
     if(previousView==='category')showTop=false;
-    else if(previousView==='top')showTop=true;
+    else if(previousView==='top'||previousView==='all'||previousView==='grocery')showTop=true;
+    if(previousView==='all'){allMealsActive=true;groceryTabActive=false;}
+    else if(previousView==='grocery'){groceryTabActive=true;allMealsActive=false;}
+    else {allMealsActive=false;groceryTabActive=false;}
   }catch(e){}
 }
 function rememberCurrentView(){
-  try{sessionStorage.setItem(currentViewKey,showTop?'top':'category')}catch(e){}
+  try{sessionStorage.setItem(currentViewKey,!showTop?'category':allMealsActive?'all':groceryTabActive?'grocery':'top')}catch(e){}
 }
 // Rendered-page identity is also used to close Settings on navigation.
 let lastRenderedPageKey=null;
@@ -1995,7 +1998,7 @@ function renderMasterCategories(list){
  if(!cats.length){const empty=document.createElement('div');empty.textContent='No categories yet. Use + in the upper toolbar to add one.';wrap.append(empty)}
  list.append(wrap);
 }
-function renderList(){
+function renderList(){rememberCurrentView();
  if(lowerSettingsVisible){
   const old=document.getElementById('planSettingsPanel');
   if(old)lowerOpenGroups=new Set([...old.querySelectorAll('details[data-settings-group][open]')].map(d=>d.dataset.settingsGroup));
@@ -3184,7 +3187,7 @@ $('save').onclick=async()=>{
   if(!showTop)active=m.cat;
   editorCategoryBaseline=null;editorDraftCategories=null;editId=null;render();restoreMealEditorScroll();
 };
-$('cancel').onclick=()=>{rollbackEditorCategories();editId=null;render();restoreMealEditorScroll()};$('delete').onclick=async()=>{const linked=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[];let all=false;if(linked.length>1){all=await askLinkedChange('Delete all linked meals?',true);if(all===null)return}else if(!await appDialog('Delete this meal?',null,'yesno'))return;snapshot();meals=meals.filter(x=>all?x.linkGroup!==m.linkGroup:x.id!==m.id);if(!all&&linked.length===2){const remaining=meals.find(x=>x.linkGroup===m.linkGroup);if(remaining)remaining.linkGroup=''}editorCategoryBaseline=null;editorDraftCategories=null;editId=null;render();restoreMealEditorScroll()}}function placeEditorInline(){const editor=$('editor');if(showTop){const row=document.querySelector('#list [data-meal-id="'+String(editId)+'"]');const wrap=row&&row.closest('.top-recipe-wrap');if(wrap&&wrap.parentNode){wrap.insertAdjacentElement('afterend',editor)}else if(editor.parentNode!==document.body){document.body.insertBefore(editor,$('list'))}return;}const row=document.querySelector('#list [data-meal-id=\"'+String(editId)+'\"]');if(row&&row.parentNode){row.insertAdjacentElement('afterend',editor)}else if(editor.parentNode!==document.body){document.body.insertBefore(editor,$('list'))}}function render(){if(!showTop&&!masterCategoriesView)setMasterCategoriesView(true);if(!showTop&&!masterExpansionInitialized)initializeMasterCategoryExpansion();persist();rememberCurrentView();renderTabs();renderMenu();renderList();if(editId){renderEditor();placeEditorInline()}else{$('editor').innerHTML='';const e=$('editor');if(e.parentNode!==document.body)document.body.insertBefore(e,$('list'))}}document.addEventListener('contextmenu',e=>{if(!e.target.closest('input,textarea,select')){e.preventDefault();e.stopPropagation()}});document.addEventListener('selectstart',e=>{if(!e.target.closest('input,textarea,select'))e.preventDefault()});document.addEventListener('pointerdown',e=>{if(menuCat&&!$('catmenu').classList.contains('hidden')&&!$('catmenu').contains(e.target)&&!$('tabs').contains(e.target)){menuCat=null;renderMenu()}});
+$('cancel').onclick=()=>{rollbackEditorCategories();editId=null;render();restoreMealEditorScroll()};$('delete').onclick=async()=>{const linked=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[];let all=false;if(linked.length>1){all=await askLinkedChange('Delete all linked meals?',true);if(all===null)return}else if(!await appDialog('Delete this meal?',null,'yesno'))return;snapshot();meals=meals.filter(x=>all?x.linkGroup!==m.linkGroup:x.id!==m.id);if(!all&&linked.length===2){const remaining=meals.find(x=>x.linkGroup===m.linkGroup);if(remaining)remaining.linkGroup=''}editorCategoryBaseline=null;editorDraftCategories=null;editId=null;render();restoreMealEditorScroll()}}function placeEditorInline(){const editor=$('editor');if(showTop){const row=document.querySelector('#list [data-meal-id="'+String(editId)+'"]');const wrap=row&&row.closest('.top-recipe-wrap');if(wrap&&wrap.parentNode){wrap.insertAdjacentElement('afterend',editor)}else if(editor.parentNode!==document.body){document.body.insertBefore(editor,$('list'))}return;}const row=document.querySelector('#list [data-meal-id=\"'+String(editId)+'\"]');if(row&&row.parentNode){row.insertAdjacentElement('afterend',editor)}else if(editor.parentNode!==document.body){document.body.insertBefore(editor,$('list'))}}function render(){if(!showTop&&!masterCategoriesView)setMasterCategoriesView(true);if(!showTop&&!masterExpansionInitialized){masterExpansionInitialized=true;masterExpandedCategories.clear();}persist();rememberCurrentView();renderTabs();renderMenu();renderList();if(editId){renderEditor();placeEditorInline()}else{$('editor').innerHTML='';const e=$('editor');if(e.parentNode!==document.body)document.body.insertBefore(e,$('list'))}}document.addEventListener('contextmenu',e=>{if(!e.target.closest('input,textarea,select')){e.preventDefault();e.stopPropagation()}});document.addEventListener('selectstart',e=>{if(!e.target.closest('input,textarea,select'))e.preventDefault()});document.addEventListener('pointerdown',e=>{if(menuCat&&!$('catmenu').classList.contains('hidden')&&!$('catmenu').contains(e.target)&&!$('tabs').contains(e.target)){menuCat=null;renderMenu()}});
 // Outside-tap handling for inline meal editors and both settings panels.
 // A single tap should first close the open pane, then perform the tapped action.
 // When there are edits, finish the confirmation before replaying that tap.
