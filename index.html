@@ -399,7 +399,9 @@ function initializeMasterCategoryExpansion(extraCategory){
 }
 function openMasterCategories(focusCategory){
  setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;
- initializeMasterCategoryExpansion(focusCategory);editId=null;menuCat=null;render();
+ if(focusCategory)initializeMasterCategoryExpansion(focusCategory);
+ else {masterExpansionInitialized=true;masterExpandedCategories.clear();}
+ editId=null;menuCat=null;render();
  if(focusCategory&&cats.includes(focusCategory)){
   requestAnimationFrame(()=>{
    const card=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===focusCategory);
@@ -518,7 +520,7 @@ function mealTimeDescription(meal){
     const value=displayMarinateTime(meal.marinate);
     if(value)parts.push(value+' marinate');
   }
-  return parts.join(' · ');
+  return parts.map(part=>part.replace(/ /g,'\u00a0')).join(' · ');
 }
 function appendMealTimes(body,meal){
   const summary=mealTimeDescription(meal);
@@ -1143,20 +1145,12 @@ function renderAllMealsOverview(list){
       row.append(label,content,toggle);entry.append(row);
       if(expanded){
        const details=document.createElement('div');details.className='all-meals-ingredients';
-       const keys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey));
-       const lines=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(x=>x&&keys.has(ingredientKey(x))&&!(hideChecked&&checkedIngredients.has(ingredientKey(x))));
+       const lines=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);
        for(const line of lines){
-        const item=document.createElement('label');item.className='all-meals-ingredient';
-        const cb=document.createElement('input');cb.type='checkbox';cb.checked=checkedIngredients.has(ingredientKey(line));
-        cb.onchange=()=>{const key=ingredientKey(line);snapshot();if(cb.checked)checkedIngredients.add(key);else checkedIngredients.delete(key);localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));renderList()};
+        const item=document.createElement('div');item.className='all-meals-ingredient';
+        const bullet=document.createElement('span');bullet.textContent='•';bullet.setAttribute('aria-hidden','true');
         const text=document.createElement('span');text.textContent=line;
-        // Same long-press ingredient editor used in Top Meals.
-        let press=false,held=false,hold=null,x=0,y=0;
-        item.addEventListener('pointerdown',e=>{if(e.target===cb)return;press=true;held=false;x=e.clientX;y=e.clientY;hold=setTimeout(()=>{if(press)held=true},550)});
-        item.addEventListener('pointermove',e=>{if(Math.abs(e.clientX-x)>12||Math.abs(e.clientY-y)>12){press=false;clearTimeout(hold)}});
-        item.addEventListener('pointerup',e=>{clearTimeout(hold);if(press&&held){e.preventDefault();e.stopPropagation();editTopRecipeIngredient(meal,line)}press=false});
-        ['pointerleave','pointercancel'].forEach(ev=>item.addEventListener(ev,()=>{press=false;clearTimeout(hold)}));
-        item.append(cb,text);details.append(item);
+        item.append(bullet,text);details.append(item);
        }
        entry.append(details);
       }
@@ -1795,7 +1789,7 @@ function renderGroceryViewToolbar(list){
  add('Select all groceries','<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg>',()=>tickAll(true));
  add('Deselect all groceries','<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 12h10"/></svg>',()=>tickAll(false));
  const hide=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';
- add(hide?'Show checked groceries':'Hide checked groceries',hide?'<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>':'<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><path d="M3 3l18 18"/></svg>',()=>{localStorage.setItem('mealRotationHideCheckedGroceriesV1',String(!hide));renderList()});
+ add(hide?'Show checked groceries':'Hide checked groceries',hide?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',()=>{localStorage.setItem('mealRotationHideCheckedGroceriesV1',String(!hide));renderList()});
  appendMealPlanSettingsGear(bar);
  list.append(bar);placeViewToolbar(bar);
  appendMealPlanSettingsPanel(list);
