@@ -161,6 +161,7 @@ body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inse
 .master-categories{display:flex;flex-direction:column;gap:10px;padding-bottom:80px;}
 .master-categories-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 2px 4px;}
 .master-categories-heading h2{font-size:19px;margin:0;font-weight:650;}
+.master-expansion-controls{display:flex;align-items:center;gap:4px}.master-expansion-controls .iconbtn{width:35px;height:35px;min-width:35px;}
 .master-hidden-categories-toggle{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin:14px 0;padding:13px;border:1px solid #d4d4d4;border-radius:12px;background:#fff;color:#333;font:inherit;cursor:pointer;}
 .master-hidden-categories-toggle svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round;}
 .master-categories-actions{display:flex;gap:5px;flex-wrap:wrap;}
@@ -1956,7 +1957,7 @@ function masterDisplayPlan(){return mealPlans.find(p=>p.id===activePlanId)}
 function masterDisplayCategories(day){const plan=masterDisplayPlan();const raw=plan?.id===activePlanId?weekdayCategories[day]:plan?.weekdayCategories?.[day];return [...new Set((Array.isArray(raw)?raw:[raw]).filter(c=>typeof c==='string'&&cats.includes(c)))];}
 function masterDisplayOrder(){const assigned=[];for(const day of orderedDays())for(const c of masterDisplayCategories(day))if(!assigned.includes(c))assigned.push(c);return [...assigned,...cats.filter(c=>!assigned.includes(c))];}
 function masterDisplayColor(category){const colors=[...new Set(orderedDays().filter(d=>masterDisplayCategories(d).includes(category)).map(colorForDay))];if(!colors.length)return '#ffffff';if(colors.length===1)return colors[0];return 'linear-gradient(90deg, '+colors.flatMap((color,i)=>[`${color} ${100*i/colors.length}%`,`${color} ${100*(i+1)/colors.length}%`]).join(', ')+')';}
-let masterShowHiddenCategories=false;
+
 let masterReorderCategory=null;
 function shiftMasterCategory(category,dir){
  const at=cats.indexOf(category),next=at+dir;
@@ -1969,16 +1970,21 @@ function renderMasterCategories(list){
  const featuredColorById=new Map();for(const entry of getDisplayedWeekdayMealsForPlan(masterDisplayPlan())){if(!featuredColorById.has(String(entry.meal.id)))featuredColorById.set(String(entry.meal.id),colorForDay(entry.day))}
  const heading=document.createElement('div');heading.className='master-categories-heading';
  const title=document.createElement('h2');title.textContent='Meal Categories';heading.append(title);
- wrap.append(heading);
- const associatedCategories=masterDisplayOrder().filter(category=>orderedDays().some(day=>masterDisplayCategories(day).includes(category)));
- const hiddenCategories=masterDisplayOrder().filter(category=>!associatedCategories.includes(category));
- const displayedCategories=masterShowHiddenCategories?associatedCategories.concat(hiddenCategories):associatedCategories;
+ const controls=document.createElement('div');controls.className='master-expansion-controls';
+ for(const [expand,icon,label] of [[true,'chevrons-down','Expand all categories'],[false,'chevrons-up','Collapse all categories']]){
+  const button=document.createElement('button');button.type='button';button.className='iconbtn';setIconButton(button,icon,label);
+  button.onclick=()=>{masterExpansionInitialized=true;masterExpandedCategories.clear();if(expand)masterDisplayOrder().forEach(c=>masterExpandedCategories.add(c));renderList()};controls.append(button);
+ }
+ heading.append(controls);wrap.append(heading);
+ const displayedCategories=masterDisplayOrder();
  for(const category of displayedCategories){ 
   const categoryMeals=meals.filter(m=>m.cat===category);
   const card=document.createElement('section');card.className='master-category-card';card.dataset.category=category;
   const header=document.createElement('div');header.className='master-category-header';header.style.background=masterDisplayColor(category);
-  // Category contents are always visible; only the unassigned-category list can be toggled.
-  const toggle=document.createElement('div');toggle.className='master-category-title';
+  const expanded=masterExpandedCategories.has(category);
+  const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(expanded));
+  toggle.onclick=()=>{masterExpansionInitialized=true;if(masterExpandedCategories.has(category))masterExpandedCategories.delete(category);else masterExpandedCategories.add(category);renderList()};
+  const chevron=document.createElementNS('http://www.w3.org/2000/svg','svg');chevron.setAttribute('viewBox','0 0 24 24');chevron.setAttribute('aria-hidden','true');chevron.innerHTML=expanded?'<path d="m6 15 6-6 6 6"/>':'<path d="m6 9 6 6 6-6"/>';toggle.append(chevron);
   const name=document.createElement('strong');name.textContent=category;toggle.append(name);
   const count=document.createElement('span');count.className='master-category-count';count.textContent=categoryMeals.length+' '+(categoryMeals.length===1?'meal':'meals');toggle.append(count);
 
@@ -1988,7 +1994,7 @@ function renderMasterCategories(list){
   const addMeal=document.createElement('button');addMeal.type='button';addMeal.className='iconbtn';addMeal.title='Add meal to '+category;addMeal.setAttribute('aria-label',addMeal.title);addMeal.textContent='+';addMeal.style.cssText='font-size:24px';
   addMeal.onclick=()=>{snapshot();const meal={id:id++,cat:category,name:'',rotation:false,prep:'',cook:'',total:'',url:'',ingredients:[]};meals.push(meal);masterExpandedCategories.clear();masterExpandedCategories.add(category);openEditor(meal.id)};
   header.append(addMeal);card.append(header);
-  {
+  if(expanded){
    const items=document.createElement('div');items.className='master-category-meals';
    for(const [label,rot] of [['In rotation',true],['Ideas',false]]){
     const groupMeals=categoryMeals.filter(m=>!!m.rotation===rot);
@@ -2006,13 +2012,6 @@ function renderMasterCategories(list){
    card.append(items);
   }
   wrap.append(card);
- }
- if(hiddenCategories.length){
-  const reveal=document.createElement('button');reveal.type='button';reveal.className='master-hidden-categories-toggle';
-  reveal.setAttribute('aria-expanded',String(masterShowHiddenCategories));
-  reveal.innerHTML=(masterShowHiddenCategories?'<svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg>':'<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>');
-  const label=document.createElement('span');label.textContent=masterShowHiddenCategories?'Hide unassigned categories':'Show '+hiddenCategories.length+' hidden '+(hiddenCategories.length===1?'category':'categories');reveal.append(label);
-  reveal.onclick=()=>{masterShowHiddenCategories=!masterShowHiddenCategories;renderList()};wrap.append(reveal);
  }
  if(!cats.length){const empty=document.createElement('div');empty.textContent='No categories yet. Use + in the upper toolbar to add one.';wrap.append(empty)}
  list.append(wrap);
