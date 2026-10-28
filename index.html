@@ -1952,8 +1952,7 @@ function openMasterCategoryEditMenu(category){
  dialog.append(row);overlay.append(dialog);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay);
 }
 // Independent display choice for Meal Categories; never changes the active meal-plan tab.
-let masterDisplayPlanId=sessionStorage.getItem('mealRotationMasterDisplayPlanV1')||'';
-function masterDisplayPlan(){return mealPlans.find(p=>p.id===masterDisplayPlanId)||mealPlans.find(p=>p.id===activePlanId)}
+function masterDisplayPlan(){return mealPlans.find(p=>p.id===activePlanId)}
 function masterDisplayCategories(day){const plan=masterDisplayPlan();const raw=plan?.id===activePlanId?weekdayCategories[day]:plan?.weekdayCategories?.[day];return [...new Set((Array.isArray(raw)?raw:[raw]).filter(c=>typeof c==='string'&&cats.includes(c)))];}
 function masterDisplayOrder(){const assigned=[];for(const day of orderedDays())for(const c of masterDisplayCategories(day))if(!assigned.includes(c))assigned.push(c);return [...assigned,...cats.filter(c=>!assigned.includes(c))];}
 function masterDisplayColor(category){const colors=[...new Set(orderedDays().filter(d=>masterDisplayCategories(d).includes(category)).map(colorForDay))];if(!colors.length)return '#ffffff';if(colors.length===1)return colors[0];return 'linear-gradient(90deg, '+colors.flatMap((color,i)=>[`${color} ${100*i/colors.length}%`,`${color} ${100*(i+1)/colors.length}%`]).join(', ')+')';}
@@ -1970,11 +1969,7 @@ function renderMasterCategories(list){
  const featuredColorById=new Map();for(const entry of getDisplayedWeekdayMealsForPlan(masterDisplayPlan())){if(!featuredColorById.has(String(entry.meal.id)))featuredColorById.set(String(entry.meal.id),colorForDay(entry.day))}
  const heading=document.createElement('div');heading.className='master-categories-heading';
  const title=document.createElement('h2');title.textContent='Meal Categories';heading.append(title);
- const planPicker=document.createElement('select');planPicker.className='master-plan-picker';planPicker.setAttribute('aria-label','Meal-plan tab for category colors and order');
- for(const plan of mealPlans){const option=document.createElement('option');option.value=plan.id;option.textContent=plan.name;planPicker.append(option)}
- planPicker.value=masterDisplayPlan().id;
- planPicker.onchange=()=>{masterDisplayPlanId=planPicker.value;masterShowHiddenCategories=false;sessionStorage.setItem('mealRotationMasterDisplayPlanV1',masterDisplayPlanId);renderList()};
- heading.append(planPicker);wrap.append(heading);
+ wrap.append(heading);
  const associatedCategories=masterDisplayOrder().filter(category=>orderedDays().some(day=>masterDisplayCategories(day).includes(category)));
  const hiddenCategories=masterDisplayOrder().filter(category=>!associatedCategories.includes(category));
  const displayedCategories=masterShowHiddenCategories?associatedCategories.concat(hiddenCategories):associatedCategories;
