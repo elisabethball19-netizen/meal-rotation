@@ -88,12 +88,18 @@
 /* The Top Meals/Category switch is a recognizable raised button. */
 .tab-actions .view-switch{border:1px solid #b9c7d8!important;background:#edf3fa!important;border-radius:10px!important;box-shadow:0 2px 5px rgba(37,56,85,.27)!important;width:43px;height:41px;padding:5px!important;margin-right:5px;}
 .tab-actions .view-switch:active{background:#dbe6f5!important;box-shadow:inset 0 1px 3px #a9bad3!important;}
-.meal-plan-cart{position:sticky;right:0;z-index:4;border:1px solid transparent!important;background:#fff!important;box-shadow:-4px 0 7px #fff;flex:0 0 38px;min-width:38px;height:41px;padding:6px!important;align-self:center;margin-left:auto;}
-.meal-plan-cart svg{width:26px;height:26px;stroke:currentColor;stroke-width:1.8;fill:none;}
-.meal-plan-cart.active{color:#315ba8;background:#edf3fa!important;border-radius:9px!important;}
 .meal-plan-grocery{margin:12px 3px 35px;}
 .meal-plan-grocery h2{font-size:20px;margin:4px 0 10px;}
-.meal-plan-grocery .master-grocery-list{overflow:visible;max-height:none;}
+ .meal-plan-grocery .master-grocery-list{overflow:visible;max-height:none;}
+.master-grocery-plan-filters{display:flex;flex-wrap:wrap;gap:8px 17px;margin:10px 0 14px;padding:12px 0;border-bottom:1px solid #dedede;}
+.master-grocery-plan-filters strong{display:block;flex:0 0 100%;font-size:14px;}
+.master-grocery-plan-filters label{display:inline-flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;}
+.master-grocery-plan-filters input{width:19px;height:19px;margin:0;}
+.master-grocery-fab svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+/* Stay clear of the fixed Top Meals toolbar; in the grocery view use the regular Add Meal position. */
+body:has(#list.top-summary) .master-grocery-fab{bottom:calc(87px + env(safe-area-inset-bottom,0px));}
+.master-grocery-fab.active{color:#315ba8;border-color:#8da3bc;background:#edf3fa!important;}
+
 .category-delete-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;align-items:center;justify-content:stretch!important;width:100%!important;}
 .category-delete-actions>button{width:100%!important;min-width:0!important;height:52px!important;display:grid!important;place-items:center!important;margin:0!important;border:0!important;background:transparent!important;}
 /* Keep the Top Meals action toolbar accessible while scrolling the week. */
@@ -106,9 +112,10 @@
  z-index:950;
  margin:0!important;
  padding:9px 14px calc(9px + env(safe-area-inset-bottom,0px))!important;
- border-top:1px solid #dedede;
- background:#fff;
- box-shadow:0 -3px 15px rgba(0,0,0,.075);
+ border-top:2px solid #a5b6cb;
+ background:#e8eff7;
+ box-shadow:0 -5px 17px rgba(37,56,85,.19);
+ border-radius:13px 13px 0 0;
  display:flex;
  flex-wrap:nowrap!important;
  justify-content:space-between;
@@ -158,6 +165,11 @@ let startWeekday=localStorage.getItem('mealRotationStartWeekdayV1')||'Tuesday';l
 let autoPinTopCategories=localStorage.getItem('mealRotationAutoPinTopCategoriesV1')==='true';
 let applyPinsToAllTabs=localStorage.getItem('mealRotationApplyPinsAllTabsV1')==='true';
 let groceryTabOpen=false,groceryTabActive=false;
+const masterGroceryPlanExclusionsKey='mealRotationMasterGroceryExcludedPlansV1';
+let masterGroceryExcludedPlanIds=new Set();
+try{const stored=JSON.parse(localStorage.getItem(masterGroceryPlanExclusionsKey)||'[]');if(Array.isArray(stored))masterGroceryExcludedPlanIds=new Set(stored.map(String))}catch(e){}
+function saveMasterGroceryPlanExclusions(){try{localStorage.setItem(masterGroceryPlanExclusionsKey,JSON.stringify([...masterGroceryExcludedPlanIds]))}catch(e){}}
+
 let lastTopPinnedCategories=new Set();
 // Manually pinned categories always remain available. Automatic pinning
 // follows the ACTIVE meal-plan tab and its own saved checkbox.
@@ -882,6 +894,7 @@ function getMasterGroceryItems(){
  let selected={};try{selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
  const groceries=new Map(),observed=new Set();
  for(const plan of mealPlans){
+  if(masterGroceryExcludedPlanIds.has(String(plan.id)))continue;
   for(const {meal} of getDisplayedWeekdayMealsForPlan(plan)){
    const identity=meal.importSourceId?'src:'+meal.importSourceId:meal.linkGroup?'linked:'+meal.linkGroup:'id:'+meal.id;
    if(observed.has(identity))continue;
@@ -896,28 +909,58 @@ function getMasterGroceryItems(){
  }
  return groceries;
 }
-function renderMasterGroceryTab(list){
- const panel=document.createElement('section');panel.className='meal-plan-grocery';panel.setAttribute('aria-label','Master grocery list');
- const heading=document.createElement('h2');heading.textContent='Grocery list';panel.append(heading);
- const rows=document.createElement('div');rows.className='master-grocery-list';
- const groceries=getMasterGroceryItems();
- if(!groceries.size){const msg=document.createElement('p');msg.className='muted';msg.textContent='No grocery ingredients selected in your meal plans.';rows.append(msg)}
- groceries.forEach((line,key)=>{
-  const row=document.createElement('label');row.className='master-grocery-item';
-  const check=document.createElement('input');check.type='checkbox';check.checked=checkedIngredients.has(key);
-  check.onchange=()=>{
-   if(check.checked)checkedIngredients.add(key);else checkedIngredients.delete(key);
-   try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}
-  };
-  const name=document.createElement('span');name.textContent=line;row.append(check,name);rows.append(row);
- });
- panel.append(rows);list.append(panel);
-}
-function toggleMasterGroceryTab(){
- if(!(showTop&&showMealPlanTabs&&mealPlans.length>1))return;
- groceryTabOpen=!groceryTabOpen;groceryTabActive=groceryTabOpen;
- editId=null;renderList();
-}
+ function addMasterGroceryFloatingButton(){
+  if(!(showTop&&showMealPlanTabs&&mealPlans.length>1))return;
+  const button=document.createElement('button');button.type='button';
+  button.className='smallbtn add-meal-floating master-grocery-fab'+(groceryTabActive?' active':'');
+  button.title=groceryTabActive?'Close master grocery list':'Open master grocery list';
+  button.setAttribute('aria-label',button.title);
+  button.setAttribute('aria-pressed',String(groceryTabActive));
+  button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1"/><circle cx="19" cy="20" r="1"/><path d="M2 3h2l2.5 12h12L22 7H5"/></svg>';
+  button.onclick=()=>navigateAfterSettings(toggleMasterGroceryTab);
+  document.body.append(button);
+ }
+ function renderMasterGroceryTab(list){
+  const panel=document.createElement('section');panel.className='meal-plan-grocery';panel.setAttribute('aria-label','Master grocery list');
+  const heading=document.createElement('h2');heading.textContent='Master grocery list';panel.append(heading);
+  const filters=document.createElement('div');filters.className='master-grocery-plan-filters';
+  const filterHeading=document.createElement('strong');filterHeading.textContent='Include meal plans';filters.append(filterHeading);
+  const rows=document.createElement('div');rows.className='master-grocery-list';
+  function updateRows(){
+   rows.replaceChildren();
+   const groceries=getMasterGroceryItems();
+   if(!groceries.size){
+    const msg=document.createElement('p');msg.className='muted';
+    msg.textContent=mealPlans.every(plan=>masterGroceryExcludedPlanIds.has(String(plan.id)))?'Select at least one meal plan to show groceries.':'No selected grocery ingredients in the chosen meal plans.';
+    rows.append(msg);
+   }
+   groceries.forEach((line,key)=>{
+    const row=document.createElement('label');row.className='master-grocery-item';
+    const check=document.createElement('input');check.type='checkbox';check.checked=checkedIngredients.has(key);
+    check.onchange=()=>{
+     if(check.checked)checkedIngredients.add(key);else checkedIngredients.delete(key);
+     try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}
+    };
+    const name=document.createElement('span');name.textContent=line;row.append(check,name);rows.append(row);
+   });
+  }
+  for(const plan of mealPlans){
+   const lab=document.createElement('label');const input=document.createElement('input');input.type='checkbox';
+   input.checked=!masterGroceryExcludedPlanIds.has(String(plan.id));
+   input.setAttribute('aria-label','Include '+plan.name+' groceries');
+   input.onchange=()=>{
+    if(input.checked)masterGroceryExcludedPlanIds.delete(String(plan.id));else masterGroceryExcludedPlanIds.add(String(plan.id));
+    saveMasterGroceryPlanExclusions();updateRows();
+   };
+   const name=document.createElement('span');name.textContent=plan.name;lab.append(input,name);filters.append(lab);
+  }
+  panel.append(filters,rows);list.append(panel);updateRows();
+ }
+ function toggleMasterGroceryTab(){
+  if(!(showTop&&showMealPlanTabs&&mealPlans.length>1))return;
+  groceryTabActive=!groceryTabActive;groceryTabOpen=groceryTabActive;
+  editId=null;renderList();
+ }
 function splitPlanSettings(){return showTop&&showMealPlanTabs&&mealPlans.length>1}
 function renderTabs(){let t=$('tabs');const previousRow=document.getElementById('categoryButtons');const oldCatMenu=document.getElementById('catmenu');if(oldCatMenu&&previousRow&&previousRow.contains(oldCatMenu))document.body.append(oldCatMenu);if(previousRow)previousRow.remove();const pageKey=showTop?'top-recipes':'category:'+active;const keepSettingsOpen=activeSettingsPanel==='upper'&&lastRenderedPageKey===pageKey&&!!t.querySelector('#settingsPanel:not(.hidden)');const openSettingsGroups=keepSettingsOpen?new Set([...t.querySelectorAll('details[data-settings-group][open]')].map(d=>d.dataset.settingsGroup)):new Set();lastRenderedPageKey=pageKey;const categoryMenu=$('catmenu');if(categoryMenu&&categoryMenu.parentNode===t)categoryMenu.remove();t.innerHTML='';const categoryRow=document.createElement('div');categoryRow.id='categoryButtons';categoryRow.className='tabs category-button-row';if(categoryMenu)categoryRow.append(categoryMenu);const effectivePins=effectivePinnedCategories();
 if(showTop)lastTopPinnedCategories=new Set(effectivePins);
@@ -1198,7 +1241,9 @@ function getDisplayedWeekdayMealsForPlan(plan){
   categories.forEach(cat=>{
    const possible=meals.filter(m=>m.cat===cat&&m.rotation);
    const index=categoryDayIndex[cat]||0;categoryDayIndex[cat]=index+1;
-   let meal=possible[index];
+   // Weekdays may share a category with fewer recipes than assigned days.
+   // Wrap through the rotation instead of leaving subsequent weekdays blank.
+   let meal=possible.length?possible[index % possible.length]:undefined;
    const key=weekdaySlotKey(day,cat);
    const chosen=overrides[key]??(categories[0]===cat?overrides[day]:undefined);
    if(chosen!==undefined)meal=possible.find(m=>String(m.id)===String(chosen))||meal;
@@ -1412,8 +1457,8 @@ function renderList(){
  resetGroceriesForNewTopMeals();document.querySelectorAll('.add-meal-floating').forEach(b=>b.remove());persist();let list=$('list');const categoryRow=document.getElementById('categoryButtons');if(categoryRow&&categoryRow.parentNode!==$('tabs'))$('tabs').append(categoryRow);const editorEl=$('editor');if(editorEl&&list.contains(editorEl))document.body.insertBefore(editorEl,list);list.classList.toggle('top-summary',showTop&&!groceryTabActive);list.innerHTML='';if(!showTop){groceryTabActive=false;topPanel.classList.add('hidden')}if(showTop){if(showTop&&showMealPlanTabs){
  const tabBar=document.createElement('div');tabBar.className='meal-plan-tabs';tabBar.setAttribute('role','tablist');tabBar.setAttribute('aria-label','Meal plans');
  for(const plan of mealPlans){
-  const tab=document.createElement('div');tab.className='meal-plan-tab'+(plan.id===activePlanId&&!groceryTabActive?' selected':'');
-  const name=document.createElement('button');name.type='button';name.className='meal-plan-tab-name';name.textContent=plan.name;name.setAttribute('role','tab');name.setAttribute('aria-selected',String(plan.id===activePlanId&&!groceryTabActive));
+  const tab=document.createElement('div');tab.className='meal-plan-tab'+(plan.id===activePlanId?' selected':'');
+  const name=document.createElement('button');name.type='button';name.className='meal-plan-tab-name';name.textContent=plan.name;name.setAttribute('role','tab');name.setAttribute('aria-selected',String(plan.id===activePlanId));
   name.onclick=()=>{if(plan.id!==activePlanId)navigateAfterSettings(()=>loadMealPlan(plan.id));else if(groceryTabActive){groceryTabActive=false;renderList()}};
   let hold=null,held=false;
   name.addEventListener('pointerdown',e=>{
@@ -1434,19 +1479,7 @@ function renderList(){
   tab.append(name);tabBar.append(tab);
 
  }
- if(groceryTabOpen&&mealPlans.length>1){
-  const groceryTab=document.createElement('div');groceryTab.className='meal-plan-tab'+(groceryTabActive?' selected':'');
-  const groceryName=document.createElement('button');groceryName.type='button';groceryName.className='meal-plan-tab-name';groceryName.textContent='Grocery';
-  groceryName.setAttribute('role','tab');groceryName.setAttribute('aria-selected',String(groceryTabActive));
-  groceryName.onclick=()=>navigateAfterSettings(()=>{groceryTabActive=true;renderList()});groceryTab.append(groceryName);tabBar.append(groceryTab);
- }
  const add=document.createElement('button');add.type='button';add.className='meal-plan-add';add.textContent='+';add.title='Add meal plan';add.setAttribute('aria-label','Add meal plan');add.onclick=async()=>{const name=await appDialog('New meal plan name','','prompt');if(name&&name.trim())navigateAfterSettings(()=>createMealPlan(name))};tabBar.append(add);
- if(mealPlans.length>1){
-  const cart=document.createElement('button');cart.id='masterGroceryButton';cart.type='button';cart.className='iconbtn meal-plan-cart'+(groceryTabOpen?' active':'');
-  cart.setAttribute('aria-label',groceryTabOpen?'Close grocery tab':'Open grocery tab');cart.title=cart.getAttribute('aria-label');
-  cart.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1"/><circle cx="19" cy="20" r="1"/><path d="M2 3h2l2.5 12h12L22 7H5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  cart.onclick=()=>navigateAfterSettings(toggleMasterGroceryTab);tabBar.append(cart);
- }
  list.append(tabBar);
  if(splitPlanSettings()&&categoryRow)tabBar.after(categoryRow);
  if(activeTabMenuId&&mealPlans.some(p=>p.id===activeTabMenuId)){
@@ -1479,7 +1512,7 @@ function renderList(){
   list.append(menu);
  }
 }
-if(groceryTabOpen&&groceryTabActive&&showMealPlanTabs&&mealPlans.length>1){renderMasterGroceryTab(list);return;}
+ if(groceryTabActive&&showMealPlanTabs&&mealPlans.length>1){renderMasterGroceryTab(list);addMasterGroceryFloatingButton();return;}
 const topControls=document.createElement('div');topControls.className='top-controls';topControls.style.cssText='display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 2px 12px;color:#555';const iconButton=(title,svg,action)=>{const b=document.createElement('button');b.type='button';b.className='iconbtn top-action-icon';b.title=title;b.setAttribute('aria-label',title);b.innerHTML=svg;b.onclick=action;b.style.cssText='width:40px;height:40px;border:1px solid transparent!important;border-radius:9px;padding:7px!important;display:grid;place-items:center;color:#555';topControls.append(b);return b};const svg=(paths)=>'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+paths+'" stroke-linecap="round" stroke-linejoin="round"/></svg>';iconButton('Expand all',svg('m6 10 6 6 6-6 M6 4l6 6 6-6'),()=>{getDisplayedWeekdayMeals().forEach(({meal})=>topIngredientExpanded.add(String(meal.id)));renderList()});iconButton('Collapse all',svg('m6 14 6-6 6 6 M6 20l6-6 6 6'),()=>{topIngredientExpanded.clear();topIngredientManualHiddenOverride.clear();renderList()});const moveDownButton=iconButton('Rotate out recipes','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m-5-5 5 5 5-5M5 20h14" stroke-linecap="round" stroke-linejoin="round"/></svg>',()=>openRotateOptions());let moveHoldTimer=null,moveHoldTriggered=false,movePressStart=0;moveDownButton.style.touchAction='manipulation';moveDownButton.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;clearTimeout(moveHoldTimer);moveHoldTriggered=false;movePressStart=Date.now();moveHoldTimer=setTimeout(()=>{moveHoldTriggered=true},450)});['pointerup','pointerleave','pointercancel'].forEach(ev=>moveDownButton.addEventListener(ev,()=>clearTimeout(moveHoldTimer)));moveDownButton.addEventListener('contextmenu',e=>e.preventDefault());moveDownButton.addEventListener('click',e=>{const longPress=moveHoldTriggered||(movePressStart&&Date.now()-movePressStart>=450);moveHoldTriggered=false;movePressStart=0;if(longPress){e.preventDefault();e.stopImmediatePropagation()}},true);iconButton('Select all grocery ingredients', '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg>',()=>{let selectedByMeal={};try{selectedByMeal=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}const keys=new Set();getDisplayedWeekdayMeals().forEach(({meal})=>{(Array.isArray(meal.ingredients)?meal.ingredients:[]).forEach(line=>{const clean=String(line).trim();if(clean&&Array.isArray(selectedByMeal[String(meal.id)])&&selectedByMeal[String(meal.id)].includes(clean))keys.add(clean.toLowerCase().replace(/\s+/g,' ').trim())})});snapshot();keys.forEach(k=>checkedIngredients.add(k));try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()});iconButton('Deselect all grocery ingredients','<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 12h10" stroke-linecap="round"/></svg>',()=>{let selectedByMeal={};try{selectedByMeal=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}const keys=new Set();getDisplayedWeekdayMeals().forEach(({meal})=>{(Array.isArray(meal.ingredients)?meal.ingredients:[]).forEach(line=>{const clean=String(line).trim();if(clean&&Array.isArray(selectedByMeal[String(meal.id)])&&selectedByMeal[String(meal.id)].includes(clean))keys.add(clean.toLowerCase().replace(/\s+/g,' ').trim())})});snapshot();keys.forEach(k=>checkedIngredients.delete(k));try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()});const hideChosen=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';iconButton(hideChosen?'Show selected ingredients':'Hide selected ingredients',hideChosen?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',()=>{const shouldHide=localStorage.getItem('mealRotationHideCheckedGroceriesV1')!=='true';localStorage.setItem('mealRotationHideCheckedGroceriesV1',String(shouldHide));renderList()});if(splitPlanSettings()){
  const lowerButton=document.createElement('button');lowerButton.id='planSettings';lowerButton.type='button';
  lowerButton.className='iconbtn top-action-icon'+(lowerSettingsVisible?' active':'');
@@ -1499,6 +1532,7 @@ const topControls=document.createElement('div');topControls.className='top-contr
  topControls.append(lowerButton);
 }
 list.append(topControls);
+addMasterGroceryFloatingButton();
 if(splitPlanSettings()&&lowerSettingsVisible){
  const panel=document.createElement('div');panel.id='planSettingsPanel';panel.className='settings-panel';
  const times=settingsFlatGroup('Show times');populateTimeSettings(times.body);panel.append(times.wrap);
@@ -2631,6 +2665,16 @@ function editorHasPendingChanges(){
    JSON.stringify(oldCats)!==JSON.stringify(newCats);
 }
 let replayingOutsidePaneClick=false;
+// A tap on a recipe name while dismissing Settings must NOT also open its link.
+// Other outside taps (switch view/category, select a tab, etc.) still take effect.
+function isRecipeLinkOutsideTap(target){
+ const name=target instanceof Element?target.closest('.mealname'):null;
+ if(!name)return false;
+ const row=name.closest('[data-meal-id]');
+ const mealId=row?.dataset.mealId;
+ const meal=mealId===undefined?null:meals.find(m=>String(m.id)===mealId);
+ return !!(meal&&meal.url);
+}
 function performOutsideAction(originalTarget){
  // Use the original control's handler: it retains its delegated/closure action
  // even if a redraw replaced the element during the confirmation dialogue.
@@ -2652,7 +2696,9 @@ document.addEventListener('click',e=>{
  const closeEditor=editId!==null&&!!editor&&!editor.contains(e.target);
  if(!closeSettings&&!closeEditor)return;
  const needsConfirmation=(closeSettings&&settingsAreDirty())||(closeEditor&&editorHasPendingChanges());
+ const suppressRecipeLink=closeSettings&&isRecipeLinkOutsideTap(e.target);
  if(!needsConfirmation){
+  if(suppressRecipeLink){e.preventDefault();e.stopImmediatePropagation();}
   // Synchronous closure leaves the original click to perform its intended action.
   if(closeSettings)finishSettings('save');
   if(closeEditor){rollbackEditorCategories();editId=null;document.getElementById('editor').innerHTML=''}
@@ -2673,7 +2719,7 @@ document.addEventListener('click',e=>{
    }else{rollbackEditorCategories();editId=null;}
   }
   render();
-  performOutsideAction(clicked);
+  if(!suppressRecipeLink)performOutsideAction(clicked);
  })().catch(err=>{console.error('Could not complete outside action',err)});
 },true);
 
