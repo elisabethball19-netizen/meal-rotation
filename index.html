@@ -1129,7 +1129,8 @@ function getMasterGroceryItems(){
    const b=document.createElement('button');b.type='button';b.className='smallbtn add-meal-floating unified-nav-fab';
    b.title=title;b.setAttribute('aria-label',title);b.dataset.destination=key;
    if(key===current){b.classList.add('current-view');b.setAttribute('aria-current','page');}
-   b.style.bottom='calc('+(199-index*61)+'px + env(safe-area-inset-bottom,0px))';
+   const visibleCount=showMealPlanTabs?4:2;
+   b.style.bottom='calc('+(16+(visibleCount-1-index)*61)+'px + env(safe-area-inset-bottom,0px))';
    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+art+'</svg>';
    b.onclick=()=>navigateAfterSettings(action);document.body.append(b);
   });
@@ -2064,6 +2065,7 @@ const dayOrder=orderedDays();displayedTop.sort((a,b)=>dayOrder.indexOf(a.day)-da
 const mealSlotsByDay={};
 for(const item of displayedTop)mealSlotsByDay[item.day]=(mealSlotsByDay[item.day]||0)+1;
 let previousRenderedDay=null;
+const renderedSlotsByDay={};
 displayedTop.forEach(({day,cat:c,meal:top})=>{
   if(day!==previousRenderedDay){
     const dayHeading=document.createElement('div');dayHeading.className='section';dayHeading.textContent=day;
@@ -2105,7 +2107,7 @@ const expanded=topIngredientExpanded.has(mealKey);const arrow=document.createEle
   topIngredientExpanded.add(mealKey);
   if(hideCheckedForMeal&&allGroceriesChecked)topIngredientManualHiddenOverride.add(mealKey);
 }
-renderList()};row.append(arrow);const wrap=document.createElement('div');wrap.className='top-recipe-wrap';wrap.style.background=colorForDay(day);wrap.style.borderRadius='0 0 8px 8px';wrap.append(row);if(expanded){const detail=document.createElement('div');detail.className='top-recipe-ingredients';detail.style.cssText='padding:2px 12px 12px 14px;margin-top:0;border-bottom:0;font-size:15px;color:#555';let data={};try{data=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}const selected=grocerySelectionsForMeal(top,data);const hideChosen=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';const selectedItemKeys=new Set(selected.map(ingredientKey));const ingredients=(Array.isArray(top.ingredients)?top.ingredients:[]).map(x=>String(x).trim()).filter(x=>x&&selectedItemKeys.has(ingredientKey(x))&&!(hideChosen&&checkedIngredients.has(ingredientKey(x))));if(ingredients.length){ingredients.forEach(line=>{const item=document.createElement('label');item.style.cssText='display:flex;align-items:flex-start;gap:10px;padding:7px 2px;';const cb=document.createElement('input');cb.type='checkbox';cb.checked=checkedIngredients.has(line.toLowerCase().replace(/\s+/g,' ').trim());cb.style.cssText='width:20px;height:20px;flex:0 0 20px;margin:1px 0 0';cb.onchange=()=>{const key=line.toLowerCase().replace(/\s+/g,' ').trim();snapshot();if(cb.checked)checkedIngredients.add(key);else checkedIngredients.delete(key);try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()};const text=document.createElement('span');text.textContent=line;
+renderList()};row.append(arrow);const wrap=document.createElement('div');wrap.className='top-recipe-wrap';wrap.style.background=colorForDay(day);renderedSlotsByDay[day]=(renderedSlotsByDay[day]||0)+1;wrap.style.borderRadius=renderedSlotsByDay[day]===mealSlotsByDay[day]?'0 0 8px 8px':'0';wrap.append(row);if(expanded){const detail=document.createElement('div');detail.className='top-recipe-ingredients';detail.style.cssText='padding:2px 12px 12px 14px;margin-top:0;border-bottom:0;font-size:15px;color:#555';let data={};try{data=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}const selected=grocerySelectionsForMeal(top,data);const hideChosen=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';const selectedItemKeys=new Set(selected.map(ingredientKey));const ingredients=(Array.isArray(top.ingredients)?top.ingredients:[]).map(x=>String(x).trim()).filter(x=>x&&selectedItemKeys.has(ingredientKey(x))&&!(hideChosen&&checkedIngredients.has(ingredientKey(x))));if(ingredients.length){ingredients.forEach(line=>{const item=document.createElement('label');item.style.cssText='display:flex;align-items:flex-start;gap:10px;padding:7px 2px;';const cb=document.createElement('input');cb.type='checkbox';cb.checked=checkedIngredients.has(line.toLowerCase().replace(/\s+/g,' ').trim());cb.style.cssText='width:20px;height:20px;flex:0 0 20px;margin:1px 0 0';cb.onchange=()=>{const key=line.toLowerCase().replace(/\s+/g,' ').trim();snapshot();if(cb.checked)checkedIngredients.add(key);else checkedIngredients.delete(key);try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()};const text=document.createElement('span');text.textContent=line;
 item.style.touchAction='pan-y';
 item.style.webkitTouchCallout='none';
 text.style.userSelect='none';text.style.webkitUserSelect='none';
