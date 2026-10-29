@@ -489,6 +489,31 @@ function initializeMasterCategoryExpansion(extraCategory){
  if(extraCategory&&cats.includes(extraCategory))masterExpandedCategories.add(extraCategory);
 }
 
+function buildGroupedMealPicker(container,search,entries){
+ // Entries: {meal, checked, onChange}. Keep selections when groups collapse or searches change.
+ const groups=new Map();entries.forEach(entry=>{const cat=entry.meal.cat||'Ungrouped';if(!groups.has(cat))groups.set(cat,[]);groups.get(cat).push(entry)});
+ const sections=[];
+ [...groups.keys()].sort((a,b)=>a.localeCompare(b)).forEach(cat=>{
+  const section=document.createElement('div');section.style.cssText='border-bottom:1px solid #ddd';
+  const header=document.createElement('button');header.type='button';header.style.cssText='display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 6px;text-align:left;background:transparent;border:0;color:inherit;font-weight:600;cursor:pointer';
+  const name=document.createElement('span');name.textContent=cat;const arrow=document.createElement('span');arrow.textContent='▸';header.append(name,arrow);
+  const body=document.createElement('div');body.style.cssText='display:none;padding:0 4px 6px 14px';
+  groups.get(cat).sort((a,b)=>a.meal.name.localeCompare(b.meal.name)).forEach(entry=>{
+   const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 3px;cursor:pointer';
+   const cb=document.createElement('input');cb.type='checkbox';cb.checked=!!entry.checked;cb.style.cssText='width:20px;height:20px;flex-shrink:0';cb.onchange=()=>entry.onChange(cb.checked);
+   const text=document.createElement('span');text.textContent=entry.meal.name;row.append(cb,text);body.append(row);entry.row=row;entry.checkbox=cb;
+  });
+  let expanded=false;const setExpanded=value=>{expanded=value;body.style.display=value?'block':'none';arrow.textContent=value?'▾':'▸'};
+  header.onclick=()=>setExpanded(!expanded);section.append(header,body);container.append(section);sections.push({section,entries:groups.get(cat),setExpanded});
+ });
+ search.oninput=()=>{
+  const query=search.value.trim().toLocaleLowerCase();
+  sections.forEach(group=>{
+   let visible=0;group.entries.forEach(entry=>{const match=!query||entry.meal.name.toLocaleLowerCase().includes(query);entry.row.style.display=match?'flex':'none';if(match)visible++});
+   group.section.style.display=visible?'block':'none';if(query&&visible)group.setExpanded(true);if(!query)group.setExpanded(false);
+  });
+ };
+}
 function chooseExistingMealsForNewGroup(category){
  return new Promise(resolve=>{
   const unique=new Map();
@@ -499,15 +524,43 @@ function chooseExistingMealsForNewGroup(category){
   const title=document.createElement('strong');title.textContent='Add existing meals to '+category;
   const search=document.createElement('input');search.type='search';search.placeholder='Search meals';search.setAttribute('aria-label','Search meals');search.style.cssText='width:100%;padding:10px;border:1px solid #bbb;border-radius:8px';
   const list=document.createElement('div');list.style.cssText='overflow:auto;min-height:60px;flex:1';
-  const selections=[];
-  [...unique.values()].sort((a,b)=>a.name.localeCompare(b.name)).forEach(m=>{const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 4px;cursor:pointer';const cb=document.createElement('input');cb.type='checkbox';cb.style.cssText='width:20px;height:20px';const text=document.createElement('span');text.textContent=m.name;row.append(cb,text);list.append(row);selections.push({m,cb,row})});
-  search.oninput=()=>{const q=search.value.trim().toLowerCase();selections.forEach(x=>x.row.style.display=x.m.name.toLowerCase().includes(q)?'flex':'none')};
-  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;justify-content:flex-end';
-  const skip=document.createElement('button');skip.className='smallbtn';skip.textContent='Skip';
-  const add=document.createElement('button');add.className='smallbtn';add.textContent='Add selected';
+  const selections=[...unique.values()].map(m=>({meal:m,checked:false,onChange(value){this.checked=value}}));
+  buildGroupedMealPicker(list,search,selections);
+  const modeRow=document.createElement('div');modeRow.style.cssText='display:flex;flex-wrap:wrap;gap:14px;padding:7px 2px;border-top:1px solid #ddd';
+  const modeLabel=document.createElement('span');modeLabel.textContent='Add meals by:';modeLabel.style.cssText='width:100%;font-weight:600';modeRow.append(modeLabel);
+  const modeName='new-group-meal-mode';
+  for(const [value,label] of [['copy','Copy (keep in original group)'],['move','Move (remove from original group)']]){
+   const option=document.createElement('label');option.style.cssText='display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px';
+   const radio=document.createElement('input');radio.type='radio';radio.name=modeName;radio.value=value;radio.checked=value==='copy';option.append(radio,document.createTextNode(label));modeRow.append(option);
+  }
+  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:12px;justify-content:flex-end;flex-shrink:0;padding-top:12px;border-top:1px solid #ddd;background:#fff';
+  const skip=document.createElement('button');skip.className='smallbtn';skip.innerHTML='✕';skip.title='Cancel';skip.setAttribute('aria-label','Cancel');skip.style.cssText='font-size:23px;min-width:48px';
+  const add=document.createElement('button');add.className='smallbtn';add.innerHTML='✓';add.title='Add selected meals';add.setAttribute('aria-label','Add selected meals');add.style.cssText='font-size:23px;min-width:48px';
   const close=()=>{overlay.remove();resolve()};skip.onclick=close;
-  add.onclick=()=>{const chosen=selections.filter(x=>x.cb.checked).map(x=>x.m);if(chosen.length){snapshot();chosen.forEach(m=>{const group=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[m];if(group.some(x=>x.cat===category))return;const link=m.linkGroup||'linked-'+m.id+'-'+Date.now();group.forEach(x=>x.linkGroup=link);const copy={...m,id:id++,cat:category,linkGroup:link,ingredients:Array.isArray(m.ingredients)?[...m.ingredients]:[]};meals.push(copy)});persist()}close()};
-  actions.append(skip,add);dialog.append(title,search,list,actions);overlay.append(dialog);document.body.append(overlay);
+  add.onclick=()=>{
+   const chosen=selections.filter(x=>x.checked).map(x=>x.meal);
+   const mode=modeRow.querySelector('input[name="'+modeName+'"]:checked').value;
+   if(chosen.length){
+    snapshot();
+    chosen.forEach(m=>{
+     const group=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[m];
+     if(group.some(x=>x.cat===category))return;
+     if(mode==='move'){
+      const oldCat=m.cat;
+      m.cat=category;
+      if(typeof clearOverridesForCat==='function')clearOverridesForCat(oldCat);
+     }else{
+      const link=m.linkGroup||'linked-'+m.id+'-'+Date.now();
+      group.forEach(x=>x.linkGroup=link);
+      const copy={...m,id:id++,cat:category,linkGroup:link,ingredients:Array.isArray(m.ingredients)?[...m.ingredients]:[]};
+      meals.push(copy);
+     }
+    });
+    persist();
+   }
+   close();
+  };
+  actions.append(skip,add);dialog.append(title,search,list,modeRow,actions);overlay.append(dialog);document.body.append(overlay);
  });
 }
 function openMasterCategories(focusCategory){
@@ -3453,13 +3506,21 @@ keyboardButton.onclick=()=>{
 };
 let linkedMealDraft=Array.isArray(m.linkedMealIds)?[...m.linkedMealIds]:[];
 $('editLinkedMeals').onclick=()=>{
+ const originalLinkedDraft=[...linkedMealDraft];
  const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10010;display:flex;align-items:center;justify-content:center;padding:16px';
- const panel=document.createElement('div');panel.style.cssText='background:white;color:#222;border-radius:12px;padding:18px;max-width:450px;width:100%;max-height:85vh;overflow:auto';
+ const panel=document.createElement('div');panel.style.cssText='background:white;color:#222;border-radius:12px;padding:18px;max-width:450px;width:100%;max-height:85vh;display:flex;flex-direction:column;gap:8px';
  const heading=document.createElement('h3');heading.textContent='Linked Meals';heading.style.margin='0 0 8px';panel.append(heading);
  const description=document.createElement('p');description.textContent='Choose recipes to serve automatically with this meal.';description.style.fontSize='14px';panel.append(description);
- const options=meals.filter(x=>x.id!==m.id&&!(m.linkGroup&&x.linkGroup===m.linkGroup)).sort((a,b)=>a.name.localeCompare(b.name));
- for(const option of options){const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 0';const check=document.createElement('input');check.type='checkbox';check.checked=linkedMealDraft.some(id=>String(id)===String(option.id));check.onchange=()=>{linkedMealDraft=linkedMealDraft.filter(id=>String(id)!==String(option.id));if(check.checked)linkedMealDraft.push(option.id)};label.append(check,document.createTextNode(option.name+' ('+option.cat+')'));panel.append(label)}
- const done=document.createElement('button');done.type='button';done.className='smallbtn';done.textContent='Done';done.style.marginTop='12px';done.onclick=()=>{overlay.remove();updateLinkedLabel()};panel.append(done);overlay.append(panel);overlay.onclick=e=>{if(e.target===overlay){overlay.remove();updateLinkedLabel()}};document.body.append(overlay);
+ const search=document.createElement('input');search.type='search';search.placeholder='Search meals';search.setAttribute('aria-label','Search meals');search.style.cssText='width:100%;padding:10px;border:1px solid #bbb;border-radius:8px;margin-bottom:8px';panel.append(search);
+ const list=document.createElement('div');list.style.cssText='overflow:auto;min-height:60px;flex:1';panel.append(list);
+ const options=meals.filter(x=>x.id!==m.id&&!(m.linkGroup&&x.linkGroup===m.linkGroup));
+ buildGroupedMealPicker(list,search,options.map(option=>({meal:option,checked:linkedMealDraft.some(id=>String(id)===String(option.id)),onChange(checked){linkedMealDraft=linkedMealDraft.filter(id=>String(id)!==String(option.id));if(checked)linkedMealDraft.push(option.id)}})));
+ const actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:flex-end;gap:12px;flex-shrink:0;padding-top:12px;border-top:1px solid #ddd;background:white';
+ const cancel=document.createElement('button');cancel.type='button';cancel.className='smallbtn';cancel.textContent='✕';cancel.title='Cancel';cancel.setAttribute('aria-label','Cancel');cancel.style.cssText='font-size:23px;min-width:48px';
+ const done=document.createElement('button');done.type='button';done.className='smallbtn';done.textContent='✓';done.title='OK';done.setAttribute('aria-label','OK');done.style.cssText='font-size:23px;min-width:48px';
+ const close=save=>{if(!save)linkedMealDraft=originalLinkedDraft;overlay.remove();updateLinkedLabel()};
+ cancel.onclick=()=>close(false);done.onclick=()=>close(true);
+ actions.append(cancel,done);panel.append(actions);overlay.append(panel);overlay.onclick=e=>{if(e.target===overlay)close(false)};document.body.append(overlay);
 };
 function updateLinkedLabel(){$('editLinkedMeals').textContent='↗ Linked Meals'+(linkedMealDraft.length?' ('+linkedMealDraft.length+')':'')}
 updateLinkedLabel();
