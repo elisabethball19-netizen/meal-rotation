@@ -2351,7 +2351,7 @@ function renderMasterCategories(list){
   const editCat=document.createElement('button');editCat.type='button';editCat.className='iconbtn';setIconButton(editCat,'rename','Edit '+category+' (reorder, rename, delete)');editCat.onclick=()=>openMasterCategoryEditMenu(category);
   header.append(editCat);
   const addMeal=document.createElement('button');addMeal.type='button';addMeal.className='iconbtn';addMeal.title='Add meal to '+category;addMeal.setAttribute('aria-label',addMeal.title);addMeal.textContent='+';addMeal.style.cssText='font-size:24px';
-  addMeal.onclick=()=>{snapshot();const meal={id:id++,cat:category,name:'',rotation:false,prep:'',cook:'',total:'',url:'',ingredients:[]};meals.push(meal);masterExpandedCategories.clear();masterExpandedCategories.add(category);openEditor(meal.id)};
+  addMeal.onclick=()=>{snapshot();const meal={id:id++,cat:category,name:'',rotation:false,prep:'',cook:'',total:'',url:'',ingredients:[]};meals.push(meal);masterExpansionInitialized=true;masterExpandedCategories.clear();masterExpandedCategories.add(category);renderList();openEditor(meal.id)};
   header.append(addMeal);card.append(header);
   if(expanded){
    const items=document.createElement('div');items.className='master-category-meals';
