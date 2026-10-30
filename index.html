@@ -1746,14 +1746,37 @@ function restoreBackupStorage(data){
  const entries=Object.entries(data);
  if(!entries.length||entries.some(([key,value])=>!key.startsWith('mealRotation')||typeof value!=='string'))throw new Error('Invalid backup storage');
  validateBackupStorage(data);
- // Check capacity before writing; roll back app keys if any write fails.
+ // Never delete the existing records before the replacement has been written.
+ // A persistent storage failure may prevent rollback, so preserve the original
+ // recipe data until every other replacement has succeeded.
  const before=captureBackupStorage();
+ const primary='mealRotationDataV1';
+ const changed=[];
  try{
-  for(const key of Object.keys(before))if(!(key in data))localStorage.removeItem(key);
-  for(const [key,value] of entries)localStorage.setItem(key,value);
+  for(const [key,value] of entries){
+   if(key===primary||before[key]===value)continue;
+   localStorage.setItem(key,value);
+   changed.push(key);
+  }
+  // Commit the main recipe record last, after all other writes succeed.
+  if(before[primary]!==data[primary]){
+   localStorage.setItem(primary,data[primary]);
+   changed.push(primary);
+  }
+  // Remove obsolete keys only after all replacement writes succeed.
+  for(const key of Object.keys(before))if(!(key in data)){
+   localStorage.removeItem(key);
+   changed.push(key);
+  }
  }catch(error){
-  for(const key of Object.keys(data))localStorage.removeItem(key);
-  for(const [key,value] of Object.entries(before))localStorage.setItem(key,value);
+  const rollbackFailures=[];
+  for(const key of changed.reverse()){
+   try{
+    if(Object.prototype.hasOwnProperty.call(before,key))localStorage.setItem(key,before[key]);
+    else localStorage.removeItem(key);
+   }catch(e){rollbackFailures.push(key)}
+  }
+  if(rollbackFailures.length)throw new Error('Restore failed; some settings could not be rolled back ('+rollbackFailures.join(', ')+'). Your original backup file is unchanged. '+error.message);
   throw error;
  }
 }
