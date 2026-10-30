@@ -2523,7 +2523,7 @@ function openLabelManager(){
   action('cancel','Keep editing',()=>{});
   dialog.append(actions);shade.append(dialog);document.body.append(shade);
  }
- const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:16000;display:flex;align-items:center;justify-content:center;padding:16px';
+ const overlay=document.createElement('div');overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:16000;display:flex;align-items:center;justify-content:center;padding:16px';
  const panel=document.createElement('div');panel.style.cssText='background:white;color:#222;border-radius:14px;padding:18px;width:100%;max-width:470px;max-height:85vh;display:flex;flex-direction:column;gap:12px';
  const headingRow=document.createElement('div');headingRow.style.cssText='display:flex;align-items:center;gap:10px';
  const heading=document.createElement('h3');heading.textContent='Recipe labels';heading.style.cssText='margin:0;flex:1';headingRow.append(heading);
@@ -3866,7 +3866,7 @@ $('recipeLabels').onclick=()=>{
   history.splice(beforeHistoryLength);redoHistory=[];
  }
 
- const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10020;display:flex;align-items:center;justify-content:center;padding:16px';
+ const overlay=document.createElement('div');overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10020;display:flex;align-items:center;justify-content:center;padding:16px';
  const panel=document.createElement('div');panel.style.cssText='background:white;color:#222;border-radius:12px;padding:18px;max-width:450px;width:100%;max-height:85vh;display:flex;flex-direction:column;gap:10px';
  const heading=document.createElement('h3');heading.textContent='Recipe labels';heading.style.margin='0';panel.append(heading);
  const search=document.createElement('input');search.type='search';search.placeholder='Search labels';search.style.cssText='width:100%;padding:10px;border:1px solid #bbb;border-radius:8px';panel.append(search);
