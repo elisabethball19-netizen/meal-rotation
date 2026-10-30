@@ -14,6 +14,12 @@
 /* When cooking times are shown, keep My Rotation as compact as category rows.
    Scope these changes to timed My Rotation, leaving untimed rows untouched. */
 #list.top-summary .meal:has(.times){height:auto;min-height:44px;padding:3px 2px 4px}
+/* Inline linked recipes stay inside their weekday card, directly beneath the main meal. */
+#list.top-summary .meal:has(.top-inline-linked){height:auto;min-height:49px;padding-top:3px;padding-bottom:5px}
+#list.top-summary .meal:has(.top-inline-linked) .mealname{padding-bottom:0}
+#list.top-summary .top-inline-linked{margin-top:2px!important;line-height:1.25}
+#list.top-summary .top-inline-linked button{text-decoration:none!important}
+
 #list.top-summary .meal:has(.times) .mealname{padding-bottom:0}
 #list.top-summary .meal:has(.times) .times{margin-top:3px;line-height:1.2}
 #list.top-summary:has(.meal .times) .section{padding:5px 12px!important;min-height:0}
@@ -512,7 +518,7 @@ function initializeMasterCategoryExpansion(extraCategory){
  if(extraCategory&&cats.includes(extraCategory))masterExpandedCategories.add(extraCategory);
 }
 
-function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=false,scrollExpandedToTop=false,resetOnSelect=false){
+function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=false,scrollExpandedToTop=false,resetOnSelect=false,compactPinned=false){
  // Entries: {meal, checked, onChange}. Keep selections when groups collapse or searches change.
  const groups=new Map();entries.forEach(entry=>{const cat=entry.meal.cat||'Ungrouped';if(!groups.has(cat))groups.set(cat,[]);groups.get(cat).push(entry)});
  const sections=[];
@@ -524,7 +530,7 @@ function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=
   selectedArea.replaceChildren();selectedRows.length=0;
   const selected=entries.filter(e=>e.checked).sort((a,b)=>a.meal.name.localeCompare(b.meal.name));
   for(const entry of selected){
-   const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 4px';
+   const row=document.createElement('label');row.style.cssText=compactPinned?'display:flex;align-items:center;gap:8px;padding:3px 4px;line-height:1.25;min-height:32px;cursor:pointer':'display:flex;align-items:center;gap:10px;padding:10px 4px';
    const cb=document.createElement('input');cb.type='checkbox';cb.checked=true;cb.style.cssText='width:20px;height:20px;flex-shrink:0';
    cb.onchange=()=>{entry.checked=false;entry.onChange(false);search.dispatchEvent(new Event('input'));if(resetOnSelect)sections.forEach(s=>s.setExpanded(false));container.scrollTop=0};
    const label=document.createElement('span');label.textContent=entry.meal.name;label.style.flex='1';
@@ -777,6 +783,10 @@ function appendMealTimes(body,meal){
   actions.style.gap='8px';
   btn('Yes',true);btn('No',false);btn('Cancel',null);
   for(const b of actions.children){b.style.minWidth='0';b.style.flex='1';b.style.padding='11px 6px'}
+}else if(kind==='yesno'){
+  actions.className='meal-unified-actions';
+  function iconChoice(type,label,result){const b=document.createElement('button');b.type='button';setIconButton(b,type,label);b.onclick=()=>{shade.remove();resolve(result)};actions.append(b)}
+  iconChoice('save','Yes',true);iconChoice('cancel','No',null);
 }else if(kind==='alert'){
   btn('Cancel',null);
 }else{
@@ -2412,6 +2422,34 @@ function bindGroupMealPress(name,meal){
 }
 function openSavedMealRecipe(meal){if(meal.url)window.open(meal.url,'_blank','noopener');else showAppMessage('No recipe link is saved for this meal.')}
 function openLabelManager(){
+ // Capture the entire label-edit session so Cancel can truly discard edits.
+ const originalMeals=JSON.stringify(meals);
+ const originalCatalog=JSON.stringify(recipeLabelCatalog);
+ const originalFilters=JSON.stringify(weekdayRecipeFilters);
+ const originalPlans=JSON.stringify(mealPlans);
+ const originalHistoryLength=history.length;
+ function hasLabelChanges(){return JSON.stringify(meals)!==originalMeals||JSON.stringify(recipeLabelCatalog)!==originalCatalog||JSON.stringify(weekdayRecipeFilters)!==originalFilters}
+ function discardLabelChanges(){
+  meals=JSON.parse(originalMeals);
+  recipeLabelCatalog=JSON.parse(originalCatalog);
+  weekdayRecipeFilters=JSON.parse(originalFilters);
+  mealPlans=JSON.parse(originalPlans);
+  saveRecipeLabelCatalog();saveWeekdayRecipeFilters();persist();
+  history.splice(originalHistoryLength);redoHistory=[];
+ }
+ function finishLabels(save){if(!save)discardLabelChanges();overlay.remove();renderList()}
+ async function confirmLabelCancel(){
+  if(!hasLabelChanges()){finishLabels(false);return}
+  const shade=document.createElement('div');shade.style.cssText='position:fixed;inset:0;z-index:22000;background:#0008;display:flex;align-items:center;justify-content:center;padding:18px';
+  const dialog=document.createElement('div');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.style.cssText='background:#fff;color:#242424;border-radius:16px;padding:22px;width:100%;max-width:480px;box-shadow:0 12px 36px #0003';
+  const question=document.createElement('div');question.textContent='Save changes before closing?';question.style.cssText='font-size:19px;font-weight:600;margin-bottom:18px';dialog.append(question);
+  const actions=document.createElement('div');actions.className='meal-unified-actions';
+  function action(icon,label,callback){const button=document.createElement('button');setIconButton(button,icon,label);button.onclick=()=>{shade.remove();callback()};actions.append(button)}
+  action('save','Save changes',()=>finishLabels(true));
+  action('delete','Discard changes',()=>finishLabels(false));
+  action('cancel','Keep editing',()=>{});
+  dialog.append(actions);shade.append(dialog);document.body.append(shade);
+ }
  const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:16000;display:flex;align-items:center;justify-content:center;padding:16px';
  const panel=document.createElement('div');panel.style.cssText='background:white;color:#222;border-radius:14px;padding:18px;width:100%;max-width:470px;max-height:85vh;display:flex;flex-direction:column;gap:12px';
  const headingRow=document.createElement('div');headingRow.style.cssText='display:flex;align-items:center;gap:10px';
@@ -2421,7 +2459,7 @@ function openLabelManager(){
  const search=document.createElement('input');search.type='search';search.placeholder='Search labels';search.style.display='none';panel.append(search);
  searchButton.onclick=()=>{const visible=search.style.display!=='none';search.style.display=visible?'none':'block';if(visible){search.value='';draw()}else search.focus()};
  const list=document.createElement('div');list.dataset.labelManagerList='true';list.style.cssText='overflow:auto;min-height:60px;flex:1';panel.append(list);
- const actions=document.createElement('div');actions.className='meal-unified-actions';actions.style.cssText='border-top:1px solid #ddd;padding-top:10px;flex-shrink:0';const close=document.createElement('button');setIconButton(close,'save','OK');close.onclick=()=>{overlay.remove();renderList()};const cancel=document.createElement('button');setIconButton(cancel,'cancel','Close');cancel.onclick=()=>{overlay.remove();renderList()};actions.append(close,cancel);panel.append(actions);
+ const actions=document.createElement('div');actions.className='meal-unified-actions';actions.style.cssText='border-top:1px solid #ddd;padding-top:10px;flex-shrink:0';const close=document.createElement('button');setIconButton(close,'save','OK');close.onclick=()=>finishLabels(true);const cancel=document.createElement('button');setIconButton(cancel,'cancel','Cancel');cancel.onclick=confirmLabelCancel;actions.append(close,cancel);panel.append(actions);
  async function editLabel(name){
   // Keep the label manager visible behind a single, editable rename dialog.
   const shade=document.createElement('div');
@@ -2474,7 +2512,7 @@ function openLabelManager(){
     const body=document.createElement('div');body.style.cssText='max-height:42vh;overflow:auto';section.append(body);
     const unique=new Map();for(const meal of meals){const key=meal.linkGroup||'meal-'+meal.id;if(!unique.has(key))unique.set(key,meal)}
     const choices=[...unique.values()].map(meal=>({meal,checked:recipeLabels(meal).some(x=>labelKey(x)===labelKey(name)),onChange(v){this.checked=v;const siblings=this.meal.linkGroup?meals.filter(m=>m.linkGroup===this.meal.linkGroup):[this.meal];snapshot();for(const m of siblings){m.labels=recipeLabels(m).filter(x=>labelKey(x)!==labelKey(name));if(v)m.labels.push(name)}persist();title.textContent=name+' ('+meals.filter(m=>recipeLabels(m).some(x=>labelKey(x)===labelKey(name))).length+')'}}));
-    buildGroupedMealPicker(body,input,choices,matchOrder,true,true,true);
+    buildGroupedMealPicker(body,input,choices,matchOrder,true,true,true,true);
     card.append(section);
    }
    list.append(card);
@@ -2527,7 +2565,7 @@ function renderMasterCategories(list){
      if(localStorage.getItem('mealRotationShowLinkedInGroupsV1')!=='false'&&Array.isArray(m.linkedMealIds)&&m.linkedMealIds.length){
       const linkedTargets=[...new Map(m.linkedMealIds.map(targetId=>meals.find(x=>String(x.id)===String(targetId))).filter(Boolean).map(target=>[String(target.id),target])).values()];
       if(linkedTargets.length){
-       const linkedInfo=document.createElement('div');linkedInfo.style.cssText='font-size:13px;color:#637080;margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 7px;align-items:center';
+       const linkedInfo=document.createElement('div');linkedInfo.className='top-inline-linked';linkedInfo.style.cssText='font-size:13px;color:#637080;margin-top:2px;display:flex;flex-wrap:wrap;gap:2px 7px;align-items:center';
        const marker=document.createElement('span');marker.textContent='↗';linkedInfo.append(marker);
        linkedTargets.forEach((target,index)=>{
         if(index){const sep=document.createElement('span');sep.textContent='·';linkedInfo.append(sep)}
@@ -2688,7 +2726,7 @@ if(inlineLinked.length){
   if(index){const sep=document.createElement('span');sep.textContent='·';linkedInfo.append(sep)}
   const link=document.createElement('button');link.type='button';link.textContent=target.name;
   link.title='Meal options for '+target.name;
-  link.style.cssText='border:0;background:transparent;color:inherit;text-decoration:underline;text-underline-offset:2px;padding:0;font:inherit;cursor:pointer;text-align:left';
+  link.style.cssText='border:0;background:transparent;color:inherit;text-decoration:none;padding:0;font:inherit;cursor:pointer;text-align:left';
   link.onclick=e=>{e.preventDefault();e.stopPropagation();openTopMealActionMenu(day,target.cat,target)};
   linkedInfo.append(link);
  });
