@@ -391,7 +391,9 @@ function saveCategoryColors(){try{localStorage.setItem('mealRotationCategoryColo
 const defaultColorForCat=c=>c==='Weekend'?catColors[Math.max(0,cats.indexOf('Misc'))%catColors.length]:c==='Misc'?'#eee7df':catColors[Math.max(0,cats.indexOf(c))%catColors.length];
 // Color is attached to the weekday, not to the category assigned to it.
 // Existing category colors are used once to preserve familiar colors during migration.
-const weekdayColorDefaults={Tuesday:'#B7CF9B',Wednesday:'#F0CA76',Thursday:'#CCAFD2',Friday:'#E5A087',Saturday:'#A8D6C7',Sunday:'#DBA0AC',Monday:'#B2C4DD'};
+const weekdayColorDefaults={Tuesday:'#D1DEC0',Wednesday:'#F6DEAA',Thursday:'#E0CDE4',Friday:'#EDC2B3',Saturday:'#C9E5DC',Sunday:'#E9C5CC',Monday:'#D1DCEA'};
+// Shortcut colors retain a little more definition than the larger meal cards.
+const weekdayShortcutColors={Tuesday:'#C5D6AE',Wednesday:'#F3D493',Thursday:'#D7BFDC',Friday:'#E9B19E',Saturday:'#B8DCD0',Sunday:'#E2B3BD',Monday:'#C2D1E4'};
 let weekdayColors={};
 try{const stored=JSON.parse(localStorage.getItem('mealRotationWeekdayColorsV1')||'{}');if(stored&&typeof stored==='object'&&!Array.isArray(stored))weekdayColors=Object.fromEntries(Object.entries(stored).filter(([d,color])=>weekdays.includes(d)&&/^#[0-9a-fA-F]{6}$/.test(color)))}catch(e){}
 function saveWeekdayColors(){weekdayColors={...weekdayColorDefaults};try{localStorage.setItem('mealRotationWeekdayColorsV1',JSON.stringify(weekdayColors))}catch(e){}}
@@ -400,7 +402,7 @@ const colorForDay=day=>weekdayColorDefaults[day]||'#ffffff';
 // A category assigned to several weekdays displays every assigned day's color.
 // This is derived from the active plan, so no saved category data is changed.
 const colorForCat=c=>{
- const colors=[...new Set(orderedDays().filter(d=>getDayCategories(d).includes(c)).map(colorForDay))];
+ const colors=[...new Set(orderedDays().filter(d=>getDayCategories(d).includes(c)).map(d=>weekdayShortcutColors[d]||colorForDay(d)))];
  if(!colors.length)return '#ffffff';
  if(colors.length===1)return colors[0];
  const stops=colors.flatMap((color,i)=>[`${color} ${100*i/colors.length}%`,`${color} ${100*(i+1)/colors.length}%`]);
@@ -2649,22 +2651,26 @@ function renderList(){rememberCurrentView();
   const tab=document.createElement('div');tab.className='meal-plan-tab'+(plan.id===activePlanId&&!groceryTabActive&&!allMealsActive?' selected':'');
   const name=document.createElement('button');name.type='button';name.className='meal-plan-tab-name';name.textContent=plan.name;name.setAttribute('role','tab');name.setAttribute('aria-selected',String(plan.id===activePlanId&&!groceryTabActive&&!allMealsActive));
   name.onclick=()=>{if(plan.id!==activePlanId)navigateAfterSettings(()=>loadMealPlan(plan.id));else if(groceryTabActive||allMealsActive){groceryTabActive=false;allMealsActive=false;renderList()}};
-  let hold=null,held=false;
+  // Open tab editing as soon as the hold threshold is reached. On touch
+  // devices a contextmenu/click may also fire; suppress both after a hold.
+  let hold=null,held=false,pressStart=null;
+  const openTabEditor=()=>{
+   if(plan.id!==activePlanId){
+    navigateAfterSettings(()=>{loadMealPlan(plan.id);activeTabMenuId=plan.id;renderList()});
+   }else{activeTabMenuId=plan.id;renderList()}
+  };
+  name.style.touchAction='pan-x';
   name.addEventListener('pointerdown',e=>{
    if(e.pointerType==='mouse'&&e.button!==0)return;
-   held=false;clearTimeout(hold);
-   hold=setTimeout(()=>{held=true},550);
+   clearTimeout(hold);held=false;pressStart={x:e.clientX,y:e.clientY};
+   hold=setTimeout(()=>{hold=null;held=true;openTabEditor()},550);
   });
-  name.addEventListener('pointerup',()=>{
-   clearTimeout(hold);
-   if(held){
-    if(plan.id!==activePlanId)navigateAfterSettings(()=>{loadMealPlan(plan.id);activeTabMenuId=plan.id;renderList()});
-    else{activeTabMenuId=plan.id;renderList()}
-   }
+  name.addEventListener('pointermove',e=>{
+   if(pressStart&&Math.hypot(e.clientX-pressStart.x,e.clientY-pressStart.y)>12){clearTimeout(hold);hold=null;pressStart=null}
   });
-  ['pointercancel','pointerleave'].forEach(ev=>name.addEventListener(ev,()=>clearTimeout(hold)));
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>name.addEventListener(ev,()=>{clearTimeout(hold);hold=null;pressStart=null}));
   name.addEventListener('click',e=>{if(held){e.stopImmediatePropagation();e.preventDefault();held=false}},true);
-  name.oncontextmenu=e=>{e.preventDefault();if(plan.id!==activePlanId)navigateAfterSettings(()=>{loadMealPlan(plan.id);activeTabMenuId=plan.id;renderList()});else{activeTabMenuId=plan.id;renderList()}};
+  name.oncontextmenu=e=>{e.preventDefault();if(!held){clearTimeout(hold);hold=null;held=true;openTabEditor()}};
   tab.append(name);tabBar.append(tab);
 
  }
