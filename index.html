@@ -357,7 +357,7 @@ function setDayCategories(day,values){
   renderTabs();renderList();
 }
 let startWeekday=localStorage.getItem('mealRotationStartWeekdayV1')||'Tuesday';let pinnedCats=[];try{pinnedCats=JSON.parse(localStorage.getItem('mealRotationPinnedCategoriesV1')||'[]')}catch(e){}let expandedCats=[];try{expandedCats=JSON.parse(localStorage.getItem('mealRotationExpandedCategoriesV1')||'[]')}catch(e){}
-let autoPinTopCategories=localStorage.getItem('mealRotationAutoPinTopCategoriesV1')==='true';
+let autoPinTopCategories=true;
 let applyPinsToAllTabs=localStorage.getItem('mealRotationApplyPinsAllTabsV1')==='true';
 // Master Categories opening behavior. These two checkbox options are exclusive.
 let masterOpenMode=localStorage.getItem('mealRotationMasterOpenModeV1')||'all';
@@ -377,7 +377,7 @@ let lastTopPinnedCategories=new Set();
 function effectivePinnedCategories(){
  const assigned=[];
  const plan=mealPlans.find(p=>p.id===activePlanId);
- if(plan?.autoPinTopCategories){
+ if(plan){
   for(const day of weekdays){
    const raw=plan.weekdayCategories?.[day];
    for(const c of (Array.isArray(raw)?raw:[raw]))if(cats.includes(c))assigned.push(c);
@@ -391,12 +391,12 @@ function saveCategoryColors(){try{localStorage.setItem('mealRotationCategoryColo
 const defaultColorForCat=c=>c==='Weekend'?catColors[Math.max(0,cats.indexOf('Misc'))%catColors.length]:c==='Misc'?'#eee7df':catColors[Math.max(0,cats.indexOf(c))%catColors.length];
 // Color is attached to the weekday, not to the category assigned to it.
 // Existing category colors are used once to preserve familiar colors during migration.
-const weekdayColorDefaults={Tuesday:'#e9f1fc',Wednesday:'#e9f4ed',Thursday:'#fff1df',Friday:'#f3eafa',Saturday:'#fff0ef',Sunday:'#ffe9e5',Monday:'#eef0fa'};
+const weekdayColorDefaults={Tuesday:'#B7CF9B',Wednesday:'#F0CA76',Thursday:'#CCAFD2',Friday:'#E5A087',Saturday:'#A8D6C7',Sunday:'#DBA0AC',Monday:'#B2C4DD'};
 let weekdayColors={};
 try{const stored=JSON.parse(localStorage.getItem('mealRotationWeekdayColorsV1')||'{}');if(stored&&typeof stored==='object'&&!Array.isArray(stored))weekdayColors=Object.fromEntries(Object.entries(stored).filter(([d,color])=>weekdays.includes(d)&&/^#[0-9a-fA-F]{6}$/.test(color)))}catch(e){}
-function saveWeekdayColors(){try{localStorage.setItem('mealRotationWeekdayColorsV1',JSON.stringify(weekdayColors))}catch(e){}}
+function saveWeekdayColors(){weekdayColors={...weekdayColorDefaults};try{localStorage.setItem('mealRotationWeekdayColorsV1',JSON.stringify(weekdayColors))}catch(e){}}
 function deriveWeekdayColors(legacy=categoryColors){return Object.fromEntries(weekdays.map(day=>{const cat=getDayCategories(day)[0];return [day,cat?(legacy[cat]||defaultColorForCat(cat)):weekdayColorDefaults[day]]}))}
-const colorForDay=day=>weekdayColors[day]||weekdayColorDefaults[day]||'#ffffff';
+const colorForDay=day=>weekdayColorDefaults[day]||'#ffffff';
 // A category assigned to several weekdays displays every assigned day's color.
 // This is derived from the active plan, so no saved category data is changed.
 const colorForCat=c=>{
@@ -455,7 +455,7 @@ spreadsheetMeals.forEach(([cat,name,rotation]) => {
 id = Math.max(id, 1 + Math.max(0, ...meals.map(m => Number(m.id)||0)));
 try { localStorage.setItem('mealRotationDataV1', JSON.stringify({cats,active,meals})); } catch(e) {}
 }
-if(!Object.keys(weekdayColors).length){weekdayColors=deriveWeekdayColors();saveWeekdayColors();}
+weekdayColors={...weekdayColorDefaults};saveWeekdayColors();
 // Keep Top Recipes as the default landing page, but restore the current view
 // when this browser tab refreshes. A fresh navigation still opens Top Recipes.
 // Meal-plan tabs: keep this plan's weekday selection and individual meal overrides separate.
@@ -468,10 +468,10 @@ try{
  if(stored&&Array.isArray(stored.plans)&&stored.plans.length){
   const valid=stored.plans.filter(p=>p&&typeof p.id==='string'&&typeof p.name==='string'&&p.weekdayCategories&&typeof p.weekdayCategories==='object');
   if(valid.length){mealPlans=valid;
-   mealPlans.forEach(p=>{if(typeof p.autoPinTopCategories!=='boolean')p.autoPinTopCategories=p.id==='original'?autoPinTopCategories:false});
+   mealPlans.forEach(p=>{if(typeof p.autoPinTopCategories!=='boolean')p.autoPinTopCategories=p.id==='original'?autoPinTopCategories:true});
    activePlanId=valid.some(p=>p.id===stored.activeId)?stored.activeId:valid[0].id;
    const selected=mealPlans.find(p=>p.id===activePlanId);
-   autoPinTopCategories=!!selected.autoPinTopCategories;
+   autoPinTopCategories=true;
    weekdayCategories=JSON.parse(JSON.stringify(selected.weekdayCategories));
    weekdayMealOverrides={...(selected.weekdayMealOverrides||{})};
   }
@@ -492,7 +492,7 @@ function loadMealPlan(planId){
  saveActiveMealPlan();activePlanId=planId;
  weekdayCategories=JSON.parse(JSON.stringify(plan.weekdayCategories||{}));
  weekdayMealOverrides={...(plan.weekdayMealOverrides||{})};weekdayRecipeFilters=JSON.parse(JSON.stringify(plan.weekdayRecipeFilters||{}));try{localStorage.setItem(weekdayRecipeFiltersKey,JSON.stringify(weekdayRecipeFilters))}catch(e){}
- autoPinTopCategories=!!plan.autoPinTopCategories;pinnedCats=[...(plan.pinnedCats||[])];
+ autoPinTopCategories=true;pinnedCats=[...(plan.pinnedCats||[])];
  groceryTabActive=false;allMealsActive=false;saveActiveMealPlan();
  try{localStorage.setItem('mealRotationWeekdayCategoriesV1',JSON.stringify(weekdayCategories));localStorage.setItem('mealRotationWeekdayMealOverridesV1',JSON.stringify(weekdayMealOverrides))}catch(e){}
  topIngredientExpanded.clear();topIngredientManualHiddenOverride.clear();
@@ -501,7 +501,7 @@ function loadMealPlan(planId){
 function nextMealPlanId(){return 'plan-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8)}
 function createMealPlan(name){
  const clean=String(name||'').trim();if(!clean)return;
- saveActiveMealPlan();const created={id:nextMealPlanId(),name:clean,weekdayCategories:{},weekdayMealOverrides:{},weekdayRecipeFilters:{},autoPinTopCategories:false,pinnedCats:[]};
+ saveActiveMealPlan();const created={id:nextMealPlanId(),name:clean,weekdayCategories:{},weekdayMealOverrides:{},weekdayRecipeFilters:{},autoPinTopCategories:true,pinnedCats:[]};
  mealPlans.push(created);loadMealPlan(created.id);
 }
 function restoreMealPlansFromBackup(data){
@@ -511,7 +511,7 @@ function restoreMealPlansFromBackup(data){
  mealPlans=JSON.parse(JSON.stringify(valid));mealPlans.forEach(p=>{if(typeof p.autoPinTopCategories!=='boolean')p.autoPinTopCategories=false});activePlanId=valid.some(p=>p.id===data.activeId)?data.activeId:valid[0].id;
  const plan=mealPlans.find(p=>p.id===activePlanId);
  weekdayCategories=JSON.parse(JSON.stringify(plan.weekdayCategories));
- weekdayMealOverrides={...(plan.weekdayMealOverrides||{})};autoPinTopCategories=!!plan.autoPinTopCategories;pinnedCats=[...(plan.pinnedCats||[])];saveActiveMealPlan();
+ weekdayMealOverrides={...(plan.weekdayMealOverrides||{})};autoPinTopCategories=true;pinnedCats=[...(plan.pinnedCats||[])];saveActiveMealPlan();
 }
 const MASTER_CATEGORIES_VALUE='__all_categories__';
 let masterCategoriesView=false;try{masterCategoriesView=sessionStorage.getItem('mealRotationMasterCategoriesV1')==='true'}catch(e){}
@@ -663,7 +663,7 @@ function rememberCurrentView(){
 let lastRenderedPageKey=null;
 const $=x=>document.getElementById(x);function persist(){try{localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}}window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function captureState(){return JSON.stringify({cats,active,meals,checkedIngredients:[...checkedIngredients],weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,pinnedCats,expandedCats,startWeekday,topCounts,categoryColors,weekdayColors,autoPinTopCategories,applyPinsToAllTabs,masterOpenMode,masterPinsOverride,mealPlans,activePlanId,showMealPlanTabs})}
 function snapshot(){const state=captureState();if(history[history.length-1]!==state){history.push(state);if(history.length>100)history.shift()}redoHistory=[];groceryUndo=null}
-function restoreState(state){cats=state.cats;active=state.active;meals=state.meals;if(Array.isArray(state.mealPlans)&&state.mealPlans.length){mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId||mealPlans[0].id;showMealPlanTabs=!!state.showMealPlanTabs;autoPinTopCategories=!!mealPlans.find(p=>p.id===activePlanId)?.autoPinTopCategories;}else saveActiveMealPlan();checkedIngredients=new Set(state.checkedIngredients||[]);if(state.weekdayCategories)weekdayCategories=state.weekdayCategories;if(state.weekdayMealOverrides)weekdayMealOverrides=state.weekdayMealOverrides;if(state.weekdayRecipeFilters){weekdayRecipeFilters=state.weekdayRecipeFilters;saveWeekdayRecipeFilters();}if(state.pinnedCats)pinnedCats=state.pinnedCats;if(state.expandedCats)expandedCats=state.expandedCats;if(typeof state.autoPinTopCategories==='boolean')autoPinTopCategories=state.autoPinTopCategories;if(typeof state.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=state.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;if(typeof state.masterPinsOverride==='boolean')masterPinsOverride=state.masterPinsOverride;saveMasterOpeningPrefs();if(state.startWeekday)startWeekday=state.startWeekday;if(state.topCounts)topCounts=state.topCounts;categoryColors=state.categoryColors&&typeof state.categoryColors==='object'?{...state.categoryColors}:{};saveCategoryColors();weekdayColors=state.weekdayColors&&typeof state.weekdayColors==='object'?{...state.weekdayColors}:deriveWeekdayColors(categoryColors);saveWeekdayColors();id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;persist();try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));saveWeekdayCategories();saveWeekdayMealOverrides();saveTopCounts();localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));localStorage.setItem('mealRotationStartWeekdayV1',startWeekday);localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}catch(e){}render()}
+function restoreState(state){cats=state.cats;active=state.active;meals=state.meals;if(Array.isArray(state.mealPlans)&&state.mealPlans.length){mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId||mealPlans[0].id;showMealPlanTabs=!!state.showMealPlanTabs;autoPinTopCategories=true;}else saveActiveMealPlan();checkedIngredients=new Set(state.checkedIngredients||[]);if(state.weekdayCategories)weekdayCategories=state.weekdayCategories;if(state.weekdayMealOverrides)weekdayMealOverrides=state.weekdayMealOverrides;if(state.weekdayRecipeFilters){weekdayRecipeFilters=state.weekdayRecipeFilters;saveWeekdayRecipeFilters();}if(state.pinnedCats)pinnedCats=state.pinnedCats;if(state.expandedCats)expandedCats=state.expandedCats;if(typeof state.autoPinTopCategories==='boolean')autoPinTopCategories=true;if(typeof state.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=state.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;if(typeof state.masterPinsOverride==='boolean')masterPinsOverride=state.masterPinsOverride;saveMasterOpeningPrefs();if(state.startWeekday)startWeekday=state.startWeekday;if(state.topCounts)topCounts=state.topCounts;categoryColors=state.categoryColors&&typeof state.categoryColors==='object'?{...state.categoryColors}:{};saveCategoryColors();weekdayColors=state.weekdayColors&&typeof state.weekdayColors==='object'?{...state.weekdayColors}:deriveWeekdayColors(categoryColors);saveWeekdayColors();id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;persist();try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));saveWeekdayCategories();saveWeekdayMealOverrides();saveTopCounts();localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));localStorage.setItem('mealRotationStartWeekdayV1',startWeekday);localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}catch(e){}render()}
 function time(v){v=Number(v);if(!Number.isFinite(v)||v<0)return '—';if(v<60)return v+'m';let h=Math.floor(v/60),m=v%60;return h+'h'+(m?' '+m+'m':'')}
 // Times remain stored in minutes, so existing recipes and backups stay compatible.
 // For NEW bare-number entries: 0–9, 12 and 24 mean hours; other two- and
@@ -1263,8 +1263,8 @@ function restoreSettingsDraft(json){
  const state=JSON.parse(json);
  weekdayCategories=JSON.parse(JSON.stringify(state.weekdayCategories));weekdayMealOverrides={...state.weekdayMealOverrides};weekdayRecipeFilters=JSON.parse(JSON.stringify(state.weekdayRecipeFilters||{}));
  weekdayColors={...state.weekdayColors};pinnedCats=[...state.pinnedCats];expandedCats=[...state.expandedCats];
- autoPinTopCategories=!!state.autoPinTopCategories;applyPinsToAllTabs=!!state.applyPinsToAllTabs;timeDisplayPrefs=JSON.parse(JSON.stringify(state.timeDisplayPrefs));
- showLastCooked=state.showLastCooked!==false;saveLastCookedVisibility();showMealPlanTabs=!!state.showMealPlanTabs;if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;masterPinsOverride=state.masterPinsOverride!==false;saveMasterOpeningPrefs();mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId;startWeekday=state.startWeekday;autoPinTopCategories=!!mealPlans.find(p=>p.id===activePlanId)?.autoPinTopCategories;
+ autoPinTopCategories=true;applyPinsToAllTabs=!!state.applyPinsToAllTabs;timeDisplayPrefs=JSON.parse(JSON.stringify(state.timeDisplayPrefs));
+ showLastCooked=state.showLastCooked!==false;saveLastCookedVisibility();showMealPlanTabs=!!state.showMealPlanTabs;if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;masterPinsOverride=state.masterPinsOverride!==false;saveMasterOpeningPrefs();mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId;startWeekday=state.startWeekday;autoPinTopCategories=true;
  try{
  localStorage.setItem('mealRotationWeekdayCategoriesV1',JSON.stringify(weekdayCategories));
  localStorage.setItem('mealRotationWeekdayMealOverridesV1',JSON.stringify(weekdayMealOverrides));
@@ -1636,15 +1636,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
       renderTabs();renderList();
     };
     const label=document.createElement('strong');label.textContent=day;label.style.cssText='flex:1;font-size:14px';
-    const picker=document.createElement('input');picker.type='color';picker.value=colorForDay(day);
-    picker.setAttribute('aria-label',day+' color');picker.title='Choose color for '+day;
-    picker.style.cssText='width:40px;height:38px;flex:0 0 40px;padding:2px;border:1px solid #ccc;border-radius:8px;background:#fff';
-    picker.onchange=()=>{
-      const chosen=picker.value;
-      if(!/^#[0-9a-fA-F]{6}$/.test(chosen)||colorForDay(day).toLowerCase()===chosen.toLowerCase())return;
-      snapshot();weekdayColors[day]=chosen;saveWeekdayColors();renderTabs();renderList();
-    };
-    head.append(radio,label,picker);outer.append(head);
+    head.append(radio,label);outer.append(head);
     const categoryRows=document.createElement('div');categoryRows.style.cssText='margin:5px 0 0 27px;display:flex;flex-direction:column;gap:6px';
     const assigned=getDayCategories(day);
     function makeSelect(value,index){
@@ -1683,21 +1675,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
     outer.append(categoryRows);weekGroup.content.append(outer);
   });
 }
-;const oldTopSettings=renderTopSettingsPanel;renderTopSettingsPanel=function(){oldTopSettings();const pinGroup=makeSettingsGroup('groups','Group Shortcuts');topPanel.append(pinGroup.details);const autoLabel=document.createElement('label');
-autoLabel.style.cssText='display:flex;align-items:center;gap:8px;width:100%;font-size:14px;padding:6px 0';
-const autoCheck=document.createElement('input');autoCheck.type='checkbox';autoCheck.checked=autoPinTopCategories;
-autoCheck.setAttribute('aria-label',"Enable smart shortcuts");
-autoCheck.onchange=()=>{
-  snapshot();autoPinTopCategories=autoCheck.checked;
-  saveActiveMealPlan();
-  localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories));
-  renderTabs();
-};
-const autoText=document.createElement('span');autoText.textContent="Enable smart shortcuts";
-autoLabel.append(autoCheck,autoText);
-pinGroup.content.append(autoLabel);
-const shortcutHelp=document.createElement('button');shortcutHelp.type='button';shortcutHelp.textContent='?';shortcutHelp.title='What are smart shortcuts?';shortcutHelp.setAttribute('aria-label','Help: smart shortcuts');shortcutHelp.style.cssText='display:inline-flex;align-items:center;justify-content:center;border:1px solid #888;border-radius:50%;width:23px;height:23px;min-width:23px;padding:0;font-size:15px;font-weight:bold;background:transparent;color:inherit;cursor:pointer';shortcutHelp.onclick=()=>appDialog('Smart shortcuts automatically display shortcuts for the groups assigned to weekdays in the currently selected meal-plan tab. You can also choose additional shortcuts below.',null,'confirm');autoLabel.append(shortcutHelp);
-const shareLabel=document.createElement('label');shareLabel.style.cssText='display:flex;align-items:center;gap:8px;width:100%;font-size:14px;padding:6px 0';
+;const oldTopSettings=renderTopSettingsPanel;renderTopSettingsPanel=function(){oldTopSettings();const pinGroup=makeSettingsGroup('groups','Group Shortcuts');topPanel.append(pinGroup.details);const shareLabel=document.createElement('label');shareLabel.style.cssText='display:flex;align-items:center;gap:8px;width:100%;font-size:14px;padding:6px 0';
 const shareCheck=document.createElement('input');shareCheck.type='checkbox';shareCheck.checked=applyPinsToAllTabs;
 shareCheck.setAttribute('aria-label','Show my selected shortcuts in all tabs');
 shareCheck.onchange=()=>{applyPinsToAllTabs=shareCheck.checked;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs));renderTabs()};
@@ -1706,10 +1684,7 @@ const additionalPinsHeading=document.createElement('strong');additionalPinsHeadi
 
 };let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/></svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
 const displayGroup=makeSettingsGroup('display','Display');populateTimeSettings(displayGroup.content);
-const linkedVisibilityLabel=document.createElement('label');linkedVisibilityLabel.className='settings-display-option';
-const linkedVisibilityCheck=document.createElement('input');linkedVisibilityCheck.type='checkbox';linkedVisibilityCheck.checked=localStorage.getItem('mealRotationShowLinkedInGroupsV1')!=='false';
-linkedVisibilityCheck.onchange=()=>{localStorage.setItem('mealRotationShowLinkedInGroupsV1',String(linkedVisibilityCheck.checked));renderList()};
-linkedVisibilityLabel.append(linkedVisibilityCheck,document.createTextNode('Show linked recipes in Meal Groups'));displayGroup.content.append(linkedVisibilityLabel);panel.append(displayGroup.details);
+panel.append(displayGroup.details);
 // Version 2 backups capture every app-owned persistent key, including grocery selections.
 // Preserve the original fields for compatibility with older backup readers.
 function captureBackupStorage(){
@@ -1783,7 +1758,7 @@ function restoreBackupStorage(data){
   throw error;
  }
 }
-let exportBtn=document.createElement('button');exportBtn.textContent='Export backup';exportBtn.onclick=()=>{persist();saveActiveMealPlan();saveTimeDisplayPrefs();let blob=new Blob([JSON.stringify({version:2,cats,active,meals,weekdayCategories,weekdayMealOverrides,weekdayColors,categoryColors,timeDisplayPrefs,masterOpenMode,masterPinsOverride,autoPinTopCategories,applyPinsToAllTabs,pinnedCats,expandedCats,mealPlans:{plans:mealPlans,activeId:activePlanId},showMealPlanTabs,storage:captureBackupStorage()},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='meal-rotation-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};let restoreBtn=document.createElement('button');restoreBtn.textContent='Restore backup';restoreBtn.onclick=()=>{let input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=()=>{let file=input.files&&input.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let d=JSON.parse(reader.result);validateBackupCore(d);if(d.version>=2){if(!d.storage)throw new Error('Missing backup storage');restoreBackupStorage(d.storage);location.reload();return;}snapshot();cats=d.cats;meals=d.meals;if(d.weekdayCategories&&typeof d.weekdayCategories==='object')weekdayCategories=d.weekdayCategories;if(typeof d.autoPinTopCategories==='boolean'){autoPinTopCategories=d.autoPinTopCategories;localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}if(typeof d.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=d.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(d.masterOpenMode))masterOpenMode=d.masterOpenMode;if(typeof d.masterPinsOverride==='boolean')masterPinsOverride=d.masterPinsOverride;saveMasterOpeningPrefs();if(Array.isArray(d.pinnedCats)){pinnedCats=d.pinnedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats))}if(Array.isArray(d.expandedCats)){expandedCats=d.expandedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}if(d.weekdayMealOverrides&&typeof d.weekdayMealOverrides==='object')weekdayMealOverrides=d.weekdayMealOverrides;if(d.mealPlans)restoreMealPlansFromBackup(d.mealPlans);if(typeof d.showMealPlanTabs==='boolean'){showMealPlanTabs=d.showMealPlanTabs;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))};saveWeekdayCategories();saveWeekdayMealOverrides();if(d.categoryColors&&typeof d.categoryColors==='object'&&!Array.isArray(d.categoryColors)){categoryColors=Object.fromEntries(Object.entries(d.categoryColors).filter(([c,color])=>typeof c==='string'&&/^#[0-9a-fA-F]{6}$/.test(color)));saveCategoryColors()}weekdayColors=d.weekdayColors&&typeof d.weekdayColors==='object'&&!Array.isArray(d.weekdayColors)?Object.fromEntries(Object.entries(d.weekdayColors).filter(([day,color])=>weekdays.includes(day)&&/^#[0-9a-fA-F]{6}$/.test(color))):deriveWeekdayColors(categoryColors);saveWeekdayColors();if(d.timeDisplayPrefs){setTimeDisplayPrefs(d.timeDisplayPrefs);saveTimeDisplayPrefs()}active=cats.includes(d.active)?d.active:(cats[0]||'Soup');id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;persist();render();panel.classList.add('hidden');settings.setAttribute('aria-expanded','false')}catch(e){alert('Backup rejected or restore failed: '+e.message+'. No changes were made if validation failed.')}};reader.readAsText(file)};input.click()};let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=async()=>{await finishSettings('ask');render()};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipe files or Trello boards into Ideas';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=displayGroup;
+let exportBtn=document.createElement('button');exportBtn.textContent='Export backup';exportBtn.onclick=()=>{persist();saveActiveMealPlan();saveTimeDisplayPrefs();let blob=new Blob([JSON.stringify({version:2,cats,active,meals,weekdayCategories,weekdayMealOverrides,weekdayColors,categoryColors,timeDisplayPrefs,masterOpenMode,masterPinsOverride,autoPinTopCategories,applyPinsToAllTabs,pinnedCats,expandedCats,mealPlans:{plans:mealPlans,activeId:activePlanId},showMealPlanTabs,storage:captureBackupStorage()},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='meal-rotation-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};let restoreBtn=document.createElement('button');restoreBtn.textContent='Restore backup';restoreBtn.onclick=()=>{let input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=()=>{let file=input.files&&input.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let d=JSON.parse(reader.result);validateBackupCore(d);if(d.version>=2){if(!d.storage)throw new Error('Missing backup storage');restoreBackupStorage(d.storage);location.reload();return;}snapshot();cats=d.cats;meals=d.meals;if(d.weekdayCategories&&typeof d.weekdayCategories==='object')weekdayCategories=d.weekdayCategories;if(typeof d.autoPinTopCategories==='boolean'){autoPinTopCategories=true;localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}if(typeof d.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=d.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(d.masterOpenMode))masterOpenMode=d.masterOpenMode;if(typeof d.masterPinsOverride==='boolean')masterPinsOverride=d.masterPinsOverride;saveMasterOpeningPrefs();if(Array.isArray(d.pinnedCats)){pinnedCats=d.pinnedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats))}if(Array.isArray(d.expandedCats)){expandedCats=d.expandedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}if(d.weekdayMealOverrides&&typeof d.weekdayMealOverrides==='object')weekdayMealOverrides=d.weekdayMealOverrides;if(d.mealPlans)restoreMealPlansFromBackup(d.mealPlans);if(typeof d.showMealPlanTabs==='boolean'){showMealPlanTabs=d.showMealPlanTabs;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))};saveWeekdayCategories();saveWeekdayMealOverrides();if(d.categoryColors&&typeof d.categoryColors==='object'&&!Array.isArray(d.categoryColors)){categoryColors=Object.fromEntries(Object.entries(d.categoryColors).filter(([c,color])=>typeof c==='string'&&/^#[0-9a-fA-F]{6}$/.test(color)));saveCategoryColors()}weekdayColors=d.weekdayColors&&typeof d.weekdayColors==='object'&&!Array.isArray(d.weekdayColors)?Object.fromEntries(Object.entries(d.weekdayColors).filter(([day,color])=>weekdays.includes(day)&&/^#[0-9a-fA-F]{6}$/.test(color))):deriveWeekdayColors(categoryColors);saveWeekdayColors();if(d.timeDisplayPrefs){setTimeDisplayPrefs(d.timeDisplayPrefs);saveTimeDisplayPrefs()}active=cats.includes(d.active)?d.active:(cats[0]||'Soup');id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;persist();render();panel.classList.add('hidden');settings.setAttribute('aria-expanded','false')}catch(e){alert('Backup rejected or restore failed: '+e.message+'. No changes were made if validation failed.')}};reader.readAsText(file)};input.click()};let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=async()=>{await finishSettings('ask');render()};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipe files or Trello boards into Ideas';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=displayGroup;
  const planOption=document.createElement('label');planOption.className='settings-display-option';
  const planCheck=document.createElement('input');planCheck.type='checkbox';planCheck.checked=showMealPlanTabs;
  planCheck.onchange=()=>{showMealPlanTabs=planCheck.checked;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs));renderList()};
@@ -2638,7 +2613,7 @@ function renderMasterCategories(list){
      if(rot){for(const [glyph,dir] of [['↑',-1],['↓',1]]){const btn=document.createElement('button');btn.type='button';btn.className='move';btn.textContent=glyph;btn.title=(dir<0?'Up':'Down')+': tap to move to '+(dir<0?'top':'bottom')+', hold to move one position';bindMasterCategoryMove(btn,m,dir);row.append(btn)}}
      else{const cb=document.createElement('input');cb.type='checkbox';cb.className='check';cb.checked=false;cb.setAttribute('aria-label','Move '+m.name+' to rotation');cb.onchange=()=>{snapshot();m.rotation=true;const i=meals.indexOf(m);if(i>=0)meals.splice(i,1);const first=meals.findIndex(x=>x.cat===m.cat&&x.rotation);if(first<0)meals.push(m);else meals.splice(first,0,m);persist();renderList()};row.append(cb)}
      const name=document.createElement('button');name.type='button';name.className='master-category-meal-name';name.textContent=m.name||'Untitled meal';bindGroupMealPress(name,m);const mealInfo=document.createElement('div');mealInfo.className='master-meal-info';mealInfo.append(name);appendLastCookedLabel(mealInfo,m);
-     if(localStorage.getItem('mealRotationShowLinkedInGroupsV1')!=='false'&&Array.isArray(m.linkedMealIds)&&m.linkedMealIds.length){
+     if(Array.isArray(m.linkedMealIds)&&m.linkedMealIds.length){
       const linkedTargets=[...new Map(m.linkedMealIds.map(targetId=>meals.find(x=>String(x.id)===String(targetId))).filter(Boolean).map(target=>[String(target.id),target])).values()];
       if(linkedTargets.length){
        const linkedInfo=document.createElement('div');linkedInfo.className='top-inline-linked';linkedInfo.style.cssText='font-size:13px;color:#637080;margin-top:2px;display:flex;flex-wrap:wrap;gap:2px 7px;align-items:center';
@@ -2717,7 +2692,7 @@ function renderList(){rememberCurrentView();
    activeTabMenuId=null;
    if(activePlanId===selected.id){
     const plan=mealPlans[0];activePlanId=plan.id;
-    weekdayCategories=JSON.parse(JSON.stringify(plan.weekdayCategories));weekdayMealOverrides={...(plan.weekdayMealOverrides||{})};autoPinTopCategories=!!plan.autoPinTopCategories;
+    weekdayCategories=JSON.parse(JSON.stringify(plan.weekdayCategories));weekdayMealOverrides={...(plan.weekdayMealOverrides||{})};autoPinTopCategories=true;
    }
    saveActiveMealPlan();render();
   }
