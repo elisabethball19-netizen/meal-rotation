@@ -765,7 +765,7 @@ function appendMealTimes(body,meal){
   ['Tap a category heading or chevron','Expand or collapse that category. Use the two chevron buttons at the top to expand all or collapse all.'],
   ['Tap the pencil beside a category','Open its editing options to reorder (where allowed), rename, or delete the category. Assigned categories follow weekday order; unassigned categories can be reordered manually.'],
   ['Tap + beside a category','Add a meal to that category.'],
-  ['Tap the pencil beside a meal','Open the meal editor.'],
+  ['Tap a meal, then choose Edit meal','Open the meal editor.'],
   ['Tap the up or down arrow beside a rotation meal','Move it to the top or bottom of that category’s rotation. Hold the arrow to move it one position.'],
   ['Check an idea','Move that meal from Ideas into In Rotation.'],
   ['Last cooked label','Shows the most recent date recorded using Mark as cooked in My Rotation.']
@@ -953,7 +953,7 @@ function recipeImportCsv(text){
  const headers=rows.shift().map(x=>x.toLowerCase().replace(/[^a-z0-9]/g,''));
  const get=(cells,...keys)=>{for(const k of keys){const i=headers.indexOf(k);if(i>=0&&String(cells[i]??'').trim())return String(cells[i]).trim()}return ''};
  if(!headers.some(x=>['name','title','recipename','recipe'].includes(x)))return [];
- return rows.map(cells=>({name:get(cells,'name','title','recipename','recipe'),recipeCategory:get(cells,'groups','category','tags','labels','recipecategory'),recipeIngredient:get(cells,'ingredients','recipeingredient','ingredientlist','ingredient'),prepTime:get(cells,'preptime','preparationtime','prepminutes'),cookTime:get(cells,'cooktime','cookingtime','cookminutes'),totalTime:get(cells,'totaltime','duration','totalminutes'),url:get(cells,'url','recipeurl','link','sourceurl','source','website'),identifier:get(cells,'id','recipeid','uuid')})).filter(x=>x.name);
+ return rows.map(cells=>({name:get(cells,'name','title','recipename','recipe'),recipeCategory:get(cells,'groups','category','tags','labels','recipecategory'),recipeIngredient:get(cells,'ingredients','recipeingredient','ingredientlist','ingredient'),prepTime:get(cells,'preptime','preparationtime','prepminutes'),cookTime:get(cells,'cooktime','cookingtime','cookminutes'),totalTime:get(cells,'totaltime','duration','totalminutes'),url:get(cells,'url','recipeurl','link','sourceurl','source','website'),identifier:get(cells,'id','recipeid','uuid'),linkedRecipes:get(cells,'linkedrecipes','linkedmeals','relatedrecipes','relatedmeals')})).filter(x=>x.name);
 }
 function recipeImportHtml(text){
  const doc=new DOMParser().parseFromString(text,'text/html');const found=[];
@@ -993,13 +993,19 @@ function recipeImportItems(json){
   if(r['@graph'])return recipeImportItems(r);
   const name=String(r.name||r.title||r.recipeName||'').trim();if(!name)return [];
   if(r['@type']&&!String(Array.isArray(r['@type'])?r['@type'].join(' '):r['@type']).toLowerCase().includes('recipe'))return [];
-  return [{...r,name,recipeCategory:r.recipeCategory??r.categories??r.labels??r.tags??r.keywords??[],recipeIngredient:r.recipeIngredient??r.ingredients??[],prepTime:r.prepTime??r.prep_time??r.preparationTime??'',cookTime:r.cookTime??r.cook_time??'',totalTime:r.totalTime??r.total_time??'',url:r.url||r.recipeUrl||r.link||r.source_url||r.sourceUrl||'',identifier:r.identifier||r.id||r.uid||r.uuid||'',importSourceId:r.importSourceId||(r.uid?'paprika:'+r.uid:r.title&&r.id?'mela:'+r.id:'')}];
+  return [{...r,name,recipeCategory:r.recipeCategory??r.categories??r.labels??r.tags??r.keywords??[],recipeIngredient:r.recipeIngredient??r.ingredients??[],prepTime:r.prepTime??r.prep_time??r.preparationTime??'',cookTime:r.cookTime??r.cook_time??'',totalTime:r.totalTime??r.total_time??'',url:r.url||r.recipeUrl||r.link||r.source_url||r.sourceUrl||'',identifier:r.identifier||r.id||r.uid||r.uuid||'',linkedRecipes:r.linkedRecipes??r.linkedMeals??r.linkedRecipeIds??r.linkedMealIds??r.relatedRecipes??r.relatedMeals??[],importSourceId:r.importSourceId||(r.uid?'paprika:'+r.uid:r.title&&r.id?'mela:'+r.id:'')}];
  });
 }
 function recipeImportTags(r){
  const values=r.recipeCategory??r.labels??r.keywords??r.categories??[];
  return [...new Set((Array.isArray(values)?values:typeof values==='string'?values.split(/[,;|]/):[])
   .map(x=>typeof x==='string'?x.trim():x&&typeof x==='object'?String(x.name||x.label||'').trim():'').filter(Boolean))];
+}
+// Imported relationships are resolved only against recipes in the import or existing library.
+function recipeImportLinkedReferences(r){
+ const raw=r.linkedRecipes??r.linkedMeals??r.linkedRecipeIds??r.linkedMealIds??r.relatedRecipes??r.relatedMeals??[];
+ const values=Array.isArray(raw)?raw:typeof raw==='string'?raw.split(/[,;|]/):[raw];
+ return values.map(x=>typeof x==='object'&&x!==null?String(x.id??x.identifier??x.uuid??x.name??x.title??'').trim():String(x??'').trim()).filter(Boolean);
 }
 function recipeImportMinutes(value){
  if(value===undefined||value===null||value==='')return '';
@@ -1106,7 +1112,7 @@ function showRecipeImportSelection(items,filename){
  for(const tag of tags){const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 4px;font-size:16px';const cb=document.createElement('input');cb.type='checkbox';cb.checked=false;cb.style.cssText='width:21px;height:21px;flex:0 0 21px';const name=document.createElement('span');name.textContent=tag;name.style.flex='1';const count=document.createElement('span');count.textContent=String(items.filter(x=>recipeImportTags(x).includes(tag)).length);count.style.cssText='font-size:12px;color:#888';row.append(cb,name,count);list.append(row);checks.push({tag,cb});cb.onchange=updateSummary;}
  if(!tags.length){list.textContent='This file has no recipe tags. All imported meals will go into Misc.';list.style.fontSize='14px';all.disabled=true;none.disabled=true;}
  box.append(list);
- const notes=document.createElement('p');notes.style.cssText='font-size:13px;color:#666;margin:0';notes.textContent='Unselected labels will not become groups. Meals with no selected label will go to Misc. Every imported meal will start in Ideas.';box.append(notes);
+ const notes=document.createElement('p');notes.style.cssText='font-size:13px;color:#666;margin:0';notes.textContent='All imported tags become recipe labels. Checked tags also become meal groups. Meals without a checked group go to Misc. Imported meals start in Ideas.';box.append(notes);
  const footer=document.createElement('div');footer.style.cssText='display:flex;justify-content:flex-end;gap:10px;margin-top:6px';
  const cancel=document.createElement('button');cancel.type='button';cancel.className='smallbtn';cancel.textContent='Cancel';
  const apply=document.createElement('button');apply.type='button';apply.className='smallbtn';apply.textContent='Import recipes';apply.style.cssText='background:#e8eefb;border-color:#aac0df;font-weight:600';
@@ -1117,6 +1123,7 @@ function showRecipeImportSelection(items,filename){
   const chosen=new Set(checks.filter(x=>x.cb.checked).map(x=>x.tag));
   const normalize=x=>String(x||'').trim().toLocaleLowerCase();
   const nextCats=[...cats],newMeals=[...meals],addedCats=[];
+  const pendingLinks=[];const canonicalLabels=new Map(allRecipeLabels().map(name=>[labelKey(name),name]));
   const existingIds=new Set(meals.map(m=>String(m.importSourceId||'')).filter(Boolean));
   let nextId=id,added=0,skipped=0,firstCategory='';
   const catFor=tag=>{const key=normalize(tag);let cat=nextCats.find(c=>normalize(c)===key);if(!cat){cat=tag.charAt(0).toUpperCase()+tag.slice(1);nextCats.push(cat);addedCats.push(cat)}return cat};
@@ -1130,19 +1137,24 @@ function showRecipeImportSelection(items,filename){
    const prep=recipeImportMinutes(r.prepTime??r.activeTime);
    const total=recipeImportMinutes(r.totalTime);
    const cook=recipeImportMinutes(r.cookTime);
-   const base={name:r.name.trim(),rotation:false,prep,cook:total!==''?'':cook,total:total!==''?total:(prep!==''&&cook!==''?Number(prep)+Number(cook):''),marinate:'',url:recipeImportUrl(r),sourceUrl:recipeImportSourceUrl(r),recipeSageId:/^[0-9a-f]{8}-/.test(sourceId)?sourceId:'',importSourceId:sourceId,ingredients:recipeImportIngredients(r)};
+   const importedLabels=[...new Set(recipeImportTags(r).map(tag=>{const key=labelKey(tag);if(!canonicalLabels.has(key))canonicalLabels.set(key,tag.trim().replace(/\s+/g,' '));return canonicalLabels.get(key)}))];
+   const base={name:r.name.trim(),labels:importedLabels,rotation:false,prep,cook:total!==''?'':cook,total:total!==''?total:(prep!==''&&cook!==''?Number(prep)+Number(cook):''),marinate:'',url:recipeImportUrl(r),sourceUrl:recipeImportSourceUrl(r),recipeSageId:/^[0-9a-f]{8}-/.test(sourceId)?sourceId:'',importSourceId:sourceId,ingredients:recipeImportIngredients(r)};
    const group=categories.length>1?'imported-'+(sourceId||nextId):'';
-   categories.forEach(cat=>newMeals.push({...base,id:nextId++,cat,linkGroup:group,ingredients:[...base.ingredients]}));
+   const created=[];categories.forEach(cat=>{const meal={...base,id:nextId++,cat,linkGroup:group,ingredients:[...base.ingredients]};newMeals.push(meal);created.push(meal)});
+   if(recipeImportLinkedReferences(r).length)pendingLinks.push({source:r,created});
    if(sourceId)existingIds.add(sourceId);
    added++;
   }
+  // Resolve links after all imported recipes have IDs; never fabricate missing targets.
+  const findTarget=ref=>{const key=String(ref).trim().toLowerCase();return newMeals.find(m=>[m.importSourceId,m.recipeSageId,m.name,String(m.id)].some(v=>String(v||'').trim().toLowerCase()===key))};
+  for(const entry of pendingLinks){const targetIds=[...new Set(recipeImportLinkedReferences(entry.source).map(ref=>findTarget(ref)?.id).filter(Boolean))];for(const meal of entry.created)meal.linkedMealIds=targetIds.filter(target=>String(target)!==String(meal.id))}
   if(!added){overlay.remove();recipeImportNotice('All recipes in this file have already been imported.');return}
   const nextActive=firstCategory||active;
   const encoded=JSON.stringify({cats:nextCats,active:nextActive,meals:newMeals});
   try{localStorage.setItem('mealRotationDataV1',encoded)}catch(err){
    recipeImportNotice('Import could not be saved. Your browser may be low on storage. No existing meals were changed.');return;
   }
-  snapshot();cats=nextCats;meals=newMeals;id=nextId;active=nextActive;showTop=false;editId=null;menuCat=null;
+  snapshot();cats=nextCats;meals=newMeals;id=nextId;recipeLabelCatalog=[...canonicalLabels.values()];saveRecipeLabelCatalog();active=nextActive;showTop=false;editId=null;menuCat=null;
   expandedCats=[...new Set([...expandedCats,...addedCats])];
   try{localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}
   overlay.remove();render();
@@ -2440,12 +2452,20 @@ function renderMasterCategories(list){
      else{const cb=document.createElement('input');cb.type='checkbox';cb.className='check';cb.checked=false;cb.setAttribute('aria-label','Move '+m.name+' to rotation');cb.onchange=()=>{snapshot();m.rotation=true;const i=meals.indexOf(m);if(i>=0)meals.splice(i,1);const first=meals.findIndex(x=>x.cat===m.cat&&x.rotation);if(first<0)meals.push(m);else meals.splice(first,0,m);persist();renderList()};row.append(cb)}
      const name=document.createElement('button');name.type='button';name.className='master-category-meal-name';name.textContent=m.name||'Untitled meal';bindGroupMealPress(name,m);const mealInfo=document.createElement('div');mealInfo.className='master-meal-info';mealInfo.append(name);appendLastCookedLabel(mealInfo,m);
      if(localStorage.getItem('mealRotationShowLinkedInGroupsV1')!=='false'&&Array.isArray(m.linkedMealIds)&&m.linkedMealIds.length){
-      const linkedNames=[...new Set(m.linkedMealIds.map(targetId=>meals.find(x=>String(x.id)===String(targetId))?.name).filter(Boolean))];
-      if(linkedNames.length){const linkedInfo=document.createElement('div');linkedInfo.textContent='↗ '+linkedNames.join(' · ');linkedInfo.style.cssText='font-size:13px;color:#637080;margin-top:4px';mealInfo.append(linkedInfo)}
+      const linkedTargets=[...new Map(m.linkedMealIds.map(targetId=>meals.find(x=>String(x.id)===String(targetId))).filter(Boolean).map(target=>[String(target.id),target])).values()];
+      if(linkedTargets.length){
+       const linkedInfo=document.createElement('div');linkedInfo.style.cssText='font-size:13px;color:#637080;margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 7px;align-items:center';
+       const marker=document.createElement('span');marker.textContent='↗';linkedInfo.append(marker);
+       linkedTargets.forEach((target,index)=>{
+        if(index){const sep=document.createElement('span');sep.textContent='·';linkedInfo.append(sep)}
+        const link=document.createElement('button');link.type='button';link.textContent=target.name||'Untitled meal';link.title='Go to '+(target.name||'meal')+' in '+target.cat;link.style.cssText='background:none;border:0;padding:0;color:inherit;font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer;text-align:left';
+        link.onclick=e=>{e.preventDefault();e.stopPropagation();masterExpansionInitialized=true;masterExpandedCategories.clear();masterExpandedCategories.add(target.cat);renderList();requestAnimationFrame(()=>{const rows=[...document.querySelectorAll('.master-category-card .master-category-meal')];const destination=rows.find(row=>row.dataset.mealId===String(target.id));if(destination){destination.scrollIntoView({behavior:'smooth',block:'start'});destination.style.outline='2px solid #6689b5';destination.style.outlineOffset='2px';setTimeout(()=>{if(destination.isConnected){destination.style.outline='';destination.style.outlineOffset=''}},2200)}})};
+        linkedInfo.append(link)
+       });mealInfo.append(linkedInfo)
+      }
      }
      row.append(mealInfo);
      if(m.linkGroup&&meals.filter(x=>x.linkGroup===m.linkGroup).length>1){const dot=document.createElement('span');dot.className='linked-meal-dot';dot.textContent='•';dot.title='Shared across categories';dot.setAttribute('aria-label','Shared recipe');row.append(dot)}
-     const edit=document.createElement('button');edit.type='button';edit.className='iconbtn';setIconButton(edit,'rename','Edit '+m.name);edit.onclick=()=>openEditor(m.id);row.append(edit);
      items.append(row);
     }
    }
@@ -2620,7 +2640,7 @@ item.append(cb,text);detail.append(item)})}if(ingredients.length)wrap.append(det
   panel.append(heading);
   const actions=document.createElement('div');
   actions.style.cssText='display:flex;flex-direction:column;gap:12px';
-  const options=[['Open recipe',()=>openSavedMealRecipe(meal)],['Edit grocery list',()=>openTopIngredientChooser(meal)]];
+  const options=[['Open recipe',()=>openSavedMealRecipe(meal)],['Edit meal',()=>openEditor(meal.id)],['Edit grocery list',()=>openTopIngredientChooser(meal)]];
   if(day)options.push(['Change '+day+"'s meal",()=>openWeekdayMealChooser(day,category,meal)]);
   options.push(
     ['Edit last cooked date',()=>editMealCookedDate(meal)],
@@ -2629,6 +2649,7 @@ item.append(cb,text);detail.append(item)})}if(ingredients.length)wrap.append(det
   options.forEach(([label,action])=>{
     const button=document.createElement('button');
     button.type='button';button.className='smallbtn';button.textContent=label;
+    if(label==='Open recipe'){const external=document.createElement('span');external.textContent=' ↗';external.setAttribute('aria-hidden','true');external.style.cssText='font-size:18px;vertical-align:baseline;margin-left:5px';button.append(external)}
     button.style.cssText='padding:12px 14px;width:100%;font-size:16px';
     button.onclick=()=>{overlay.remove();action()};
     actions.append(button);
@@ -3604,7 +3625,7 @@ $('recipeLabels').onclick=()=>{
  const search=document.createElement('input');search.type='search';search.placeholder='Search labels';search.style.cssText='width:100%;padding:10px;border:1px solid #bbb;border-radius:8px';panel.append(search);
  const addRow=document.createElement('div');addRow.style.cssText='display:flex;gap:8px';const newInput=document.createElement('input');newInput.placeholder='New label';newInput.style.cssText='min-width:0;flex:1;padding:9px;border:1px solid #bbb;border-radius:8px';const add=document.createElement('button');add.className='smallbtn';add.textContent='+';add.title='Add label';add.setAttribute('aria-label','Add label');addRow.append(newInput,add);panel.append(addRow);
  const list=document.createElement('div');list.style.cssText='overflow:auto;min-height:60px;flex:1';panel.append(list);
- function draw(){list.replaceChildren();const query=labelKey(search.value);for(const name of allRecipeLabels().filter(x=>labelKey(x).includes(query))){const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #eee';const check=document.createElement('input');check.type='checkbox';check.checked=recipeLabelDraft.some(x=>labelKey(x)===labelKey(name));check.style.cssText='width:20px;height:20px';check.onchange=()=>{recipeLabelDraft=recipeLabelDraft.filter(x=>labelKey(x)!==labelKey(name));if(check.checked)recipeLabelDraft.push(name)};const title=document.createElement('span');title.textContent=name;title.style.flex='1';const edit=document.createElement('button');edit.type='button';edit.className='smallbtn';edit.textContent='✎';edit.title='Rename or delete label';edit.setAttribute('aria-label','Edit '+name);edit.onclick=async()=>{const action=await appDialog('Edit '+name,null,'options',['Rename','Delete','Cancel']);if(action==='Rename'){const next=await appDialog('Rename label',name,'prompt');if(next===null||!String(next).trim())return;const existing=allRecipeLabels().find(x=>labelKey(x)===labelKey(next)&&labelKey(x)!==labelKey(name));if(existing){await appDialog('That label already exists. Select it instead.');return}changeRecipeLabel(name,next);recipeLabelDraft=recipeLabelDraft.map(x=>labelKey(x)===labelKey(name)?String(next).trim():x);draw()}else if(action==='Delete'){if(await appDialog('Delete label '+name+'?',null,'yesno')!==true)return;changeRecipeLabel(name,'');recipeLabelDraft=recipeLabelDraft.filter(x=>labelKey(x)!==labelKey(name));draw()}};row.append(check,title,edit);list.append(row)}}
+ function draw(){list.replaceChildren();const query=labelKey(search.value);for(const name of allRecipeLabels().filter(x=>labelKey(x).includes(query)).sort((a,b)=>Number(recipeLabelDraft.some(x=>labelKey(x)===labelKey(b)))-Number(recipeLabelDraft.some(x=>labelKey(x)===labelKey(a))))){const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #eee';const check=document.createElement('input');check.type='checkbox';check.checked=recipeLabelDraft.some(x=>labelKey(x)===labelKey(name));check.style.cssText='width:20px;height:20px';check.onchange=()=>{recipeLabelDraft=recipeLabelDraft.filter(x=>labelKey(x)!==labelKey(name));if(check.checked)recipeLabelDraft.push(name);draw();list.scrollTop=0};const title=document.createElement('span');title.textContent=name;title.style.flex='1';const edit=document.createElement('button');edit.type='button';edit.className='smallbtn';edit.textContent='✎';edit.title='Rename or delete label';edit.setAttribute('aria-label','Edit '+name);edit.onclick=async()=>{const action=await appDialog('Edit '+name,null,'options',['Rename','Delete','Cancel']);if(action==='Rename'){const next=await appDialog('Rename label',name,'prompt');if(next===null||!String(next).trim())return;const existing=allRecipeLabels().find(x=>labelKey(x)===labelKey(next)&&labelKey(x)!==labelKey(name));if(existing){await appDialog('That label already exists. Select it instead.');return}changeRecipeLabel(name,next);recipeLabelDraft=recipeLabelDraft.map(x=>labelKey(x)===labelKey(name)?String(next).trim():x);draw()}else if(action==='Delete'){if(await appDialog('Delete label '+name+'?',null,'yesno')!==true)return;changeRecipeLabel(name,'');recipeLabelDraft=recipeLabelDraft.filter(x=>labelKey(x)!==labelKey(name));draw()}};row.append(check,title,edit);list.append(row)}}
  add.onclick=()=>{const name=newInput.value.trim().replace(/\s+/g,' ');if(!name)return;const existing=allRecipeLabels().find(x=>labelKey(x)===labelKey(name));const canonical=existing||name;if(!existing){recipeLabelCatalog.push(name);saveRecipeLabelCatalog()}if(!recipeLabelDraft.some(x=>labelKey(x)===labelKey(canonical)))recipeLabelDraft.push(canonical);newInput.value='';search.value='';draw()};newInput.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();add.click()}};search.oninput=draw;draw();
  const actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:flex-end;gap:12px;flex-shrink:0;padding-top:12px;border-top:1px solid #ddd';for(const [symbol,label,save] of [['✕','Cancel',false],['✓','OK',true]]){const button=document.createElement('button');button.className='smallbtn';button.textContent=symbol;button.title=label;button.setAttribute('aria-label',label);button.style.cssText='font-size:23px;min-width:48px';button.onclick=()=>{if(!save)recipeLabelDraft=before;overlay.remove();updateRecipeLabelButton()};actions.append(button)}panel.append(actions);overlay.append(panel);document.body.append(overlay);
 };
