@@ -2506,7 +2506,10 @@ function openLabelManager(){
  function finishLabels(save){
   if(!save)discardLabelChanges();
   else {saveRecipeLabelCatalog();saveWeekdayRecipeFilters();persist()}
-  overlay.remove();renderList();
+  overlay.remove();
+  // Rebuilding the meal list while its inline editor is open removes that editor.
+  // Defer list refresh until the editor itself is saved or canceled.
+  if(editId===null)renderList();
  }
  async function confirmLabelCancel(){
   if(!hasLabelChanges()){finishLabels(false);return}
