@@ -2730,7 +2730,7 @@ addFloatingViewButtons();
 
 const displayedTop=getDisplayedWeekdayMeals();
 for(const day of orderedDays()){
- if(isEmptyDay(day))displayedTop.push({day,cat:null,meal:null});
+ if(isEmptyDay(day)||!getDayCategories(day).length)displayedTop.push({day,cat:null,meal:null});
  else if(getDayCategories(day).length&&!displayedTop.some(item=>item.day===day))
   displayedTop.push({day,cat:null,meal:null,needsRotation:true});
 }
