@@ -254,10 +254,10 @@ body:has(#list.top-summary):has(.overview-home-fab) #summary{display:none!import
 
 /* Unified four-button floating navigation across all four views. */
 #summary{display:none!important}
-.unified-nav-fab{right:max(16px,calc((100vw - 760px)/2 + 16px))!important;width:50px!important;height:50px!important;border:1px solid #bdc9d6!important;background:#fff!important;box-shadow:0 3px 10px #0002!important;border-radius:12px!important;padding:10px!important;color:#333!important;z-index:1002!important}
-.unified-nav-fab svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.unified-nav-fab{right:max(14px,calc((100vw - 760px)/2 + 14px))!important;width:44px!important;height:44px!important;border:1px solid #cbd2d9!important;background:#fff!important;box-shadow:0 2px 6px #0002!important;border-radius:11px!important;padding:9px!important;color:#333!important;z-index:1002!important}
+.unified-nav-fab svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 body:has(.editor) .unified-nav-fab{display:none!important}
-.unified-nav-fab.current-view{background:#edf3fa!important;border-color:#7294c2!important;color:#315ba8!important;box-shadow:0 3px 12px rgba(49,91,168,.3),inset 0 0 0 1px #7294c2!important}
+.unified-nav-fab.current-view{background:#edf3fa!important;border-color:#7294c2!important;color:#315ba8!important;box-shadow:0 2px 7px rgba(49,91,168,.22),inset 0 0 0 1px #7294c2!important}
 .all-meals-entry{padding:5px 0!important}.all-meals-meal-row{min-height:32px!important}.all-meals-day{padding-top:10px!important;padding-bottom:7px!important}.all-meals-day h3{margin-bottom:3px!important}
 /* Overview pages do not display pinned category shortcuts. */
 body.overview-without-category-pins #categoryButtons{display:none!important;}
@@ -462,9 +462,18 @@ weekdayColors={...weekdayColorDefaults};saveWeekdayColors();
 // when this browser tab refreshes. A fresh navigation still opens Top Recipes.
 // Meal-plan tabs: keep this plan's weekday selection and individual meal overrides separate.
 const mealPlansKey='mealRotationPlansV1';
-let mealPlans=[{id:'original',name:'Meal Plan',weekdayCategories:JSON.parse(JSON.stringify(weekdayCategories)),weekdayMealOverrides:{...weekdayMealOverrides},weekdayRecipeFilters:JSON.parse(JSON.stringify(weekdayRecipeFilters)),autoPinTopCategories}];
+// Only brand-new installations receive the three starter plans. Existing saved
+// installations retain their own plan names, order, and visibility preference.
+const isFirstMealPlanSetup=!hasValidSavedData && localStorage.getItem('mealRotationPlansV1')===null;
+const starterDinner={id:'original',name:isFirstMealPlanSetup?'Dinner':'Meal Plan',weekdayCategories:JSON.parse(JSON.stringify(weekdayCategories)),weekdayMealOverrides:{...weekdayMealOverrides},weekdayRecipeFilters:JSON.parse(JSON.stringify(weekdayRecipeFilters)),autoPinTopCategories};
+let mealPlans=isFirstMealPlanSetup?[
+ {id:'starter-breakfast',name:'Breakfast',weekdayCategories:{},weekdayMealOverrides:{},weekdayRecipeFilters:{},autoPinTopCategories:false,pinnedCats:[]},
+ {id:'starter-lunch',name:'Lunch',weekdayCategories:{},weekdayMealOverrides:{},weekdayRecipeFilters:{},autoPinTopCategories:false,pinnedCats:[]},
+ starterDinner
+]:[starterDinner];
 let activePlanId='original';
-let showMealPlanTabs=localStorage.getItem('mealRotationShowPlanTabsV1')==='true';
+const savedTabVisibility=localStorage.getItem('mealRotationShowPlanTabsV1');
+let showMealPlanTabs=savedTabVisibility===null?isFirstMealPlanSetup:savedTabVisibility==='true';
 try{
  const stored=JSON.parse(localStorage.getItem(mealPlansKey)||'null');
  if(stored&&Array.isArray(stored.plans)&&stored.plans.length){
@@ -484,6 +493,7 @@ mealPlans.forEach(plan=>{
  if(!Array.isArray(plan.pinnedCats))plan.pinnedCats=plan.id===activePlanId?[...pinnedCats]:[];
 });
 pinnedCats=[...(mealPlans.find(p=>p.id===activePlanId)?.pinnedCats||[])];
+if(isFirstMealPlanSetup){try{localStorage.setItem('mealRotationPlansV1',JSON.stringify({plans:mealPlans,activeId:activePlanId}));localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))}catch(e){}}
 function saveActiveMealPlan(){
  const plan=mealPlans.find(p=>p.id===activePlanId);
  if(plan){plan.weekdayCategories=JSON.parse(JSON.stringify(weekdayCategories));plan.weekdayMealOverrides={...weekdayMealOverrides};plan.autoPinTopCategories=autoPinTopCategories;plan.pinnedCats=[...pinnedCats];plan.weekdayRecipeFilters=JSON.parse(JSON.stringify(weekdayRecipeFilters));}
@@ -1401,7 +1411,7 @@ function getMasterGroceryItems(){
    b.title=title;b.setAttribute('aria-label',title);b.dataset.destination=key;
    if(key===current){b.classList.add('current-view');b.setAttribute('aria-current','page');}
    const visibleCount=showMealPlanTabs?4:2;
-   b.style.bottom='calc('+(16+(visibleCount-1-index)*61)+'px + env(safe-area-inset-bottom,0px))';
+   b.style.bottom='calc('+(14+(visibleCount-1-index)*51)+'px + env(safe-area-inset-bottom,0px))';
    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+art+'</svg>';
    b.onclick=()=>navigateAfterSettings(()=>{action();window.scrollTo(0,0);requestAnimationFrame(()=>{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0})});document.body.append(b);
   });
@@ -1573,9 +1583,9 @@ if(showTop){
     b.dataset.category=c;b.className='tab';b.textContent=c;
     let timer=null,longDone=false;
     b.onclick=()=>{if(longDone){longDone=false;return}navigateAfterSettings(()=>{active=c;persist();openMasterCategories(c)})};
-    b.onpointerdown=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;longDone=false;clearTimeout(timer);timer=setTimeout(()=>{longDone=true;menuCat=c;renderMenu()},500)};
+    b.onpointerdown=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;longDone=false;clearTimeout(timer);timer=setTimeout(()=>{longDone=true;activeTabMenuId=null;document.querySelector('#list .meal-plan-menu')?.remove();menuCat=c;renderMenu()},500)};
     ['pointerup','pointerleave','pointercancel'].forEach(event=>b.addEventListener(event,()=>clearTimeout(timer)));
-    b.oncontextmenu=e=>{e.preventDefault();menuCat=c;renderMenu()};
+    b.oncontextmenu=e=>{e.preventDefault();activeTabMenuId=null;document.querySelector('#list .meal-plan-menu')?.remove();menuCat=c;renderMenu()};
     categoryRow.append(b);
   });
   const hidden=cats.filter(c=>!effectivePins.has(c)&&!expandedCats.includes(c));
@@ -1765,7 +1775,8 @@ let exportBtn=document.createElement('button');exportBtn.textContent='Export bac
  const planCheck=document.createElement('input');planCheck.type='checkbox';planCheck.checked=showMealPlanTabs;
  planCheck.onchange=()=>{showMealPlanTabs=planCheck.checked;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs));renderList()};
  planOption.append(planCheck,document.createTextNode('Show meal-plan tabs in My Rotation'));
- planGroup.content.append(planOption);
+ const planHint=document.createElement('div');planHint.style.cssText='font-size:12px;color:#666;padding:0 6px 4px';planHint.textContent='Hide tabs to focus on your currently selected meal plan. Other plans are preserved.';
+ planGroup.content.append(planOption,planHint);
  const backupGroup=makeSettingsGroup('backups','Data & Backups');const backupRow=document.createElement('div');backupRow.className='settings-backup-controls';backupRow.append(exportBtn,importBtn,restoreBtn);backupGroup.content.append(backupRow);panel.append(backupGroup.details);
  panel.append(makeSettingsFooter());
  const help=document.createElement('button');help.id='help';help.className='iconbtn';help.title='Help and gestures';help.setAttribute('aria-label','Help and gestures');help.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01" stroke-linecap="round"/></svg>';help.onclick=()=>openHelpModal();actions.append(help);settings.onclick=async()=>{
@@ -2354,7 +2365,7 @@ function appendMealPlanSettingsPanel(list){}
 function placeViewToolbar(controls){
  const tabBar=document.querySelector('#list .meal-plan-tabs');
  const categoryRow=document.getElementById('categoryButtons');
- if(tabBar){tabBar.after(controls);if(categoryRow)controls.after(categoryRow)}
+ if(tabBar){const tabMenu=document.querySelector('#list .meal-plan-menu');if(tabMenu){tabBar.after(tabMenu);tabMenu.after(controls)}else tabBar.after(controls);if(categoryRow)controls.after(categoryRow)}
  else document.querySelector('#list')?.prepend(controls);
 }
 function renderGroceryViewToolbar(list){
@@ -2655,6 +2666,7 @@ function renderList(){rememberCurrentView();
   // devices a contextmenu/click may also fire; suppress both after a hold.
   let hold=null,held=false,pressStart=null;
   const openTabEditor=()=>{
+   menuCat=null;renderMenu();
    if(plan.id!==activePlanId){
     navigateAfterSettings(()=>{loadMealPlan(plan.id);activeTabMenuId=plan.id;renderList()});
    }else{activeTabMenuId=plan.id;renderList()}
@@ -2705,7 +2717,7 @@ function renderList(){rememberCurrentView();
   for(const [title,type,action] of [['Rename','rename',rename],['Delete','delete',remove],['Cancel','cancel',()=>{activeTabMenuId=null;renderList()}]]){
    const b=document.createElement('button');b.className='smallbtn';setIconButton(b,type,title);b.onclick=action;menu.append(b);
   }
-  list.append(menu);
+  tabBar.after(menu);
  }
 }
  if(groceryTabActive&&showMealPlanTabs&&mealPlans.length>1){renderGroceryViewToolbar(list);renderMasterGroceryTab(list);addFloatingViewButtons();return;}
