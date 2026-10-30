@@ -763,24 +763,29 @@ function appendMealTimes(body,meal){
  const title=document.createElement('h2');title.textContent=top?'My Rotation help':'Meal Groups help';title.style.cssText='margin:0';
  const close=document.createElement('button');close.type='button';close.textContent='Close';close.style.cssText='flex:0 0 auto;padding:8px 14px;border:1px solid #ccc;border-radius:9px;background:var(--input-bg,#fff);color:inherit';close.onclick=()=>overlay.remove();header.append(title,close);
  const content=document.createElement('div');content.style.cssText='padding:10px 20px 20px;overflow-y:auto;overscroll-behavior:contain';
- const intro=document.createElement('p');intro.textContent=top?'Use My Rotation to choose and rotate the meals shown for each weekday.':'Meal Groups shows every category, with In Rotation and Ideas inside each expanded category.';content.append(intro);
+ const intro=document.createElement('p');intro.textContent=top?'My Rotation displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into In Rotation and Ideas. Expand a group to manage its meals.';content.append(intro);
  const items=top?[
-  ['Tap a displayed meal','Open meal options, including Open recipe, Edit last cooked date, Change meal, and Edit grocery list. Long-press a displayed meal to open its recipe link.'],
-  ['Tap a meal name','Open the saved recipe link, when available.'],
-  ['Tap a category shortcut','Open Meal Groups with that category expanded. Group Shortcuts can be configured in Settings.'],
-  ['Tap the Menu navigation button','Open Meal Groups with all categories collapsed.'],
-  ['Tap the down arrow','Rotate the displayed meals to the bottom of their categories.'],
-  ['Long-press the down arrow','Choose which weekdays to rotate.']
+  ['Meal-plan tabs','Choose a tab to see its own weekday assignments. Long-press a tab to rename, reorder, or delete it.'],
+  ['Tap a displayed meal','Open its meal actions, including recipe options, editing, grocery list, and last-cooked date where available.'],
+  ['Long-press a displayed meal','Open the weekday meal-change and grocery-list options.'],
+  ['Rotate out arrow','Tap to rotate out all displayed recipes or select specific recipes. Long-pressing this arrow does nothing.'],
+  ['Rotate across tabs','Use the all-tabs rotation control to rotate recipes across your meal-plan tabs.'],
+  ['Group Shortcuts','Tap a group shortcut to open Meal Groups with that group expanded. Configure shortcuts in Settings.'],
+  ['Navigation buttons','Use the floating buttons to switch between My Rotation, Meal Groups, Weekly Overview, and Grocery List.'],
+  ['Weekly Overview','See weekday meals across tabs and expand their ingredient lists. Tap a meal to return to it in My Rotation.'],
+  ['Grocery List','Review ingredients from the tabs you include; select, deselect, or hide checked groceries.'],
+  ['Settings and backups','Configure display and weekday options, manage Recipe Labels, and export or restore backups. Review changes before saving or discarding.']
  ]:[
-  ['Tap the Menu navigation button','Return to Meal Groups with all categories collapsed.'],
-  ['Tap a category shortcut in My Rotation','Open Meal Groups with only that category expanded.'],
-  ['Tap a category heading or chevron','Expand or collapse that category. Use the two chevron buttons at the top to expand all or collapse all.'],
-  ['Tap the pencil beside a category','Open its editing options to reorder (where allowed), rename, or delete the category. Assigned categories follow weekday order; unassigned categories can be reordered manually.'],
-  ['Tap + beside a category','Add a meal to that category.'],
-  ['Tap a meal, then choose Edit meal','Open the meal editor.'],
-  ['Tap the up or down arrow beside a rotation meal','Move it to the top or bottom of that category’s rotation. Hold the arrow to move it one position.'],
-  ['Check an idea','Move that meal from Ideas into In Rotation.'],
-  ['Last cooked label','Shows the most recent date recorded using Mark as cooked in My Rotation.']
+  ['Open a group','Tap its heading or chevron to expand or collapse it. Use the top controls to expand or collapse all groups.'],
+  ['Edit a group','Tap its pencil to rename, reorder where allowed, or delete it. Weekday-assigned groups follow weekday order; unassigned groups can be ordered manually.'],
+  ['Add a meal','Tap + to add a meal to the selected group.'],
+  ['Edit a meal','Choose Edit meal from its meal actions. The editor opens beneath the selected meal.'],
+  ['Move a rotating meal','Tap its up or down arrow to move it to the top or bottom of the group; hold to move one position.'],
+  ['Ideas and rotation','Check an idea to move it into In Rotation.'],
+  ['Linked meals','Linked recipes can appear in more than one group; linked changes may affect their other appearances.'],
+  ['Recipe Labels','Manage labels and assign them to meals; use Save to keep changes or Cancel/Discard to leave them unchanged.'],
+  ['Last cooked','Shows the latest recorded cooking date when enabled.'],
+  ['Navigation','Use the floating buttons to open My Rotation, Weekly Overview, or Grocery List. The Menu button returns here with groups collapsed.']
  ];
  items.forEach(([gesture,desc])=>{const h=document.createElement('strong');h.textContent=gesture;h.style.display='block';h.style.marginTop='12px';const d=document.createElement('div');d.textContent=desc;d.style.color='var(--muted,#666)';d.style.fontSize='14px';content.append(h,d)});
  box.append(header,content);overlay.append(box);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay)
