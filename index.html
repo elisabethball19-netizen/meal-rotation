@@ -512,7 +512,7 @@ function initializeMasterCategoryExpansion(extraCategory){
  if(extraCategory&&cats.includes(extraCategory))masterExpandedCategories.add(extraCategory);
 }
 
-function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=false,scrollExpandedToTop=false){
+function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=false,scrollExpandedToTop=false,resetOnSelect=false){
  // Entries: {meal, checked, onChange}. Keep selections when groups collapse or searches change.
  const groups=new Map();entries.forEach(entry=>{const cat=entry.meal.cat||'Ungrouped';if(!groups.has(cat))groups.set(cat,[]);groups.get(cat).push(entry)});
  const sections=[];
@@ -526,7 +526,7 @@ function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=
   for(const entry of selected){
    const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 4px';
    const cb=document.createElement('input');cb.type='checkbox';cb.checked=true;cb.style.cssText='width:20px;height:20px;flex-shrink:0';
-   cb.onchange=()=>{entry.checked=false;entry.onChange(false);search.dispatchEvent(new Event('input'));container.scrollTop=0};
+   cb.onchange=()=>{entry.checked=false;entry.onChange(false);search.dispatchEvent(new Event('input'));if(resetOnSelect)sections.forEach(s=>s.setExpanded(false));container.scrollTop=0};
    const label=document.createElement('span');label.textContent=entry.meal.name;label.style.flex='1';
    const group=document.createElement('small');group.textContent=entry.meal.cat||'Ungrouped';group.style.cssText='color:#777;font-size:12px';
    row.append(cb,label,group);selectedArea.append(row);selectedRows.push(row);
@@ -540,10 +540,10 @@ function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=
   const body=document.createElement('div');body.style.cssText='display:none;padding:0 4px 6px 14px';
   groups.get(cat).sort((a,b)=>Number(!!b.checked)-Number(!!a.checked)||a.meal.name.localeCompare(b.meal.name)).forEach(entry=>{
    const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 3px;cursor:pointer';
-   const cb=document.createElement('input');cb.type='checkbox';cb.checked=!!entry.checked;cb.style.cssText='width:20px;height:20px;flex-shrink:0';cb.onchange=()=>{entry.checked=cb.checked;entry.onChange(cb.checked);search.dispatchEvent(new Event('input'));if(cb.checked&&pinSelected)container.scrollTop=0};
+   const cb=document.createElement('input');cb.type='checkbox';cb.checked=!!entry.checked;cb.style.cssText='width:20px;height:20px;flex-shrink:0';cb.onchange=()=>{entry.checked=cb.checked;entry.onChange(cb.checked);search.dispatchEvent(new Event('input'));if(resetOnSelect){sections.forEach(s=>s.setExpanded(false));container.scrollTop=0;const outer=container.closest('[data-label-manager-list]');if(outer)outer.scrollTop=0;}else if(cb.checked&&pinSelected)container.scrollTop=0};
    const text=document.createElement('span');text.textContent=entry.meal.name;row.append(cb,text);body.append(row);entry.row=row;entry.checkbox=cb;
   });
-  let expanded=groups.get(cat).some(x=>x.checked);const setExpanded=value=>{expanded=value;body.style.display=value?'block':'none';arrow.textContent=value?'▾':'▸'};
+  let expanded=!pinSelected&&groups.get(cat).some(x=>x.checked);const setExpanded=value=>{expanded=value;body.style.display=value?'block':'none';arrow.textContent=value?'▾':'▸'};
   header.onclick=()=>{const opening=!expanded;setExpanded(opening);if(opening&&scrollExpandedToTop){requestAnimationFrame(()=>{const offset=header.getBoundingClientRect().top-container.getBoundingClientRect().top;container.scrollTop+=offset})}};setExpanded(expanded);section.append(header,body);container.append(section);sections.push({section,entries:groups.get(cat),setExpanded});
  });
  search.oninput=()=>{
@@ -552,7 +552,7 @@ function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=
   refreshPinned();
   sections.forEach(group=>{
    let visible=0;group.entries.forEach(entry=>{const title=entry.meal.name.toLocaleLowerCase();const match=(!pinSelected||!entry.checked)&&(!query||(searchMode&&!searchMode.checked?words.every(word=>title.includes(word)):title.includes(query)));entry.row.style.display=match?'flex':'none';if(match)visible++});
-   group.section.style.display=visible?'block':'none';if(query&&visible)group.setExpanded(true);if(!query)group.setExpanded(group.entries.some(entry=>entry.checkbox.checked));
+   group.section.style.display=visible?'block':'none';if(query&&visible)group.setExpanded(true);if(!query)group.setExpanded(resetOnSelect?false:group.entries.some(entry=>entry.checkbox.checked));
   });
  };
  search.dispatchEvent(new Event('input'));
@@ -2404,9 +2404,33 @@ function openLabelManager(){
  const add=document.createElement('button');add.type='button';add.className='iconbtn';add.textContent='+';add.style.fontSize='25px';add.title='Add label';add.setAttribute('aria-label','Add label');headingRow.append(searchButton,add);panel.append(headingRow);
  const search=document.createElement('input');search.type='search';search.placeholder='Search labels';search.style.display='none';panel.append(search);
  searchButton.onclick=()=>{const visible=search.style.display!=='none';search.style.display=visible?'none':'block';if(visible){search.value='';draw()}else search.focus()};
- const list=document.createElement('div');list.style.cssText='overflow:auto;min-height:60px;flex:1';panel.append(list);
+ const list=document.createElement('div');list.dataset.labelManagerList='true';list.style.cssText='overflow:auto;min-height:60px;flex:1';panel.append(list);
  const actions=document.createElement('div');actions.className='meal-unified-actions';actions.style.cssText='border-top:1px solid #ddd;padding-top:10px;flex-shrink:0';const close=document.createElement('button');setIconButton(close,'save','OK');close.onclick=()=>{overlay.remove();renderList()};const cancel=document.createElement('button');setIconButton(cancel,'cancel','Close');cancel.onclick=()=>{overlay.remove();renderList()};actions.append(close,cancel);panel.append(actions);
- async function editLabel(name){const action=await appDialog('Edit '+name,null,'options',['Rename','Delete','Cancel']);if(action==='Rename'){const next=await appDialog('Rename label',name,'prompt');if(next===null||!next.trim())return;const duplicate=allRecipeLabels().find(x=>labelKey(x)===labelKey(next)&&labelKey(x)!==labelKey(name));if(duplicate){await appDialog('Label already exists.');return}snapshot();changeRecipeLabel(name,next);draw()}else if(action==='Delete'){if(await appDialog('Delete label '+name+'?',null,'yesno')!==true)return;snapshot();changeRecipeLabel(name,'');draw()}}
+ async function editLabel(name){
+  // Keep the label manager visible behind a single, editable rename dialog.
+  const shade=document.createElement('div');
+  shade.style.cssText='position:fixed;inset:0;z-index:21000;background:#0008;display:flex;align-items:center;justify-content:center;padding:18px';
+  const dialog=document.createElement('div');
+  dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label','Rename label');
+  dialog.style.cssText='background:white;color:#242424;border-radius:16px;padding:22px;width:100%;max-width:480px;display:flex;flex-direction:column;gap:18px;box-shadow:0 12px 36px #0003';
+  const field=document.createElement('input');field.type='text';field.value=name;field.setAttribute('aria-label','Label name');
+  field.style.cssText='width:100%;border:1px solid #ccc;border-radius:9px;padding:12px;background:#fff;color:#242424';
+  const actions=document.createElement('div');actions.className='meal-unified-actions';
+  const save=document.createElement('button');setIconButton(save,'save','Save');
+  const cancel=document.createElement('button');setIconButton(cancel,'cancel','Cancel');
+  const remove=document.createElement('button');setIconButton(remove,'delete','Delete');
+  function close(){window.visualViewport?.removeEventListener('resize',fit);window.visualViewport?.removeEventListener('scroll',fit);shade.remove()}
+  save.onclick=async()=>{const next=field.value.trim().replace(/\s+/g,' ');if(!next)return;
+   const duplicate=allRecipeLabels().find(x=>labelKey(x)===labelKey(next)&&labelKey(x)!==labelKey(name));
+   if(duplicate){await appDialog('Label already exists.');field.focus();return}
+   if(next!==name){snapshot();changeRecipeLabel(name,next);if(expandedLabel===name)expandedLabel=next;draw()}close()};
+  cancel.onclick=close;
+  remove.onclick=async()=>{if(await appDialog('Delete label '+name+'?',null,'yesno')!==true)return;snapshot();changeRecipeLabel(name,'');if(expandedLabel===name)expandedLabel=null;draw();close()};
+  field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save.click()}else if(e.key==='Escape'){e.preventDefault();close()}};
+  actions.append(save,cancel,remove);dialog.append(field,actions);shade.append(dialog);document.body.append(shade);
+  let frame=0;function fit(){cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{if(!shade.isConnected)return;const vv=window.visualViewport;shade.style.top=(vv?vv.offsetTop:0)+'px';shade.style.height=(vv?vv.height:window.innerHeight)+'px';shade.style.bottom='auto'})}
+  window.visualViewport?.addEventListener('resize',fit);window.visualViewport?.addEventListener('scroll',fit);fit();field.focus({preventScroll:true});field.select();
+ }
  let expandedLabel=null;
  function draw(){
   list.replaceChildren();
@@ -2431,7 +2455,7 @@ function openLabelManager(){
     const body=document.createElement('div');body.style.cssText='max-height:42vh;overflow:auto';section.append(body);
     const unique=new Map();for(const meal of meals){const key=meal.linkGroup||'meal-'+meal.id;if(!unique.has(key))unique.set(key,meal)}
     const choices=[...unique.values()].map(meal=>({meal,checked:recipeLabels(meal).some(x=>labelKey(x)===labelKey(name)),onChange(v){this.checked=v;const siblings=this.meal.linkGroup?meals.filter(m=>m.linkGroup===this.meal.linkGroup):[this.meal];snapshot();for(const m of siblings){m.labels=recipeLabels(m).filter(x=>labelKey(x)!==labelKey(name));if(v)m.labels.push(name)}persist();title.textContent=name+' ('+meals.filter(m=>recipeLabels(m).some(x=>labelKey(x)===labelKey(name))).length+')'}}));
-    buildGroupedMealPicker(body,input,choices,null,false,true);
+    buildGroupedMealPicker(body,input,choices,null,true,true,true);
     card.append(section);
    }
    list.append(card);
