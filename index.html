@@ -820,6 +820,13 @@ function openMealSearch(){
   exactMatch.id='searchExactMatch';
   exactMatch.style.cssText='width:19px;height:19px;margin:0;flex:0 0 19px';
   exactLabel.append(exactMatch,document.createTextNode('Exact match'));
+  const orderLabel=document.createElement('label');
+  orderLabel.style.cssText='display:flex;align-items:center;gap:9px;font-size:15px;cursor:pointer';
+  const matchWordOrder=document.createElement('input');
+  matchWordOrder.type='checkbox';
+  matchWordOrder.checked=false;
+  matchWordOrder.style.cssText='width:19px;height:19px;margin:0;flex:0 0 19px';
+  orderLabel.append(matchWordOrder,document.createTextNode('Match word order'));
   const results=document.createElement('div');
   results.setAttribute('aria-live','polite');
   results.style.cssText='overflow-y:auto;min-height:100px;flex:1;overscroll-behavior:contain';
@@ -879,9 +886,17 @@ function openMealSearch(){
       const mealName=normalizeSearchText(m.name);
       if(exactMatch.checked)return mealName===q;
       const mealWords=searchWords(mealName);
-      return queryWords.length>0&&queryWords.every(word=>mealWords.some(candidate=>
-        candidate.includes(word)||singularSearchWord(candidate)===singularSearchWord(word)
-      ));
+      const wordMatches=(word,candidate)=>candidate.includes(word)||singularSearchWord(candidate)===singularSearchWord(word);
+      if(matchWordOrder.checked){
+        let nextIndex=0;
+        return queryWords.length>0&&queryWords.every(word=>{
+          while(nextIndex<mealWords.length&&!wordMatches(word,mealWords[nextIndex]))nextIndex++;
+          if(nextIndex===mealWords.length)return false;
+          nextIndex++;
+          return true;
+        });
+      }
+      return queryWords.length>0&&queryWords.every(word=>mealWords.some(candidate=>wordMatches(word,candidate)));
     }).filter(m=>{
       const key=m.linkGroup?'linked:'+m.linkGroup:'single:'+m.id;
       if(seen.has(key))return false;
@@ -916,6 +931,7 @@ function openMealSearch(){
   shade.onclick=event=>{if(event.target===shade)closeSearch()};
   input.oninput=updateResults;
   exactMatch.onchange=updateResults;
+  matchWordOrder.onchange=updateResults;
   input.onkeydown=event=>{
     if(event.key==='Enter'){
       const first=results.querySelector('button');
@@ -923,7 +939,7 @@ function openMealSearch(){
     }
   };
   header.append(title,closeButton);
-  panel.append(header,input,exactLabel,results);
+  panel.append(header,input,exactLabel,orderLabel,results);
   shade.append(panel);
   document.body.append(shade);
   document.addEventListener('keydown',onKeyDown);
@@ -2425,7 +2441,7 @@ function openLabelManager(){
    if(duplicate){await appDialog('Label already exists.');field.focus();return}
    if(next!==name){snapshot();changeRecipeLabel(name,next);if(expandedLabel===name)expandedLabel=next;draw()}close()};
   cancel.onclick=close;
-  remove.onclick=async()=>{if(await appDialog('Delete label '+name+'?',null,'yesno')!==true)return;snapshot();changeRecipeLabel(name,'');if(expandedLabel===name)expandedLabel=null;draw();close()};
+  remove.onclick=async()=>{shade.style.zIndex='19000';let confirmed=false;try{confirmed=await appDialog('Delete label '+name+'?',null,'yesno')===true}finally{shade.style.zIndex='21000'}if(!confirmed)return;snapshot();changeRecipeLabel(name,'');if(expandedLabel===name)expandedLabel=null;draw();close()};
   field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save.click()}else if(e.key==='Escape'){e.preventDefault();close()}};
   actions.append(save,cancel,remove);dialog.append(field,actions);shade.append(dialog);document.body.append(shade);
   let frame=0;function fit(){cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{if(!shade.isConnected)return;const vv=window.visualViewport;shade.style.top=(vv?vv.offsetTop:0)+'px';shade.style.height=(vv?vv.height:window.innerHeight)+'px';shade.style.bottom='auto'})}
