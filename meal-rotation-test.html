@@ -301,7 +301,7 @@ body{padding-bottom:calc(310px + env(safe-area-inset-bottom, 0px));}
 /* Unified confirmation actions throughout the app. */
 .meal-unified-actions{display:flex!important;align-items:center!important;justify-content:space-evenly!important;gap:16px!important;}
 .meal-unified-actions>button{border:0!important;background:transparent!important;box-shadow:none!important;border-radius:0!important;min-width:44px!important;min-height:44px!important;padding:6px!important;display:grid!important;place-items:center!important;color:inherit!important;}
-</style></head><body><div style="position:relative;z-index:10000;background:#fff1c7;color:#513d12;text-align:center;padding:8px 12px;font:600 14px system-ui,sans-serif;border-bottom:1px solid #e4c47b">TEST VERSION — separate data; changes will not affect your regular app</div><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
+</style></head><body><div style="position:relative;z-index:10000;background:#fff1c7;color:#513d12;text-align:center;padding:8px 12px;font:600 14px system-ui,sans-serif;border-bottom:1px solid #e4c47b">TEST VERSION — separate data; changes will not affect your regular app<div style="margin-top:8px"><button type="button" id="resetTestApp" style="background:#fff;border:1px solid #9b772c;border-radius:7px;padding:8px 13px;font:600 14px system-ui,sans-serif;color:#513d12;cursor:pointer">Reset Test App</button></div></div><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 // TEST EDITION: storage is isolated from the production app, even at the same URL origin.
 // The facade exposes normal app keys to the backup/export routines while storing
 // everything under an exclusive test prefix in the browser's actual storage.
@@ -315,6 +315,13 @@ const makeIsolatedStorage=(storage,prefix)=>({
 });
 const testLocalStorage=makeIsolatedStorage(window.localStorage,'mealRotationTESTONLY__');
 const testSessionStorage=makeIsolatedStorage(window.sessionStorage,'mealRotationTESTONLY__');
+// Reset ONLY test-prefixed keys, never production data.
+document.getElementById('resetTestApp').addEventListener('click',()=>{
+ if(!window.confirm('Reset the test app to its first-time setup? All TEST recipes, tabs, and settings will be deleted. Your regular app will not be affected.'))return;
+ testLocalStorage.clear();
+ testSessionStorage.clear();
+ window.location.reload();
+});
 
 (()=>{let cats=['Soup','Tacos','Over Rice','Meat & Mash','Misc','Easy'],active='Soup',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(testLocalStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
