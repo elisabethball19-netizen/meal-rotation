@@ -512,7 +512,7 @@ function initializeMasterCategoryExpansion(extraCategory){
  if(extraCategory&&cats.includes(extraCategory))masterExpandedCategories.add(extraCategory);
 }
 
-function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=false){
+function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=false,scrollExpandedToTop=false){
  // Entries: {meal, checked, onChange}. Keep selections when groups collapse or searches change.
  const groups=new Map();entries.forEach(entry=>{const cat=entry.meal.cat||'Ungrouped';if(!groups.has(cat))groups.set(cat,[]);groups.get(cat).push(entry)});
  const sections=[];
@@ -544,7 +544,7 @@ function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=
    const text=document.createElement('span');text.textContent=entry.meal.name;row.append(cb,text);body.append(row);entry.row=row;entry.checkbox=cb;
   });
   let expanded=groups.get(cat).some(x=>x.checked);const setExpanded=value=>{expanded=value;body.style.display=value?'block':'none';arrow.textContent=value?'▾':'▸'};
-  header.onclick=()=>setExpanded(!expanded);setExpanded(expanded);section.append(header,body);container.append(section);sections.push({section,entries:groups.get(cat),setExpanded});
+  header.onclick=()=>{const opening=!expanded;setExpanded(opening);if(opening&&scrollExpandedToTop){requestAnimationFrame(()=>{const offset=header.getBoundingClientRect().top-container.getBoundingClientRect().top;container.scrollTop+=offset})}};setExpanded(expanded);section.append(header,body);container.append(section);sections.push({section,entries:groups.get(cat),setExpanded});
  });
  search.oninput=()=>{
   const query=search.value.trim().toLocaleLowerCase();
@@ -2410,12 +2410,16 @@ function openLabelManager(){
  let expandedLabel=null;
  function draw(){
   list.replaceChildren();
+  // Only the meal picker scrolls while a label is expanded.
+  list.style.overflowY=expandedLabel?'hidden':'auto';
+  list.style.flex=expandedLabel?'0 1 auto':'1';
+  list.style.maxHeight=expandedLabel?'calc(85vh - 145px)':'';
   for(const name of allRecipeLabels().filter(x=>labelKey(x).includes(labelKey(search.value)))){
    const expanded=expandedLabel===name;
    const card=document.createElement('div');card.style.cssText='border:1px solid #ddd;border-radius:12px;margin-bottom:9px;overflow:hidden';
    const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;padding:9px 10px;background:'+(expanded?'#f1f4f8':'#f8f8f8');
    const toggle=document.createElement('button');toggle.type='button';toggle.style.cssText='display:flex;align-items:center;gap:10px;flex:1;min-width:0;text-align:left;background:none;border:0;padding:6px 0;color:inherit;font:inherit;cursor:pointer';toggle.setAttribute('aria-expanded',String(expanded));
-   const arrow=document.createElement('span');arrow.textContent=expanded?'⌃':'⌄';arrow.style.cssText='font-size:23px;min-width:22px;line-height:1';
+   const arrow=document.createElementNS('http://www.w3.org/2000/svg','svg');arrow.setAttribute('viewBox','0 0 24 24');arrow.setAttribute('aria-hidden','true');arrow.style.cssText='width:22px;height:22px;min-width:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round';arrow.innerHTML=expanded?'<path d="m6 15 6-6 6 6"/>':'<path d="m6 9 6 6 6-6"/>';
    const title=document.createElement('span');title.textContent=name+' ('+meals.filter(m=>recipeLabels(m).some(x=>labelKey(x)===labelKey(name))).length+')';title.style.cssText='overflow-wrap:anywhere';
    toggle.append(arrow,title);toggle.onclick=()=>{expandedLabel=expanded?null:name;draw()};
    const edit=document.createElement('button');setIconButton(edit,'rename','Edit '+name);edit.onclick=()=>editLabel(name);
@@ -2427,7 +2431,7 @@ function openLabelManager(){
     const body=document.createElement('div');body.style.cssText='max-height:42vh;overflow:auto';section.append(body);
     const unique=new Map();for(const meal of meals){const key=meal.linkGroup||'meal-'+meal.id;if(!unique.has(key))unique.set(key,meal)}
     const choices=[...unique.values()].map(meal=>({meal,checked:recipeLabels(meal).some(x=>labelKey(x)===labelKey(name)),onChange(v){this.checked=v;const siblings=this.meal.linkGroup?meals.filter(m=>m.linkGroup===this.meal.linkGroup):[this.meal];snapshot();for(const m of siblings){m.labels=recipeLabels(m).filter(x=>labelKey(x)!==labelKey(name));if(v)m.labels.push(name)}persist();title.textContent=name+' ('+meals.filter(m=>recipeLabels(m).some(x=>labelKey(x)===labelKey(name))).length+')'}}));
-    buildGroupedMealPicker(body,input,choices);
+    buildGroupedMealPicker(body,input,choices,null,false,true);
     card.append(section);
    }
    list.append(card);
