@@ -315,9 +315,12 @@ const makeIsolatedStorage=(storage,prefix)=>({
 });
 const testLocalStorage=makeIsolatedStorage(window.localStorage,'mealRotationTESTONLY__');
 const testSessionStorage=makeIsolatedStorage(window.sessionStorage,'mealRotationTESTONLY__');
+// Clear after the previous page's pagehide/visibilitychange save handlers have run.
+if(window.sessionStorage.getItem('mealRotationTEST_RESET_PENDING')==='1'){testLocalStorage.clear();testSessionStorage.clear();window.sessionStorage.removeItem('mealRotationTEST_RESET_PENDING');}
 // Reset ONLY test-prefixed keys, never production data.
 document.getElementById('resetTestApp').addEventListener('click',()=>{
  if(!window.confirm('Reset the test app to its first-time setup? All TEST recipes, tabs, and settings will be deleted. Your regular app will not be affected.'))return;
+ window.sessionStorage.setItem('mealRotationTEST_RESET_PENDING','1');
  testLocalStorage.clear();
  testSessionStorage.clear();
  window.location.reload();
@@ -342,7 +345,7 @@ const mealChooserUndatedKey='mealRotationChooserIncludeUndatedV1';
 let mealChooserSort=['oldest','newest','original'].includes(testLocalStorage.getItem(mealChooserSortKey))?testLocalStorage.getItem(mealChooserSortKey):'oldest';
 let mealChooserIncludeUndated=testLocalStorage.getItem(mealChooserUndatedKey)!=='false';
 
-let groceryUndo=null;let topCounts={};try{const ts=JSON.parse(testLocalStorage.getItem('mealRotationTopCountsV1')||'{}');if(ts&&typeof ts==='object')topCounts=ts}catch(e){}function getTopCount(c){return Number.isFinite(Number(topCounts[c]))?Math.max(0,Math.min(10,Number(topCounts[c]))):1}function saveTopCounts(){try{testLocalStorage.setItem('mealRotationTopCountsV1',JSON.stringify(topCounts))}catch(e){}}const weekdays=['Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday','Monday'];let weekdayCategories={};try{const wc=JSON.parse(testLocalStorage.getItem('mealRotationWeekdayCategoriesV1')||'{}');if(wc&&typeof wc==='object')weekdayCategories=wc}catch(e){}// Optional recipe labels and per-plan weekday group filters.
+let groceryUndo=null;let topCounts={};try{const ts=JSON.parse(testLocalStorage.getItem('mealRotationTopCountsV1')||'{}');if(ts&&typeof ts==='object')topCounts=ts}catch(e){}function getTopCount(c){return Number.isFinite(Number(topCounts[c]))?Math.max(0,Math.min(10,Number(topCounts[c]))):1}function saveTopCounts(){try{testLocalStorage.setItem('mealRotationTopCountsV1',JSON.stringify(topCounts))}catch(e){}}const weekdays=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];let weekdayCategories={};try{const wc=JSON.parse(testLocalStorage.getItem('mealRotationWeekdayCategoriesV1')||'{}');if(wc&&typeof wc==='object')weekdayCategories=wc}catch(e){}// Optional recipe labels and per-plan weekday group filters.
 const weekdayRecipeFiltersKey='mealRotationWeekdayRecipeFiltersV1';
 let weekdayRecipeFilters={};try{weekdayRecipeFilters=JSON.parse(testLocalStorage.getItem(weekdayRecipeFiltersKey)||'{}')||{}}catch(e){}
 function saveWeekdayRecipeFilters(){try{testLocalStorage.setItem(weekdayRecipeFiltersKey,JSON.stringify(weekdayRecipeFilters))}catch(e){}saveActiveMealPlan()}
