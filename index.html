@@ -14,6 +14,8 @@
 /* When cooking times are shown, keep My Rotation as compact as category rows.
    Scope these changes to timed My Rotation, leaving untimed rows untouched. */
 #list.top-summary .meal:has(.times){height:auto;min-height:44px;padding:3px 2px 4px}
+#list.top-summary .top-recipe-wrap .meal:has(.top-inline-linked){height:auto!important;min-height:56px!important;padding-top:6px!important;padding-bottom:6px!important;align-items:center}
+#list.top-summary .top-recipe-wrap .meal:has(.top-inline-linked) .mealname{padding-bottom:0!important;margin-bottom:0!important}
 /* Inline linked recipes stay inside their weekday card, directly beneath the main meal. */
 #list.top-summary .meal:has(.top-inline-linked){height:auto;min-height:49px;padding-top:3px;padding-bottom:5px}
 #list.top-summary .meal:has(.top-inline-linked) .mealname{padding-bottom:0}
@@ -783,6 +785,10 @@ function appendMealTimes(body,meal){
   actions.style.gap='8px';
   btn('Yes',true);btn('No',false);btn('Cancel',null);
   for(const b of actions.children){b.style.minWidth='0';b.style.flex='1';b.style.padding='11px 6px'}
+}else if(kind==='prompt'){
+  actions.className='meal-unified-actions';
+  function promptIcon(type,label,result){const b=document.createElement('button');b.type='button';setIconButton(b,type,label);b.onclick=()=>{const value=result?field.value:null;shade.remove();resolve(value)};actions.append(b)}
+  promptIcon('save','Save',true);promptIcon('cancel','Cancel',false);
 }else if(kind==='yesno'){
   actions.className='meal-unified-actions';
   function iconChoice(type,label,result){const b=document.createElement('button');b.type='button';setIconButton(b,type,label);b.onclick=()=>{shade.remove();resolve(result)};actions.append(b)}
@@ -2720,7 +2726,7 @@ name.oncontextmenu=e=>e.preventDefault();if(mealSlotsByDay[day]>1){const tag=doc
 const inlineLinked=inlineLinkedByParent.get(day+'|'+String(top.id))||[];
 if(inlineLinked.length){
  const linkedInfo=document.createElement('div');
- linkedInfo.style.cssText='font-size:13px;color:#637080;margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 7px;align-items:center';
+ linkedInfo.className='top-inline-linked';linkedInfo.style.cssText='font-size:13px;color:#637080;margin-top:1px;display:flex;flex-wrap:wrap;gap:2px 7px;align-items:center;line-height:1.2';
  const marker=document.createElement('span');marker.textContent='↗';linkedInfo.append(marker);
  inlineLinked.forEach((target,index)=>{
   if(index){const sep=document.createElement('span');sep.textContent='·';linkedInfo.append(sep)}
