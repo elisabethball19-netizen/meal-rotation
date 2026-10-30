@@ -16,6 +16,9 @@
 #list.top-summary .meal:has(.times){height:auto;min-height:44px;padding:3px 2px 4px}
 #list.top-summary .top-recipe-wrap .meal:has(.top-inline-linked){height:auto!important;min-height:56px!important;padding-top:6px!important;padding-bottom:6px!important;align-items:center}
 #list.top-summary .top-recipe-wrap .meal:has(.top-inline-linked) .mealname{padding-bottom:0!important;margin-bottom:0!important}
+/* Match the weekday-to-meal spacing for cards with an inline linked recipe. */
+#list.top-summary .section:has(+ .top-recipe-wrap .top-inline-linked){padding-bottom:3px!important;padding-top:7px!important;min-height:0!important;}
+#list.top-summary .section + .top-recipe-wrap:has(.top-inline-linked) > .meal{padding-top:0!important;padding-bottom:5px!important;min-height:43px!important;}
 /* Inline linked recipes stay inside their weekday card, directly beneath the main meal. */
 #list.top-summary .meal:has(.top-inline-linked){height:auto;min-height:49px;padding-top:3px;padding-bottom:5px}
 #list.top-summary .meal:has(.top-inline-linked) .mealname{padding-bottom:0}
@@ -2485,7 +2488,7 @@ function openLabelManager(){
    if(duplicate){await appDialog('Label already exists.');field.focus();return}
    if(next!==name){snapshot();changeRecipeLabel(name,next);if(expandedLabel===name)expandedLabel=next;draw()}close()};
   cancel.onclick=close;
-  remove.onclick=async()=>{shade.style.zIndex='19000';let confirmed=false;try{confirmed=await appDialog('Delete label '+name+'?',null,'yesno')===true}finally{shade.style.zIndex='21000'}if(!confirmed)return;snapshot();changeRecipeLabel(name,'');if(expandedLabel===name)expandedLabel=null;draw();close()};
+  remove.onclick=()=>{snapshot();changeRecipeLabel(name,'');if(expandedLabel===name)expandedLabel=null;draw();close()};
   field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save.click()}else if(e.key==='Escape'){e.preventDefault();close()}};
   actions.append(save,cancel,remove);dialog.append(field,actions);shade.append(dialog);document.body.append(shade);
   let frame=0;function fit(){cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{if(!shade.isConnected)return;const vv=window.visualViewport;shade.style.top=(vv?vv.offsetTop:0)+'px';shade.style.height=(vv?vv.height:window.innerHeight)+'px';shade.style.bottom='auto'})}
@@ -2575,8 +2578,8 @@ function renderMasterCategories(list){
        const marker=document.createElement('span');marker.textContent='↗';linkedInfo.append(marker);
        linkedTargets.forEach((target,index)=>{
         if(index){const sep=document.createElement('span');sep.textContent='·';linkedInfo.append(sep)}
-        const link=document.createElement('button');link.type='button';link.textContent=target.name||'Untitled meal';link.title='Go to '+(target.name||'meal')+' in '+target.cat;link.style.cssText='background:none;border:0;padding:0;color:inherit;font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer;text-align:left';
-        link.onclick=e=>{e.preventDefault();e.stopPropagation();masterExpansionInitialized=true;masterExpandedCategories.clear();masterExpandedCategories.add(target.cat);renderList();requestAnimationFrame(()=>{const rows=[...document.querySelectorAll('.master-category-card .master-category-meal')];const destination=rows.find(row=>row.dataset.mealId===String(target.id));if(destination){const stickyHeader=destination.closest('.master-category-card')?.querySelector('.master-category-header');const headerHeight=stickyHeader?stickyHeader.getBoundingClientRect().height:60;window.scrollTo({top:Math.max(0,window.scrollY+destination.getBoundingClientRect().top-headerHeight-16),behavior:'smooth'});destination.style.outline='2px solid #6689b5';destination.style.outlineOffset='2px';setTimeout(()=>{if(destination.isConnected){destination.style.outline='';destination.style.outlineOffset=''}},2200)}})};
+        const link=document.createElement('button');link.type='button';link.textContent=target.name||'Untitled meal';link.title='Meal options for '+(target.name||'meal');link.style.cssText='background:none;border:0;padding:0;color:inherit;font:inherit;text-decoration:none;cursor:pointer;text-align:left';
+        link.onclick=e=>{e.preventDefault();e.stopPropagation();openTopMealActionMenu(null,target.cat,target)};
         linkedInfo.append(link)
        });mealInfo.append(linkedInfo)
       }
