@@ -539,6 +539,32 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 #list.top-summary .top-meal-title-line .mealname{flex:1 1 auto;min-width:0;text-align:left;padding-bottom:0!important;}
 #list.top-summary .top-meal-title-line .top-meal-inline-category{flex:0 1 auto;min-width:0;margin:0!important;padding:0!important;white-space:normal;text-align:right;align-self:baseline;line-height:1.3;}
 #list.top-summary .top-recipe-wrap > .meal{padding-right:14px!important;}
+/* Keep multi-meal weekdays as compact as the single-meal cards. */
+#list.top-summary .top-recipe-wrap > .meal.multi-category-meal{
+  min-height:44px!important;
+  height:auto!important;
+  padding:5px 16px 5px 14px!important;
+  align-items:center!important;
+}
+#list.top-summary .top-recipe-wrap:has(> .meal.multi-category-meal){padding-bottom:0!important;}
+#list.top-summary .top-meal-title-line{align-items:center!important;gap:12px!important;}
+#list.top-summary .top-meal-title-line .top-meal-inline-category{
+  margin-right:0!important;
+  padding-right:0!important;
+  flex-shrink:0!important;
+  max-width:38%;
+}
+/* Shared recipe indicator stays beside the recipe name, leaving weekdays fixed. */
+.shared-meal-name-line{display:flex;align-items:center;gap:5px;max-width:100%;min-width:0}
+.shared-meal-name-line .master-category-meal-name{flex:0 1 auto;min-width:0}
+.shared-meal-link-button{border:0;background:transparent;color:#65717e;display:inline-grid;place-items:center;padding:5px;min-width:29px;min-height:32px;flex:0 0 auto;cursor:pointer}
+.related-meal-indicator{border:0;background:transparent;color:#65717e;font-size:17px;line-height:1;display:inline-grid;place-items:center;padding:5px;min-width:29px;min-height:32px;flex:0 0 auto;cursor:pointer}
+.shared-meal-link-button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.shared-groups-shade{position:fixed;inset:0;background:#0008;z-index:20020;display:flex;align-items:center;justify-content:center;padding:18px}
+.shared-groups-panel{background:white;color:#242424;border-radius:16px;box-shadow:0 12px 36px #0003;padding:22px;width:100%;max-width:460px;max-height:85vh;overflow:auto}
+.shared-groups-panel h3{margin:0 0 8px;font-size:19px}.shared-groups-panel p{margin:0 0 14px;color:#66717c;font-size:14px}
+.shared-groups-choice{display:block;width:100%;background:transparent;color:inherit;border:0;border-bottom:1px solid #e6e6e6;padding:14px 8px;text-align:left;font:inherit;cursor:pointer}
+.shared-groups-close{display:block;margin:18px auto 0;padding:10px 24px;border:1px solid #ccd0d5;border-radius:9px;background:#f6f7f9;color:#242424;font:inherit}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -857,6 +883,30 @@ function chooseExistingMealsForNewGroup(category,existingGroup=false){
   };
   if(!existingGroup)actions.append(remove);actions.append(skip,add);dialog.append(title,search,list,modeRow,actions);overlay.append(dialog);document.body.append(overlay);
  });
+}
+function showRelatedMeals(meal){
+ const sameRecipe=x=>String(x.id)===String(meal.id)||(meal.linkGroup&&x.linkGroup===meal.linkGroup);
+ const outgoing=new Set((Array.isArray(meal.linkedMealIds)?meal.linkedMealIds:[]).map(String));
+ const related=meals.filter(other=>!sameRecipe(other)&&(outgoing.has(String(other.id))||meals.some(source=>sameRecipe(source)&&Array.isArray(source.linkedMealIds)&&source.linkedMealIds.some(id=>String(id)===String(other.id)))||(Array.isArray(other.linkedMealIds)&&other.linkedMealIds.some(id=>meals.some(source=>sameRecipe(source)&&String(source.id)===String(id))))));
+ const unique=[...new Map(related.map(other=>[other.linkGroup||String(other.id),other])).values()];
+ if(!unique.length)return;
+ const shade=document.createElement('div');shade.className='shared-groups-shade';
+ const panel=document.createElement('div');panel.className='shared-groups-panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Meals linked to '+(meal.name||'this recipe'));
+ const heading=document.createElement('h3');heading.textContent='Meals linked to '+(meal.name||'this recipe');panel.append(heading);
+ const info=document.createElement('p');info.textContent='Select a meal to open it in Meal Groups.';panel.append(info);
+ unique.forEach(target=>{const button=document.createElement('button');button.type='button';button.className='shared-groups-choice';button.textContent=(target.name||'Untitled meal')+' — '+target.cat;button.onclick=()=>{shade.remove();openMasterCategories(target.cat);requestAnimationFrame(()=>{const card=[...document.querySelectorAll('.master-category-card')].find(x=>x.dataset.category===target.cat);const row=card&&[...card.querySelectorAll('[data-meal-id]')].find(x=>x.dataset.mealId===String(target.id));if(row)row.scrollIntoView({block:'center',behavior:'smooth'})})};panel.append(button)});
+ const close=document.createElement('button');close.type='button';close.className='shared-groups-close';close.textContent='Close';close.onclick=()=>shade.remove();panel.append(close);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.append(panel);document.body.append(shade);close.focus();
+}
+function showSharedRecipeGroups(meal){
+ const copies=meal.linkGroup?meals.filter(x=>x.linkGroup===meal.linkGroup):[meal];
+ const categories=[...new Set(copies.map(x=>x.cat).filter(Boolean))];
+ const shade=document.createElement('div');shade.className='shared-groups-shade';shade.setAttribute('role','presentation');
+ const panel=document.createElement('div');panel.className='shared-groups-panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Groups containing '+(meal.name||'this recipe'));
+ const title=document.createElement('h3');title.textContent='Groups containing '+(meal.name||'this recipe');panel.append(title);
+ const description=document.createElement('p');description.textContent='Select a group to open this recipe there.';panel.append(description);
+ categories.forEach(cat=>{const button=document.createElement('button');button.type='button';button.className='shared-groups-choice';button.textContent=cat+(cat===meal.cat?' (current)':'');button.onclick=()=>{shade.remove();openMasterCategories(cat);requestAnimationFrame(()=>{const card=[...document.querySelectorAll('.master-category-card')].find(x=>x.dataset.category===cat);const target=card&&[...card.querySelectorAll('[data-meal-id]')].find(x=>copies.some(m=>m.cat===cat&&String(m.id)===x.dataset.mealId));if(target)target.scrollIntoView({block:'center',behavior:'smooth'})})};panel.append(button)});
+ const close=document.createElement('button');close.type='button';close.className='shared-groups-close';close.textContent='Close';close.onclick=()=>shade.remove();panel.append(close);
+ shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.append(panel);document.body.append(shade);close.focus();
 }
 function openMasterCategories(focusCategory){
  setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;
@@ -2349,6 +2399,36 @@ function getDisplayedWeekdayMealsForPlan(plan, priorUsedByGroup=null){
  }
  return result;
 }
+// Keep linked side dishes in rotation and immediately ahead of their group's queue.
+// Only newly activated links are promoted; ordinary renders never reorder them.
+let previouslyActiveLinkedIds=new Set();
+function reconcileActiveLinkedMeals(){
+ const activeLinks=new Set();
+ for(const plan of mealPlans){
+  const entries=getDisplayedWeekdayMealsForPlan(plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan);
+  for(const entry of entries){
+   if(entry.linkedTo!=null)activeLinks.add(String(entry.meal.id));
+  }
+ }
+ let changed=false;
+ for(const targetId of activeLinks){
+  const target=meals.find(m=>String(m.id)===targetId);
+  if(!target)continue;
+  const newlyActivated=!previouslyActiveLinkedIds.has(targetId);
+  if(!target.rotation){target.rotation=true;changed=true}
+  if(newlyActivated){
+   const from=meals.indexOf(target);
+   if(from>=0){
+    meals.splice(from,1);
+    const first=meals.findIndex(m=>m.cat===target.cat&&m.rotation);
+    if(first<0)meals.push(target);else meals.splice(first,0,target);
+    changed=true;
+   }
+  }
+ }
+ previouslyActiveLinkedIds=activeLinks;
+ if(changed)persist();
+}
 function getDisplayedWeekdayMeals(){
  return getDisplayedWeekdayMealsForPlan({id:activePlanId,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters});
 }
@@ -2504,6 +2584,21 @@ function rotateSelectedBack(selected){
   overrides[weekdaySlotKey(item.day,item.cat)]=String(item.meal.id);
   plan.weekdayMealOverrides=overrides;
  }
+ // Restore linked children's positions from the saved pre-cycle order.
+ const restoringIds=new Set(desired.map(item=>String(item.meal.id)));
+ for(const item of desired)for(const linkedId of (Array.isArray(item.meal.linkedMealIds)?item.meal.linkedMealIds:[]))restoringIds.add(String(linkedId));
+ for(const cat of new Set(previous.meals.filter(m=>restoringIds.has(String(m.id))).map(m=>m.cat))){
+  const priorOrder=previous.meals.filter(m=>m.cat===cat&&m.rotation).map(m=>String(m.id));
+  const currentSlots=[];
+  meals.forEach((m,i)=>{if(m.cat===cat&&m.rotation)currentSlots.push(i)});
+  const current=currentSlots.map(i=>meals[i]);
+  const rank=id=>priorOrder.indexOf(String(id));
+  const restored=current.filter(m=>restoringIds.has(String(m.id))).sort((a,b)=>rank(a.id)-rank(b.id));
+  const remaining=current.filter(m=>!restoringIds.has(String(m.id)));
+  const reordered=restored.concat(remaining);
+  currentSlots.forEach((slot,i)=>{meals[slot]=reordered[i]});
+ }
+ previouslyActiveLinkedIds=new Set();
  const activePlan=mealPlans.find(p=>p.id===activePlanId);
  weekdayMealOverrides={...(activePlan?.weekdayMealOverrides||{})};saveWeekdayMealOverrides();
  try{localStorage.removeItem(ROTATION_BACK_KEY)}catch(e){}
@@ -2547,6 +2642,7 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  for(const {meal} of selected){
   linkedIds.add(String(meal.id));
   if(meal.linkGroup)meals.filter(m=>m.linkGroup===meal.linkGroup).forEach(m=>linkedIds.add(String(m.id)));
+  for(const targetId of (Array.isArray(meal.linkedMealIds)?meal.linkedMealIds:[]))linkedIds.add(String(targetId));
  }
  const beforeIds=new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)));
  snapshot();
@@ -2616,7 +2712,8 @@ function recordRotatedMealsCooked(selected){
  }
  for(const {meal} of selected){
   const date=dates.get(String(meal.id));if(!date)continue;
-  for(const m of meals){if(m.id===meal.id||(meal.linkGroup&&m.linkGroup===meal.linkGroup)){
+  const linkedTargets=(Array.isArray(meal.linkedMealIds)?meal.linkedMealIds:[]).map(String);
+  for(const m of meals){if(m.id===meal.id||linkedTargets.includes(String(m.id))||(meal.linkGroup&&m.linkGroup===meal.linkGroup)){
    const existing=m.lastCooked?new Date(m.lastCooked):null;
    if(!existing||Number.isNaN(existing.getTime())||date>existing)m.lastCooked=date.toISOString();
   }}
@@ -3005,7 +3102,10 @@ function renderMasterCategories(list){
      const row=document.createElement('div');row.className='master-category-meal';row.dataset.mealId=String(m.id);if(featuredColorById.has(String(m.id))){row.style.backgroundColor=featuredColorById.get(String(m.id));row.style.borderRadius='8px';row.classList.add('featured-top-meal')}bindMealSwipe(row,m);
      if(rot){for(const [glyph,dir] of [['↑',-1],['↓',1]]){const btn=document.createElement('button');btn.type='button';btn.className='move';btn.textContent=glyph;btn.title=(dir<0?'Up':'Down')+': tap to move to '+(dir<0?'top':'bottom')+', hold to move one position';bindMasterCategoryMove(btn,m,dir);row.append(btn)}}
      else{const cb=document.createElement('input');cb.type='checkbox';cb.className='check';cb.checked=false;cb.setAttribute('aria-label','Move '+m.name+' to rotation');cb.onchange=()=>{snapshot();m.rotation=true;const i=meals.indexOf(m);if(i>=0)meals.splice(i,1);const first=meals.findIndex(x=>x.cat===m.cat&&x.rotation);if(first<0)meals.push(m);else meals.splice(first,0,m);persist();renderList()};row.append(cb)}
-     const name=document.createElement('button');name.type='button';name.className='master-category-meal-name';name.textContent=m.name||'Untitled meal';bindGroupMealPress(name,m);const mealInfo=document.createElement('div');mealInfo.className='master-meal-info';mealInfo.append(name);appendLastCookedLabel(mealInfo,m);
+     const name=document.createElement('button');name.type='button';name.className='master-category-meal-name';name.textContent=m.name||'Untitled meal';bindGroupMealPress(name,m);const mealInfo=document.createElement('div');mealInfo.className='master-meal-info';const nameLine=document.createElement('div');nameLine.className='shared-meal-name-line';nameLine.append(name);const sharedCopies=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup&&x.id!==m.id):[];if(sharedCopies.length){const sharedButton=document.createElement('button');sharedButton.type='button';sharedButton.className='shared-meal-link-button';sharedButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg>';sharedButton.title='View other groups containing this recipe';sharedButton.setAttribute('aria-label','View groups sharing '+(m.name||'this recipe'));sharedButton.onclick=e=>{e.preventDefault();e.stopPropagation();showSharedRecipeGroups(m)};nameLine.append(sharedButton)}
+     const hasOutgoing=Array.isArray(m.linkedMealIds)&&m.linkedMealIds.some(id=>meals.some(other=>String(other.id)===String(id)));
+     const hasIncoming=meals.some(other=>other!==m&&Array.isArray(other.linkedMealIds)&&other.linkedMealIds.some(id=>String(id)===String(m.id)));
+     if(hasOutgoing||hasIncoming){const relatedButton=document.createElement('button');relatedButton.type='button';relatedButton.className='related-meal-indicator';relatedButton.textContent='↗';relatedButton.title='View linked meals';relatedButton.setAttribute('aria-label','View meals linked to '+(m.name||'this recipe'));relatedButton.onclick=e=>{e.preventDefault();e.stopPropagation();showRelatedMeals(m)};nameLine.append(relatedButton)}mealInfo.append(nameLine);appendLastCookedLabel(mealInfo,m);
      if(Array.isArray(m.linkedMealIds)&&m.linkedMealIds.length){
       const linkedTargets=[...new Map(m.linkedMealIds.map(targetId=>meals.find(x=>String(x.id)===String(targetId))).filter(Boolean).map(target=>[String(target.id),target])).values()];
       if(linkedTargets.length){
@@ -3027,7 +3127,7 @@ function renderMasterCategories(list){
       dayTag.title='Scheduled: '+[...scheduledDays.entries()].map(([day,entries])=>day+' ('+[...new Set(entries.map(entry=>entry.planName))].join(', ')+')').join('; ');
       row.append(dayTag);
      }
-     if(m.linkGroup&&meals.filter(x=>x.linkGroup===m.linkGroup).length>1){const dot=document.createElement('span');dot.className='linked-meal-dot';dot.textContent='•';dot.title='Shared across categories';dot.setAttribute('aria-label','Shared recipe');row.append(dot)}
+     
      items.append(row);
     }
    }
@@ -3038,7 +3138,7 @@ function renderMasterCategories(list){
  if(!cats.length){const empty=document.createElement('div');empty.textContent='No groups yet. Tap + to add one.';wrap.append(empty)}
  list.append(wrap);
 }
-function renderList(){rememberCurrentView();
+function renderList(){reconcileActiveLinkedMeals();rememberCurrentView();
  if(lowerSettingsVisible){
   const old=document.getElementById('planSettingsPanel');
   if(old)lowerOpenGroups=new Set([...old.querySelectorAll('details[data-settings-group][open]')].map(d=>d.dataset.settingsGroup));
