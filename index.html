@@ -565,6 +565,43 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 .shared-groups-panel h3{margin:0 0 8px;font-size:19px}.shared-groups-panel p{margin:0 0 14px;color:#66717c;font-size:14px}
 .shared-groups-choice{display:block;width:100%;background:transparent;color:inherit;border:0;border-bottom:1px solid #e6e6e6;padding:14px 8px;text-align:left;font:inherit;cursor:pointer}
 .shared-groups-close{display:block;margin:18px auto 0;padding:10px 24px;border:1px solid #ccd0d5;border-radius:9px;background:#f6f7f9;color:#242424;font:inherit}
+
+/* Vertically balance My Rotation meals beneath their fixed weekday headings.
+   Treat the parent recipe and its inline linked sides as one centered unit. */
+#list.top-summary .section + .top-recipe-wrap,
+#list.top-summary .top-recipe-wrap + .top-recipe-wrap {
+  display:flex;
+  align-items:center;
+  min-height:55px;
+}
+#list.top-summary .top-recipe-wrap > .meal {
+  width:100%;
+  height:auto!important;
+  min-height:44px!important;
+  padding-top:7px!important;
+  padding-bottom:7px!important;
+  align-items:center!important;
+}
+#list.top-summary .top-recipe-wrap .mealname {padding-bottom:0!important;}
+#list.top-summary .top-recipe-wrap .meal:has(.top-inline-linked) {
+  height:auto!important;
+  min-height:55px!important;
+  padding-top:7px!important;
+  padding-bottom:7px!important;
+}
+#list.top-summary .top-recipe-wrap > .meal.multi-category-meal {
+  height:auto!important;
+  min-height:48px!important;
+  padding-top:7px!important;
+  padding-bottom:7px!important;
+}
+
+
+/* Keep linked-recipe actions attached to the last word, not pushed to the weekday column. */
+.master-category-meal .shared-meal-name-line{display:block;width:100%;max-width:100%;min-width:0;line-height:1.45}
+.master-category-meal .shared-meal-name-line .master-category-meal-name{display:inline;flex:none;width:auto;max-width:100%;min-width:0;vertical-align:baseline;line-height:inherit}
+.master-category-meal .shared-meal-name-line .related-meal-indicator,
+.master-category-meal .shared-meal-name-line .shared-meal-link-button{display:inline-flex;vertical-align:middle;margin-left:3px;min-width:24px;min-height:26px;padding:2px 3px}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -3075,7 +3112,17 @@ function renderMasterCategories(list){
   if(colors.length===1)return colors[0];
   return 'linear-gradient(90deg, '+colors.flatMap((color,i)=>[`${color} ${100*i/colors.length}%`,`${color} ${100*(i+1)/colors.length}%`]).join(', ')+')';
  }
- const displayedGroups=masterDisplayOrder();
+ // Linked side-dish groups are active even when they are not assigned as a weekday group.
+ // Preserve the normal weekday order and the user's manual order within each tier.
+ const baseGroupOrder=masterDisplayOrder();
+ const activeGroupNames=new Set(scheduledEntries.map(entry=>entry.cat));
+ for(const entry of scheduledEntries){
+  for(const targetId of (Array.isArray(entry.meal.linkedMealIds)?entry.meal.linkedMealIds:[])){
+   const linked=meals.find(m=>String(m.id)===String(targetId));
+   if(linked&&cats.includes(linked.cat))activeGroupNames.add(linked.cat);
+  }
+ }
+ const displayedGroups=[...baseGroupOrder.filter(cat=>activeGroupNames.has(cat)),...baseGroupOrder.filter(cat=>!activeGroupNames.has(cat))];
  for(const category of displayedGroups){ 
   const categoryMeals=meals.filter(m=>m.cat===category);
   const card=document.createElement('section');card.className='master-category-card';card.dataset.category=category;
@@ -3105,7 +3152,7 @@ function renderMasterCategories(list){
      const name=document.createElement('button');name.type='button';name.className='master-category-meal-name';name.textContent=m.name||'Untitled meal';bindGroupMealPress(name,m);const mealInfo=document.createElement('div');mealInfo.className='master-meal-info';const nameLine=document.createElement('div');nameLine.className='shared-meal-name-line';nameLine.append(name);const sharedCopies=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup&&x.id!==m.id):[];if(sharedCopies.length){const sharedButton=document.createElement('button');sharedButton.type='button';sharedButton.className='shared-meal-link-button';sharedButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg>';sharedButton.title='View other groups containing this recipe';sharedButton.setAttribute('aria-label','View groups sharing '+(m.name||'this recipe'));sharedButton.onclick=e=>{e.preventDefault();e.stopPropagation();showSharedRecipeGroups(m)};nameLine.append(sharedButton)}
      const hasOutgoing=Array.isArray(m.linkedMealIds)&&m.linkedMealIds.some(id=>meals.some(other=>String(other.id)===String(id)));
      const hasIncoming=meals.some(other=>other!==m&&Array.isArray(other.linkedMealIds)&&other.linkedMealIds.some(id=>String(id)===String(m.id)));
-     if(hasIncoming){const relatedButton=document.createElement('button');relatedButton.type='button';relatedButton.className='related-meal-indicator';relatedButton.textContent='↗';relatedButton.title='View linked meals';relatedButton.setAttribute('aria-label','View meals linked to '+(m.name||'this recipe'));relatedButton.onclick=e=>{e.preventDefault();e.stopPropagation();showRelatedMeals(m)};nameLine.append(relatedButton)}mealInfo.append(nameLine);appendLastCookedLabel(mealInfo,m);
+     if(hasIncoming&&!hasOutgoing){const relatedButton=document.createElement('button');relatedButton.type='button';relatedButton.className='related-meal-indicator';relatedButton.textContent='↗';relatedButton.title='View linked meals';relatedButton.setAttribute('aria-label','View meals linked to '+(m.name||'this recipe'));relatedButton.onclick=e=>{e.preventDefault();e.stopPropagation();showRelatedMeals(m)};nameLine.append(relatedButton)}mealInfo.append(nameLine);appendLastCookedLabel(mealInfo,m);
      if(Array.isArray(m.linkedMealIds)&&m.linkedMealIds.length){
       const linkedTargets=[...new Map(m.linkedMealIds.map(targetId=>meals.find(x=>String(x.id)===String(targetId))).filter(Boolean).map(target=>[String(target.id),target])).values()];
       if(linkedTargets.length){
