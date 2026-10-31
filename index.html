@@ -671,6 +671,25 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 #list .master-categories-heading,
 #list .all-meals-overview > h2,
 body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
+
+/* Weekday cards: remove internal heading/meal separator, retain card elevation. */
+#list.top-summary .section:has(+ .top-recipe-wrap),
+#list.top-summary .section:has(+ .empty-weekday-meal){border-top:0!important;}
+/* Meal-plan tabs: continuous baseline except under the active tab. */
+#list .meal-plan-tabs{border-bottom:1px solid #cfd1d4!important;overflow-x:auto;overflow-y:hidden;padding-bottom:0!important;}
+#list .meal-plan-tab{position:relative;border-bottom:1px solid #cfd1d4!important;margin-bottom:-1px;z-index:1;}
+#list .meal-plan-tab.selected{border-bottom:1px solid #fff!important;background:#fff!important;z-index:2;}
+
+/* Tab baseline indicates selection: selected tab opens into the page. */
+#list .meal-plan-tabs{border-bottom:1px solid #cfd1d4!important;overflow-y:hidden!important;}
+#list .meal-plan-tab{border-bottom:1px solid #cfd1d4!important;margin-bottom:-1px;}
+#list .meal-plan-tab.selected{border-bottom:1px solid #fff!important;box-shadow:0 2px 7px rgba(35,48,60,.13)!important;}
+/* My Rotation cards are one continuous surface, without internal divider lines. */
+#list.top-summary .section:has(+ .top-recipe-wrap),
+#list.top-summary .section:has(+ .empty-weekday-meal){border:0!important;box-shadow:none!important;}
+#list.top-summary .top-recipe-wrap > .meal,
+#list.top-summary .top-recipe-wrap .meal,
+#list.top-summary .top-recipe-wrap .top-recipe-ingredients{border-top:0!important;border-bottom:0!important;box-shadow:none!important;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
