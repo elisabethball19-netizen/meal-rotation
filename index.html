@@ -526,9 +526,9 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 /* Weekday labels sit at the top of their corresponding color segments. */
 .master-category-header{position:sticky;}
 .master-category-weekdays{position:absolute;top:4px;left:0;right:0;display:flex;align-items:flex-start;pointer-events:none;color:#555f64;font-size:10px;font-weight:600;letter-spacing:.025em;line-height:1.2;z-index:1;}
-.master-category-weekdays span{flex:1 1 0;min-width:0;text-align:right;padding-right:12px;white-space:nowrap;}
-.master-category-weekdays.single span{padding-right:14px;}
-@media(max-width:390px){.master-category-header{gap:2px}.master-category-title{gap:6px}.master-category-weekdays{font-size:9px}.master-category-weekdays span{padding-right:9px}}
+.master-category-weekdays span{flex:1 1 0;min-width:0;text-align:center;padding-right:0;white-space:nowrap;}
+.master-category-weekdays.single span{text-align:right;padding-right:14px;}
+@media(max-width:390px){.master-category-header{gap:2px}.master-category-title{gap:6px}.master-category-weekdays{font-size:9px}.master-category-weekdays.single span{padding-right:9px}}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
