@@ -758,35 +758,50 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 .shared-groups-panel{position:relative;padding-top:22px;padding-right:65px}
 .shared-groups-panel .shared-groups-close{position:absolute;right:15px;top:12px;margin:0;width:44px;height:44px;min-height:44px;font-size:0}
 .shared-groups-panel .shared-groups-close svg{width:25px;height:25px}
-</style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
-(()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
+#test-banner{position:relative;z-index:10000;background:#fff1bc;border:2px solid #bd7b00;color:#332600;border-radius:10px;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:18px;font-size:14px}#test-reset{background:#fff;border:1px solid #a46c00;border-radius:8px;padding:9px 12px;font-weight:600;color:#332600}</style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
+/* Dedicated test storage: never read or erase production app data. */
+const TEST_PREFIX='mealRotationTestSandboxV1:';
+const testStorage={
+ getItem(key){return window.localStorage.getItem(TEST_PREFIX+key)},
+ setItem(key,value){window.localStorage.setItem(TEST_PREFIX+key,String(value))},
+ removeItem(key){window.localStorage.removeItem(TEST_PREFIX+key)},
+ get length(){return Object.keys(window.localStorage).filter(k=>k.startsWith(TEST_PREFIX)).length},
+ key(index){return Object.keys(window.localStorage).filter(k=>k.startsWith(TEST_PREFIX))[index]?.slice(TEST_PREFIX.length)??null}
+};
+document.getElementById('test-reset').addEventListener('click',()=>{
+ if(!confirm('Reset the TEST app to its initial setup? All test meals, settings, and selections will be deleted. Your working app will not be affected.'))return;
+ for(const key of Object.keys(window.localStorage))if(key.startsWith(TEST_PREFIX))window.localStorage.removeItem(key);
+ window.location.reload();
+});
+</script><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
+(()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(testStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
-const previousMarinateVisibility=localStorage.getItem('mealRotationShowMarinateV1')==='true';
+const previousMarinateVisibility=testStorage.getItem('mealRotationShowMarinateV1')==='true';
 let timeDisplayPrefs={top:{cooking:false,marinate:previousMarinateVisibility},category:{cooking:false,marinate:previousMarinateVisibility},all:{cooking:false,marinate:false}};
 function setTimeDisplayPrefs(next){
   for(const view of ['top','category','all'])for(const field of ['cooking','marinate']){
     if(next&&next[view]&&typeof next[view][field]==='boolean')timeDisplayPrefs[view][field]=next[view][field];
   }
 }
-try{setTimeDisplayPrefs(JSON.parse(localStorage.getItem(timePreferencesStorageKey)||'null'))}catch(e){}
-function saveTimeDisplayPrefs(){try{localStorage.setItem(timePreferencesStorageKey,JSON.stringify(timeDisplayPrefs))}catch(e){}}
+try{setTimeDisplayPrefs(JSON.parse(testStorage.getItem(timePreferencesStorageKey)||'null'))}catch(e){}
+function saveTimeDisplayPrefs(){try{testStorage.setItem(timePreferencesStorageKey,JSON.stringify(timeDisplayPrefs))}catch(e){}}
 const cookedDateVisibilityKey='mealRotationShowLastCookedV1';
-let showLastCooked=localStorage.getItem(cookedDateVisibilityKey)!=='false';
-function saveLastCookedVisibility(){try{localStorage.setItem(cookedDateVisibilityKey,String(showLastCooked))}catch(e){}}
+let showLastCooked=testStorage.getItem(cookedDateVisibilityKey)!=='false';
+function saveLastCookedVisibility(){try{testStorage.setItem(cookedDateVisibilityKey,String(showLastCooked))}catch(e){}}
 const mealChooserSortKey='mealRotationChooserCookedSortV1';
 const mealChooserUndatedKey='mealRotationChooserIncludeUndatedV1';
-let mealChooserSort=['oldest','newest','original'].includes(localStorage.getItem(mealChooserSortKey))?localStorage.getItem(mealChooserSortKey):'oldest';
-let mealChooserIncludeUndated=localStorage.getItem(mealChooserUndatedKey)!=='false';
+let mealChooserSort=['oldest','newest','original'].includes(testStorage.getItem(mealChooserSortKey))?testStorage.getItem(mealChooserSortKey):'oldest';
+let mealChooserIncludeUndated=testStorage.getItem(mealChooserUndatedKey)!=='false';
 
-let groceryUndo=null;let topCounts={};try{const ts=JSON.parse(localStorage.getItem('mealRotationTopCountsV1')||'{}');if(ts&&typeof ts==='object')topCounts=ts}catch(e){}function getTopCount(c){return Number.isFinite(Number(topCounts[c]))?Math.max(0,Math.min(10,Number(topCounts[c]))):1}function saveTopCounts(){try{localStorage.setItem('mealRotationTopCountsV1',JSON.stringify(topCounts))}catch(e){}}const weekdays=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];let weekdayCategories={};try{const wc=JSON.parse(localStorage.getItem('mealRotationWeekdayCategoriesV1')||'{}');if(wc&&typeof wc==='object')weekdayCategories=wc}catch(e){}// Optional recipe labels and per-plan weekday group filters.
+let groceryUndo=null;let topCounts={};try{const ts=JSON.parse(testStorage.getItem('mealRotationTopCountsV1')||'{}');if(ts&&typeof ts==='object')topCounts=ts}catch(e){}function getTopCount(c){return Number.isFinite(Number(topCounts[c]))?Math.max(0,Math.min(10,Number(topCounts[c]))):1}function saveTopCounts(){try{testStorage.setItem('mealRotationTopCountsV1',JSON.stringify(topCounts))}catch(e){}}const weekdays=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];let weekdayCategories={};try{const wc=JSON.parse(testStorage.getItem('mealRotationWeekdayCategoriesV1')||'{}');if(wc&&typeof wc==='object')weekdayCategories=wc}catch(e){}// Optional recipe labels and per-plan weekday group filters.
 const weekdayRecipeFiltersKey='mealRotationWeekdayRecipeFiltersV1';
-let weekdayRecipeFilters={};try{weekdayRecipeFilters=JSON.parse(localStorage.getItem(weekdayRecipeFiltersKey)||'{}')||{}}catch(e){}
-function saveWeekdayRecipeFilters(){try{localStorage.setItem(weekdayRecipeFiltersKey,JSON.stringify(weekdayRecipeFilters))}catch(e){}saveActiveMealPlan()}
+let weekdayRecipeFilters={};try{weekdayRecipeFilters=JSON.parse(testStorage.getItem(weekdayRecipeFiltersKey)||'{}')||{}}catch(e){}
+function saveWeekdayRecipeFilters(){try{testStorage.setItem(weekdayRecipeFiltersKey,JSON.stringify(weekdayRecipeFilters))}catch(e){}saveActiveMealPlan()}
 const recipeLabelCatalogKey='mealRotationRecipeLabelCatalogV1';
-let recipeLabelCatalog=[];try{const saved=JSON.parse(localStorage.getItem(recipeLabelCatalogKey)||'[]');if(Array.isArray(saved))recipeLabelCatalog=saved.filter(x=>typeof x==='string'&&x.trim()).map(x=>x.trim())}catch(e){}
+let recipeLabelCatalog=[];try{const saved=JSON.parse(testStorage.getItem(recipeLabelCatalogKey)||'[]');if(Array.isArray(saved))recipeLabelCatalog=saved.filter(x=>typeof x==='string'&&x.trim()).map(x=>x.trim())}catch(e){}
 function labelKey(x){return String(x).trim().replace(/\s+/g,' ').toLocaleLowerCase()}
 function allRecipeLabels(){const result=new Map();for(const name of [...recipeLabelCatalog,...meals.flatMap(m=>Array.isArray(m.labels)?m.labels:[])]){const value=String(name).trim().replace(/\s+/g,' ');if(value&&!result.has(labelKey(value)))result.set(labelKey(value),value)}return [...result.values()].sort((a,b)=>a.localeCompare(b))}
-function saveRecipeLabelCatalog(){localStorage.setItem(recipeLabelCatalogKey,JSON.stringify(recipeLabelCatalog))}
+function saveRecipeLabelCatalog(){testStorage.setItem(recipeLabelCatalogKey,JSON.stringify(recipeLabelCatalog))}
 function changeRecipeLabel(oldName,newName){const oldKey=labelKey(oldName);const clean=String(newName).trim().replace(/\s+/g,' ');for(const meal of meals){meal.labels=[...new Map((meal.labels||[]).map(x=>{const name=labelKey(x)===oldKey?clean:x;return [labelKey(name),name]}).filter(([key])=>key)).values()]};for(const [slot,values] of Object.entries(weekdayRecipeFilters)){weekdayRecipeFilters[slot]=[...new Map((values||[]).map(x=>{const name=labelKey(x)===oldKey?clean:x;return [labelKey(name),name]}).filter(([key])=>key)).values()]};recipeLabelCatalog=[...new Map(recipeLabelCatalog.map(x=>{const name=labelKey(x)===oldKey?clean:x;return [labelKey(name),name]}).filter(([key])=>key)).values()];saveRecipeLabelCatalog();saveWeekdayRecipeFilters();persist()}
 function recipeLabels(meal){return Array.isArray(meal.labels)?meal.labels.map(x=>String(x).trim()).filter(Boolean):[]}
 function recipeMatchesFilters(meal,labels){return !labels?.length||recipeLabels(meal).some(label=>labels.some(x=>x.toLowerCase()===label.toLowerCase()))}
@@ -799,7 +814,7 @@ function getDayCategories(day){
   return [...new Set((Array.isArray(raw)?raw:[raw]).filter(c=>typeof c==='string'&&cats.includes(c)))];
 }
 function saveWeekdayCategories(){
-  try{localStorage.setItem('mealRotationWeekdayCategoriesV1',JSON.stringify(weekdayCategories))}catch(e){}
+  try{testStorage.setItem('mealRotationWeekdayCategoriesV1',JSON.stringify(weekdayCategories))}catch(e){}
   if(typeof mealPlans!=='undefined')saveActiveMealPlan();
 }
 function weekdaySlotKey(day,cat){return day+'::'+cat}
@@ -813,25 +828,25 @@ function setDayCategories(day,values){
   saveWeekdayCategories();saveWeekdayMealOverrides();
   renderTabs();renderList();
 }
-let startWeekday=localStorage.getItem('mealRotationStartWeekdayV1')||'Monday';let pinnedCats=[];try{pinnedCats=JSON.parse(localStorage.getItem('mealRotationPinnedCategoriesV1')||'[]')}catch(e){}let expandedCats=[];try{expandedCats=JSON.parse(localStorage.getItem('mealRotationExpandedCategoriesV1')||'[]')}catch(e){}
+let startWeekday=testStorage.getItem('mealRotationStartWeekdayV1')||'Monday';let pinnedCats=[];try{pinnedCats=JSON.parse(testStorage.getItem('mealRotationPinnedCategoriesV1')||'[]')}catch(e){}let expandedCats=[];try{expandedCats=JSON.parse(testStorage.getItem('mealRotationExpandedCategoriesV1')||'[]')}catch(e){}
 let autoPinTopCategories=true;
-let applyPinsToAllTabs=localStorage.getItem('mealRotationApplyPinsAllTabsV1')==='true';
+let applyPinsToAllTabs=testStorage.getItem('mealRotationApplyPinsAllTabsV1')==='true';
 // Master Categories opening behavior. These two checkbox options are exclusive.
-let masterOpenMode=localStorage.getItem('mealRotationMasterOpenModeV1')||'all';
+let masterOpenMode=testStorage.getItem('mealRotationMasterOpenModeV1')||'all';
 if(!['all','current','across','none'].includes(masterOpenMode))masterOpenMode='all';
-let masterPinsOverride=localStorage.getItem('mealRotationMasterPinsOverrideV1')!=='false';
-function saveMasterOpeningPrefs(){localStorage.setItem('mealRotationMasterOpenModeV1',masterOpenMode);localStorage.setItem('mealRotationMasterPinsOverrideV1',String(masterPinsOverride))}
+let masterPinsOverride=testStorage.getItem('mealRotationMasterPinsOverrideV1')!=='false';
+function saveMasterOpeningPrefs(){testStorage.setItem('mealRotationMasterOpenModeV1',masterOpenMode);testStorage.setItem('mealRotationMasterPinsOverrideV1',String(masterPinsOverride))}
 
 let groceryTabOpen=false,groceryTabActive=false,allMealsActive=false;
 const masterGroceryPlanExclusionsKey='mealRotationMasterGroceryExcludedPlansV1';
 let masterGroceryExcludedPlanIds=new Set();
-try{const stored=JSON.parse(localStorage.getItem(masterGroceryPlanExclusionsKey)||'[]');if(Array.isArray(stored))masterGroceryExcludedPlanIds=new Set(stored.map(String))}catch(e){}
+try{const stored=JSON.parse(testStorage.getItem(masterGroceryPlanExclusionsKey)||'[]');if(Array.isArray(stored))masterGroceryExcludedPlanIds=new Set(stored.map(String))}catch(e){}
 const masterGroceryMealExclusionsKey='mealRotationMasterGroceryExcludedMealsV1';
 let masterGroceryExcludedMealKeys=new Set();
-try{const stored=JSON.parse(localStorage.getItem(masterGroceryMealExclusionsKey)||'[]');if(Array.isArray(stored))masterGroceryExcludedMealKeys=new Set(stored.map(String))}catch(e){}
-function saveMasterGroceryMealExclusions(){try{localStorage.setItem(masterGroceryMealExclusionsKey,JSON.stringify([...masterGroceryExcludedMealKeys]))}catch(e){}}
+try{const stored=JSON.parse(testStorage.getItem(masterGroceryMealExclusionsKey)||'[]');if(Array.isArray(stored))masterGroceryExcludedMealKeys=new Set(stored.map(String))}catch(e){}
+function saveMasterGroceryMealExclusions(){try{testStorage.setItem(masterGroceryMealExclusionsKey,JSON.stringify([...masterGroceryExcludedMealKeys]))}catch(e){}}
 function groceryMealKey(plan,meal){return String(plan.id)+'::'+String(meal.id)}
-function saveMasterGroceryPlanExclusions(){try{localStorage.setItem(masterGroceryPlanExclusionsKey,JSON.stringify([...masterGroceryExcludedPlanIds]))}catch(e){}}
+function saveMasterGroceryPlanExclusions(){try{testStorage.setItem(masterGroceryPlanExclusionsKey,JSON.stringify([...masterGroceryExcludedPlanIds]))}catch(e){}}
 
 let lastTopPinnedCategories=new Set();
 // Manually pinned categories always remain available. Automatic pinning
@@ -844,8 +859,8 @@ function effectivePinnedCategories(){
  const manual=applyPinsToAllTabs?
   mealPlans.flatMap(p=>Array.isArray(p.pinnedCats)?p.pinnedCats:[]):pinnedCats;
  return new Set([...manual,...assigned].filter(c=>cats.includes(c)));
-}const catColors=['#e9f1fc','#e9f4ed','#fff1df','#f3eafa','#e9f4f3','#fff0ef','#f1f1e5','#eef0fa'];let categoryColors={};try{const savedColors=JSON.parse(localStorage.getItem('mealRotationCategoryColorsV1')||'{}');if(savedColors&&typeof savedColors==='object'&&!Array.isArray(savedColors))categoryColors=Object.fromEntries(Object.entries(savedColors).filter(([name,color])=>typeof name==='string'&&/^#[0-9a-fA-F]{6}$/.test(color)))}catch(e){}
-function saveCategoryColors(){try{localStorage.setItem('mealRotationCategoryColorsV1',JSON.stringify(categoryColors))}catch(e){}}
+}const catColors=['#e9f1fc','#e9f4ed','#fff1df','#f3eafa','#e9f4f3','#fff0ef','#f1f1e5','#eef0fa'];let categoryColors={};try{const savedColors=JSON.parse(testStorage.getItem('mealRotationCategoryColorsV1')||'{}');if(savedColors&&typeof savedColors==='object'&&!Array.isArray(savedColors))categoryColors=Object.fromEntries(Object.entries(savedColors).filter(([name,color])=>typeof name==='string'&&/^#[0-9a-fA-F]{6}$/.test(color)))}catch(e){}
+function saveCategoryColors(){try{testStorage.setItem('mealRotationCategoryColorsV1',JSON.stringify(categoryColors))}catch(e){}}
 const defaultColorForCat=c=>c==='Weekend'?catColors[Math.max(0,cats.indexOf('Misc'))%catColors.length]:c==='Misc'?'#eee7df':catColors[Math.max(0,cats.indexOf(c))%catColors.length];
 // Color is attached to the weekday, not to the category assigned to it.
 // Existing category colors are used once to preserve familiar colors during migration.
@@ -853,8 +868,8 @@ const weekdayColorDefaults={Tuesday:'#D1DEC0',Wednesday:'#F6DEAA',Thursday:'#E0C
 // Shortcut colors retain a little more definition than the larger meal cards.
 const weekdayShortcutColors={Tuesday:'#C5D6AE',Wednesday:'#F3D493',Thursday:'#D7BFDC',Friday:'#E9B19E',Saturday:'#B8DCD0',Sunday:'#E2B3BD',Monday:'#C2D1E4'};
 let weekdayColors={};
-try{const stored=JSON.parse(localStorage.getItem('mealRotationWeekdayColorsV1')||'{}');if(stored&&typeof stored==='object'&&!Array.isArray(stored))weekdayColors=Object.fromEntries(Object.entries(stored).filter(([d,color])=>weekdays.includes(d)&&/^#[0-9a-fA-F]{6}$/.test(color)))}catch(e){}
-function saveWeekdayColors(){weekdayColors={...weekdayColorDefaults};try{localStorage.setItem('mealRotationWeekdayColorsV1',JSON.stringify(weekdayColors))}catch(e){}}
+try{const stored=JSON.parse(testStorage.getItem('mealRotationWeekdayColorsV1')||'{}');if(stored&&typeof stored==='object'&&!Array.isArray(stored))weekdayColors=Object.fromEntries(Object.entries(stored).filter(([d,color])=>weekdays.includes(d)&&/^#[0-9a-fA-F]{6}$/.test(color)))}catch(e){}
+function saveWeekdayColors(){weekdayColors={...weekdayColorDefaults};try{testStorage.setItem('mealRotationWeekdayColorsV1',JSON.stringify(weekdayColors))}catch(e){}}
 function deriveWeekdayColors(legacy=categoryColors){return Object.fromEntries(weekdays.map(day=>{const cat=getDayCategories(day)[0];return [day,cat?(legacy[cat]||defaultColorForCat(cat)):weekdayColorDefaults[day]]}))}
 const colorForDay=day=>weekdayColorDefaults[day]||'#ffffff';
 // A category assigned to several weekdays displays every assigned day's color.
@@ -890,9 +905,9 @@ function clearWeekdayOverride(day,cat){
   delete weekdayMealOverrides[weekdaySlotKey(day,cat)];
   if(getDayCategories(day)[0]===cat)delete weekdayMealOverrides[day];
 }
-let weekdayMealOverrides={};try{const wo=JSON.parse(localStorage.getItem('mealRotationWeekdayMealOverridesV1')||'{}');if(wo&&typeof wo==='object')weekdayMealOverrides=wo}catch(e){}function saveWeekdayMealOverrides(){try{localStorage.setItem('mealRotationWeekdayMealOverridesV1',JSON.stringify(weekdayMealOverrides))}catch(e){}if(typeof mealPlans!=='undefined')saveActiveMealPlan()}
+let weekdayMealOverrides={};try{const wo=JSON.parse(testStorage.getItem('mealRotationWeekdayMealOverridesV1')||'{}');if(wo&&typeof wo==='object')weekdayMealOverrides=wo}catch(e){}function saveWeekdayMealOverrides(){try{testStorage.setItem('mealRotationWeekdayMealOverridesV1',JSON.stringify(weekdayMealOverrides))}catch(e){}if(typeof mealPlans!=='undefined')saveActiveMealPlan()}
 migrateSavedIngredientFractions();
-let meals=[];let hasValidSavedData=false;try{const saved=localStorage.getItem('mealRotationDataV1');if(saved){const d=JSON.parse(saved);if(Array.isArray(d.cats)&&Array.isArray(d.meals)){cats=d.cats;meals=d.meals.map(m=>({...m,ingredients:Array.isArray(m.ingredients)?m.ingredients:[]}));id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;active=cats.includes(d.active)?d.active:(cats[0]||'Chicken');hasValidSavedData=true}}}catch(e){}
+let meals=[];let hasValidSavedData=false;try{const saved=testStorage.getItem('mealRotationDataV1');if(saved){const d=JSON.parse(saved);if(Array.isArray(d.cats)&&Array.isArray(d.meals)){cats=d.cats;meals=d.meals.map(m=>({...m,ingredients:Array.isArray(m.ingredients)?m.ingredients:[]}));id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;active=cats.includes(d.active)?d.active:(cats[0]||'Chicken');hasValidSavedData=true}}}catch(e){}
 // New installations begin with three editable example groups and no recipes.
 weekdayColors={...weekdayColorDefaults};saveWeekdayColors();
 // Keep Top Recipes as the default landing page, but restore the current view
@@ -901,14 +916,14 @@ weekdayColors={...weekdayColorDefaults};saveWeekdayColors();
 
 // Saved globally, independently of recipes and meal-plan tabs.
 const mealTextSizeKey='mealRotationTextSizeV1';
-let mealTextSize=localStorage.getItem(mealTextSizeKey)||'normal';
+let mealTextSize=testStorage.getItem(mealTextSizeKey)||'normal';
 if(!['normal','large','extra'].includes(mealTextSize))mealTextSize='normal';
 function applyMealTextSize(){document.body.dataset.mealTextSize=mealTextSize;}
 applyMealTextSize();
 const mealPlansKey='mealRotationPlansV1';
 // Only brand-new installations receive the three starter plans. Existing saved
 // installations retain their own plan names, order, and visibility preference.
-const isFirstMealPlanSetup=!hasValidSavedData && localStorage.getItem('mealRotationPlansV1')===null;
+const isFirstMealPlanSetup=!hasValidSavedData && testStorage.getItem('mealRotationPlansV1')===null;
 const starterDinner={id:'original',name:isFirstMealPlanSetup?'Dinner':'Meal Plan',weekdayCategories:JSON.parse(JSON.stringify(weekdayCategories)),weekdayMealOverrides:{...weekdayMealOverrides},weekdayRecipeFilters:JSON.parse(JSON.stringify(weekdayRecipeFilters)),autoPinTopCategories};
 let mealPlans=isFirstMealPlanSetup?[
  {id:'starter-breakfast',name:'Breakfast',weekdayCategories:{},weekdayMealOverrides:{},weekdayRecipeFilters:{},autoPinTopCategories:false,pinnedCats:[]},
@@ -916,10 +931,10 @@ let mealPlans=isFirstMealPlanSetup?[
  starterDinner
 ]:[starterDinner];
 let activePlanId='original';
-const savedTabVisibility=localStorage.getItem('mealRotationShowPlanTabsV1');
+const savedTabVisibility=testStorage.getItem('mealRotationShowPlanTabsV1');
 let showMealPlanTabs=savedTabVisibility===null?isFirstMealPlanSetup:savedTabVisibility==='true';
 try{
- const stored=JSON.parse(localStorage.getItem(mealPlansKey)||'null');
+ const stored=JSON.parse(testStorage.getItem(mealPlansKey)||'null');
  if(stored&&Array.isArray(stored.plans)&&stored.plans.length){
   const valid=stored.plans.filter(p=>p&&typeof p.id==='string'&&typeof p.name==='string'&&p.weekdayCategories&&typeof p.weekdayCategories==='object');
   if(valid.length){mealPlans=valid;
@@ -937,20 +952,20 @@ mealPlans.forEach(plan=>{
  if(!Array.isArray(plan.pinnedCats))plan.pinnedCats=plan.id===activePlanId?[...pinnedCats]:[];
 });
 pinnedCats=[...(mealPlans.find(p=>p.id===activePlanId)?.pinnedCats||[])];
-if(isFirstMealPlanSetup){try{localStorage.setItem('mealRotationPlansV1',JSON.stringify({plans:mealPlans,activeId:activePlanId}));localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))}catch(e){}}
+if(isFirstMealPlanSetup){try{testStorage.setItem('mealRotationPlansV1',JSON.stringify({plans:mealPlans,activeId:activePlanId}));testStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))}catch(e){}}
 function saveActiveMealPlan(){
  const plan=mealPlans.find(p=>p.id===activePlanId);
  if(plan){plan.weekdayCategories=JSON.parse(JSON.stringify(weekdayCategories));plan.weekdayMealOverrides={...weekdayMealOverrides};plan.autoPinTopCategories=autoPinTopCategories;plan.pinnedCats=[...pinnedCats];plan.weekdayRecipeFilters=JSON.parse(JSON.stringify(weekdayRecipeFilters));}
- try{localStorage.setItem(mealPlansKey,JSON.stringify({plans:mealPlans,activeId:activePlanId}))}catch(e){}
+ try{testStorage.setItem(mealPlansKey,JSON.stringify({plans:mealPlans,activeId:activePlanId}))}catch(e){}
 }
 function loadMealPlan(planId){
  const plan=mealPlans.find(p=>p.id===planId);if(!plan)return;
  saveActiveMealPlan();activePlanId=planId;
  weekdayCategories=JSON.parse(JSON.stringify(plan.weekdayCategories||{}));
- weekdayMealOverrides={...(plan.weekdayMealOverrides||{})};weekdayRecipeFilters=JSON.parse(JSON.stringify(plan.weekdayRecipeFilters||{}));try{localStorage.setItem(weekdayRecipeFiltersKey,JSON.stringify(weekdayRecipeFilters))}catch(e){}
+ weekdayMealOverrides={...(plan.weekdayMealOverrides||{})};weekdayRecipeFilters=JSON.parse(JSON.stringify(plan.weekdayRecipeFilters||{}));try{testStorage.setItem(weekdayRecipeFiltersKey,JSON.stringify(weekdayRecipeFilters))}catch(e){}
  autoPinTopCategories=true;pinnedCats=[...(plan.pinnedCats||[])];
  groceryTabActive=false;allMealsActive=false;saveActiveMealPlan();
- try{localStorage.setItem('mealRotationWeekdayCategoriesV1',JSON.stringify(weekdayCategories));localStorage.setItem('mealRotationWeekdayMealOverridesV1',JSON.stringify(weekdayMealOverrides))}catch(e){}
+ try{testStorage.setItem('mealRotationWeekdayCategoriesV1',JSON.stringify(weekdayCategories));testStorage.setItem('mealRotationWeekdayMealOverridesV1',JSON.stringify(weekdayMealOverrides))}catch(e){}
  topIngredientExpanded.clear();topIngredientManualHiddenOverride.clear();
  showTop=true;editId=null;menuCat=null;render();
 }
@@ -1139,9 +1154,9 @@ function rememberCurrentView(){
 }
 // Rendered-page identity is also used to close Settings on navigation.
 let lastRenderedPageKey=null;
-const $=x=>document.getElementById(x);function persist(){try{localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}}window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function captureState(){return JSON.stringify({cats,active,meals,checkedIngredients:[...checkedIngredients],weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,pinnedCats,expandedCats,startWeekday,topCounts,categoryColors,weekdayColors,autoPinTopCategories,applyPinsToAllTabs,masterOpenMode,masterPinsOverride,mealPlans,activePlanId,showMealPlanTabs})}
+const $=x=>document.getElementById(x);function persist(){try{testStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}}window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function captureState(){return JSON.stringify({cats,active,meals,checkedIngredients:[...checkedIngredients],weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,pinnedCats,expandedCats,startWeekday,topCounts,categoryColors,weekdayColors,autoPinTopCategories,applyPinsToAllTabs,masterOpenMode,masterPinsOverride,mealPlans,activePlanId,showMealPlanTabs})}
 function snapshot(){const state=captureState();if(history[history.length-1]!==state){history.push(state);if(history.length>100)history.shift()}redoHistory=[];groceryUndo=null}
-function restoreState(state){cats=state.cats;active=state.active;meals=state.meals;if(Array.isArray(state.mealPlans)&&state.mealPlans.length){mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId||mealPlans[0].id;showMealPlanTabs=!!state.showMealPlanTabs;autoPinTopCategories=true;}else saveActiveMealPlan();checkedIngredients=new Set(state.checkedIngredients||[]);if(state.weekdayCategories)weekdayCategories=state.weekdayCategories;if(state.weekdayMealOverrides)weekdayMealOverrides=state.weekdayMealOverrides;if(state.weekdayRecipeFilters){weekdayRecipeFilters=state.weekdayRecipeFilters;saveWeekdayRecipeFilters();}if(state.pinnedCats)pinnedCats=state.pinnedCats;if(state.expandedCats)expandedCats=state.expandedCats;if(typeof state.autoPinTopCategories==='boolean')autoPinTopCategories=true;if(typeof state.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=state.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;if(typeof state.masterPinsOverride==='boolean')masterPinsOverride=state.masterPinsOverride;saveMasterOpeningPrefs();if(state.startWeekday)startWeekday=state.startWeekday;if(state.topCounts)topCounts=state.topCounts;categoryColors=state.categoryColors&&typeof state.categoryColors==='object'?{...state.categoryColors}:{};saveCategoryColors();weekdayColors=state.weekdayColors&&typeof state.weekdayColors==='object'?{...state.weekdayColors}:deriveWeekdayColors(categoryColors);saveWeekdayColors();id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;persist();try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));saveWeekdayCategories();saveWeekdayMealOverrides();saveTopCounts();localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));localStorage.setItem('mealRotationStartWeekdayV1',startWeekday);localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}catch(e){}render()}
+function restoreState(state){cats=state.cats;active=state.active;meals=state.meals;if(Array.isArray(state.mealPlans)&&state.mealPlans.length){mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId||mealPlans[0].id;showMealPlanTabs=!!state.showMealPlanTabs;autoPinTopCategories=true;}else saveActiveMealPlan();checkedIngredients=new Set(state.checkedIngredients||[]);if(state.weekdayCategories)weekdayCategories=state.weekdayCategories;if(state.weekdayMealOverrides)weekdayMealOverrides=state.weekdayMealOverrides;if(state.weekdayRecipeFilters){weekdayRecipeFilters=state.weekdayRecipeFilters;saveWeekdayRecipeFilters();}if(state.pinnedCats)pinnedCats=state.pinnedCats;if(state.expandedCats)expandedCats=state.expandedCats;if(typeof state.autoPinTopCategories==='boolean')autoPinTopCategories=true;if(typeof state.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=state.applyPinsToAllTabs;testStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;if(typeof state.masterPinsOverride==='boolean')masterPinsOverride=state.masterPinsOverride;saveMasterOpeningPrefs();if(state.startWeekday)startWeekday=state.startWeekday;if(state.topCounts)topCounts=state.topCounts;categoryColors=state.categoryColors&&typeof state.categoryColors==='object'?{...state.categoryColors}:{};saveCategoryColors();weekdayColors=state.weekdayColors&&typeof state.weekdayColors==='object'?{...state.weekdayColors}:deriveWeekdayColors(categoryColors);saveWeekdayColors();id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;persist();try{testStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));saveWeekdayCategories();saveWeekdayMealOverrides();saveTopCounts();testStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));testStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs));testStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));testStorage.setItem('mealRotationStartWeekdayV1',startWeekday);testStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}catch(e){}render()}
 function time(v){v=Number(v);if(!Number.isFinite(v)||v<0)return '—';if(v<60)return v+'m';let h=Math.floor(v/60),m=v%60;return h+'h'+(m?' '+m+'m':'')}
 // Times remain stored in minutes, so existing recipes and backups stay compatible.
 // For NEW bare-number entries: 0–9, 12 and 24 mean hours; other two- and
@@ -1236,9 +1251,9 @@ function appendMealTimes(body,meal){
 }let topPanel=null;let renderTopSettingsPanel=null;let topIngredientExpanded=new Set();let topIngredientManualHiddenOverride=new Set();
 // Contextual onboarding. The saved stage is independent of recipes and settings.
 const tutorialKey='mealRotationTutorialStageV1';
-let tutorialStage=localStorage.getItem(tutorialKey);
-if(tutorialStage===null){tutorialStage=meals.length===0?'1':'done';localStorage.setItem(tutorialKey,tutorialStage)}
-function setTutorialStage(stage){tutorialStage=stage;localStorage.setItem(tutorialKey,stage);showTutorialHint()}
+let tutorialStage=testStorage.getItem(tutorialKey);
+if(tutorialStage===null){tutorialStage=meals.length===0?'1':'done';testStorage.setItem(tutorialKey,tutorialStage)}
+function setTutorialStage(stage){tutorialStage=stage;testStorage.setItem(tutorialKey,stage);showTutorialHint()}
 function showTutorialHint(){
  document.querySelectorAll('.meal-tutorial-hint').forEach(el=>el.remove());
  if(!['1','2','3'].includes(tutorialStage))return;
@@ -1694,12 +1709,12 @@ function showRecipeImportSelection(items,filename){
   if(!added){overlay.remove();recipeImportNotice('All recipes in this file have already been imported.');return}
   const nextActive=firstCategory||active;
   const encoded=JSON.stringify({cats:nextCats,active:nextActive,meals:newMeals});
-  try{localStorage.setItem('mealRotationDataV1',encoded)}catch(err){
+  try{testStorage.setItem('mealRotationDataV1',encoded)}catch(err){
    recipeImportNotice('Import could not be saved. Your browser may be low on storage. No existing meals were changed.');return;
   }
   snapshot();cats=nextCats;meals=newMeals;id=nextId;recipeLabelCatalog=[...canonicalLabels.values()];saveRecipeLabelCatalog();active=nextActive;showTop=false;editId=null;menuCat=null;
   expandedCats=[...new Set([...expandedCats,...addedCats])];
-  try{localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}
+  try{testStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}
   overlay.remove();render();
   recipeImportNotice('Imported '+added+' recipes into Ideas across '+addedCats.length+' new groups.'+(skipped?' Skipped '+skipped+' previously imported recipes.':''));
  };
@@ -1763,15 +1778,15 @@ function restoreSettingsDraft(json){
  autoPinTopCategories=true;applyPinsToAllTabs=!!state.applyPinsToAllTabs;timeDisplayPrefs=JSON.parse(JSON.stringify(state.timeDisplayPrefs));
  showLastCooked=state.showLastCooked!==false;saveLastCookedVisibility();showMealPlanTabs=!!state.showMealPlanTabs;if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;masterPinsOverride=state.masterPinsOverride!==false;saveMasterOpeningPrefs();mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId;startWeekday=state.startWeekday;autoPinTopCategories=true;
  try{
- localStorage.setItem('mealRotationWeekdayCategoriesV1',JSON.stringify(weekdayCategories));
- localStorage.setItem('mealRotationWeekdayMealOverridesV1',JSON.stringify(weekdayMealOverrides));
- localStorage.setItem(weekdayRecipeFiltersKey,JSON.stringify(weekdayRecipeFilters));
- localStorage.setItem('mealRotationWeekdayColorsV1',JSON.stringify(weekdayColors));
- localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));
- localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));
- localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories));
- localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs));
- localStorage.setItem('mealRotationStartWeekdayV1',startWeekday);
+ testStorage.setItem('mealRotationWeekdayCategoriesV1',JSON.stringify(weekdayCategories));
+ testStorage.setItem('mealRotationWeekdayMealOverridesV1',JSON.stringify(weekdayMealOverrides));
+ testStorage.setItem(weekdayRecipeFiltersKey,JSON.stringify(weekdayRecipeFilters));
+ testStorage.setItem('mealRotationWeekdayColorsV1',JSON.stringify(weekdayColors));
+ testStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));
+ testStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));
+ testStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories));
+ testStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs));
+ testStorage.setItem('mealRotationStartWeekdayV1',startWeekday);
  }catch(e){}
  saveTimeDisplayPrefs();saveActiveMealPlan();
 }
@@ -1790,7 +1805,7 @@ async function finishSettings(mode='ask'){
  if(!keep)restoreSettingsDraft(baseline);
  return true;
 }
-// Browser history tracks views, not recipe edits or localStorage snapshots.
+// Browser history tracks views, not recipe edits or testStorage snapshots.
 function appViewSnapshot(){return {view:!showTop?'groups':groceryTabActive?'grocery':allMealsActive?'all':'top',planId:activePlanId};}
 function pushAppViewHistory(){
  const next=appViewSnapshot();
@@ -1862,7 +1877,7 @@ function makeSettingsFooter(){
 // The cart is a temporary tab, not a new meal plan or a popup.
 function getMasterGroceryItems(){
  saveActiveMealPlan();
- let selected={};try{selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
+ let selected={};try{selected=JSON.parse(testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
  const groceries=new Map(),observed=new Set();
  for(const plan of (showMealPlanTabs&&mealPlans.length>1?mealPlans:mealPlans.filter(p=>p.id===activePlanId))){
   if(showMealPlanTabs&&mealPlans.length>1&&masterGroceryExcludedPlanIds.has(String(plan.id)))continue;
@@ -1941,12 +1956,12 @@ function getMasterGroceryItems(){
     rows.append(msg);
    }
    groceries.forEach((line,key)=>{
-    if(localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true'&&checkedIngredients.has(key))return;
+    if(testStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true'&&checkedIngredients.has(key))return;
     const row=document.createElement('div');row.className='master-grocery-item';
     const check=document.createElement('input');check.type='checkbox';check.checked=checkedIngredients.has(key);
     check.onchange=()=>{
      if(check.checked)checkedIngredients.add(key);else checkedIngredients.delete(key);
-     try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}
+     try{testStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}
      // Refresh the grocery rows after each selection so the hide-selected
      // preference is applied immediately, without leaving a stale checked row.
      updateRows();
@@ -2036,8 +2051,8 @@ function renderAllMealsOverview(list){
   section.setAttribute('aria-label','Weekly Overview weekly overview');
   const heading=document.createElement('h2');heading.textContent='Weekly Overview';section.append(heading);
   const byPlan=mealPlans.map(plan=>({plan,entries:getDisplayedWeekdayMealsForPlan(plan)}));
-  let selected={};try{selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
-  const hideChecked=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';
+  let selected={};try{selected=JSON.parse(testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
+  const hideChecked=testStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';
   for(const day of orderedDays()){
    const card=document.createElement('section');card.className='all-meals-day';
    card.style.backgroundColor=colorForDay(day);
@@ -2181,7 +2196,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
       }
       snapshot();
       startWeekday=day;
-      localStorage.setItem('mealRotationStartWeekdayV1',day);
+      testStorage.setItem('mealRotationStartWeekdayV1',day);
       if(answer===true)rotatePinnedCategoriesToWeekdayOrder();
       renderTabs();renderList();
     };
@@ -2232,16 +2247,16 @@ const sizeLabel=document.createElement('label');sizeLabel.textContent='Text Size
 const sizeSelect=document.createElement('select');sizeSelect.id='mealTextSizeSelect';sizeSelect.setAttribute('aria-label','Text Size');
 for(const [value,label] of [['normal','Normal'],['large','Large'],['extra','Extra Large']]){const option=document.createElement('option');option.value=value;option.textContent=label;sizeSelect.append(option)}
 sizeSelect.value=mealTextSize;
-sizeSelect.onchange=()=>{mealTextSize=sizeSelect.value;localStorage.setItem(mealTextSizeKey,mealTextSize);applyMealTextSize()};
+sizeSelect.onchange=()=>{mealTextSize=sizeSelect.value;testStorage.setItem(mealTextSizeKey,mealTextSize);applyMealTextSize()};
 sizeWrap.append(sizeLabel,sizeSelect);displayGroup.content.prepend(sizeWrap);
 panel.append(displayGroup.details);
 // Version 2 backups capture every app-owned persistent key, including grocery selections.
 // Preserve the original fields for compatibility with older backup readers.
 function captureBackupStorage(){
  const data={};
- for(let i=0;i<localStorage.length;i++){
-  const key=localStorage.key(i);
-  if(key&&key.startsWith('mealRotation'))data[key]=localStorage.getItem(key);
+ for(let i=0;i<testStorage.length;i++){
+  const key=testStorage.key(i);
+  if(key&&key.startsWith('mealRotation'))data[key]=testStorage.getItem(key);
  }
  return data;
 }
@@ -2283,35 +2298,35 @@ function restoreBackupStorage(data){
  try{
   for(const [key,value] of entries){
    if(key===primary||before[key]===value)continue;
-   localStorage.setItem(key,value);
+   testStorage.setItem(key,value);
    changed.push(key);
   }
   // Commit the main recipe record last, after all other writes succeed.
   if(before[primary]!==data[primary]){
-   localStorage.setItem(primary,data[primary]);
+   testStorage.setItem(primary,data[primary]);
    changed.push(primary);
   }
   // Remove obsolete keys only after all replacement writes succeed.
   for(const key of Object.keys(before))if(!(key in data)){
-   localStorage.removeItem(key);
+   testStorage.removeItem(key);
    changed.push(key);
   }
  }catch(error){
   const rollbackFailures=[];
   for(const key of changed.reverse()){
    try{
-    if(Object.prototype.hasOwnProperty.call(before,key))localStorage.setItem(key,before[key]);
-    else localStorage.removeItem(key);
+    if(Object.prototype.hasOwnProperty.call(before,key))testStorage.setItem(key,before[key]);
+    else testStorage.removeItem(key);
    }catch(e){rollbackFailures.push(key)}
   }
   if(rollbackFailures.length)throw new Error('Restore failed; some settings could not be rolled back ('+rollbackFailures.join(', ')+'). Your original backup file is unchanged. '+error.message);
   throw error;
  }
 }
-let exportBtn=document.createElement('button');exportBtn.textContent='Export backup';exportBtn.onclick=()=>{persist();saveActiveMealPlan();saveTimeDisplayPrefs();let blob=new Blob([JSON.stringify({version:2,cats,active,meals,weekdayCategories,weekdayMealOverrides,weekdayColors,categoryColors,timeDisplayPrefs,masterOpenMode,masterPinsOverride,autoPinTopCategories,applyPinsToAllTabs,pinnedCats,expandedCats,mealPlans:{plans:mealPlans,activeId:activePlanId},showMealPlanTabs,storage:captureBackupStorage()},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='meal-rotation-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};let restoreBtn=document.createElement('button');restoreBtn.textContent='Restore backup';restoreBtn.onclick=()=>{let input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=()=>{let file=input.files&&input.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let d=JSON.parse(reader.result);validateBackupCore(d);if(d.version>=2){if(!d.storage)throw new Error('Missing backup storage');restoreBackupStorage(d.storage);location.reload();return;}snapshot();cats=d.cats;meals=d.meals;if(d.weekdayCategories&&typeof d.weekdayCategories==='object')weekdayCategories=d.weekdayCategories;if(typeof d.autoPinTopCategories==='boolean'){autoPinTopCategories=true;localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}if(typeof d.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=d.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(d.masterOpenMode))masterOpenMode=d.masterOpenMode;if(typeof d.masterPinsOverride==='boolean')masterPinsOverride=d.masterPinsOverride;saveMasterOpeningPrefs();if(Array.isArray(d.pinnedCats)){pinnedCats=d.pinnedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats))}if(Array.isArray(d.expandedCats)){expandedCats=d.expandedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}if(d.weekdayMealOverrides&&typeof d.weekdayMealOverrides==='object')weekdayMealOverrides=d.weekdayMealOverrides;if(d.mealPlans)restoreMealPlansFromBackup(d.mealPlans);if(typeof d.showMealPlanTabs==='boolean'){showMealPlanTabs=d.showMealPlanTabs;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))};saveWeekdayCategories();saveWeekdayMealOverrides();if(d.categoryColors&&typeof d.categoryColors==='object'&&!Array.isArray(d.categoryColors)){categoryColors=Object.fromEntries(Object.entries(d.categoryColors).filter(([c,color])=>typeof c==='string'&&/^#[0-9a-fA-F]{6}$/.test(color)));saveCategoryColors()}weekdayColors=d.weekdayColors&&typeof d.weekdayColors==='object'&&!Array.isArray(d.weekdayColors)?Object.fromEntries(Object.entries(d.weekdayColors).filter(([day,color])=>weekdays.includes(day)&&/^#[0-9a-fA-F]{6}$/.test(color))):deriveWeekdayColors(categoryColors);saveWeekdayColors();if(d.timeDisplayPrefs){setTimeDisplayPrefs(d.timeDisplayPrefs);saveTimeDisplayPrefs()}active=cats.includes(d.active)?d.active:(cats[0]||'Soup');id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;persist();render();panel.classList.add('hidden');settings.setAttribute('aria-expanded','false')}catch(e){alert('Backup rejected or restore failed: '+e.message+'. No changes were made if validation failed.')}};reader.readAsText(file)};input.click()};let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=async()=>{await finishSettings('ask');render()};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipe files or Trello boards into Ideas';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=displayGroup;
+let exportBtn=document.createElement('button');exportBtn.textContent='Export backup';exportBtn.onclick=()=>{persist();saveActiveMealPlan();saveTimeDisplayPrefs();let blob=new Blob([JSON.stringify({version:2,cats,active,meals,weekdayCategories,weekdayMealOverrides,weekdayColors,categoryColors,timeDisplayPrefs,masterOpenMode,masterPinsOverride,autoPinTopCategories,applyPinsToAllTabs,pinnedCats,expandedCats,mealPlans:{plans:mealPlans,activeId:activePlanId},showMealPlanTabs,storage:captureBackupStorage()},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='meal-rotation-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};let restoreBtn=document.createElement('button');restoreBtn.textContent='Restore backup';restoreBtn.onclick=()=>{let input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=()=>{let file=input.files&&input.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let d=JSON.parse(reader.result);validateBackupCore(d);if(d.version>=2){if(!d.storage)throw new Error('Missing backup storage');restoreBackupStorage(d.storage);location.reload();return;}snapshot();cats=d.cats;meals=d.meals;if(d.weekdayCategories&&typeof d.weekdayCategories==='object')weekdayCategories=d.weekdayCategories;if(typeof d.autoPinTopCategories==='boolean'){autoPinTopCategories=true;testStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}if(typeof d.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=d.applyPinsToAllTabs;testStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(d.masterOpenMode))masterOpenMode=d.masterOpenMode;if(typeof d.masterPinsOverride==='boolean')masterPinsOverride=d.masterPinsOverride;saveMasterOpeningPrefs();if(Array.isArray(d.pinnedCats)){pinnedCats=d.pinnedCats.filter(c=>cats.includes(c));testStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats))}if(Array.isArray(d.expandedCats)){expandedCats=d.expandedCats.filter(c=>cats.includes(c));testStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}if(d.weekdayMealOverrides&&typeof d.weekdayMealOverrides==='object')weekdayMealOverrides=d.weekdayMealOverrides;if(d.mealPlans)restoreMealPlansFromBackup(d.mealPlans);if(typeof d.showMealPlanTabs==='boolean'){showMealPlanTabs=d.showMealPlanTabs;testStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))};saveWeekdayCategories();saveWeekdayMealOverrides();if(d.categoryColors&&typeof d.categoryColors==='object'&&!Array.isArray(d.categoryColors)){categoryColors=Object.fromEntries(Object.entries(d.categoryColors).filter(([c,color])=>typeof c==='string'&&/^#[0-9a-fA-F]{6}$/.test(color)));saveCategoryColors()}weekdayColors=d.weekdayColors&&typeof d.weekdayColors==='object'&&!Array.isArray(d.weekdayColors)?Object.fromEntries(Object.entries(d.weekdayColors).filter(([day,color])=>weekdays.includes(day)&&/^#[0-9a-fA-F]{6}$/.test(color))):deriveWeekdayColors(categoryColors);saveWeekdayColors();if(d.timeDisplayPrefs){setTimeDisplayPrefs(d.timeDisplayPrefs);saveTimeDisplayPrefs()}active=cats.includes(d.active)?d.active:(cats[0]||'Soup');id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;persist();render();panel.classList.add('hidden');settings.setAttribute('aria-expanded','false')}catch(e){alert('Backup rejected or restore failed: '+e.message+'. No changes were made if validation failed.')}};reader.readAsText(file)};input.click()};let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=async()=>{await finishSettings('ask');render()};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipe files or Trello boards into Ideas';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=displayGroup;
  const planOption=document.createElement('label');planOption.className='settings-display-option';
  const planCheck=document.createElement('input');planCheck.type='checkbox';planCheck.checked=showMealPlanTabs;
- planCheck.onchange=()=>{showMealPlanTabs=planCheck.checked;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs));renderList()};
+ planCheck.onchange=()=>{showMealPlanTabs=planCheck.checked;testStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs));renderList()};
  planOption.append(planCheck,document.createTextNode('Show meal-plan tabs in My Rotation'));
  const planHint=document.createElement('div');planHint.style.cssText='font-size:12px;color:#666;padding:0 6px 4px';planHint.textContent='Hide tabs to focus on your currently selected meal plan. Other plans are preserved.';
  planGroup.content.append(planOption,planHint);
@@ -2404,7 +2419,7 @@ function removeMealCategory(category,action,target){
   }
   const redundantIds=new Set();
   let selected=null;
-  try{const value=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');if(value&&typeof value==='object'&&!Array.isArray(value))selected=value}catch(e){}
+  try{const value=JSON.parse(testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');if(value&&typeof value==='object'&&!Array.isArray(value))selected=value}catch(e){}
   for(const meal of meals.filter(m=>m.cat===category)){
    const identity=meal.importSourceId?'source:'+meal.importSourceId:meal.linkGroup?'group:'+meal.linkGroup:null;
    const duplicate=identity?existingByIdentity.get(identity):null;
@@ -2420,7 +2435,7 @@ function removeMealCategory(category,action,target){
    }
   }
   if(redundantIds.size)meals=meals.filter(m=>!redundantIds.has(m.id));
-  if(selected)try{localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selected))}catch(e){}
+  if(selected)try{testStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selected))}catch(e){}
  }else{
   // This removes category memberships. Other linked category entries survive.
   meals=meals.filter(m=>m.cat!==category);
@@ -2444,7 +2459,7 @@ function removeMealCategory(category,action,target){
  if(move&&!pinnedCats.includes(target)&&!expandedCats.includes(target)){
   (wasPinned?pinnedCats:expandedCats).push(target);
  }
- try{localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}
+ try{testStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));testStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}
  delete topCounts[category];saveTopCounts();
  delete categoryColors[category];saveCategoryColors();
  if(active===category||!cats.includes(active))active=move?target:(cats[0]||'');
@@ -2453,7 +2468,7 @@ function removeMealCategory(category,action,target){
 }
 function renameCategoryDirect(categoryToRename){
   if(!cats.includes(categoryToRename))return;
-  (async()=>{let n=await appDialog('Rename group',categoryToRename,'prompt');if(n&&n.trim()&&cats.includes(categoryToRename)&&!cats.includes(n.trim())){snapshot();let old=categoryToRename;cats[cats.indexOf(old)]=n.trim();if(categoryColors[old]){categoryColors[n.trim()]=categoryColors[old];delete categoryColors[old];saveCategoryColors()}meals.forEach(m=>{if(m.cat===old)m.cat=n.trim()});pinnedCats=pinnedCats.map(c=>c===old?n.trim():c);expandedCats=expandedCats.map(c=>c===old?n.trim():c);mealPlans.forEach(p=>{if(Array.isArray(p.pinnedDisplayOrder))p.pinnedDisplayOrder=p.pinnedDisplayOrder.map(c=>c===old?n.trim():c)});try{localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}weekdays.forEach(day=>{weekdayCategories[day]=(Array.isArray(weekdayCategories[day])?weekdayCategories[day]:[weekdayCategories[day]]).filter(Boolean).map(c=>c===old?n.trim():c);if(weekdayMealOverrides[weekdaySlotKey(day,old)]!==undefined){weekdayMealOverrides[weekdaySlotKey(day,n.trim())]=weekdayMealOverrides[weekdaySlotKey(day,old)];delete weekdayMealOverrides[weekdaySlotKey(day,old)]}});saveWeekdayMealOverrides();saveWeekdayCategories();updateOtherMealPlansForCategory(old,n.trim());active=n.trim();menuCat=n.trim();if(masterExpandedCategories.delete(old))masterExpandedCategories.add(n.trim());render()}
+  (async()=>{let n=await appDialog('Rename group',categoryToRename,'prompt');if(n&&n.trim()&&cats.includes(categoryToRename)&&!cats.includes(n.trim())){snapshot();let old=categoryToRename;cats[cats.indexOf(old)]=n.trim();if(categoryColors[old]){categoryColors[n.trim()]=categoryColors[old];delete categoryColors[old];saveCategoryColors()}meals.forEach(m=>{if(m.cat===old)m.cat=n.trim()});pinnedCats=pinnedCats.map(c=>c===old?n.trim():c);expandedCats=expandedCats.map(c=>c===old?n.trim():c);mealPlans.forEach(p=>{if(Array.isArray(p.pinnedDisplayOrder))p.pinnedDisplayOrder=p.pinnedDisplayOrder.map(c=>c===old?n.trim():c)});try{testStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));testStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}weekdays.forEach(day=>{weekdayCategories[day]=(Array.isArray(weekdayCategories[day])?weekdayCategories[day]:[weekdayCategories[day]]).filter(Boolean).map(c=>c===old?n.trim():c);if(weekdayMealOverrides[weekdaySlotKey(day,old)]!==undefined){weekdayMealOverrides[weekdaySlotKey(day,n.trim())]=weekdayMealOverrides[weekdaySlotKey(day,old)];delete weekdayMealOverrides[weekdaySlotKey(day,old)]}});saveWeekdayMealOverrides();saveWeekdayCategories();updateOtherMealPlansForCategory(old,n.trim());active=n.trim();menuCat=n.trim();if(masterExpandedCategories.delete(old))masterExpandedCategories.add(n.trim());render()}
   })();
 }
 function renderMenu(){let box=$('catmenu');if(!box)return;box.innerHTML='';if(!showTop||!menuCat||!cats.includes(menuCat)){box.classList.add('hidden');return}box.classList.remove('hidden');const categoryRow=document.getElementById('categoryButtons');if(categoryRow)categoryRow.append(box);function arrow(direction,label){let b=document.createElement('button');b.className='arrow iconbtn';b.title=label;b.setAttribute('aria-label',label);b.innerHTML=direction<0?'<svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>':'<svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>';b.onclick=()=>{
@@ -2616,7 +2631,7 @@ function resetGroceriesForNewTopMeals(previousIdsOverride=null){
     previousIds=new Set([...previousIdsOverride].map(String));
   }else{
     try{
-      const stored=JSON.parse(localStorage.getItem(storageKey)||'null');
+      const stored=JSON.parse(testStorage.getItem(storageKey)||'null');
       if(Array.isArray(stored))previousIds=new Set(stored.map(String));
     }catch(e){}
   }
@@ -2628,7 +2643,7 @@ function resetGroceriesForNewTopMeals(previousIdsOverride=null){
       // rotated-in recipe should show every selected grocery item unchecked.
       let selected={};
       try{
-        const stored=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');
+        const stored=JSON.parse(testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');
         if(stored&&typeof stored==='object'&&!Array.isArray(stored))selected=stored;
       }catch(e){}
       enteringIds.forEach(mealId=>{
@@ -2637,12 +2652,12 @@ function resetGroceriesForNewTopMeals(previousIdsOverride=null){
         if(Array.isArray(lines))lines.forEach(line=>checkedIngredients.delete(normalize(line)));
       });
       try{
-        localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));
+        testStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));
       }catch(e){}
     }
   }
   // An existing installation should not lose checks just for loading this file.
-  try{localStorage.setItem(storageKey,JSON.stringify(currentIds))}catch(e){}
+  try{testStorage.setItem(storageKey,JSON.stringify(currentIds))}catch(e){}
 }
 // Reordering the shared recipe library must not switch the displayed meal in another plan.
 // Category renames/deletions also update meal plans not currently selected.
@@ -2698,12 +2713,12 @@ function preserveOtherMealPlanChoices(){
 const ROTATION_BACK_KEY='mealRotationLastRotationBeforeV1';
 function rotateAllBack(){
  let previous;
- try{previous=JSON.parse(localStorage.getItem(ROTATION_BACK_KEY)||'null')}catch(e){}
+ try{previous=JSON.parse(testStorage.getItem(ROTATION_BACK_KEY)||'null')}catch(e){}
  if(!previous||!Array.isArray(previous.meals)||!Array.isArray(previous.mealPlans)){
   appDialog('No previous rotation to restore.','','alert');return;
  }
  snapshot();
- try{localStorage.removeItem(ROTATION_BACK_KEY)}catch(e){}
+ try{testStorage.removeItem(ROTATION_BACK_KEY)}catch(e){}
  restoreState(previous);
 }
 // Offer the same all/select/cancel choices for the one-step rotation restore.
@@ -2718,7 +2733,7 @@ function openRotateBackOptions(){
  panel.append(actions);overlay.append(panel);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});overlay.addEventListener('keydown',e=>{if(e.key==='Escape')overlay.remove()});document.body.append(overlay);
 }
 function readPreviousRotation(){
- try{const value=JSON.parse(localStorage.getItem(ROTATION_BACK_KEY)||'null');return value&&Array.isArray(value.meals)&&Array.isArray(value.mealPlans)?value:null}catch(e){return null}
+ try{const value=JSON.parse(testStorage.getItem(ROTATION_BACK_KEY)||'null');return value&&Array.isArray(value.meals)&&Array.isArray(value.mealPlans)?value:null}catch(e){return null}
 }
 function previousRotationSlots(previous){
  const result=[];
@@ -2772,7 +2787,7 @@ function rotateSelectedBack(selected){
  previouslyActiveLinkedIds=new Set();
  const activePlan=mealPlans.find(p=>p.id===activePlanId);
  weekdayMealOverrides={...(activePlan?.weekdayMealOverrides||{})};saveWeekdayMealOverrides();
- try{localStorage.removeItem(ROTATION_BACK_KEY)}catch(e){}
+ try{testStorage.removeItem(ROTATION_BACK_KEY)}catch(e){}
  resetGroceriesForNewTopMeals(beforeIds);topIngredientExpanded.clear();topIngredientManualHiddenOverride.clear();persist();renderTabs();renderList();
 }
 function openRotateBackChooser(){
@@ -2808,7 +2823,7 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  }
  if(!selected.length)return;
  // Capture the exact state before this rotation, including cross-tab meal overrides.
- try{localStorage.setItem(ROTATION_BACK_KEY,captureState())}catch(e){}
+ try{testStorage.setItem(ROTATION_BACK_KEY,captureState())}catch(e){}
  const linkedIds=new Set();
  for(const {meal} of selected){
   linkedIds.add(String(meal.id));
@@ -2922,8 +2937,8 @@ function openRotateOptions(allTabs=false){
  panel.style.cssText='background:#fff;color:#242424;border-radius:16px;padding:22px;width:100%;max-width:480px;box-shadow:0 12px 36px #0003';
  const heading=document.createElement('div');heading.textContent='Rotate out recipes';heading.style.cssText='font-size:19px;font-weight:600;margin-bottom:18px';panel.append(heading);
  const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:18px;font-size:16px';
- const check=document.createElement('input');check.type='checkbox';check.checked=localStorage.getItem(ROTATE_MARK_COOKED_KEY)==='true';check.style.cssText='width:21px;height:21px;flex:none';
- check.onchange=()=>{try{localStorage.setItem(ROTATE_MARK_COOKED_KEY,String(check.checked))}catch(e){}};
+ const check=document.createElement('input');check.type='checkbox';check.checked=testStorage.getItem(ROTATE_MARK_COOKED_KEY)==='true';check.style.cssText='width:21px;height:21px;flex:none';
+ check.onchange=()=>{try{testStorage.setItem(ROTATE_MARK_COOKED_KEY,String(check.checked))}catch(e){}};
  label.append(check,document.createTextNode('Mark rotated recipes as cooked'));panel.append(label);
  const actions=document.createElement('div');actions.style.cssText='display:flex;flex-direction:column;gap:12px';
  function option(text,fn){const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=text;b.style.cssText='padding:12px 14px;width:100%;font-size:16px';b.onclick=()=>{const mark=check.checked;overlay.remove();fn(mark)};actions.append(b)}
@@ -2979,11 +2994,11 @@ function renderGroceryViewToolbar(list){
  const bar=document.createElement('div');bar.className='top-controls';
  function add(label,svg,handler){const b=document.createElement('button');b.type='button';b.className='iconbtn top-action-icon';b.title=label;b.setAttribute('aria-label',label);b.innerHTML=svg;b.onclick=handler;bar.append(b)}
  const keyset=()=>new Set(getMasterGroceryItems().keys());
- const tickAll=checked=>{snapshot();for(const key of keyset()){if(checked)checkedIngredients.add(key);else checkedIngredients.delete(key)}localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));renderList()};
+ const tickAll=checked=>{snapshot();for(const key of keyset()){if(checked)checkedIngredients.add(key);else checkedIngredients.delete(key)}testStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));renderList()};
  add('Select all groceries','<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg>',()=>tickAll(true));
  add('Deselect all groceries','<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 12h10"/></svg>',()=>tickAll(false));
- const hide=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';
- add(hide?'Show checked groceries':'Hide checked groceries',hide?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',()=>{localStorage.setItem('mealRotationHideCheckedGroceriesV1',String(!hide));renderList()});
+ const hide=testStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';
+ add(hide?'Show checked groceries':'Hide checked groceries',hide?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',()=>{testStorage.setItem('mealRotationHideCheckedGroceriesV1',String(!hide));renderList()});
  appendMealPlanSettingsGear(bar);
  list.append(bar);placeViewToolbar(bar);
  appendMealPlanSettingsPanel(list);
@@ -3563,8 +3578,8 @@ function openWeekdayMealChooser(day,category,currentMeal){
  if(!ordered.length){const empty=document.createElement('p');empty.textContent='No meals match this filter.';empty.style.cssText='color:#666;padding:12px';list.append(empty)}
  ordered.forEach(meal=>{const b=document.createElement('button');b.type='button';b.textContent=meal.name||'Untitled meal';const cookedInfo=document.createElement('span');cookedInfo.style.cssText='display:block;font-size:12px;color:#69717a;margin-top:4px';cookedInfo.textContent=lastCookedLabel(meal);cookedInfo.hidden=!cookedInfo.textContent;b.append(cookedInfo);b.style.cssText='display:block;width:100%;text-align:left;padding:12px;margin:4px 0;border:1px solid '+(meal.id===pendingMeal.id?'#6b88bd':'#ddd')+';border-radius:8px;background:'+(meal.id===pendingMeal.id?'#e8eefb':'white')+';color:#222;font-size:16px';b.onclick=()=>{pendingMeal=meal;renderChoices()};list.append(b)})}
  sortButton.onclick=()=>{sortPanel.hidden=!sortPanel.hidden;sortButton.setAttribute('aria-expanded',String(!sortPanel.hidden))};
- sortSelect.onchange=()=>{mealChooserSort=sortSelect.value;localStorage.setItem(mealChooserSortKey,mealChooserSort);renderChoices()};
- undatedCheck.onchange=()=>{mealChooserIncludeUndated=undatedCheck.checked;localStorage.setItem(mealChooserUndatedKey,String(mealChooserIncludeUndated));renderChoices()};
+ sortSelect.onchange=()=>{mealChooserSort=sortSelect.value;testStorage.setItem(mealChooserSortKey,mealChooserSort);renderChoices()};
+ undatedCheck.onchange=()=>{mealChooserIncludeUndated=undatedCheck.checked;testStorage.setItem(mealChooserUndatedKey,String(mealChooserIncludeUndated));renderChoices()};
  renderChoices();
  const save=document.createElement('button');save.textContent='Save';save.style.cssText='flex:1;min-width:0;padding:10px;border:1px solid #b7c4df;border-radius:8px;background:#e8eefb;color:#222';save.onclick=()=>{const meal=pendingMeal;const beforeIds=new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)));snapshot();preserveOtherMealPlanChoices();clearOverridesForCat(category);setWeekdayOverride(day,category,meal.id);const linkedTargets=meal.linkGroup?meals.filter(x=>x.linkGroup===meal.linkGroup):[meal];linkedTargets.forEach(target=>{const from=meals.indexOf(target);if(from<0||!target.rotation)return;meals.splice(from,1);let first=meals.findIndex(x=>x.cat===target.cat&&x.rotation);if(first<0)meals.push(target);else meals.splice(first,0,target)});saveWeekdayMealOverrides();resetGroceriesForNewTopMeals(beforeIds);persist();overlay.remove();renderList()};const cancel=document.createElement('button');cancel.textContent='Cancel';cancel.style.cssText='flex:1;min-width:0;padding:10px;border:1px solid #ccc;border-radius:8px;background:white;color:#222';cancel.onclick=()=>overlay.remove();const actionRow=document.createElement('div');actionRow.style.cssText='display:flex;gap:8px;margin-top:12px';setIconButton(save,'save','Save');setIconButton(cancel,'cancel','Cancel');actionRow.style.justifyContent='center';actionRow.append(save,cancel);box.append(title,controlRow,sortPanel,list,actionRow);overlay.append(box);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay)}
 
@@ -3590,7 +3605,7 @@ async function editTopRecipeIngredient(meal,originalLine){
   snapshot();
   const selectionKey=String(meal.id);
   let chosen={};
-  try{chosen=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
+  try{chosen=JSON.parse(testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
   if(!chosen||typeof chosen!=='object'||Array.isArray(chosen))chosen={};
   const originalChoices=Array.isArray(chosen[selectionKey])?chosen[selectionKey]:[];
   if(response.action==='delete'){
@@ -3604,8 +3619,8 @@ async function editTopRecipeIngredient(meal,originalLine){
     if(checkedIngredients.has(oldKey))checkedIngredients.add(newKey);
   }
   try{
-    localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(chosen));
-    localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));
+    testStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(chosen));
+    testStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));
   }catch(e){}
   persist();
   renderList();
@@ -3644,7 +3659,7 @@ function grocerySelectionsForMeal(meal,selections){
  return [...merged.values()];
 }
 function openTopIngredientChooser(meal){
-  let selectedByMeal={};try{selectedByMeal=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
+  let selectedByMeal={};try{selectedByMeal=JSON.parse(testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
   const key=String(meal.id);selectedByMeal[key]=grocerySelectionsForMeal(meal,selectedByMeal);
   if(!Array.isArray(meal.ingredients))meal.ingredients=[];const originalIngredients=[...meal.ingredients];const originalSelected=[...selectedByMeal[key]];
   let pendingRecipeUrl=String(meal.url||'');
@@ -3845,7 +3860,7 @@ function openTopIngredientChooser(meal){
   const deselectAll=document.createElement('button');deselectAll.className='smallbtn';deselectAll.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 12h10"/></svg>';deselectAll.title='Deselect all';deselectAll.setAttribute('aria-label','Deselect all');deselectAll.onclick=()=>{checks.forEach(x=>x.cb.checked=false);rememberCheckedIngredients();renderIngredientRows()};
   const deleteSelected=document.createElement('button');deleteSelected.type='button';deleteSelected.className='smallbtn';deleteSelected.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m5 4v7m4-7v7"/></svg>';deleteSelected.title='Delete checked ingredients';deleteSelected.setAttribute('aria-label','Delete checked ingredients');deleteSelected.onclick=async()=>{const chosen=checks.filter(x=>x.cb.checked).map(x=>x.line);if(!chosen.length){await showAppMessage('Select ingredients to delete first.');return}if(!await appDialog('Delete '+chosen.length+' selected ingredient'+(chosen.length===1?'':'s')+' from this recipe?',null,'yesno')||!overlay.isConnected)return;const remove=new Set(chosen.map(ingredientKey));meal.ingredients=meal.ingredients.filter(line=>!remove.has(ingredientKey(line)));selectedByMeal[key]=checks.filter(x=>x.cb.checked&&!remove.has(ingredientKey(x.line))).map(x=>x.line);renderIngredientRows()};
   const cancel=document.createElement('button');cancel.className='smallbtn';cancel.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';cancel.title='Cancel';cancel.setAttribute('aria-label','Cancel');
-  const save=document.createElement('button');save.className='smallbtn';save.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg>';save.title='Save';save.setAttribute('aria-label','Save');save.onclick=()=>{snapshot();meal.ingredients=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);const checkedLines=checks.filter(x=>x.cb.checked).map(x=>x.line);const previousSelections=new Set(originalSelected.map(ingredientKey));checkedLines.forEach(line=>{if(!previousSelections.has(ingredientKey(line))||manualReselections.has(ingredientKey(line)))checkedIngredients.delete(ingredientKey(line))});selectedByMeal[key]=checkedLines;for(const sibling of mealLinkedCopies(meal))selectedByMeal[String(sibling.id)]=[...checkedLines];meal.url=pendingRecipeUrl;meal.ingredientImportUrl=pendingIngredientImportUrl;renamedIngredients.forEach(({from,to})=>{const oldKey=from.toLowerCase().replace(/\s+/g,' ').trim(),newKey=to.toLowerCase().replace(/\s+/g,' ').trim();if(checkedIngredients.has(oldKey))checkedIngredients.add(newKey)});try{localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selectedByMeal));localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}persist();overlay.remove();renderList()};
+  const save=document.createElement('button');save.className='smallbtn';save.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg>';save.title='Save';save.setAttribute('aria-label','Save');save.onclick=()=>{snapshot();meal.ingredients=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);const checkedLines=checks.filter(x=>x.cb.checked).map(x=>x.line);const previousSelections=new Set(originalSelected.map(ingredientKey));checkedLines.forEach(line=>{if(!previousSelections.has(ingredientKey(line))||manualReselections.has(ingredientKey(line)))checkedIngredients.delete(ingredientKey(line))});selectedByMeal[key]=checkedLines;for(const sibling of mealLinkedCopies(meal))selectedByMeal[String(sibling.id)]=[...checkedLines];meal.url=pendingRecipeUrl;meal.ingredientImportUrl=pendingIngredientImportUrl;renamedIngredients.forEach(({from,to})=>{const oldKey=from.toLowerCase().replace(/\s+/g,' ').trim(),newKey=to.toLowerCase().replace(/\s+/g,' ').trim();if(checkedIngredients.has(oldKey))checkedIngredients.add(newKey)});try{testStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selectedByMeal));testStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));testStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}persist();overlay.remove();renderList()};
   let closeConfirmationOpen=false;
   async function requestClose(){const currentIngredients=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);const currentSelected=checks.filter(x=>x.cb.checked).map(x=>x.line);const ingredientsChanged=JSON.stringify(currentIngredients)!==JSON.stringify(originalIngredients)||pendingRecipeUrl!==String(meal.url||'')||pendingIngredientImportUrl!==String(meal.ingredientImportUrl||'');const selectionsChanged=JSON.stringify([...currentSelected].sort())!==JSON.stringify([...originalSelected].filter(x=>currentIngredients.includes(x)).sort());if(!ingredientsChanged&&!selectionsChanged){overlay.remove();return}if(closeConfirmationOpen)return;closeConfirmationOpen=true;try{const shouldSave=await appDialog('Save changes before closing?',null,'yesno');if(!overlay.isConnected)return;if(shouldSave){save.click()}else{meal.ingredients=[...originalIngredients];selectedByMeal[key]=[...originalSelected];overlay.remove()}}finally{closeConfirmationOpen=false}}
   cancel.onclick=requestClose;
@@ -3864,19 +3879,19 @@ function renderTopGroceries(list){
   const head=document.createElement('button');head.type='button';head.className='smallbtn';head.style.cssText='width:100%;display:flex;align-items:center;justify-content:space-between;font-size:18px;font-weight:400;padding:10px 12px;text-align:left';
   const body=document.createElement('div');body.style.marginTop='8px';
   const chosen=[];cats.forEach(c=>{const count=getTopCount(c);if(count>0)chosen.push(...meals.filter(m=>m.cat===c&&m.rotation).slice(0,count))});
-  let selectedByMeal={};try{selectedByMeal=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}const ingredients=[];chosen.forEach(m=>{const mealKey=String(m.id);if(!Object.prototype.hasOwnProperty.call(selectedByMeal,mealKey)||!Array.isArray(selectedByMeal[mealKey]))return;const selectedSet=new Set(selectedByMeal[mealKey]);(Array.isArray(m.ingredients)?m.ingredients:[]).forEach(line=>{const clean=String(line).trim();if(clean&&selectedSet.has(clean))ingredients.push({line:clean,meal:m.name||'Untitled meal'})})});
+  let selectedByMeal={};try{selectedByMeal=JSON.parse(testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}const ingredients=[];chosen.forEach(m=>{const mealKey=String(m.id);if(!Object.prototype.hasOwnProperty.call(selectedByMeal,mealKey)||!Array.isArray(selectedByMeal[mealKey]))return;const selectedSet=new Set(selectedByMeal[mealKey]);(Array.isArray(m.ingredients)?m.ingredients:[]).forEach(line=>{const clean=String(line).trim();if(clean&&selectedSet.has(clean))ingredients.push({line:clean,meal:m.name||'Untitled meal'})})});
   const groups=new Map();ingredients.forEach(item=>{const key=item.line.toLowerCase().replace(/\s+/g,' ').trim();if(!groups.has(key))groups.set(key,{line:item.line,meals:[]});groups.get(key).meals.push(item.meal)});
-  const collapsed=localStorage.getItem('mealRotationGroceriesCollapsedV1')==='true';
-  head.innerHTML='<span>Groceries</span><span aria-hidden="true">'+(collapsed?'＋':'−')+'</span>'; head.setAttribute('aria-expanded',String(!collapsed));body.classList.toggle('hidden',collapsed);head.onclick=()=>{const hide=!body.classList.contains('hidden');body.classList.toggle('hidden',hide);localStorage.setItem('mealRotationGroceriesCollapsedV1',String(hide));head.setAttribute('aria-expanded',String(!hide));head.lastElementChild.textContent=hide?'＋':'−'};section.append(head,body);
-  let hideSelected=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';
+  const collapsed=testStorage.getItem('mealRotationGroceriesCollapsedV1')==='true';
+  head.innerHTML='<span>Groceries</span><span aria-hidden="true">'+(collapsed?'＋':'−')+'</span>'; head.setAttribute('aria-expanded',String(!collapsed));body.classList.toggle('hidden',collapsed);head.onclick=()=>{const hide=!body.classList.contains('hidden');body.classList.toggle('hidden',hide);testStorage.setItem('mealRotationGroceriesCollapsedV1',String(hide));head.setAttribute('aria-expanded',String(!hide));head.lastElementChild.textContent=hide?'＋':'−'};section.append(head,body);
+  let hideSelected=testStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';
   if(!groups.size){const p=document.createElement('p');p.className='muted';p.textContent='No groceries selected.';body.append(p)}else{
-    groups.forEach((g,key)=>{if(hideSelected&&checkedIngredients.has(key))return;const row=document.createElement('label');row.className='shopmeal';row.style.cssText='display:flex;gap:10px;align-items:flex-start;padding:7px 2px;border-bottom:1px solid #eee';const cb=document.createElement('input');cb.type='checkbox';cb.checked=checkedIngredients.has(key);cb.onchange=()=>{snapshot();if(cb.checked)checkedIngredients.add(key);else checkedIngredients.delete(key);try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()};const text=document.createElement('span');text.textContent=g.line;text.style.cursor='pointer';text.title='Tap to see which recipes use this ingredient';text.onclick=e=>{e.preventDefault();e.stopPropagation();alert('Used in these top recipes:\n'+[...new Set(g.meals)].join('\n'))};row.append(cb,text);body.append(row)});
+    groups.forEach((g,key)=>{if(hideSelected&&checkedIngredients.has(key))return;const row=document.createElement('label');row.className='shopmeal';row.style.cssText='display:flex;gap:10px;align-items:flex-start;padding:7px 2px;border-bottom:1px solid #eee';const cb=document.createElement('input');cb.type='checkbox';cb.checked=checkedIngredients.has(key);cb.onchange=()=>{snapshot();if(cb.checked)checkedIngredients.add(key);else checkedIngredients.delete(key);try{testStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()};const text=document.createElement('span');text.textContent=g.line;text.style.cursor='pointer';text.title='Tap to see which recipes use this ingredient';text.onclick=e=>{e.preventDefault();e.stopPropagation();alert('Used in these top recipes:\n'+[...new Set(g.meals)].join('\n'))};row.append(cb,text);body.append(row)});
   }
   const controls=document.createElement('div');controls.style.cssText='display:flex;gap:14px;flex-wrap:wrap;justify-content:flex-end;margin:14px 2px 4px;font-size:12px;color:#666';
   const makeTextLink=(label,action)=>{const link=document.createElement('button');link.type='button';link.title=label;link.setAttribute('aria-label',label);link.innerHTML=label==='Select all'?'<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg>':label==='Deselect all'?'<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 12h10"/></svg>':label;link.style.cssText='cursor:pointer;border:0;background:transparent;color:#555;padding:4px;display:flex;align-items:center;justify-content:center';link.onclick=action;controls.append(link);return link};
-  makeTextLink('Select all',()=>{snapshot();groups.forEach((g,key)=>checkedIngredients.add(key));try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()});
-  makeTextLink('Deselect all',()=>{snapshot();groups.forEach((g,key)=>checkedIngredients.delete(key));try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()});
-  makeTextLink(hideSelected?'Show selected':'Hide selected',()=>{hideSelected=!hideSelected;localStorage.setItem('mealRotationHideCheckedGroceriesV1',String(hideSelected));renderList()});
+  makeTextLink('Select all',()=>{snapshot();groups.forEach((g,key)=>checkedIngredients.add(key));try{testStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()});
+  makeTextLink('Deselect all',()=>{snapshot();groups.forEach((g,key)=>checkedIngredients.delete(key));try{testStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()});
+  makeTextLink(hideSelected?'Show selected':'Hide selected',()=>{hideSelected=!hideSelected;testStorage.setItem('mealRotationHideCheckedGroceriesV1',String(hideSelected));renderList()});
   const undoLink=document.createElement('span');undoLink.textContent='Undo';undoLink.style.cssText='cursor:pointer;text-decoration:none'+(groceryUndo?'':' ;opacity:.45;pointer-events:none');undoLink.onclick=()=>{if(!history.length)return;redoHistory.push(captureState());restoreState(JSON.parse(history.pop()))};controls.append(undoLink);body.append(controls);
   list.append(section);
 }
@@ -3921,10 +3936,10 @@ function compactIngredientFractions(value){
 // Preserve grocery selection matches by migrating the associated stored strings too.
 function migrateSavedIngredientFractions(){
  const flag='mealRotationCompactFractionsMigratedV2';
- if(localStorage.getItem(flag)==='true')return;
+ if(testStorage.getItem(flag)==='true')return;
  const updates={};
  try{
-  const raw=localStorage.getItem('mealRotationDataV1');
+  const raw=testStorage.getItem('mealRotationDataV1');
   if(!raw)return;
   const data=JSON.parse(raw);
   if(!Array.isArray(data.meals))return;
@@ -3939,7 +3954,7 @@ function migrateSavedIngredientFractions(){
    });
   }
   if(changed)updates.mealRotationDataV1=JSON.stringify(data);
-  const selectedRaw=localStorage.getItem('mealRotationSelectedIngredientsV1');
+  const selectedRaw=testStorage.getItem('mealRotationSelectedIngredientsV1');
   if(selectedRaw){
    const selected=JSON.parse(selectedRaw);
    if(selected&&typeof selected==='object'&&!Array.isArray(selected)){
@@ -3956,7 +3971,7 @@ function migrateSavedIngredientFractions(){
     if(selectedChanged)updates.mealRotationSelectedIngredientsV1=JSON.stringify(selected);
    }
   }
-  const checksRaw=localStorage.getItem('mealRotationCheckedIngredientsV1');
+  const checksRaw=testStorage.getItem('mealRotationCheckedIngredientsV1');
   if(checksRaw){
    const checks=JSON.parse(checksRaw);
    if(Array.isArray(checks)){
@@ -3966,11 +3981,11 @@ function migrateSavedIngredientFractions(){
   }
   // Save a rollback copy before changing existing records.
   if(Object.keys(updates).length){
-   const originals={};for(const key of Object.keys(updates))originals[key]=localStorage.getItem(key);
-   localStorage.setItem('mealRotationFractionMigrationBackupV2',JSON.stringify(originals));
-   for(const [key,value] of Object.entries(updates))localStorage.setItem(key,value);
+   const originals={};for(const key of Object.keys(updates))originals[key]=testStorage.getItem(key);
+   testStorage.setItem('mealRotationFractionMigrationBackupV2',JSON.stringify(originals));
+   for(const [key,value] of Object.entries(updates))testStorage.setItem(key,value);
   }
-  localStorage.setItem(flag,'true');
+  testStorage.setItem(flag,'true');
  }catch(e){ /* Leave the migration pending if storage is unavailable. */ }
 }
 function uniqueIngredientLines(lines){
@@ -4439,7 +4454,7 @@ function restoreMealEditorScroll(){
  if(position===null)return;
  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo({top:position,behavior:'instant'})));
 }
-function rollbackEditorCategories(){if(!editorCategoryBaseline)return;meals=JSON.parse(editorCategoryBaseline.meals);id=editorCategoryBaseline.id;if(editorCategoryBaseline.labelCatalog!==undefined){recipeLabelCatalog=JSON.parse(editorCategoryBaseline.labelCatalog);weekdayRecipeFilters=JSON.parse(editorCategoryBaseline.labelFilters);mealPlans=JSON.parse(editorCategoryBaseline.labelPlans);const activePlan=mealPlans.find(p=>p.id===activePlanId);if(activePlan)activePlan.weekdayRecipeFilters=JSON.parse(editorCategoryBaseline.labelFilters);saveRecipeLabelCatalog();saveWeekdayRecipeFilters();}try{localStorage.setItem('mealRotationSelectedIngredientsV1',editorCategoryBaseline.selections)}catch(e){}editorCategoryBaseline=null;editorDraftCategories=null;persist()}function openEditor(n,focusNewMeal=false){if(editId===null)mealEditorReturnScroll=window.scrollY;rollbackEditorCategories();editorCategoryBaseline={meals:JSON.stringify(meals),id,selections:localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}',labelCatalog:JSON.stringify(recipeLabelCatalog),labelFilters:JSON.stringify(weekdayRecipeFilters),labelPlans:JSON.stringify(mealPlans)};const editor=$('editor');if(editor&&editor.parentNode&&editor.parentNode.id==='list'){document.body.insertBefore(editor,$('list'))}editId=n;const selectedMeal=meals.find(x=>x.id===n);editorDraftCategories=selectedMeal?[...new Set((selectedMeal.linkGroup?meals.filter(x=>x.linkGroup===selectedMeal.linkGroup):[selectedMeal]).map(x=>x.cat).filter(Boolean))]:[];renderEditor();placeEditorInline();requestAnimationFrame(()=>{const panel=$('editor').querySelector('.editor');if(panel)panel.scrollIntoView({block:'start',behavior:'instant'});if(focusNewMeal){const nameField=$('name');if(nameField){nameField.focus({preventScroll:true});setTimeout(()=>{if(nameField.isConnected&&document.activeElement===nameField){const top=panel.getBoundingClientRect().top+window.scrollY-12;window.scrollTo({top:Math.max(0,top),behavior:'instant'});}},250);}}});}function renderEditor(){let m=meals.find(x=>x.id===editId);if(!m){$('editor').innerHTML='';return}$('editor').innerHTML=`<div class="editor"><label>Meal name</label><input id="name" type="text" value="${esc(m.name)}"><label>Group</label><div id="categoryRows"></div><div class="grid time-editor-grid"><div class="time-prep"><label for="prep">Prep time</label><input id="prep" type="text" inputmode="decimal" value="${esc(prettyTimeInput(m.prep))}"></div><div class="time-total"><label for="totaltime">Total time</label><input id="totaltime" type="text" inputmode="decimal" value="${esc(prettyTimeInput(m.total!==undefined&&m.total!==''?m.total:(m.prep!==''||m.cook!==''?(Number(m.prep)||0)+(Number(m.cook)||0):'')))}"></div><div class="time-marinate"><label for="marinate">Marinate time</label><input id="marinate" type="text" inputmode="decimal" value="${esc(m.marinate??'')}"></div></div><div class="time-keyboard-tools hidden"><button id="timeKeyboardMode" type="button" title="Switch to letter keyboard for time units" aria-label="Switch to letter keyboard for time units">ABC</button></div><label>Recipe labels</label><div class="recipe-related-buttons"><button id="recipeLabels" type="button" class="smallbtn">Select labels</button><button id="editLinkedMeals" type="button" class="smallbtn">↗ Linked Meals</button></div><label>Recipe URL (optional)</label><input id="url" type="text" placeholder="https://" value="${esc(m.url)}"><div id="ingredientsClosed"><button id="toggleIngredients" class="smallbtn" type="button">${Array.isArray(m.ingredients)&&m.ingredients.some(x=>String(x).trim())?'Show ingredients':'Add ingredients'}</button></div><div id="ingredientsPanel" class="ingredients-panel hidden"><div class="ingredient-toolrow"><button id="hideIngredients" class="smallbtn" type="button">Hide ingredients</button><button id="ingredientLinkButton" class="ingredient-tool" type="button" title="Import ingredients from website link" aria-label="Import ingredients from website link"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></button><button id="ingredientPhotoButton" class="ingredient-tool" type="button" title="Choose ingredient photo from gallery" aria-label="Choose ingredient photo from gallery"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></button><button id="ingredientCameraButton" class="ingredient-tool" type="button" title="Take ingredient photo" aria-label="Take ingredient photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"/></svg></button></div><label id="ingredientsLabel">Ingredients (one per line; include quantity if known)</label><textarea id="ingredients" class="ingredients-input" placeholder="Ingredients (one per line; include quantity if known)">${esc((m.ingredients||[]).map(removeIngredientListMarker).join('\n'))}</textarea><input id="ingredientGalleryInput" type="file" accept="image/*" class="hidden"><input id="ingredientCameraInput" type="file" accept="image/*" capture="environment" class="hidden"></div><label class="meal-checkbox-option"><input id="rotation" type="checkbox" ${m.rotation?'checked':''}><span>Add to rotation</span></label><div class="actions"><button id="save" type="button" title="Save" aria-label="Save"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg></button><button id="delete" type="button" title="Delete" aria-label="Delete"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m3 0-1 15H6L5 6m5 4v7m4-7v7"/></svg></button><button id="cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div></div>`;function categoryMembers(){return m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[m]}
+function rollbackEditorCategories(){if(!editorCategoryBaseline)return;meals=JSON.parse(editorCategoryBaseline.meals);id=editorCategoryBaseline.id;if(editorCategoryBaseline.labelCatalog!==undefined){recipeLabelCatalog=JSON.parse(editorCategoryBaseline.labelCatalog);weekdayRecipeFilters=JSON.parse(editorCategoryBaseline.labelFilters);mealPlans=JSON.parse(editorCategoryBaseline.labelPlans);const activePlan=mealPlans.find(p=>p.id===activePlanId);if(activePlan)activePlan.weekdayRecipeFilters=JSON.parse(editorCategoryBaseline.labelFilters);saveRecipeLabelCatalog();saveWeekdayRecipeFilters();}try{testStorage.setItem('mealRotationSelectedIngredientsV1',editorCategoryBaseline.selections)}catch(e){}editorCategoryBaseline=null;editorDraftCategories=null;persist()}function openEditor(n,focusNewMeal=false){if(editId===null)mealEditorReturnScroll=window.scrollY;rollbackEditorCategories();editorCategoryBaseline={meals:JSON.stringify(meals),id,selections:testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}',labelCatalog:JSON.stringify(recipeLabelCatalog),labelFilters:JSON.stringify(weekdayRecipeFilters),labelPlans:JSON.stringify(mealPlans)};const editor=$('editor');if(editor&&editor.parentNode&&editor.parentNode.id==='list'){document.body.insertBefore(editor,$('list'))}editId=n;const selectedMeal=meals.find(x=>x.id===n);editorDraftCategories=selectedMeal?[...new Set((selectedMeal.linkGroup?meals.filter(x=>x.linkGroup===selectedMeal.linkGroup):[selectedMeal]).map(x=>x.cat).filter(Boolean))]:[];renderEditor();placeEditorInline();requestAnimationFrame(()=>{const panel=$('editor').querySelector('.editor');if(panel)panel.scrollIntoView({block:'start',behavior:'instant'});if(focusNewMeal){const nameField=$('name');if(nameField){nameField.focus({preventScroll:true});setTimeout(()=>{if(nameField.isConnected&&document.activeElement===nameField){const top=panel.getBoundingClientRect().top+window.scrollY-12;window.scrollTo({top:Math.max(0,top),behavior:'instant'});}},250);}}});}function renderEditor(){let m=meals.find(x=>x.id===editId);if(!m){$('editor').innerHTML='';return}$('editor').innerHTML=`<div class="editor"><label>Meal name</label><input id="name" type="text" value="${esc(m.name)}"><label>Group</label><div id="categoryRows"></div><div class="grid time-editor-grid"><div class="time-prep"><label for="prep">Prep time</label><input id="prep" type="text" inputmode="decimal" value="${esc(prettyTimeInput(m.prep))}"></div><div class="time-total"><label for="totaltime">Total time</label><input id="totaltime" type="text" inputmode="decimal" value="${esc(prettyTimeInput(m.total!==undefined&&m.total!==''?m.total:(m.prep!==''||m.cook!==''?(Number(m.prep)||0)+(Number(m.cook)||0):'')))}"></div><div class="time-marinate"><label for="marinate">Marinate time</label><input id="marinate" type="text" inputmode="decimal" value="${esc(m.marinate??'')}"></div></div><div class="time-keyboard-tools hidden"><button id="timeKeyboardMode" type="button" title="Switch to letter keyboard for time units" aria-label="Switch to letter keyboard for time units">ABC</button></div><label>Recipe labels</label><div class="recipe-related-buttons"><button id="recipeLabels" type="button" class="smallbtn">Select labels</button><button id="editLinkedMeals" type="button" class="smallbtn">↗ Linked Meals</button></div><label>Recipe URL (optional)</label><input id="url" type="text" placeholder="https://" value="${esc(m.url)}"><div id="ingredientsClosed"><button id="toggleIngredients" class="smallbtn" type="button">${Array.isArray(m.ingredients)&&m.ingredients.some(x=>String(x).trim())?'Show ingredients':'Add ingredients'}</button></div><div id="ingredientsPanel" class="ingredients-panel hidden"><div class="ingredient-toolrow"><button id="hideIngredients" class="smallbtn" type="button">Hide ingredients</button><button id="ingredientLinkButton" class="ingredient-tool" type="button" title="Import ingredients from website link" aria-label="Import ingredients from website link"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></button><button id="ingredientPhotoButton" class="ingredient-tool" type="button" title="Choose ingredient photo from gallery" aria-label="Choose ingredient photo from gallery"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></button><button id="ingredientCameraButton" class="ingredient-tool" type="button" title="Take ingredient photo" aria-label="Take ingredient photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"/></svg></button></div><label id="ingredientsLabel">Ingredients (one per line; include quantity if known)</label><textarea id="ingredients" class="ingredients-input" placeholder="Ingredients (one per line; include quantity if known)">${esc((m.ingredients||[]).map(removeIngredientListMarker).join('\n'))}</textarea><input id="ingredientGalleryInput" type="file" accept="image/*" class="hidden"><input id="ingredientCameraInput" type="file" accept="image/*" capture="environment" class="hidden"></div><label class="meal-checkbox-option"><input id="rotation" type="checkbox" ${m.rotation?'checked':''}><span>Add to rotation</span></label><div class="actions"><button id="save" type="button" title="Save" aria-label="Save"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg></button><button id="delete" type="button" title="Delete" aria-label="Delete"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m3 0-1 15H6L5 6m5 4v7m4-7v7"/></svg></button><button id="cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div></div>`;function categoryMembers(){return m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[m]}
 if(!editorDraftCategories)editorDraftCategories=[...new Set(categoryMembers().map(x=>x.cat).filter(Boolean))];
 function renderCategoryRows(){
   const holder=$('categoryRows');if(!holder)return;holder.innerHTML='';
@@ -4535,7 +4550,7 @@ $('editLinkedMeals').onclick=()=>{
  const heading=document.createElement('h3');heading.textContent='Linked Meals';heading.style.margin='0 0 8px';panel.append(heading);
  const description=document.createElement('p');description.textContent='Choose recipes to serve automatically with this meal.';description.style.fontSize='14px';panel.append(description);
  const search=document.createElement('input');search.type='search';search.placeholder='Search meals';search.setAttribute('aria-label','Search meals');search.style.cssText='width:100%;padding:10px;border:1px solid #bbb;border-radius:8px;margin-bottom:8px';
- const searchOption=document.createElement('label');searchOption.style.cssText='display:flex;align-items:center;gap:9px;font-size:14px;padding:2px 0 8px';const searchMode=document.createElement('input');searchMode.type='checkbox';searchMode.checked=localStorage.getItem('mealRotationLinkedSearchAnyOrderV1')==='false';searchMode.style.cssText='width:20px;height:20px';searchOption.append(searchMode,document.createTextNode('Match word order'));panel.append(searchOption);panel.append(search);searchMode.onchange=()=>{localStorage.setItem('mealRotationLinkedSearchAnyOrderV1',String(!searchMode.checked));search.dispatchEvent(new Event('input'))};
+ const searchOption=document.createElement('label');searchOption.style.cssText='display:flex;align-items:center;gap:9px;font-size:14px;padding:2px 0 8px';const searchMode=document.createElement('input');searchMode.type='checkbox';searchMode.checked=testStorage.getItem('mealRotationLinkedSearchAnyOrderV1')==='false';searchMode.style.cssText='width:20px;height:20px';searchOption.append(searchMode,document.createTextNode('Match word order'));panel.append(searchOption);panel.append(search);searchMode.onchange=()=>{testStorage.setItem('mealRotationLinkedSearchAnyOrderV1',String(!searchMode.checked));search.dispatchEvent(new Event('input'))};
  const list=document.createElement('div');list.style.cssText='overflow:auto;min-height:60px;flex:1';panel.append(list);
  const options=meals.filter(x=>x.id!==m.id&&!(m.linkGroup&&x.linkGroup===m.linkGroup));
  buildGroupedMealPicker(list,search,options.map(option=>({meal:option,checked:linkedMealDraft.some(id=>String(id)===String(option.id)),onChange(checked){linkedMealDraft=linkedMealDraft.filter(id=>String(id)!==String(option.id));if(checked)linkedMealDraft.push(option.id)}})),searchMode,true);
@@ -4698,7 +4713,7 @@ $('save').onclick=async()=>{
     if(chosen.has(cat))continue;
     const copy={...m,id:id++,cat,linkGroup,ingredients:Array.isArray(m.ingredients)?[...m.ingredients]:[]};
     meals.push(copy);chosen.add(cat);
-    try{const key='mealRotationSelectedIngredientsV1';const selections=JSON.parse(localStorage.getItem(key)||'{}');selections[String(copy.id)]=Array.isArray(selections[String(m.id)])?[...selections[String(m.id)]]:[];localStorage.setItem(key,JSON.stringify(selections))}catch(e){}
+    try{const key='mealRotationSelectedIngredientsV1';const selections=JSON.parse(testStorage.getItem(key)||'{}');selections[String(copy.id)]=Array.isArray(selections[String(m.id)])?[...selections[String(m.id)]]:[];testStorage.setItem(key,JSON.stringify(selections))}catch(e){}
   }
   if(oldcat!==m.cat||oldrot!==m.rotation){meals=meals.filter(x=>x.id!==m.id);const i=meals.findIndex(x=>x.cat===m.cat&&x.rotation===m.rotation);if(i<0)meals.push(m);else meals.splice(i,0,m)}
   if(linkGroup&&applyAll){const shared={name:m.name,prep:m.prep,cook:m.cook,total:m.total,marinate:m.marinate,url:m.url,ingredientImportUrl:m.ingredientImportUrl,rotation:m.rotation,linkedMealIds:[...m.linkedMealIds],ingredients:Array.isArray(m.ingredients)?[...m.ingredients]:[]};meals.forEach(x=>{if(x.linkGroup===linkGroup&&x.id!==m.id)Object.assign(x,shared,{ingredients:[...shared.ingredients]})})}
