@@ -443,6 +443,18 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 #list .master-categories-heading{isolation:isolate;}
 #list .master-category-card{scroll-margin-top:88px;}
 #list .all-meals-overview > h2{margin-top:0!important;padding-top:10px;padding-bottom:12px;}
+
+/* Header refinement: Meal Groups scrolls normally; My Rotation remains opaque
+   across the full content width, covering colored weekday cards underneath. */
+#list .master-categories-heading{position:static!important;top:auto!important;z-index:auto!important;}
+#list .rotation-compact-header{
+  margin-left:0!important;
+  margin-right:0!important;
+  padding-left:3px;
+  padding-right:3px;
+  background:#fff!important;
+  box-shadow:0 0 0 14px #fff;
+}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
