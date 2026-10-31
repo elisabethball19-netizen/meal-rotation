@@ -642,6 +642,11 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 .master-category-meal .shared-meal-name-line .linked-name-ending .related-meal-indicator{
   min-height:20px!important;line-height:1!important;padding:0 2px!important;
 }
+
+/* Quiet weekly-rotation indicator; weekday colors remain on individual meals. */
+.master-category-card.master-category-this-week{border-left:3px solid #8197a7;}
+.master-category-active-label{font-size:11px;font-weight:600;letter-spacing:0;color:#536b7b;background:#e9eef2;border-radius:999px;padding:3px 7px;white-space:nowrap;margin-left:auto;}
+.master-category-title{flex-wrap:wrap;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -3166,13 +3171,13 @@ function renderMasterCategories(list){
  for(const category of displayedGroups){ 
   const categoryMeals=meals.filter(m=>m.cat===category);
   const card=document.createElement('section');card.className='master-category-card';card.dataset.category=category;
-  const header=document.createElement('div');header.className='master-category-header';header.style.background=groupHeaderColor(category);
+  const header=document.createElement('div');header.className='master-category-header';header.style.background='#f8f9fa';if(activeGroupNames.has(category)){card.classList.add('master-category-this-week');}
   const expanded=masterExpandedCategories.has(category);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(expanded));
   toggle.onclick=()=>{masterExpansionInitialized=true;const opening=!masterExpandedCategories.has(category);if(opening){masterExpandedCategories.clear();masterExpandedCategories.add(category)}else masterExpandedCategories.delete(category);renderList();if(opening)requestAnimationFrame(()=>{const target=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category);if(target)target.scrollIntoView({behavior:'smooth',block:'start'});});};
   const chevron=document.createElementNS('http://www.w3.org/2000/svg','svg');chevron.setAttribute('viewBox','0 0 24 24');chevron.setAttribute('aria-hidden','true');chevron.innerHTML=expanded?'<path d="m6 15 6-6 6 6"/>':'<path d="m6 9 6 6 6-6"/>';toggle.append(chevron);
   const name=document.createElement('strong');name.textContent=category;toggle.append(name);
-  const count=document.createElement('span');count.className='master-category-count';count.textContent=categoryMeals.length+' '+(categoryMeals.length===1?'meal':'meals');toggle.append(count);
+  const count=document.createElement('span');count.className='master-category-count';count.textContent=categoryMeals.length+' '+(categoryMeals.length===1?'meal':'meals');toggle.append(count);if(activeGroupNames.has(category)){const activeLabel=document.createElement('span');activeLabel.className='master-category-active-label';activeLabel.textContent='This week';toggle.append(activeLabel);}
 
   header.append(toggle);
   const editCat=document.createElement('button');editCat.type='button';editCat.className='iconbtn';setIconButton(editCat,'rename','Edit '+category+' (reorder, rename, delete)');editCat.onclick=()=>openMasterCategoryEditMenu(category);
