@@ -376,14 +376,10 @@ let lastTopPinnedCategories=new Set();
 // Manually pinned categories always remain available. Automatic pinning
 // follows the ACTIVE meal-plan tab and its own saved checkbox.
 function effectivePinnedCategories(){
- const assigned=[];
+ // Automatic shortcuts represent groups with meals actually displayed in
+ // the active plan's weekly rotation, not merely scheduled empty groups.
  const plan=mealPlans.find(p=>p.id===activePlanId);
- if(plan){
-  for(const day of weekdays){
-   const raw=plan.weekdayCategories?.[day];
-   for(const c of (Array.isArray(raw)?raw:[raw]))if(cats.includes(c))assigned.push(c);
-  }
- }
+ const assigned=plan?getDisplayedWeekdayMealsForPlan(plan).map(entry=>entry.cat):[];
  const manual=applyPinsToAllTabs?
   mealPlans.flatMap(p=>Array.isArray(p.pinnedCats)?p.pinnedCats:[]):pinnedCats;
  return new Set([...manual,...assigned].filter(c=>cats.includes(c)));
@@ -1581,7 +1577,7 @@ function openDayCategoryPicker(day){
   if(hasFilters){const title=document.createElement('strong');title.textContent='Filter recipes by label (optional)';filterBox.prepend(title)}
  }
  for(const cb of panel.querySelectorAll('input[type=checkbox]')){cb.dataset.groupChoice='true';cb.addEventListener('change',showFilters)}showFilters();
- const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;margin-top:12px';
+ const actions=document.createElement('div');actions.style.cssText='display:flex;align-items:center;justify-content:center;gap:24px;margin-top:12px;width:100%';
  const save=document.createElement('button');save.type='button';save.className='iconbtn';setIconButton(save,'save','Save meal groups');save.onclick=()=>{const selected=[...panel.querySelectorAll('input[data-group-choice]:checked')].map(x=>x.value);weekdayRecipeFilters=draftFilters;saveWeekdayRecipeFilters();shade.remove();setDayCategories(day,selected.length?selected:[EMPTY_DAY_ASSIGNMENT]);if(tutorialStage==='3'&&selected.length)setTutorialStage('done')};
  const cancel=document.createElement('button');cancel.type='button';cancel.className='iconbtn';setIconButton(cancel,'cancel','Cancel');cancel.onclick=()=>shade.remove();actions.append(save,cancel);panel.append(actions);shade.append(panel);shade.onclick=e=>{if(e.target===shade)shade.remove()};document.body.append(shade);
 }
@@ -2785,7 +2781,7 @@ const dayOrder=orderedDays();displayedTop.sort((a,b)=>dayOrder.indexOf(a.day)-da
 const inlineLinkedByParent=new Map();
 for(let i=displayedTop.length-1;i>=0;i--){
  const entry=displayedTop[i];
- if(!entry.meal||!entry.linkedTo||getDayCategories(entry.day).length>1)continue;
+ if(!entry.meal||!entry.linkedTo||getDayCategories(entry.day).includes(entry.cat))continue;
  const parent=displayedTop.find(other=>other.day===entry.day&&other.meal&&String(other.meal.id)===String(entry.linkedTo));
  if(!parent)continue;
  const key=entry.day+'|'+String(parent.meal.id);
