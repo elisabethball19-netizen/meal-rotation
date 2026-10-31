@@ -486,6 +486,14 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 #list.top-summary > .top-controls:has(.rotation-action-pair){margin-bottom:0!important;padding-bottom:0!important;}
 #list .rotation-compact-header .rotation-heading-actions button.rotation-labeled-button.iconbtn{border:1px solid #b9c5d2!important;background:#e9eef5!important;box-shadow:0 1px 2px rgba(0,0,0,.09)!important;padding:7px 10px!important;min-height:40px!important;border-radius:9px!important;}
 #list .rotation-compact-header .rotation-heading-actions button.rotation-labeled-button.iconbtn:active{background:#d8e3f0!important;}
+/* Reduce only the gap between the My Rotation title and its cycle buttons when wrapped. */
+#list .rotation-compact-header{row-gap:3px!important;}
+
+/* Compact weekday cards: single-group labels share the weekday line. */
+#list.top-summary .section.weekday-single-group{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0;padding-bottom:3px!important;}
+#list.top-summary .weekday-inline-group{border:0;background:transparent;color:inherit;opacity:.88;font:inherit;letter-spacing:normal;text-transform:uppercase;cursor:pointer;text-align:right;padding:0;min-width:0;overflow-wrap:anywhere;}
+#list.top-summary .section.weekday-single-group + .top-recipe-wrap > .meal{padding-top:0!important;}
+#list.top-summary .top-recipe-wrap .top-meal-category{margin-bottom:1px!important;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -3032,6 +3040,18 @@ displayedTop.forEach(({day,cat:c,meal:top,needsRotation})=>{
     dayHeading.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();dayHeading.click()}};
     dayHeading.style.background=colorForDay(day);
     dayHeading.style.borderRadius='8px 8px 0 0';dayHeading.style.padding='9px 12px';
+    // For a single assigned group, show its name on the weekday heading line.
+    // Multiple groups retain their individual labels above each meal.
+    const oneDayGroup=getDayCategories(day).length===1&&mealSlotsByDay[day]===1;
+    if(oneDayGroup){
+      const groupName=getDayCategories(day)[0];
+      const groupTag=document.createElement('button');groupTag.type='button';
+      groupTag.className='weekday-inline-group';groupTag.textContent=groupName;
+      groupTag.title='Open '+groupName+' in Meal Groups';
+      groupTag.setAttribute('aria-label','Open '+groupName+' group in Meal Groups');
+      groupTag.onclick=e=>{e.preventDefault();e.stopPropagation();navigateAfterSettings(()=>openMasterCategories(groupName))};
+      dayHeading.classList.add('weekday-single-group');dayHeading.append(groupTag);
+    }
     list.append(dayHeading);
     previousRenderedDay=day;
   }
@@ -3056,7 +3076,7 @@ name.addEventListener('pointerup',e=>{
 });
 ['pointerleave','pointercancel'].forEach(ev=>name.addEventListener(ev,()=>{clearMealHold();mealPressActive=false}));
 name.addEventListener('click',e=>{if(mealHeld){e.preventDefault();e.stopImmediatePropagation();mealHeld=false}},true);
-name.oncontextmenu=e=>e.preventDefault();if(c&&cats.includes(c)){
+name.oncontextmenu=e=>e.preventDefault();if(c&&cats.includes(c)&&!(getDayCategories(day).length===1&&mealSlotsByDay[day]===1)){
  const tag=document.createElement('button');tag.type='button';tag.textContent=c;tag.className='top-meal-category clickable-group-heading';
  tag.title='Open '+c+' in Meal Groups';tag.setAttribute('aria-label','Open '+c+' group in Meal Groups');
  tag.onclick=e=>{e.preventDefault();e.stopPropagation();navigateAfterSettings(()=>openMasterCategories(c))};
