@@ -490,10 +490,29 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 #list .rotation-compact-header{row-gap:3px!important;}
 
 /* Compact weekday cards: single-group labels share the weekday line. */
-#list.top-summary .section.weekday-single-group{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0;padding-bottom:3px!important;}
+#list.top-summary .section.weekday-single-group{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0;padding-bottom:10px!important;}
 #list.top-summary .weekday-inline-group{border:0;background:transparent;color:inherit;opacity:.88;font:inherit;letter-spacing:normal;text-transform:uppercase;cursor:pointer;text-align:right;padding:0;min-width:0;overflow-wrap:anywhere;}
 #list.top-summary .section.weekday-single-group + .top-recipe-wrap > .meal{padding-top:0!important;}
 #list.top-summary .top-recipe-wrap .top-meal-category{margin-bottom:1px!important;}
+
+/* Sticky page headers: comfortable top clearance and an opaque scroll mask.
+   Meal Groups intentionally remains non-sticky. */
+#list .rotation-compact-header,
+#list .meal-plan-grocery .grocery-compact-header,
+#list .all-meals-overview > h2 {
+  padding-top:14px!important;
+  background:#fff!important;
+  background-clip:padding-box;
+}
+#list .rotation-compact-header {
+  box-shadow:0 0 0 14px #fff!important;
+}
+#list .meal-plan-grocery .grocery-compact-header {
+  box-shadow:0 0 0 10px #fff!important;
+}
+#list .all-meals-overview > h2 {
+  box-shadow:0 0 0 10px #fff!important;
+}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
