@@ -313,6 +313,55 @@ body{padding-bottom:calc(310px + env(safe-area-inset-bottom, 0px));}
 #list .view-page-title{margin:16px 3px 10px;}
 #list .master-categories-heading{padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid #dedede;}
 #list .top-controls:has(.rotation-action-pair){border-bottom:1px solid #dedede;padding-bottom:12px;margin-bottom:14px!important;}
+
+/* Accessible text-size preference. Icons and navigation geometry stay unchanged. */
+body[data-meal-text-size="large"]{--meal-text-factor:1.13}
+body[data-meal-text-size="extra"]{--meal-text-factor:1.27}
+body[data-meal-text-size="normal"]{--meal-text-factor:1}
+body[data-meal-text-size] .mealname,
+body[data-meal-text-size] .top-recipe-name,
+body[data-meal-text-size] .top-meal-name,
+body[data-meal-text-size] .top-recipe-wrap .mealname,
+body[data-meal-text-size] .grocery-item,
+body[data-meal-text-size] .shopmeal,
+body[data-meal-text-size] .tab,
+body[data-meal-text-size] .meal-plan-tab,
+body[data-meal-text-size] .category-name,
+body[data-meal-text-size] .weekday-meal-name{font-size:calc(18px * var(--meal-text-factor))!important}
+body[data-meal-text-size] .top-inline-linked,
+body[data-meal-text-size] .times,
+body[data-meal-text-size] .section,
+body[data-meal-text-size] .muted,
+body[data-meal-text-size] .weekday-day-label{font-size:calc(13px * var(--meal-text-factor))!important}
+body[data-meal-text-size] .editor label,
+body[data-meal-text-size] .settings-group-content,
+body[data-meal-text-size] .settings-display-option,
+body[data-meal-text-size] .shopgroup{font-size:calc(14px * var(--meal-text-factor))!important}
+body[data-meal-text-size] .editor input,
+body[data-meal-text-size] .editor select,
+body[data-meal-text-size] .editor textarea,
+body[data-meal-text-size] .smallbtn:not(.iconbtn),
+body[data-meal-text-size] .meal-plan-grocery label,
+body[data-meal-text-size] .top-recipe-wrap{font-size:calc(16px * var(--meal-text-factor))!important}
+body[data-meal-text-size] .view-page-title,
+body[data-meal-text-size] .master-categories-heading h2{font-size:calc(20px * var(--meal-text-factor))!important}
+.meal-text-size-setting{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:5px 6px 10px}
+.meal-text-size-setting label{font-weight:600}
+.meal-text-size-setting select{min-height:42px;padding:8px 12px;border:1px solid #ccc;border-radius:9px;background:white;font:inherit}
+
+/* Consistent page hierarchy: toolbar, title, controls, divider, content. */
+#list .view-page-title{margin:16px 3px 10px!important;}
+#list.top-summary > .top-controls:has(.rotation-action-pair){border-bottom:0!important;padding-bottom:0!important;margin-bottom:4px!important;}
+#list .view-page-title + .top-controls{border:0!important;}
+#list .view-page-title{border-bottom:1px solid #dedede;padding-bottom:12px;margin-bottom:14px!important;}
+#list .meal-plan-grocery{margin-top:12px;}
+#list .meal-plan-grocery > h2{margin:4px 0 12px!important;}
+#list .meal-plan-grocery .master-grocery-plan-filters{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;row-gap:8px;padding-bottom:12px!important;border-bottom:1px solid #dedede!important;margin-bottom:14px!important;}
+#list .meal-plan-grocery .master-grocery-plan-filters .grocery-choose-meals{flex:0 0 auto;white-space:nowrap;}
+#list .meal-plan-grocery .master-grocery-plan-filters .grocery-inline-actions{display:flex!important;align-items:center!important;flex:0 0 auto;gap:6px!important;flex-wrap:nowrap!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;}
+#list .all-meals-overview{margin-top:12px;}
+#list .all-meals-overview > h2{border-bottom:1px solid #dedede;padding-bottom:12px;margin-bottom:14px!important;}
+body:has(.all-meals-overview) #list > .top-controls{border:0!important;padding-bottom:0!important;margin-bottom:4px!important;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -453,6 +502,13 @@ weekdayColors={...weekdayColorDefaults};saveWeekdayColors();
 // Keep Top Recipes as the default landing page, but restore the current view
 // when this browser tab refreshes. A fresh navigation still opens Top Recipes.
 // Meal-plan tabs: keep this plan's weekday selection and individual meal overrides separate.
+
+// Saved globally, independently of recipes and meal-plan tabs.
+const mealTextSizeKey='mealRotationTextSizeV1';
+let mealTextSize=localStorage.getItem(mealTextSizeKey)||'normal';
+if(!['normal','large','extra'].includes(mealTextSize))mealTextSize='normal';
+function applyMealTextSize(){document.body.dataset.mealTextSize=mealTextSize;}
+applyMealTextSize();
 const mealPlansKey='mealRotationPlansV1';
 // Only brand-new installations receive the three starter plans. Existing saved
 // installations retain their own plan names, order, and visibility preference.
@@ -1524,9 +1580,9 @@ function getMasterGroceryItems(){
    footer.append(save,cancel);box.append(footer);overlay.append(box);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay);
   };
   filters.append(chooseMeals);
-  panel.append(filters);
   const toolbar=list.querySelector(':scope > .top-controls');
-  if(toolbar)panel.append(toolbar);
+  if(toolbar){filters.append(toolbar);toolbar.classList.add('grocery-inline-actions');}
+  panel.append(filters);
   panel.append(rows);list.append(panel);updateRows();
  }
  function toggleMasterGroceryTab(){
@@ -1756,6 +1812,14 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
 }
 ;let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/></svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
 const displayGroup=makeSettingsGroup('display','Display');populateTimeSettings(displayGroup.content);
+
+const sizeWrap=document.createElement('div');sizeWrap.className='meal-text-size-setting';
+const sizeLabel=document.createElement('label');sizeLabel.textContent='Text Size';sizeLabel.htmlFor='mealTextSizeSelect';
+const sizeSelect=document.createElement('select');sizeSelect.id='mealTextSizeSelect';sizeSelect.setAttribute('aria-label','Text Size');
+for(const [value,label] of [['normal','Normal'],['large','Large'],['extra','Extra Large']]){const option=document.createElement('option');option.value=value;option.textContent=label;sizeSelect.append(option)}
+sizeSelect.value=mealTextSize;
+sizeSelect.onchange=()=>{mealTextSize=sizeSelect.value;localStorage.setItem(mealTextSizeKey,mealTextSize);applyMealTextSize()};
+sizeWrap.append(sizeLabel,sizeSelect);displayGroup.content.prepend(sizeWrap);
 panel.append(displayGroup.details);
 // Version 2 backups capture every app-owned persistent key, including grocery selections.
 // Preserve the original fields for compatibility with older backup readers.
@@ -2790,8 +2854,9 @@ if(!allMealsActive&&!groceryTabActive){
  list.append(pageHeading);
 }
 list.append(topControls);placeViewToolbar(topControls);
+if(!allMealsActive&&!groceryTabActive){const heading=list.querySelector(':scope > .view-page-title');if(heading)topControls.after(heading);}
 appendMealPlanSettingsPanel(list);
-if(allMealsActive){renderAllMealsOverview(list);const overview=list.querySelector('.all-meals-overview');if(overview){overview.insertBefore(topControls,overview.querySelector('.all-meals-day'));}addFloatingViewButtons();return;}
+if(allMealsActive){renderAllMealsOverview(list);addFloatingViewButtons();return;}
 addFloatingViewButtons();
 
  const displayedTop=getDisplayedWeekdayMeals();
