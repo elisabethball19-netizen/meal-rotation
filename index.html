@@ -362,6 +362,11 @@ body[data-meal-text-size] .master-categories-heading h2{font-size:calc(20px * va
 #list .all-meals-overview{margin-top:12px;}
 #list .all-meals-overview > h2{border-bottom:1px solid #dedede;padding-bottom:12px;margin-bottom:14px!important;}
 body:has(.all-meals-overview) #list > .top-controls{border:0!important;padding-bottom:0!important;margin-bottom:4px!important;}
+
+/* Optional, compact source recipe labels on the consolidated grocery list. */
+.master-grocery-item .grocery-item-details{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
+.master-grocery-item .grocery-recipe-source{font-size:.78em;line-height:1.35;color:#777;overflow-wrap:anywhere;}
+.grocery-recipe-visibility[aria-pressed="true"]{background:#e9eff5;border-radius:7px;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -1451,13 +1456,14 @@ function makeSettingsFooter(){
  cancel.onclick=async()=>{await finishSettings('cancel');render()};
  footer.append(save,cancel);return footer;
 }
+let groceryShowRecipeNames=localStorage.getItem('mealRotationShowGroceryRecipeNamesV1')==='true';
 // The cart is a temporary tab, not a new meal plan or a popup.
 function getMasterGroceryItems(){
  saveActiveMealPlan();
  let selected={};try{selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
  const groceries=new Map(),observed=new Set();
  for(const plan of mealPlans){
-  if(masterGroceryExcludedPlanIds.has(String(plan.id)))continue;
+  if(showMealPlanTabs&&mealPlans.length>1&&masterGroceryExcludedPlanIds.has(String(plan.id)))continue;
   for(const {meal} of getDisplayedWeekdayMealsForPlan(plan)){
    if(masterGroceryExcludedMealKeys.has(groceryMealKey(plan,meal)))continue;
    const identity=meal.importSourceId?'src:'+meal.importSourceId:meal.linkGroup?'linked:'+meal.linkGroup:'id:'+meal.id;
@@ -1466,8 +1472,10 @@ function getMasterGroceryItems(){
    const selectedKeys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey));
    for(const raw of Array.isArray(meal.ingredients)?meal.ingredients:[]){
     const line=String(raw??'').trim(),key=ingredientKey(line);
-    if(!key||!selectedKeys.has(key)||groceries.has(key))continue;
-    groceries.set(key,line);
+    if(!key||!selectedKeys.has(key))continue;
+    if(!groceries.has(key))groceries.set(key,{line,recipes:[]});
+    const item=groceries.get(key);
+    if(!item.recipes.includes(meal.name))item.recipes.push(meal.name);
    }
   }
  }
@@ -1505,11 +1513,11 @@ function getMasterGroceryItems(){
    ['all','Weekly Overview','<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h3M14 14h3M8 18h3M14 18h3"/>',()=>{showTop=true;groceryTabActive=false;allMealsActive=true;render()}],
    ['grocery','Grocery List','<circle cx="9" cy="20" r="1"/><circle cx="19" cy="20" r="1"/><path d="M2 3h2l2.5 12h12L22 7H5"/>',()=>{showTop=true;allMealsActive=false;groceryTabActive=true;render()}]
   ];
-  destinations.filter(([key])=>showMealPlanTabs||key==='top'||key==='groups').forEach(([key,title,art,action],index)=>{
+  destinations.filter(([key])=>true).forEach(([key,title,art,action],index)=>{
    const b=document.createElement('button');b.type='button';b.className='smallbtn add-meal-floating unified-nav-fab';
    b.title=title;b.setAttribute('aria-label',title);b.dataset.destination=key;
    if(key===current){b.classList.add('current-view');b.setAttribute('aria-current','page');}
-   const visibleCount=showMealPlanTabs?4:2;
+   const visibleCount=4;
    b.style.bottom='calc('+(14+(visibleCount-1-index)*51)+'px + env(safe-area-inset-bottom,0px))';
    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+art+'</svg>';
    b.onclick=()=>navigateAfterSettings(()=>{if(key==='groups'&&tutorialStage==='1')setTutorialStage('2');action();window.scrollTo(0,0);requestAnimationFrame(()=>{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0})});document.body.append(b);
@@ -1539,9 +1547,29 @@ function getMasterGroceryItems(){
      // preference is applied immediately, without leaving a stale checked row.
      updateRows();
     };
-    const name=document.createElement('span');name.textContent=line;row.append(check,name);rows.append(row);
+    const details=document.createElement('span');details.className='grocery-item-details';
+    const name=document.createElement('span');name.textContent=line.line;details.append(name);
+    if(groceryShowRecipeNames&&line.recipes.length){
+     const source=document.createElement('span');source.className='grocery-recipe-source';
+     source.textContent=line.recipes.join(' · ');details.append(source);
+    }
+    row.append(check,details);rows.append(row);
    });
   }
+  const recipeVisibility=document.createElement('button');recipeVisibility.type='button';
+  recipeVisibility.className='iconbtn grocery-recipe-visibility';
+  recipeVisibility.title=groceryShowRecipeNames?'Hide recipe names':'Show recipe names';
+  recipeVisibility.setAttribute('aria-label',recipeVisibility.title);
+  recipeVisibility.setAttribute('aria-pressed',String(groceryShowRecipeNames));
+  recipeVisibility.innerHTML=groceryShowRecipeNames?'&#128065;':'&#128065;';
+  recipeVisibility.onclick=()=>{
+   groceryShowRecipeNames=!groceryShowRecipeNames;
+   try{localStorage.setItem('mealRotationShowGroceryRecipeNamesV1',String(groceryShowRecipeNames))}catch(e){}
+   recipeVisibility.title=groceryShowRecipeNames?'Hide recipe names':'Show recipe names';
+   recipeVisibility.setAttribute('aria-label',recipeVisibility.title);
+   recipeVisibility.setAttribute('aria-pressed',String(groceryShowRecipeNames));
+   updateRows();
+  };
   const chooseMeals=document.createElement('button');chooseMeals.type='button';chooseMeals.className='smallbtn grocery-choose-meals';
   chooseMeals.textContent='Choose Meals';chooseMeals.title='Choose which meals contribute ingredients to this grocery list';
   chooseMeals.onclick=()=>{
@@ -1558,13 +1586,13 @@ function getMasterGroceryItems(){
     const section=document.createElement('section');section.style.cssText='border-top:1px solid #ddd;padding:12px 0';
     const header=document.createElement('label');header.style.cssText='display:flex;align-items:center;gap:10px;font-weight:700;margin-bottom:8px';
     const planCheck=document.createElement('input');planCheck.type='checkbox';planCheck.checked=!excludedPlans.has(String(plan.id));planCheck.style.cssText='width:20px;height:20px';
-    header.append(planCheck,document.createTextNode(plan.name));section.append(header);
+    header.append(planCheck,document.createTextNode(plan.name));if(showMealPlanTabs&&mealPlans.length>1)section.append(header);
     const entries=new Map();for(const entry of getDisplayedWeekdayMealsForPlan(plan)){entries.set(String(entry.meal.id),entry.meal)}
     const mealChecks=[];
     for(const meal of entries.values()){
      const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;padding:7px 2px 7px 22px';
      const cb=document.createElement('input');cb.type='checkbox';cb.style.cssText='width:20px;height:20px;flex:0 0 20px';
-     const key=groceryMealKey(plan,meal);cb.checked=!excludedMeals.has(key);cb.disabled=!planCheck.checked;
+     const key=groceryMealKey(plan,meal);cb.checked=!excludedMeals.has(key);cb.disabled=(showMealPlanTabs&&mealPlans.length>1)&&!planCheck.checked;
      cb.onchange=()=>{if(cb.checked)excludedMeals.delete(key);else excludedMeals.add(key)};
      mealChecks.push(cb);label.append(cb,document.createTextNode(meal.name));section.append(label);
     }
@@ -1579,14 +1607,14 @@ function getMasterGroceryItems(){
    const cancel=document.createElement('button');cancel.type='button';setIconButton(cancel,'cancel','Cancel');cancel.onclick=()=>overlay.remove();
    footer.append(save,cancel);box.append(footer);overlay.append(box);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay);
   };
-  filters.append(chooseMeals);
+  if(mealPlans.some(plan=>getDisplayedWeekdayMealsForPlan(plan).length))filters.append(chooseMeals);
+  filters.append(recipeVisibility);
   const toolbar=list.querySelector(':scope > .top-controls');
   if(toolbar){filters.append(toolbar);toolbar.classList.add('grocery-inline-actions');}
   panel.append(filters);
   panel.append(rows);list.append(panel);updateRows();
  }
  function toggleMasterGroceryTab(){
-  if(!(showMealPlanTabs&&mealPlans.length>1))return;
   if(!showTop){showTop=true;setMasterCategoriesView(false);}
   groceryTabActive=!groceryTabActive;groceryTabOpen=groceryTabActive;if(groceryTabActive)allMealsActive=false;
   editId=null;renderList();
@@ -2844,9 +2872,8 @@ function renderList(){rememberCurrentView();
   tabBar.after(menu);
  }
 }
- if(groceryTabActive&&showMealPlanTabs&&mealPlans.length>1){renderGroceryViewToolbar(list);renderMasterGroceryTab(list);addFloatingViewButtons();return;}
-const topControls=document.createElement('div');topControls.className='top-controls';topControls.style.cssText='display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 2px 12px;color:#555';const iconButton=(title,svg,action)=>{const b=document.createElement('button');b.type='button';b.className='iconbtn top-action-icon';b.title=title;b.setAttribute('aria-label',title);b.innerHTML=svg;b.onclick=action;b.style.cssText='width:36px;height:36px;border:0!important;padding:4px!important;display:grid;place-items:center;color:#555';topControls.append(b);return b};const svg=(paths)=>'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+paths+'" stroke-linecap="round" stroke-linejoin="round"/></svg>';if(!allMealsActive){iconButton('Expand all',svg('m6 12 6 6 6-6 M6 6l6 6 6-6'),()=>{getDisplayedWeekdayMeals().forEach(({meal})=>topIngredientExpanded.add(String(meal.id)));renderList()});iconButton('Collapse all',svg('m6 12 6-6 6 6 M6 18l6-6 6 6'),()=>{topIngredientExpanded.clear();topIngredientManualHiddenOverride.clear();renderList()});const moveDownButton=iconButton('Rotate out recipes','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m-5-5 5 5 5-5M5 20h14" stroke-linecap="round" stroke-linejoin="round"/></svg>',()=>openRotateOptions());let moveHoldTimer=null,moveHoldTriggered=false,movePressStart=0;moveDownButton.style.touchAction='manipulation';moveDownButton.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;clearTimeout(moveHoldTimer);moveHoldTriggered=false;movePressStart=Date.now();moveHoldTimer=setTimeout(()=>{moveHoldTriggered=true},450)});['pointerup','pointerleave','pointercancel'].forEach(ev=>moveDownButton.addEventListener(ev,()=>clearTimeout(moveHoldTimer)));moveDownButton.addEventListener('contextmenu',e=>e.preventDefault());moveDownButton.addEventListener('click',e=>{const longPress=moveHoldTriggered||(movePressStart&&Date.now()-movePressStart>=450);moveHoldTriggered=false;movePressStart=0;if(longPress){e.preventDefault();e.stopImmediatePropagation()}},true);iconButton('Rotate all meals back to before the last rotation','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V8m-5 5 5-5 5 5M5 4h14" stroke-linecap="round" stroke-linejoin="round"/></svg>',openRotateBackOptions);const moveBackButton=topControls.lastElementChild;const rotationPair=document.createElement('div');rotationPair.className='rotation-action-pair';rotationPair.style.cssText='display:inline-flex;align-items:center;gap:0;border:1px solid #c8d3e1;border-radius:9px;background:#edf2f8;overflow:hidden;flex:0 0 auto';topControls.insertBefore(rotationPair,topControls.firstChild);rotationPair.append(moveDownButton,moveBackButton);[moveDownButton,moveBackButton].forEach((button,i)=>{button.style.cssText='width:36px;height:36px;border:0!important;border-radius:0!important;background:transparent!important;padding:4px!important;display:grid;place-items:center;color:#405773';if(i)button.style.borderLeft='1px solid #c8d3e1'});}if(!allMealsActive){iconButton('Select all grocery ingredients', '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg>',()=>{let selectedByMeal={};try{selectedByMeal=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}const keys=new Set();getDisplayedWeekdayMeals().forEach(({meal})=>{(Array.isArray(meal.ingredients)?meal.ingredients:[]).forEach(line=>{const clean=String(line).trim();if(clean&&Array.isArray(selectedByMeal[String(meal.id)])&&selectedByMeal[String(meal.id)].includes(clean))keys.add(clean.toLowerCase().replace(/\s+/g,' ').trim())})});snapshot();keys.forEach(k=>checkedIngredients.add(k));try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()});iconButton('Deselect all grocery ingredients','<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 12h10" stroke-linecap="round"/></svg>',()=>{let selectedByMeal={};try{selectedByMeal=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}const keys=new Set();getDisplayedWeekdayMeals().forEach(({meal})=>{(Array.isArray(meal.ingredients)?meal.ingredients:[]).forEach(line=>{const clean=String(line).trim();if(clean&&Array.isArray(selectedByMeal[String(meal.id)])&&selectedByMeal[String(meal.id)].includes(clean))keys.add(clean.toLowerCase().replace(/\s+/g,' ').trim())})});snapshot();keys.forEach(k=>checkedIngredients.delete(k));try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()});const hideChosen=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';iconButton(hideChosen?'Show selected ingredients':'Hide selected ingredients',hideChosen?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',()=>{const shouldHide=localStorage.getItem('mealRotationHideCheckedGroceriesV1')!=='true';localStorage.setItem('mealRotationHideCheckedGroceriesV1',String(shouldHide));renderList()});}
-appendMealPlanSettingsGear(topControls);
+ if(groceryTabActive){renderGroceryViewToolbar(list);renderMasterGroceryTab(list);addFloatingViewButtons();return;}
+const topControls=document.createElement('div');topControls.className='top-controls';topControls.style.cssText='display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 2px 12px;color:#555';const iconButton=(title,svg,action)=>{const b=document.createElement('button');b.type='button';b.className='iconbtn top-action-icon';b.title=title;b.setAttribute('aria-label',title);b.innerHTML=svg;b.onclick=action;b.style.cssText='width:36px;height:36px;border:0!important;padding:4px!important;display:grid;place-items:center;color:#555';topControls.append(b);return b};const svg=(paths)=>'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+paths+'" stroke-linecap="round" stroke-linejoin="round"/></svg>';if(!allMealsActive){const moveDownButton=iconButton('Rotate out recipes','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m-5-5 5 5 5-5M5 20h14" stroke-linecap="round" stroke-linejoin="round"/></svg>',()=>openRotateOptions());let moveHoldTimer=null,moveHoldTriggered=false,movePressStart=0;moveDownButton.style.touchAction='manipulation';moveDownButton.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;clearTimeout(moveHoldTimer);moveHoldTriggered=false;movePressStart=Date.now();moveHoldTimer=setTimeout(()=>{moveHoldTriggered=true},450)});['pointerup','pointerleave','pointercancel'].forEach(ev=>moveDownButton.addEventListener(ev,()=>clearTimeout(moveHoldTimer)));moveDownButton.addEventListener('contextmenu',e=>e.preventDefault());moveDownButton.addEventListener('click',e=>{const longPress=moveHoldTriggered||(movePressStart&&Date.now()-movePressStart>=450);moveHoldTriggered=false;movePressStart=0;if(longPress){e.preventDefault();e.stopImmediatePropagation()}},true);iconButton('Rotate all meals back to before the last rotation','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V8m-5 5 5-5 5 5M5 4h14" stroke-linecap="round" stroke-linejoin="round"/></svg>',openRotateBackOptions);const moveBackButton=topControls.lastElementChild;const rotationPair=document.createElement('div');rotationPair.className='rotation-action-pair';rotationPair.style.cssText='display:inline-flex;align-items:center;gap:0;border:1px solid #c8d3e1;border-radius:9px;background:#edf2f8;overflow:hidden;flex:0 0 auto';topControls.insertBefore(rotationPair,topControls.firstChild);rotationPair.append(moveDownButton,moveBackButton);[moveDownButton,moveBackButton].forEach((button,i)=>{button.style.cssText='width:36px;height:36px;border:0!important;border-radius:0!important;background:transparent!important;padding:4px!important;display:grid;place-items:center;color:#405773';if(i)button.style.borderLeft='1px solid #c8d3e1'});}appendMealPlanSettingsGear(topControls);
 if(!allMealsActive&&!groceryTabActive){
  const pageHeading=document.createElement('h2');
  pageHeading.className='view-page-title';
@@ -2937,42 +2964,7 @@ if(inlineLinked.length){
  });
  body.append(linkedInfo);
 }
-if(displayedTop.some(e=>e.day===day&&e.meal.id===top.id&&e.linkedTo)){const marker=document.createElement('span');marker.textContent='↗';marker.title='Linked recipe';marker.setAttribute('aria-label','Linked recipe');marker.style.cssText='font-size:15px;color:#566477;margin-right:7px;display:inline-block;vertical-align:middle';name.prepend(marker)}appendMealTimes(body,top);row.append(body);const mealKey=String(top.id);let selectedData={};try{selectedData=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}const selectedForMeal=grocerySelectionsForMeal(top,selectedData);const selectedKeys=new Set(selectedForMeal.map(ingredientKey));const mealGroceryItems=(Array.isArray(top.ingredients)?top.ingredients:[]).map(x=>String(x).trim()).filter(x=>x&&selectedKeys.has(ingredientKey(x)));const hideCheckedForMeal=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';const allGroceriesChecked=mealGroceryItems.length>0&&mealGroceryItems.every(x=>checkedIngredients.has(x.toLowerCase().replace(/\s+/g,' ').trim()));// Automatically collapse when every grocery item is checked and hidden,
-// unless the person explicitly re-expanded this empty list using its arrow.
-if(!hideCheckedForMeal||!allGroceriesChecked)topIngredientManualHiddenOverride.delete(mealKey);
-if(hideCheckedForMeal&&allGroceriesChecked&&!topIngredientManualHiddenOverride.has(mealKey))topIngredientExpanded.delete(mealKey);
-const expanded=topIngredientExpanded.has(mealKey);const arrow=document.createElement('button');arrow.type='button';arrow.className='top-ingredient-arrow';arrow.innerHTML=expanded?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>';arrow.title=expanded?'Collapse selected ingredients':'Show selected grocery ingredients';arrow.setAttribute('aria-label',arrow.title);arrow.setAttribute('aria-expanded',String(expanded));arrow.classList.add('top-ingredient-arrow');arrow.style.cssText='flex:0 0 30px;width:30px;height:36px;border:0;background:transparent;display:grid;place-items:center;color:#555;cursor:pointer;padding:0';arrow.onclick=e=>{e.preventDefault();e.stopPropagation();if(topIngredientExpanded.has(mealKey)){
-  topIngredientExpanded.delete(mealKey);
-  topIngredientManualHiddenOverride.delete(mealKey);
-}else{
-  topIngredientExpanded.add(mealKey);
-  if(hideCheckedForMeal&&allGroceriesChecked)topIngredientManualHiddenOverride.add(mealKey);
-}
-renderList()};row.append(arrow);const wrap=document.createElement('div');wrap.className='top-recipe-wrap';wrap.style.background=colorForDay(day);renderedSlotsByDay[day]=(renderedSlotsByDay[day]||0)+1;wrap.style.borderRadius=renderedSlotsByDay[day]===mealSlotsByDay[day]?'0 0 8px 8px':'0';wrap.append(row);if(expanded){const detail=document.createElement('div');detail.className='top-recipe-ingredients';detail.style.cssText='padding:2px 12px 12px 14px;margin-top:0;border-bottom:0;font-size:15px;color:#555';let data={};try{data=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}const selected=grocerySelectionsForMeal(top,data);const hideChosen=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';const selectedItemKeys=new Set(selected.map(ingredientKey));const ingredients=(Array.isArray(top.ingredients)?top.ingredients:[]).map(x=>String(x).trim()).filter(x=>x&&selectedItemKeys.has(ingredientKey(x))&&!(hideChosen&&checkedIngredients.has(ingredientKey(x))));if(ingredients.length){ingredients.forEach(line=>{const item=document.createElement('label');item.style.cssText='display:flex;align-items:flex-start;gap:10px;padding:7px 2px;';const cb=document.createElement('input');cb.type='checkbox';cb.checked=checkedIngredients.has(line.toLowerCase().replace(/\s+/g,' ').trim());cb.style.cssText='width:20px;height:20px;flex:0 0 20px;margin:1px 0 0';cb.onchange=()=>{const key=line.toLowerCase().replace(/\s+/g,' ').trim();snapshot();if(cb.checked)checkedIngredients.add(key);else checkedIngredients.delete(key);try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()};const text=document.createElement('span');text.textContent=line;
-item.style.touchAction='pan-y';
-item.style.webkitTouchCallout='none';
-text.style.userSelect='none';text.style.webkitUserSelect='none';
-item.title='Long press to edit ingredient';
-let pressActive=false,held=false,holdTimer=null,startX=0,startY=0;
-const stopHold=()=>{clearTimeout(holdTimer);holdTimer=null};
-item.addEventListener('pointerdown',e=>{
-  if(e.target===cb||(e.pointerType==='mouse'&&e.button!==0))return;
-  stopHold();pressActive=true;held=false;startX=e.clientX;startY=e.clientY;
-  holdTimer=setTimeout(()=>{if(pressActive)held=true},550);
-});
-item.addEventListener('pointermove',e=>{
-  if(pressActive&&(Math.abs(e.clientX-startX)>12||Math.abs(e.clientY-startY)>12)){
-    stopHold();pressActive=false;
-  }
-},{passive:true});
-item.addEventListener('pointerup',e=>{
-  stopHold();const open=pressActive&&held;pressActive=false;
-  if(open){e.preventDefault();e.stopPropagation();editTopRecipeIngredient(top,line)}
-});
-['pointerleave','pointercancel'].forEach(ev=>item.addEventListener(ev,()=>{stopHold();pressActive=false}));
-item.addEventListener('click',e=>{if(held){e.preventDefault();e.stopImmediatePropagation();held=false}},true);
-item.addEventListener('contextmenu',e=>e.preventDefault());
-item.append(cb,text);detail.append(item)})}if(ingredients.length)wrap.append(detail)}list.append(wrap)});return}if(!showTop){renderMasterCategories(list);return}if(!active)return;const featuredColorById=new Map();for(const entry of getDisplayedWeekdayMealsForPlan(masterDisplayPlan())){if(!featuredColorById.has(String(entry.meal.id)))featuredColorById.set(String(entry.meal.id),colorForDay(entry.day))} [['IN ROTATION',true],['IDEAS',false]].forEach(([title,rot])=>{let h=document.createElement('div');h.className='section';h.textContent=title;list.append(h);meals.filter(m=>m.cat===active&&m.rotation===rot).forEach(m=>{let row=document.createElement('div');row.className='meal';row.dataset.mealId=String(m.id);if(featuredColorById.has(String(m.id))){row.style.backgroundColor=featuredColorById.get(String(m.id));row.style.borderRadius='8px';row.classList.add('featured-top-meal')}bindMealSwipe(row,m);if(rot){let up=document.createElement('button');up.className='move';up.textContent='↑';up.title='Tap: move to top; long press: move up one';up.setAttribute('aria-label','Move '+(m.name||'meal')+' up');function bindMoveArrow(btn,dir){let holdTimer=null,held=false;btn.addEventListener('pointerdown',()=>{held=false;holdTimer=setTimeout(()=>{held=true;const group=meals.filter(x=>x.cat===m.cat&&x.rotation);const pos=group.findIndex(x=>x.id===m.id),target=pos+dir;if(pos<0||target<0||target>=group.length)return;snapshot();const other=group[target],a=meals.indexOf(m),b=meals.indexOf(other);if(a>=0&&b>=0){meals[a]=other;meals[b]=m;clearOverridesForCat(m.cat);persist();renderList()}},500)});['pointerup','pointerleave','pointercancel'].forEach(ev=>btn.addEventListener(ev,()=>clearTimeout(holdTimer)));btn.onclick=async()=>{if(held){held=false;return}const linked=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup&&x.cat!==m.cat):[];let moveLinked=false;if(linked.length){moveLinked=await askLinkedMove(m.name||'this meal',dir<0?'top':'bottom')}snapshot();const from=meals.indexOf(m);if(from<0)return;meals.splice(from,1);if(dir<0){const first=meals.findIndex(x=>x.cat===m.cat&&x.rotation);if(first<0)meals.push(m);else meals.splice(first,0,m)}else{let last=-1;meals.forEach((x,i)=>{if(x.cat===m.cat&&x.rotation)last=i});if(last<0)meals.push(m);else meals.splice(last+1,0,m)}if(moveLinked){linked.forEach(target=>{const i=meals.indexOf(target);if(i<0)return;meals.splice(i,1);if(dir<0){const first=meals.findIndex(x=>x.cat===target.cat&&x.rotation);if(first<0)meals.push(target);else meals.splice(first,0,target)}else{let last=-1;meals.forEach((x,j)=>{if(x.cat===target.cat&&x.rotation)last=j});meals.splice(last+1,0,target)}clearOverridesForCat(target.cat)})}clearOverridesForCat(m.cat);persist();renderList()}}bindMoveArrow(up,-1);row.append(up);let down=document.createElement('button');down.className='move';down.textContent='↓';down.title='Tap: move to bottom; long press: move down one';down.setAttribute('aria-label','Move '+(m.name||'meal')+' down');bindMoveArrow(down,1);row.append(down)}else{let cb=document.createElement('input');cb.type='checkbox';cb.className='check';cb.setAttribute('aria-label','Add to rotation');cb.onchange=()=>{snapshot();let wasInRotation=m.rotation;m.rotation=cb.checked;if(!wasInRotation&&m.rotation){meals.splice(meals.indexOf(m),1);let first=meals.findIndex(x=>x.cat===m.cat&&x.rotation);if(first<0)meals.push(m);else meals.splice(first,0,m)}renderList()};row.append(cb)}let body=document.createElement('div');body.className='mealbody';let name=document.createElement('button');name.className='mealname';name.textContent=m.name;name.style.userSelect='none';name.style.webkitUserSelect='none';name.style.webkitTouchCallout='none';name.style.touchAction='pan-y';name.addEventListener('selectstart',e=>e.preventDefault());name.onclick=e=>{if(m.url){e.preventDefault();window.open(m.url,'_blank','noopener')}};bindRenameLongPress(name,m);name.oncontextmenu=e=>e.preventDefault();body.append(name);appendMealTimes(body,m);row.append(body);if(m.linkGroup&&meals.filter(x=>x.linkGroup===m.linkGroup).length>1){const dot=document.createElement('span');dot.className='linked-meal-dot';dot.textContent='•';dot.title='Shared across categories';dot.setAttribute('aria-label','Shared across categories');dot.style.cssText='margin-left:auto;padding:0 9px;font-size:23px;color:#6a7484;flex:0 0 auto';row.append(dot)}list.append(row)})});let add=document.createElement('button');add.className='smallbtn add-meal-floating';add.textContent='+';add.title='Add meal';add.setAttribute('aria-label','Add meal');add.onclick=()=>{snapshot();let m={id:id++,cat:active,name:'',rotation:false,prep:'',cook:'',total:'',url:''};meals.push(m);openEditor(m.id)};document.body.append(add)}function openLinkedMealEditorInline(meal){
+if(displayedTop.some(e=>e.day===day&&e.meal.id===top.id&&e.linkedTo)){const marker=document.createElement('span');marker.textContent='↗';marker.title='Linked recipe';marker.setAttribute('aria-label','Linked recipe');marker.style.cssText='font-size:15px;color:#566477;margin-right:7px;display:inline-block;vertical-align:middle';name.prepend(marker)}appendMealTimes(body,top);row.append(body);const wrap=document.createElement('div');wrap.className='top-recipe-wrap';wrap.style.background=colorForDay(day);renderedSlotsByDay[day]=(renderedSlotsByDay[day]||0)+1;wrap.style.borderRadius=renderedSlotsByDay[day]===mealSlotsByDay[day]?'0 0 8px 8px':'0';wrap.append(row);list.append(wrap)});return}if(!showTop){renderMasterCategories(list);return}if(!active)return;const featuredColorById=new Map();for(const entry of getDisplayedWeekdayMealsForPlan(masterDisplayPlan())){if(!featuredColorById.has(String(entry.meal.id)))featuredColorById.set(String(entry.meal.id),colorForDay(entry.day))} [['IN ROTATION',true],['IDEAS',false]].forEach(([title,rot])=>{let h=document.createElement('div');h.className='section';h.textContent=title;list.append(h);meals.filter(m=>m.cat===active&&m.rotation===rot).forEach(m=>{let row=document.createElement('div');row.className='meal';row.dataset.mealId=String(m.id);if(featuredColorById.has(String(m.id))){row.style.backgroundColor=featuredColorById.get(String(m.id));row.style.borderRadius='8px';row.classList.add('featured-top-meal')}bindMealSwipe(row,m);if(rot){let up=document.createElement('button');up.className='move';up.textContent='↑';up.title='Tap: move to top; long press: move up one';up.setAttribute('aria-label','Move '+(m.name||'meal')+' up');function bindMoveArrow(btn,dir){let holdTimer=null,held=false;btn.addEventListener('pointerdown',()=>{held=false;holdTimer=setTimeout(()=>{held=true;const group=meals.filter(x=>x.cat===m.cat&&x.rotation);const pos=group.findIndex(x=>x.id===m.id),target=pos+dir;if(pos<0||target<0||target>=group.length)return;snapshot();const other=group[target],a=meals.indexOf(m),b=meals.indexOf(other);if(a>=0&&b>=0){meals[a]=other;meals[b]=m;clearOverridesForCat(m.cat);persist();renderList()}},500)});['pointerup','pointerleave','pointercancel'].forEach(ev=>btn.addEventListener(ev,()=>clearTimeout(holdTimer)));btn.onclick=async()=>{if(held){held=false;return}const linked=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup&&x.cat!==m.cat):[];let moveLinked=false;if(linked.length){moveLinked=await askLinkedMove(m.name||'this meal',dir<0?'top':'bottom')}snapshot();const from=meals.indexOf(m);if(from<0)return;meals.splice(from,1);if(dir<0){const first=meals.findIndex(x=>x.cat===m.cat&&x.rotation);if(first<0)meals.push(m);else meals.splice(first,0,m)}else{let last=-1;meals.forEach((x,i)=>{if(x.cat===m.cat&&x.rotation)last=i});if(last<0)meals.push(m);else meals.splice(last+1,0,m)}if(moveLinked){linked.forEach(target=>{const i=meals.indexOf(target);if(i<0)return;meals.splice(i,1);if(dir<0){const first=meals.findIndex(x=>x.cat===target.cat&&x.rotation);if(first<0)meals.push(target);else meals.splice(first,0,target)}else{let last=-1;meals.forEach((x,j)=>{if(x.cat===target.cat&&x.rotation)last=j});meals.splice(last+1,0,target)}clearOverridesForCat(target.cat)})}clearOverridesForCat(m.cat);persist();renderList()}}bindMoveArrow(up,-1);row.append(up);let down=document.createElement('button');down.className='move';down.textContent='↓';down.title='Tap: move to bottom; long press: move down one';down.setAttribute('aria-label','Move '+(m.name||'meal')+' down');bindMoveArrow(down,1);row.append(down)}else{let cb=document.createElement('input');cb.type='checkbox';cb.className='check';cb.setAttribute('aria-label','Add to rotation');cb.onchange=()=>{snapshot();let wasInRotation=m.rotation;m.rotation=cb.checked;if(!wasInRotation&&m.rotation){meals.splice(meals.indexOf(m),1);let first=meals.findIndex(x=>x.cat===m.cat&&x.rotation);if(first<0)meals.push(m);else meals.splice(first,0,m)}renderList()};row.append(cb)}let body=document.createElement('div');body.className='mealbody';let name=document.createElement('button');name.className='mealname';name.textContent=m.name;name.style.userSelect='none';name.style.webkitUserSelect='none';name.style.webkitTouchCallout='none';name.style.touchAction='pan-y';name.addEventListener('selectstart',e=>e.preventDefault());name.onclick=e=>{if(m.url){e.preventDefault();window.open(m.url,'_blank','noopener')}};bindRenameLongPress(name,m);name.oncontextmenu=e=>e.preventDefault();body.append(name);appendMealTimes(body,m);row.append(body);if(m.linkGroup&&meals.filter(x=>x.linkGroup===m.linkGroup).length>1){const dot=document.createElement('span');dot.className='linked-meal-dot';dot.textContent='•';dot.title='Shared across categories';dot.setAttribute('aria-label','Shared across categories');dot.style.cssText='margin-left:auto;padding:0 9px;font-size:23px;color:#6a7484;flex:0 0 auto';row.append(dot)}list.append(row)})});let add=document.createElement('button');add.className='smallbtn add-meal-floating';add.textContent='+';add.title='Add meal';add.setAttribute('aria-label','Add meal');add.onclick=()=>{snapshot();let m={id:id++,cat:active,name:'',rotation:false,prep:'',cook:'',total:'',url:''};meals.push(m);openEditor(m.id)};document.body.append(add)}function openLinkedMealEditorInline(meal){
   // A linked recipe may belong to a different, currently collapsed group.
   // Reveal its own row before positioning the shared inline editor.
   showTop=false;
