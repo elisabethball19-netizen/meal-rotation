@@ -523,9 +523,12 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 #list .all-meals-overview > h2.is-stuck { padding-top:14px!important; }
 
 /* Compact weekday identifiers beside the Meal Groups controls. */
-.master-category-weekdays{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:3px 5px;flex:0 1 auto;min-width:0;color:#555f64;font-size:11px;font-weight:600;letter-spacing:.025em;line-height:1.3;text-align:right;}
-.master-category-weekdays span{white-space:nowrap;}
-@media(max-width:390px){.master-category-header{gap:2px}.master-category-title{gap:6px}.master-category-weekdays{font-size:10px;gap:2px 4px}}
+/* Weekday labels sit at the top of their corresponding color segments. */
+.master-category-header{position:sticky;}
+.master-category-weekdays{position:absolute;top:4px;left:0;right:0;display:flex;align-items:flex-start;pointer-events:none;color:#555f64;font-size:10px;font-weight:600;letter-spacing:.025em;line-height:1.2;z-index:1;}
+.master-category-weekdays span{flex:1 1 0;min-width:0;text-align:right;padding-right:12px;white-space:nowrap;}
+.master-category-weekdays.single span{padding-right:14px;}
+@media(max-width:390px){.master-category-header{gap:2px}.master-category-title{gap:6px}.master-category-weekdays{font-size:9px}.master-category-weekdays span{padding-right:9px}}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -2918,13 +2921,13 @@ function renderMasterCategories(list){
   header.append(toggle);
   // Show the weekdays assigned to this group in the currently active plan.
   // Derive them from the same assignments used for the header colors.
-  const assignedDays=orderedDays().filter(day=>getDayCategories(day).includes(category));
+  const assignedDays=orderedDays().filter(day=>masterDisplayCategories(day).includes(category));
   if(assignedDays.length){
    const dayLabels=document.createElement('div');dayLabels.className='master-category-weekdays';
+   if(assignedDays.length===1)dayLabels.classList.add('single');
    dayLabels.setAttribute('aria-label','Assigned to '+assignedDays.join(', '));
-   assignedDays.forEach((day,index)=>{
+   assignedDays.forEach(day=>{
     const dayLabel=document.createElement('span');dayLabel.textContent=day.slice(0,3).toUpperCase();
-    if(index)dayLabel.textContent='· '+dayLabel.textContent;
     dayLabels.append(dayLabel);
    });
    header.append(dayLabels);
