@@ -455,6 +455,19 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
   background:#fff!important;
   box-shadow:0 0 0 14px #fff;
 }
+
+/* Primary rotation actions: clearly labeled, compact, responsive buttons. */
+#list .rotation-compact-header .rotation-heading-actions{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-width:0;flex:0 1 auto;}
+#list .rotation-heading-actions .rotation-labeled-button.iconbtn{
+  display:inline-flex!important;align-items:center;justify-content:center;gap:5px;
+  width:auto!important;height:auto!important;min-height:38px;flex:0 0 auto;
+  padding:7px 10px!important;border:1px solid #d5dbe2!important;
+  border-radius:9px!important;background:#f1f3f6!important;
+  color:#303b49!important;white-space:nowrap;
+  font-size:calc(13px * var(--meal-text-factor, 1));font-weight:600;line-height:1.2;
+}
+#list .rotation-heading-actions .rotation-labeled-button svg{width:18px;height:18px;flex:0 0 18px;}
+#list .rotation-heading-actions .rotation-labeled-button:focus-visible{outline:2px solid #5076b5;outline-offset:2px;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -2963,7 +2976,7 @@ if(!allMealsActive&&!groceryTabActive){
  list.append(pageHeading);
 }
 list.append(topControls);placeViewToolbar(topControls);
-if(!allMealsActive&&!groceryTabActive){const heading=list.querySelector(':scope > .view-page-title');if(heading){const header=document.createElement('div');header.className='rotation-compact-header';const buttons=document.createElement('div');buttons.className='rotation-heading-actions';buttons.append(...topControls.querySelectorAll('.rotation-standalone-action'));header.append(heading,buttons);topControls.after(header);}}
+if(!allMealsActive&&!groceryTabActive){const heading=list.querySelector(':scope > .view-page-title');if(heading){const header=document.createElement('div');header.className='rotation-compact-header';const buttons=document.createElement('div');buttons.className='rotation-heading-actions';buttons.append(...topControls.querySelectorAll('.rotation-standalone-action'));const rotationButtons=buttons.querySelectorAll('.rotation-standalone-action');rotationButtons.forEach((button,index)=>{const label=index===0?'Rotate Out':'Rotate Back';button.classList.add('rotation-labeled-button');const labelSpan=document.createElement('span');labelSpan.className='rotation-button-label';labelSpan.textContent=label;button.append(labelSpan);button.title=label;button.setAttribute('aria-label',label);});header.append(heading,buttons);topControls.after(header);}}
 appendMealPlanSettingsPanel(list);
 if(allMealsActive){renderAllMealsOverview(list);addFloatingViewButtons();return;}
 addFloatingViewButtons();
