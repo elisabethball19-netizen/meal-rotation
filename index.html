@@ -379,7 +379,7 @@ function effectivePinnedCategories(){
  // Automatic shortcuts represent groups with meals actually displayed in
  // the active plan's weekly rotation, not merely scheduled empty groups.
  const plan=mealPlans.find(p=>p.id===activePlanId);
- const assigned=plan?getDisplayedWeekdayMealsForPlan(plan).map(entry=>entry.cat):[];
+ const assigned=plan?getDisplayedWeekdayMealsForPlan(plan).filter(entry=>!entry.linkedTo).map(entry=>entry.cat):[];
  const manual=applyPinsToAllTabs?
   mealPlans.flatMap(p=>Array.isArray(p.pinnedCats)?p.pinnedCats:[]):pinnedCats;
  return new Set([...manual,...assigned].filter(c=>cats.includes(c)));
