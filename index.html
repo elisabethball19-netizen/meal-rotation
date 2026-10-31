@@ -652,6 +652,25 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 .meal-plan-tab{box-shadow:0 1px 3px rgba(35,48,60,.08);}
 .meal-plan-tab.selected{box-shadow:0 2px 7px rgba(35,48,60,.17),inset 0 2px 0 #a3b4c5;}
 .all-meals-day{box-shadow:0 2px 7px rgba(35,48,60,.11);}
+
+/* Visual refinement: soft weekday elevation, clean tabs, clearer active groups. */
+.meal-plan-tabs{border-bottom:0!important;}
+.meal-plan-tab.selected{box-shadow:0 2px 7px rgba(35,48,60,.17)!important;}
+/* Match Weekly Overview's soft elevation without a shadow between weekday heading and meal. */
+#list.top-summary .section:has(+ .top-recipe-wrap),
+#list.top-summary .section:has(+ .empty-weekday-meal){box-shadow:0 -2px 6px rgba(35,48,60,.075),2px 0 5px rgba(35,48,60,.055),-2px 0 5px rgba(35,48,60,.055);}
+#list.top-summary .top-recipe-wrap:has(+ .section),
+#list.top-summary .top-recipe-wrap:last-child,
+#list.top-summary .empty-weekday-meal{box-shadow:0 3px 7px rgba(35,48,60,.11),2px 0 5px rgba(35,48,60,.055),-2px 0 5px rgba(35,48,60,.055);}
+/* Slightly more elevation for active groups; inactive groups stay flat. */
+.master-category-card.master-category-this-week{box-shadow:0 3px 10px rgba(35,48,60,.19),0 1px 3px rgba(35,48,60,.09)!important;border-color:#c7cdd4!important;}
+
+/* Page headers: remove decorative horizontal separators without affecting list rows. */
+#list .rotation-compact-header,
+#list .meal-plan-grocery .grocery-compact-header,
+#list .master-categories-heading,
+#list .all-meals-overview > h2,
+body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
