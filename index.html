@@ -302,6 +302,11 @@ body{padding-bottom:calc(310px + env(safe-area-inset-bottom, 0px));}
 /* Unified confirmation actions throughout the app. */
 .meal-unified-actions{display:flex!important;align-items:center!important;justify-content:space-evenly!important;gap:16px!important;}
 .meal-unified-actions>button{border:0!important;background:transparent!important;box-shadow:none!important;border-radius:0!important;min-width:44px!important;min-height:44px!important;padding:6px!important;display:grid!important;place-items:center!important;color:inherit!important;}
+
+/* Compact group navigation replaces the retired shortcut row. */
+.clickable-group-heading{display:block;width:max-content;max-width:100%;border:0;background:transparent;padding:0 3px 0 0;margin:0 0 3px;color:#666;font:inherit;font-size:12px;letter-spacing:.04em;text-transform:uppercase;text-align:left;cursor:pointer;touch-action:manipulation}
+.clickable-group-heading:focus-visible{outline:2px solid #6f8aab;outline-offset:3px;border-radius:2px}
+#categoryButtons{display:none!important}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -786,7 +791,7 @@ function openHelpModal(){
   ['Long-press a displayed meal','Open the weekday meal-change and grocery-list options.'],
   ['Rotate out arrow','Tap to rotate out all displayed recipes or select specific recipes. Long-pressing this arrow does nothing.'],
   ['Rotate across tabs','Use the all-tabs rotation control to rotate recipes across your meal-plan tabs.'],
-  ['Group Shortcuts','Tap a group shortcut to open Meal Groups with that group expanded. Configure shortcuts in Settings.'],
+  ['Weekday group headings','Tap a group name in a weekday card to open that group in Meal Groups.'],
   ['Navigation buttons','Use the floating buttons to switch between My Rotation, Meal Groups, Weekly Overview, and Grocery List.'],
   ['Weekly Overview','See weekday meals across tabs and expand their ingredient lists. Tap a meal to return to it in My Rotation.'],
   ['Grocery List','Review ingredients from the tabs you include; select, deselect, or hide checked groceries.'],
@@ -1616,28 +1621,9 @@ function rotatePinnedCategoriesToWeekdayOrder(){
 }
 function splitPlanSettings(){return showTop&&showMealPlanTabs&&mealPlans.length>1}
 function renderTabs(){let t=$('tabs');const previousRow=document.getElementById('categoryButtons');const oldCatMenu=document.getElementById('catmenu');if(oldCatMenu&&previousRow&&previousRow.contains(oldCatMenu))document.body.append(oldCatMenu);if(previousRow)previousRow.remove();const pageKey=showTop?'top-recipes':(masterCategoriesView?'master-groups':'group:'+active);const keepSettingsOpen=activeSettingsPanel==='upper'&&lastRenderedPageKey===pageKey&&!!t.querySelector('#settingsPanel:not(.hidden)');const openSettingsGroups=keepSettingsOpen?new Set([...t.querySelectorAll('details[data-settings-group][open]')].map(d=>d.dataset.settingsGroup)):new Set();lastRenderedPageKey=pageKey;const categoryMenu=$('catmenu');if(categoryMenu&&categoryMenu.parentNode===t)categoryMenu.remove();t.innerHTML='';const categoryRow=document.createElement('div');categoryRow.id='categoryButtons';categoryRow.className='tabs category-button-row';if(categoryMenu)categoryRow.append(categoryMenu);const effectivePins=effectivePinnedCategories();
-if(showTop){
-  lastTopPinnedCategories=new Set(effectivePins);
-  getCategoryButtonOrder().forEach(c=>{
-    if(!effectivePins.has(c)&&(!expandedCats.includes(c)||showMealPlanTabs))return;
-    const b=document.createElement('button');b.type='button';applyCategoryBackground(b,c);
-    b.dataset.category=c;b.className='tab';b.textContent=c;
-    let timer=null,longDone=false;
-    b.onclick=()=>{if(longDone){longDone=false;return}navigateAfterSettings(()=>{active=c;persist();openMasterCategories(c)})};
-    b.onpointerdown=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;longDone=false;clearTimeout(timer);timer=setTimeout(()=>{longDone=true;activeTabMenuId=null;document.querySelector('#list .meal-plan-menu')?.remove();menuCat=c;renderMenu()},500)};
-    ['pointerup','pointerleave','pointercancel'].forEach(event=>b.addEventListener(event,()=>clearTimeout(timer)));
-    b.oncontextmenu=e=>{e.preventDefault();activeTabMenuId=null;document.querySelector('#list .meal-plan-menu')?.remove();menuCat=c;renderMenu()};
-    categoryRow.append(b);
-  });
-  const hidden=cats.filter(c=>!effectivePins.has(c)&&!expandedCats.includes(c));
-  const folded=document.createElement('button');folded.className='iconbtn category-fold-icon';
-  folded.innerHTML=hidden.length?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  folded.setAttribute('aria-label',hidden.length?'Expand unpinned groups':'Collapse unpinned groups');folded.title=hidden.length?'Show collapsed groups':'Collapse unpinned groups';
-  folded.onclick=()=>{expandedCats=hidden.length?cats.filter(c=>!effectivePins.has(c)):[];localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));renderTabs()};if(!showMealPlanTabs)if(!showMealPlanTabs)categoryRow.append(folded);
-}else{
-  // Master Categories is the only categories page. No category dropdown.
-  categoryRow.classList.add('hidden');
-}
+// Group shortcuts were retired. Keep the empty anchor for older UI callers,
+// but do not display it or change stored group preferences.
+categoryRow.classList.add('hidden');
 
 let actions=document.createElement('div');actions.className='tab-actions';let undo=document.createElement('button');undo.id='undo';undo.className='iconbtn';undo.title='Undo';undo.setAttribute('aria-label','Undo');undo.innerHTML='<svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h9a6 6 0 0 1 0 12h-2"/></svg>';actions.append(undo);let redo=document.createElement('button');redo.id='redo';redo.className='iconbtn';redo.title='Redo';redo.setAttribute('aria-label','Redo');redo.innerHTML='<svg viewBox="0 0 24 24"><path d="M15 14 20 9l-5-5"/><path d="M20 9h-9a6 6 0 0 0 0 12h2"/></svg>';undo.onclick=()=>{if(!history.length)return;redoHistory.push(captureState());restoreState(JSON.parse(history.pop()))};redo.onclick=()=>{if(!redoHistory.length)return;history.push(captureState());restoreState(JSON.parse(redoHistory.pop()))};actions.append(redo);let summary=document.createElement('button');summary.id='summary';summary.className='iconbtn view-switch'+(showTop?' active':'');summary.title=showTop?'Switch to Groups view':'Switch to My Rotation view';summary.setAttribute('aria-label',summary.title);summary.setAttribute('aria-pressed',String(showTop));summary.innerHTML=showTop?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.2 12 3l9 7.2V21h-6.5v-7h-5v7H3z" stroke-linejoin="round" stroke-linecap="round"/></svg>';summary.onclick=()=>navigateAfterSettings(()=>{if(showTop)openMasterCategories();else{showTop=true;groceryTabActive=false;allMealsActive=false;editId=null;render()}});actions.insertBefore(summary,actions.firstChild);const search=document.createElement('button');search.id='search';search.className='iconbtn';search.title='Search meals';search.setAttribute('aria-label','Search meals');search.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.7"/><path d="m16 16 5 5" stroke-linecap="round"/></svg>';search.onclick=()=>openMealSearch();actions.insertBefore(search,summary.nextSibling);
 if(showTop&&showMealPlanTabs&&mealPlans.length>1){
@@ -1728,14 +1714,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
     outer.append(categoryRows);weekGroup.content.append(outer);
   });
 }
-;const oldTopSettings=renderTopSettingsPanel;renderTopSettingsPanel=function(){oldTopSettings();const pinGroup=makeSettingsGroup('groups','Group Shortcuts');topPanel.append(pinGroup.details);const shareLabel=document.createElement('label');shareLabel.style.cssText='display:flex;align-items:center;gap:8px;width:100%;font-size:14px;padding:6px 0';
-const shareCheck=document.createElement('input');shareCheck.type='checkbox';shareCheck.checked=applyPinsToAllTabs;
-shareCheck.setAttribute('aria-label','Show my selected shortcuts in all tabs');
-shareCheck.onchange=()=>{applyPinsToAllTabs=shareCheck.checked;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs));renderTabs()};
-shareLabel.append(shareCheck,document.createTextNode('Show my selected shortcuts in all tabs'));if(showMealPlanTabs&&mealPlans.length>1)pinGroup.content.append(shareLabel);
-const additionalPinsHeading=document.createElement('strong');additionalPinsHeading.textContent='Select additional shortcuts';additionalPinsHeading.style.cssText='display:block;margin-top:10px';pinGroup.content.append(additionalPinsHeading);const pinChoices=document.createElement('div');pinChoices.style.cssText='display:flex;flex-wrap:wrap;gap:10px 16px;width:100%';pinGroup.content.append(pinChoices);cats.forEach(c=>{const lab=document.createElement('label');lab.style.cssText='display:inline-flex;align-items:center;gap:8px;padding:4px 0';const check=document.createElement('input');check.type='checkbox';check.checked=pinnedCats.includes(c);check.onchange=()=>{pinnedCats=check.checked?[...new Set([...pinnedCats,c])]:pinnedCats.filter(x=>x!==c);localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));saveActiveMealPlan();renderTabs()};lab.append(check,document.createTextNode(c));pinChoices.append(lab)});
-
-};let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/></svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
+;let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/></svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
 const displayGroup=makeSettingsGroup('display','Display');populateTimeSettings(displayGroup.content);
 panel.append(displayGroup.details);
 // Version 2 backups capture every app-owned persistent key, including grocery selections.
@@ -2826,7 +2805,12 @@ name.addEventListener('pointerup',e=>{
 });
 ['pointerleave','pointercancel'].forEach(ev=>name.addEventListener(ev,()=>{clearMealHold();mealPressActive=false}));
 name.addEventListener('click',e=>{if(mealHeld){e.preventDefault();e.stopImmediatePropagation();mealHeld=false}},true);
-name.oncontextmenu=e=>e.preventDefault();if(mealSlotsByDay[day]>1){const tag=document.createElement('div');tag.textContent=c;tag.className='top-meal-category';tag.style.cssText='font-size:12px;letter-spacing:.04em;color:#666;margin:0 0 3px;text-transform:uppercase';body.append(tag)}body.append(name);
+name.oncontextmenu=e=>e.preventDefault();if(c&&cats.includes(c)){
+ const tag=document.createElement('button');tag.type='button';tag.textContent=c;tag.className='top-meal-category clickable-group-heading';
+ tag.title='Open '+c+' in Meal Groups';tag.setAttribute('aria-label','Open '+c+' group in Meal Groups');
+ tag.onclick=e=>{e.preventDefault();e.stopPropagation();navigateAfterSettings(()=>openMasterCategories(c))};
+ body.append(tag);
+ }body.append(name);
 const inlineLinked=inlineLinkedByParent.get(day+'|'+String(top.id))||[];
 if(inlineLinked.length){
  const linkedInfo=document.createElement('div');
