@@ -2900,11 +2900,22 @@ function renderMasterCategories(list){
  const wrap=document.createElement('section');wrap.className='master-categories';wrap.setAttribute('aria-label','Meal Groups');
  const featuredColorById=new Map();
  const scheduledDaysByMeal=new Map();
- for(const entry of getDisplayedWeekdayMealsForPlan(masterDisplayPlan())){
+ // Only show meal-type initials where a group is assigned to multiple tabs on the same day.
+ const plansForLabels=showMealPlanTabs&&mealPlans.length>1?mealPlans:[masterDisplayPlan()];
+ const scheduledEntries=plansForLabels.flatMap(plan=>getDisplayedWeekdayMealsForPlan(plan).map(entry=>({...entry,planName:plan.name,planId:plan.id})));
+ const groupDayPlans=new Map();
+ for(const entry of scheduledEntries){
+  const slot=weekdaySlotKey(entry.day,entry.cat);
+  if(!groupDayPlans.has(slot))groupDayPlans.set(slot,new Set());
+  groupDayPlans.get(slot).add(entry.planId);
+ }
+ for(const entry of scheduledEntries){
   const key=String(entry.meal.id);
   if(!featuredColorById.has(key))featuredColorById.set(key,colorForDay(entry.day));
-  if(!scheduledDaysByMeal.has(key))scheduledDaysByMeal.set(key,new Set());
-  scheduledDaysByMeal.get(key).add(entry.day);
+  if(!scheduledDaysByMeal.has(key))scheduledDaysByMeal.set(key,new Map());
+  const dayPlans=scheduledDaysByMeal.get(key);
+  if(!dayPlans.has(entry.day))dayPlans.set(entry.day,[]);
+  dayPlans.get(entry.day).push(entry);
  }
  const heading=document.createElement('div');heading.className='master-categories-heading';
  const title=document.createElement('h2');title.textContent='Meal Groups';heading.append(title);
@@ -2961,8 +2972,17 @@ function renderMasterCategories(list){
      const scheduledDays=scheduledDaysByMeal.get(String(m.id));
      if(scheduledDays&&scheduledDays.size){
       const dayTag=document.createElement('span');dayTag.className='master-meal-weekdays';
-      dayTag.textContent=orderedDays().filter(day=>scheduledDays.has(day)).map(day=>day.slice(0,3).toUpperCase()).join(' · ');
-      dayTag.title='Scheduled: '+[...scheduledDays].join(', ');
+      dayTag.textContent=orderedDays().filter(day=>scheduledDays.has(day)).map(day=>{
+       const entries=scheduledDays.get(day);
+       const ambiguous=entries.some(entry=>(groupDayPlans.get(weekdaySlotKey(day,entry.cat))||new Set()).size>1);
+       if(!ambiguous)return day.slice(0,3).toUpperCase();
+       const initials=[...new Set(entries.map(entry=>{
+        const name=String(entry.planName||'').trim().toLowerCase();
+        return name==='breakfast'?'B':name==='lunch'?'L':name==='dinner'?'D':String(entry.planName||'?').slice(0,1).toUpperCase();
+       }))];
+       return day.slice(0,3).toUpperCase()+' · '+initials.join('/');
+      }).join(' · ');
+      dayTag.title='Scheduled: '+[...scheduledDays.entries()].map(([day,entries])=>day+' ('+[...new Set(entries.map(entry=>entry.planName))].join(', ')+')').join('; ');
       row.append(dayTag);
      }
      if(m.linkGroup&&meals.filter(x=>x.linkGroup===m.linkGroup).length>1){const dot=document.createElement('span');dot.className='linked-meal-dot';dot.textContent='•';dot.title='Shared across categories';dot.setAttribute('aria-label','Shared recipe');row.append(dot)}
