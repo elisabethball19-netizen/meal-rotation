@@ -741,6 +741,21 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 .shared-groups-panel:has(.shared-groups-x) h3{margin-bottom:18px;}
 .shared-groups-panel:has(.shared-groups-x) .shared-groups-choice{background:#f5f6f8;border:1px solid #cfd3d8;border-radius:10px;margin:9px 0;padding:13px 15px;text-align:left;box-shadow:0 1px 3px #00000010;}
 .shared-groups-x{position:absolute;right:14px;top:12px;width:36px;height:36px;border:0;background:transparent;color:#454a50;font-size:30px;line-height:1;cursor:pointer;}
+
+/* Uniform spacing below the plan tabs before each page heading. */
+#list .rotation-compact-header,
+#list .meal-plan-grocery,
+#list .all-meals-overview{margin-top:18px!important;}
+#list .meal-plan-grocery .grocery-compact-header,
+#list .all-meals-overview > h2{margin-top:0!important;}
+/* Linked-meal dialog: use the same bottom cancel icon as other dialogs. */
+.shared-groups-panel:has(.shared-groups-x){padding-top:22px;}
+.shared-groups-panel:has(.shared-groups-x) .shared-groups-x{
+ position:static;display:flex;align-items:center;justify-content:center;
+ margin:18px auto 0;width:46px;height:42px;min-width:46px;
+ border:1px solid #ccd0d5;border-radius:9px;background:#f6f7f9;
+ color:#242424;font-size:inherit;line-height:normal;
+}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -1070,7 +1085,7 @@ function showRelatedMeals(meal){
  const panel=document.createElement('div');panel.className='shared-groups-panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Meals linked to '+(meal.name||'this recipe'));
  const heading=document.createElement('h3');heading.textContent='Meals linked to '+(meal.name||'this recipe');panel.append(heading);
  unique.forEach(target=>{const button=document.createElement('button');button.type='button';button.className='shared-groups-choice';button.textContent=(target.name||'Untitled meal')+' — '+target.cat;button.onclick=()=>{shade.remove();openMasterCategories(target.cat);requestAnimationFrame(()=>{const card=[...document.querySelectorAll('.master-category-card')].find(x=>x.dataset.category===target.cat);const row=card&&[...card.querySelectorAll('[data-meal-id]')].find(x=>x.dataset.mealId===String(target.id));if(row)row.scrollIntoView({block:'center',behavior:'smooth'})})};panel.append(button)});
- const close=document.createElement('button');close.type='button';close.className='shared-groups-x';close.textContent='×';close.setAttribute('aria-label','Close linked meals');close.onclick=()=>shade.remove();panel.prepend(close);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.append(panel);document.body.append(shade);
+ const close=document.createElement('button');close.type='button';close.className='shared-groups-x';close.textContent='×';close.setAttribute('aria-label','Close linked meals');close.onclick=()=>shade.remove();setIconButton(close,'cancel','Close linked meals');panel.append(close);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.append(panel);document.body.append(shade);
 }
 function showSharedRecipeGroups(meal){
  const copies=meal.linkGroup?meals.filter(x=>x.linkGroup===meal.linkGroup):[meal];
