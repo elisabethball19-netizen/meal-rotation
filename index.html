@@ -774,6 +774,17 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
   padding-top:3px!important;
   padding-bottom:12px!important;
 }
+
+/* Consistent page-title rhythm, using Grocery List as the reference. */
+#list .rotation-compact-header,
+#list .meal-plan-grocery,
+#list .all-meals-overview { margin-top:18px!important; }
+#list .rotation-compact-header { padding-top:0!important; padding-bottom:0!important; margin-bottom:14px!important; row-gap:8px!important; }
+#list .rotation-compact-header .view-page-title { margin:0!important; padding:0!important; }
+#list .all-meals-overview > h2 { margin:0 0 14px!important; padding:0!important; border:0!important; }
+/* Empty days: eliminate the remaining seam between the day title and placeholder. */
+#list.top-summary .section:has(+ .empty-weekday-meal) { border:0!important; border-bottom:0!important; box-shadow:none!important; background-image:none!important; }
+#list.top-summary .empty-weekday-meal { border:0!important; border-top:0!important; outline:0!important; box-shadow:none!important; background-image:none!important; }
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
