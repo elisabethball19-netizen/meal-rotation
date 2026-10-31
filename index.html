@@ -513,6 +513,14 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 #list .all-meals-overview > h2 {
   box-shadow:0 0 0 10px #fff!important;
 }
+
+/* Keep page headers compact at rest; give them breathing room only while stuck. */
+#list .rotation-compact-header,
+#list .meal-plan-grocery .grocery-compact-header,
+#list .all-meals-overview > h2 { padding-top:3px!important; }
+#list .rotation-compact-header.is-stuck,
+#list .meal-plan-grocery .grocery-compact-header.is-stuck,
+#list .all-meals-overview > h2.is-stuck { padding-top:14px!important; }
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -4413,4 +4421,24 @@ document.addEventListener('click',e=>{
 },true);
 
 render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');})();
+</script><script>
+/* Detect when each page-specific header actually reaches its sticky position.
+   Page renders replace these elements, so re-evaluate after DOM changes. */
+(()=>{
+  const selector='#list .rotation-compact-header, #list .meal-plan-grocery .grocery-compact-header, #list .all-meals-overview > h2';
+  let queued=false;
+  function update(){
+    queued=false;
+    document.querySelectorAll(selector).forEach(header=>{
+      const stuck=window.scrollY>0 && header.getBoundingClientRect().top<=1;
+      header.classList.toggle('is-stuck',stuck);
+    });
+  }
+  function schedule(){if(!queued){queued=true;requestAnimationFrame(update)}}
+  window.addEventListener('scroll',schedule,{passive:true});
+  window.addEventListener('resize',schedule,{passive:true});
+  const list=document.getElementById('list');
+  if(list)new MutationObserver(schedule).observe(list,{childList:true,subtree:true});
+  schedule();
+})();
 </script></body></html>
