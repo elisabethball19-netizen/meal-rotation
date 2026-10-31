@@ -80,7 +80,8 @@
 
 .meal-plan-tabs{display:flex;align-items:stretch;gap:5px;overflow-x:auto;max-width:100%;padding:6px 2px 0;margin:2px 0 12px;border-bottom:1px solid #ccc;scrollbar-width:thin;}
 .meal-plan-tab{display:flex;align-items:center;gap:1px;flex:0 0 auto;background:#f1f1f1;border:1px solid #d6d6d6;border-radius:11px 11px 0 0;border-bottom:0;min-height:41px;padding:0 3px;}
-.meal-plan-tab.selected{background:white;border-color:#8e9eae;box-shadow:inset 0 3px #6884b4;}
+.meal-plan-tab.selected{background:#fff;border-color:#c7cdd3;box-shadow:inset 0 2px 0 #a3b4c5;}
+.meal-plan-tab.selected .meal-plan-tab-name{font-weight:600;color:#28323b;}
 .meal-plan-tab-name{border:0;background:transparent;min-height:39px;padding:6px 8px;font-size:14px;max-width:135px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .meal-plan-tab-action{border:0;background:transparent;color:#555;font-size:19px;min-width:26px;min-height:34px;padding:0 3px;}
 .meal-plan-add{font-size:27px;border:0;background:transparent;min-width:40px;flex:0 0 40px;}
@@ -1587,7 +1588,7 @@ function renderTabs(){let t=$('tabs');const previousRow=document.getElementById(
 if(showTop){
   lastTopPinnedCategories=new Set(effectivePins);
   getCategoryButtonOrder().forEach(c=>{
-    if(!effectivePins.has(c)&&!expandedCats.includes(c))return;
+    if(!effectivePins.has(c)&&(!expandedCats.includes(c)||showMealPlanTabs))return;
     const b=document.createElement('button');b.type='button';applyCategoryBackground(b,c);
     b.dataset.category=c;b.className='tab';b.textContent=c;
     let timer=null,longDone=false;
@@ -1601,7 +1602,7 @@ if(showTop){
   const folded=document.createElement('button');folded.className='iconbtn category-fold-icon';
   folded.innerHTML=hidden.length?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   folded.setAttribute('aria-label',hidden.length?'Expand unpinned groups':'Collapse unpinned groups');folded.title=hidden.length?'Show collapsed groups':'Collapse unpinned groups';
-  folded.onclick=()=>{expandedCats=hidden.length?cats.filter(c=>!effectivePins.has(c)):[];localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));renderTabs()};categoryRow.append(folded);
+  folded.onclick=()=>{expandedCats=hidden.length?cats.filter(c=>!effectivePins.has(c)):[];localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));renderTabs()};if(!showMealPlanTabs)if(!showMealPlanTabs)categoryRow.append(folded);
 }else{
   // Master Categories is the only categories page. No category dropdown.
   categoryRow.classList.add('hidden');
