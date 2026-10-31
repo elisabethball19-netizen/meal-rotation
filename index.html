@@ -753,6 +753,11 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 #list.top-summary .top-recipe-wrap > .meal{min-height:37px!important;padding-top:3px!important;padding-bottom:3px!important;}
 #list.top-summary .top-recipe-wrap > .meal.multi-category-meal{min-height:37px!important;padding-top:3px!important;padding-bottom:3px!important;}
 #list.top-summary .top-recipe-wrap .meal:has(.top-inline-linked){min-height:43px!important;padding-top:3px!important;padding-bottom:4px!important;}
+
+/* Single-action dialogs: close in the title row; multi-action footers stay unchanged. */
+.shared-groups-panel{position:relative;padding-top:22px;padding-right:65px}
+.shared-groups-panel .shared-groups-close{position:absolute;right:15px;top:12px;margin:0;width:44px;height:44px;min-height:44px;font-size:0}
+.shared-groups-panel .shared-groups-close svg{width:25px;height:25px}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -1082,7 +1087,7 @@ function showRelatedMeals(meal){
  const panel=document.createElement('div');panel.className='shared-groups-panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Meals linked to '+(meal.name||'this recipe'));
  const heading=document.createElement('h3');heading.textContent='Meals linked to '+(meal.name||'this recipe');panel.append(heading);
  unique.forEach(target=>{const button=document.createElement('button');button.type='button';button.className='shared-groups-choice';button.textContent=(target.name||'Untitled meal')+' — '+target.cat;button.onclick=()=>{shade.remove();openMasterCategories(target.cat);requestAnimationFrame(()=>{const card=[...document.querySelectorAll('.master-category-card')].find(x=>x.dataset.category===target.cat);const row=card&&[...card.querySelectorAll('[data-meal-id]')].find(x=>x.dataset.mealId===String(target.id));if(row)row.scrollIntoView({block:'center',behavior:'smooth'})})};panel.append(button)});
- const close=document.createElement('button');close.type='button';close.className='shared-groups-close';close.innerHTML='&times;';close.setAttribute('aria-label','Close');close.onclick=()=>shade.remove();panel.append(close);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.append(panel);document.body.append(shade);close.focus();
+ const close=document.createElement('button');close.type='button';close.className='shared-groups-close';setIconButton(close,'cancel','Close');close.setAttribute('aria-label','Close');close.onclick=()=>shade.remove();panel.append(close);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.append(panel);document.body.append(shade);close.focus();
 }
 function showSharedRecipeGroups(meal){
  const copies=meal.linkGroup?meals.filter(x=>x.linkGroup===meal.linkGroup):[meal];
@@ -1091,7 +1096,7 @@ function showSharedRecipeGroups(meal){
  const panel=document.createElement('div');panel.className='shared-groups-panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Groups containing '+(meal.name||'this recipe'));
  const title=document.createElement('h3');title.textContent='Groups containing '+(meal.name||'this recipe');panel.append(title);
  categories.forEach(cat=>{const button=document.createElement('button');button.type='button';button.className='shared-groups-choice';button.textContent=cat+(cat===meal.cat?' (current)':'');button.onclick=()=>{shade.remove();openMasterCategories(cat);requestAnimationFrame(()=>{const card=[...document.querySelectorAll('.master-category-card')].find(x=>x.dataset.category===cat);const target=card&&[...card.querySelectorAll('[data-meal-id]')].find(x=>copies.some(m=>m.cat===cat&&String(m.id)===x.dataset.mealId));if(target)target.scrollIntoView({block:'center',behavior:'smooth'})})};panel.append(button)});
- const close=document.createElement('button');close.type='button';close.className='shared-groups-close';close.innerHTML='&times;';close.setAttribute('aria-label','Close');close.onclick=()=>shade.remove();panel.append(close);
+ const close=document.createElement('button');close.type='button';close.className='shared-groups-close';setIconButton(close,'cancel','Close');close.setAttribute('aria-label','Close');close.onclick=()=>shade.remove();panel.append(close);
  shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.append(panel);document.body.append(shade);close.focus();
 }
 function openMasterCategories(focusCategory){
@@ -1262,7 +1267,7 @@ function openHelpModal(){
  const box=document.createElement('div');box.style.cssText='background:var(--panel,#fff);color:var(--text,#222);border-radius:14px;width:100%;max-width:520px;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 8px 30px #0004;overflow:hidden';
  const header=document.createElement('div');header.style.cssText='padding:18px 20px 10px;flex:0 0 auto;border-bottom:1px solid var(--border,#ddd);display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--panel,#fff)';
  const title=document.createElement('h2');title.textContent=top?'My Rotation help':'Meal Groups help';title.style.cssText='margin:0';
- const close=document.createElement('button');close.type='button';close.textContent='Close';close.style.cssText='flex:0 0 auto;padding:8px 14px;border:1px solid #ccc;border-radius:9px;background:var(--input-bg,#fff);color:inherit';close.onclick=()=>overlay.remove();header.append(title,close);
+ const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close');close.style.flex='0 0 44px';close.onclick=()=>overlay.remove();header.append(title,close);
  const content=document.createElement('div');content.style.cssText='padding:10px 20px 20px;overflow-y:auto;overscroll-behavior:contain';
  const intro=document.createElement('p');intro.textContent=top?'My Rotation displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into In Rotation and Ideas. Expand a group to manage its meals.';content.append(intro);
  const items=top?[
@@ -1336,8 +1341,7 @@ function openMealSearch(){
   title.style.cssText='font-size:19px';
   const closeButton=document.createElement('button');
   closeButton.type='button';
-  closeButton.textContent='Close';
-  closeButton.className='smallbtn';
+  setIconButton(closeButton,'cancel','Close');
   const input=document.createElement('input');
   input.type='search';
   input.placeholder='Enter a meal name';
