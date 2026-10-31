@@ -2267,7 +2267,22 @@ function renderMenu(){let box=$('catmenu');if(!box)return;box.innerHTML='';if(!s
   name.oncontextmenu=e=>e.preventDefault();
 }
 function ingredientKey(line){return String(line??'').normalize('NFKC').trim().replace(/\s+/g,' ').toLowerCase()}
-function getDisplayedWeekdayMealsForPlan(plan){
+function getDisplayedWeekdayMealsForPlan(plan, priorUsedByGroup=null){
+ // Reserve recipes already scheduled in earlier meal-plan tabs, so a group
+ // assigned more than once in a week uses distinct recipes when possible.
+ if(priorUsedByGroup===null){
+  priorUsedByGroup=new Map();
+  if(showMealPlanTabs&&mealPlans.length>1){
+   for(const earlier of mealPlans){
+    if(String(earlier.id)===String(plan.id))break;
+    for(const entry of getDisplayedWeekdayMealsForPlan(earlier,priorUsedByGroup)){
+     if(!priorUsedByGroup.has(entry.cat))priorUsedByGroup.set(entry.cat,new Set());
+     priorUsedByGroup.get(entry.cat).add(String(entry.meal.id));
+    }
+   }
+  }
+ }
+ const usedByGroup=new Map([...priorUsedByGroup].map(([cat,ids])=>[cat,new Set(ids)]));
  const assignments=plan.weekdayCategories||{};
  const overrides=plan.weekdayMealOverrides||{};
  const planFilters=plan.weekdayRecipeFilters||{};
@@ -2285,7 +2300,14 @@ function getDisplayedWeekdayMealsForPlan(plan){
    const key=weekdaySlotKey(day,cat);
    const chosen=overrides[key]??(groups[0]===cat?overrides[day]:undefined);
    if(chosen!==undefined)meal=possible.find(m=>String(m.id)===String(chosen))||meal;
-   if(meal)shown.push({day,cat,meal});
+   // Preserve the rotation order, but skip recipes already used for this group
+   // elsewhere in the week (including other tabs). Reuse only if exhausted.
+   const used=usedByGroup.get(cat)||new Set();
+   if(meal&&used.has(String(meal.id))){
+    const distinct=possible.find(candidate=>!used.has(String(candidate.id)));
+    if(distinct)meal=distinct;
+   }
+   if(meal){shown.push({day,cat,meal});used.add(String(meal.id));usedByGroup.set(cat,used)}
   });
  });
  // Linked recipes follow the chosen main recipe, replacing an assigned group's
@@ -2900,15 +2922,9 @@ function renderMasterCategories(list){
  const wrap=document.createElement('section');wrap.className='master-categories';wrap.setAttribute('aria-label','Meal Groups');
  const featuredColorById=new Map();
  const scheduledDaysByMeal=new Map();
- // Only show meal-type initials where a group is assigned to multiple tabs on the same day.
+ // Weekday-only labels; recipes are allocated distinctly across tabs where possible.
  const plansForLabels=showMealPlanTabs&&mealPlans.length>1?mealPlans:[masterDisplayPlan()];
  const scheduledEntries=plansForLabels.flatMap(plan=>getDisplayedWeekdayMealsForPlan(plan).map(entry=>({...entry,planName:plan.name,planId:plan.id})));
- const groupDayPlans=new Map();
- for(const entry of scheduledEntries){
-  const slot=weekdaySlotKey(entry.day,entry.cat);
-  if(!groupDayPlans.has(slot))groupDayPlans.set(slot,new Set());
-  groupDayPlans.get(slot).add(entry.planId);
- }
  for(const entry of scheduledEntries){
   const key=String(entry.meal.id);
   if(!featuredColorById.has(key))featuredColorById.set(key,colorForDay(entry.day));
@@ -2972,16 +2988,7 @@ function renderMasterCategories(list){
      const scheduledDays=scheduledDaysByMeal.get(String(m.id));
      if(scheduledDays&&scheduledDays.size){
       const dayTag=document.createElement('span');dayTag.className='master-meal-weekdays';
-      dayTag.textContent=orderedDays().filter(day=>scheduledDays.has(day)).map(day=>{
-       const entries=scheduledDays.get(day);
-       const ambiguous=entries.some(entry=>(groupDayPlans.get(weekdaySlotKey(day,entry.cat))||new Set()).size>1);
-       if(!ambiguous)return day.slice(0,3).toUpperCase();
-       const initials=[...new Set(entries.map(entry=>{
-        const name=String(entry.planName||'').trim().toLowerCase();
-        return name==='breakfast'?'B':name==='lunch'?'L':name==='dinner'?'D':String(entry.planName||'?').slice(0,1).toUpperCase();
-       }))];
-       return day.slice(0,3).toUpperCase()+' · '+initials.join('/');
-      }).join(' · ');
+      dayTag.textContent=orderedDays().filter(day=>scheduledDays.has(day)).map(day=>day.slice(0,3).toUpperCase()).join(' · ');
       dayTag.title='Scheduled: '+[...scheduledDays.entries()].map(([day,entries])=>day+' ('+[...new Set(entries.map(entry=>entry.planName))].join(', ')+')').join('; ');
       row.append(dayTag);
      }
