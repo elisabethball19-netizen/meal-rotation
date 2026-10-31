@@ -533,6 +533,12 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 .master-category-weekdays span{flex:1 1 0;min-width:0;text-align:center;padding-right:0;white-space:nowrap;}
 .master-category-weekdays.single span{text-align:center;padding-right:0;}
 @media(max-width:390px){.master-category-header{gap:2px}.master-category-title{gap:6px}.master-category-weekdays{font-size:9px}.master-category-weekdays.single span{padding-right:0}}
+
+/* Every scheduled meal displays its group beside the meal name, not beside the weekday. */
+#list.top-summary .top-meal-title-line{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0;width:100%;}
+#list.top-summary .top-meal-title-line .mealname{flex:1 1 auto;min-width:0;text-align:left;padding-bottom:0!important;}
+#list.top-summary .top-meal-title-line .top-meal-inline-category{flex:0 1 auto;min-width:0;margin:0!important;padding:0!important;white-space:normal;text-align:right;align-self:baseline;line-height:1.3;}
+#list.top-summary .top-recipe-wrap > .meal{padding-right:14px!important;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
@@ -2955,11 +2961,28 @@ function renderMasterCategories(list){
   button.onclick=()=>{masterExpansionInitialized=true;masterExpandedCategories.clear();if(expand)masterDisplayOrder().forEach(c=>masterExpandedCategories.add(c));renderList()};controls.append(button);
  }
  controls.append(addGroup);const manageLabels=document.createElement('button');manageLabels.type='button';manageLabels.className='iconbtn';manageLabels.title='Manage recipe labels';manageLabels.setAttribute('aria-label','Manage recipe labels');manageLabels.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="8" r="1"/></svg>';manageLabels.onclick=openLabelManager;controls.append(manageLabels);heading.append(controls);wrap.append(heading);
+ // With visible tabs, group headers summarize the actual recipes scheduled
+ // across all tabs. With tabs hidden, retain the existing single-plan display.
+ const scheduledDaysByGroup=new Map();
+ if(showMealPlanTabs&&mealPlans.length>1){
+  for(const entry of scheduledEntries){
+   if(!scheduledDaysByGroup.has(entry.cat))scheduledDaysByGroup.set(entry.cat,new Set());
+   scheduledDaysByGroup.get(entry.cat).add(entry.day);
+  }
+ }
+ function groupHeaderColor(category){
+  if(!(showMealPlanTabs&&mealPlans.length>1))return masterDisplayColor(category);
+  const days=orderedDays().filter(day=>scheduledDaysByGroup.get(category)?.has(day));
+  const colors=days.map(colorForDay);
+  if(!colors.length)return '#ffffff';
+  if(colors.length===1)return colors[0];
+  return 'linear-gradient(90deg, '+colors.flatMap((color,i)=>[`${color} ${100*i/colors.length}%`,`${color} ${100*(i+1)/colors.length}%`]).join(', ')+')';
+ }
  const displayedGroups=masterDisplayOrder();
  for(const category of displayedGroups){ 
   const categoryMeals=meals.filter(m=>m.cat===category);
   const card=document.createElement('section');card.className='master-category-card';card.dataset.category=category;
-  const header=document.createElement('div');header.className='master-category-header';header.style.background=masterDisplayColor(category);
+  const header=document.createElement('div');header.className='master-category-header';header.style.background=groupHeaderColor(category);
   const expanded=masterExpandedCategories.has(category);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(expanded));
   toggle.onclick=()=>{masterExpansionInitialized=true;const opening=!masterExpandedCategories.has(category);if(opening){masterExpandedCategories.clear();masterExpandedCategories.add(category)}else masterExpandedCategories.delete(category);renderList();if(opening)requestAnimationFrame(()=>{const target=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category);if(target)target.scrollIntoView({behavior:'smooth',block:'start'});});};
@@ -3131,18 +3154,6 @@ displayedTop.forEach(({day,cat:c,meal:top,needsRotation})=>{
     dayHeading.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();dayHeading.click()}};
     dayHeading.style.background=colorForDay(day);
     dayHeading.style.borderRadius='8px 8px 0 0';dayHeading.style.padding='9px 12px';
-    // For a single assigned group, show its name on the weekday heading line.
-    // Multiple groups retain their individual labels above each meal.
-    const oneDayGroup=getDayCategories(day).length===1&&mealSlotsByDay[day]===1;
-    if(oneDayGroup){
-      const groupName=getDayCategories(day)[0];
-      const groupTag=document.createElement('button');groupTag.type='button';
-      groupTag.className='weekday-inline-group';groupTag.textContent=groupName;
-      groupTag.title='Open '+groupName+' in Meal Groups';
-      groupTag.setAttribute('aria-label','Open '+groupName+' group in Meal Groups');
-      groupTag.onclick=e=>{e.preventDefault();e.stopPropagation();navigateAfterSettings(()=>openMasterCategories(groupName))};
-      dayHeading.classList.add('weekday-single-group');dayHeading.append(groupTag);
-    }
     list.append(dayHeading);
     previousRenderedDay=day;
   }
@@ -3167,12 +3178,16 @@ name.addEventListener('pointerup',e=>{
 });
 ['pointerleave','pointercancel'].forEach(ev=>name.addEventListener(ev,()=>{clearMealHold();mealPressActive=false}));
 name.addEventListener('click',e=>{if(mealHeld){e.preventDefault();e.stopImmediatePropagation();mealHeld=false}},true);
-name.oncontextmenu=e=>e.preventDefault();if(c&&cats.includes(c)&&!(getDayCategories(day).length===1&&mealSlotsByDay[day]===1)){
- const tag=document.createElement('button');tag.type='button';tag.textContent=c;tag.className='top-meal-category clickable-group-heading';
+name.oncontextmenu=e=>e.preventDefault();
+const mealTitleLine=document.createElement('div');mealTitleLine.className='top-meal-title-line';
+mealTitleLine.append(name);
+if(c&&cats.includes(c)){
+ const tag=document.createElement('button');tag.type='button';tag.textContent=c;tag.className='top-meal-category clickable-group-heading top-meal-inline-category';
  tag.title='Open '+c+' in Meal Groups';tag.setAttribute('aria-label','Open '+c+' group in Meal Groups');
  tag.onclick=e=>{e.preventDefault();e.stopPropagation();navigateAfterSettings(()=>openMasterCategories(c))};
- body.append(tag);
- }body.append(name);
+ mealTitleLine.append(tag);
+}
+body.append(mealTitleLine);
 const inlineLinked=inlineLinkedByParent.get(day+'|'+String(top.id))||[];
 if(inlineLinked.length){
  const linkedInfo=document.createElement('div');
