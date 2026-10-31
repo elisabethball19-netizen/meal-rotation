@@ -756,6 +756,24 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
  border:1px solid #ccd0d5;border-radius:9px;background:#f6f7f9;
  color:#242424;font-size:inherit;line-height:normal;
 }
+
+/* Match the Grocery List header rhythm on the other tabbed pages.
+   Keep Grocery List itself and the existing tab selection indicator unchanged. */
+#list .rotation-compact-header,
+#list .all-meals-overview { margin-top:18px!important; }
+#list .rotation-compact-header {
+  padding-top:3px!important;
+  padding-bottom:12px!important;
+  margin-bottom:14px!important;
+  row-gap:8px!important;
+}
+#list .rotation-compact-header .view-page-title { margin:0!important; }
+#list .all-meals-overview > h2 {
+  margin-top:0!important;
+  margin-bottom:14px!important;
+  padding-top:3px!important;
+  padding-bottom:12px!important;
+}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
