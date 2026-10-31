@@ -1840,7 +1840,7 @@ function settingsFlatGroup(title){
  wrap.append(heading,body);return {wrap,body};
 }
 function populateCookedDateSetting(parent){
- const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:8px;width:100%;font-size:14px';
+ const label=document.createElement('label');label.className='settings-display-option';
  const check=document.createElement('input');check.type='checkbox';check.checked=showLastCooked;
  check.onchange=()=>{showLastCooked=check.checked;saveLastCookedVisibility();renderList()};
  label.append(check,document.createTextNode('Show last cooked dates'));parent.append(label);
