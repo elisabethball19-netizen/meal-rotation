@@ -744,6 +744,15 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 .shared-groups-panel .shared-groups-choice{display:block;width:100%;border:1px solid #cbd0d6;border-radius:11px;background:#f5f6f8;box-shadow:0 2px 5px rgba(0,0,0,.08);padding:12px 14px;margin:10px 0;text-align:left;font:inherit;color:#242424;min-height:48px;cursor:pointer;}
 .shared-groups-panel .shared-groups-choice:active{background:#e7edf5;}
 .shared-groups-panel .shared-groups-close{display:grid;place-items:center;margin:22px auto 0;padding:0;border:0;background:transparent;box-shadow:none;width:48px;height:48px;min-height:48px;font-size:36px;line-height:1;font-weight:300;color:#333;cursor:pointer;}
+/* Repair My Rotation regressions without changing rotation behavior. */
+#list.top-summary > .top-controls .top-action-icon[title="Rotate out recipes"]{display:none!important;}
+#list.top-summary .section:has(+ .empty-weekday-meal),
+#list.top-summary .empty-weekday-meal{border:0!important;border-top:0!important;border-bottom:0!important;box-shadow:none!important;background-image:none!important;}
+#list.top-summary .section + .top-recipe-wrap,
+#list.top-summary .top-recipe-wrap + .top-recipe-wrap{min-height:40px!important;}
+#list.top-summary .top-recipe-wrap > .meal{min-height:37px!important;padding-top:3px!important;padding-bottom:3px!important;}
+#list.top-summary .top-recipe-wrap > .meal.multi-category-meal{min-height:37px!important;padding-top:3px!important;padding-bottom:3px!important;}
+#list.top-summary .top-recipe-wrap .meal:has(.top-inline-linked){min-height:43px!important;padding-top:3px!important;padding-bottom:4px!important;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
