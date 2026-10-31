@@ -1344,13 +1344,6 @@ function openMealSearch(){
   input.setAttribute('aria-label','Search meal names');
   input.autocomplete='off';
   input.style.cssText='width:100%;min-height:46px;padding:9px 12px;border:1px solid #ccc;border-radius:9px;background:#fff;color:#242424;font-size:16px';
-  const exactLabel=document.createElement('label');
-  exactLabel.style.cssText='display:flex;align-items:center;gap:9px;font-size:15px;cursor:pointer';
-  const exactMatch=document.createElement('input');
-  exactMatch.type='checkbox';
-  exactMatch.id='searchExactMatch';
-  exactMatch.style.cssText='width:19px;height:19px;margin:0;flex:0 0 19px';
-  exactLabel.append(exactMatch,document.createTextNode('Exact match'));
   const orderLabel=document.createElement('label');
   orderLabel.style.cssText='display:flex;align-items:center;gap:9px;font-size:15px;cursor:pointer';
   const matchWordOrder=document.createElement('input');
@@ -1415,7 +1408,6 @@ function openMealSearch(){
     const seen=new Set();
     const matches=meals.filter(m=>{
       const mealName=normalizeSearchText(m.name);
-      if(exactMatch.checked)return mealName===q;
       const mealWords=searchWords(mealName);
       const wordMatches=(word,candidate)=>candidate.includes(word)||singularSearchWord(candidate)===singularSearchWord(word);
       if(matchWordOrder.checked){
@@ -1461,7 +1453,6 @@ function openMealSearch(){
   closeButton.onclick=closeSearch;
   shade.onclick=event=>{if(event.target===shade)closeSearch()};
   input.oninput=updateResults;
-  exactMatch.onchange=updateResults;
   matchWordOrder.onchange=updateResults;
   input.onkeydown=event=>{
     if(event.key==='Enter'){
@@ -1470,7 +1461,7 @@ function openMealSearch(){
     }
   };
   header.append(title,closeButton);
-  panel.append(header,input,exactLabel,orderLabel,results);
+  panel.append(header,input,orderLabel,results);
   shade.append(panel);
   document.body.append(shade);
   document.addEventListener('keydown',onKeyDown);
