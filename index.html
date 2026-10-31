@@ -1314,9 +1314,30 @@ async function finishSettings(mode='ask'){
  if(!keep)restoreSettingsDraft(baseline);
  return true;
 }
+// Browser history tracks views, not recipe edits or localStorage snapshots.
+function appViewSnapshot(){return {view:!showTop?'groups':groceryTabActive?'grocery':allMealsActive?'all':'top',planId:activePlanId};}
+function pushAppViewHistory(){
+ const next=appViewSnapshot();
+ const previous=window.history.state?.mealRotationView;
+ if(previous&&(previous.view!==next.view||previous.planId!==next.planId)){
+  window.history.pushState({mealRotationView:next},'');
+ }
+}
+window.addEventListener('popstate',event=>{
+ const destination=event.state?.mealRotationView;
+ if(!destination)return;
+ if(destination.planId!==activePlanId&&mealPlans.some(p=>p.id===destination.planId))loadMealPlan(destination.planId);
+ showTop=destination.view!=='groups';
+ groceryTabActive=destination.view==='grocery';
+ allMealsActive=destination.view==='all';
+ if(!showTop)initializeMasterCategoryExpansion();
+ editId=null;menuCat=null;activeTabMenuId=null;
+ render();window.scrollTo(0,0);
+});
 async function navigateAfterSettings(callback){
  if(settingsBaseline!==null){await finishSettings('ask');render();}
  callback();
+ pushAppViewHistory();
 }
 function makeSettingsGroup(key,title){
   const details=document.createElement('details');details.className='settings-group';details.dataset.settingsGroup=key;
@@ -1528,6 +1549,20 @@ function renderAllMealsOverview(list){
    section.append(card);
   }
   list.append(section);
+}
+// From an empty weekday, take the user directly to the relevant recipe group.
+// Choosing a group here never changes the weekday assignment.
+function openDayGroupForRotation(day){
+ const assigned=getDayCategories(day);
+ if(!assigned.length){openDayCategoryPicker(day);return;}
+ const goToGroup=cat=>navigateAfterSettings(()=>openMasterCategories(cat));
+ if(assigned.length===1){goToGroup(assigned[0]);return;}
+ const shade=document.createElement('div');shade.style.cssText='position:fixed;inset:0;background:#0008;z-index:13000;display:grid;place-items:center;padding:18px';
+ const panel=document.createElement('div');panel.style.cssText='background:#fff;border-radius:14px;padding:18px;width:min(420px,100%);max-height:80vh;overflow:auto';
+ const heading=document.createElement('h3');heading.textContent='Which '+day+' meal group would you like to view?';heading.style.margin='0 0 12px';panel.append(heading);
+ assigned.forEach(cat=>{const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=cat;button.style.cssText='display:block;width:100%;text-align:left;margin:8px 0;padding:12px';button.onclick=()=>{shade.remove();goToGroup(cat)};panel.append(button)});
+ const cancel=document.createElement('button');cancel.type='button';cancel.className='iconbtn';setIconButton(cancel,'cancel','Cancel');cancel.onclick=()=>shade.remove();panel.append(cancel);
+ shade.append(panel);shade.onclick=e=>{if(e.target===shade)shade.remove()};document.body.append(shade);
 }
 function openDayCategoryPicker(day){
  const shade=document.createElement('div');shade.style.cssText='position:fixed;inset:0;background:#0008;z-index:13000;display:grid;place-items:center;padding:18px';
@@ -2671,7 +2706,7 @@ function renderList(){rememberCurrentView();
  for(const plan of mealPlans){
   const tab=document.createElement('div');tab.className='meal-plan-tab'+(plan.id===activePlanId&&!groceryTabActive&&!allMealsActive?' selected':'');
   const name=document.createElement('button');name.type='button';name.className='meal-plan-tab-name';name.textContent=plan.name;name.setAttribute('role','tab');name.setAttribute('aria-selected',String(plan.id===activePlanId&&!groceryTabActive&&!allMealsActive));
-  name.onclick=()=>{if(plan.id!==activePlanId)navigateAfterSettings(()=>loadMealPlan(plan.id));else if(groceryTabActive||allMealsActive){groceryTabActive=false;allMealsActive=false;renderList()}};
+  name.onclick=()=>{if(plan.id!==activePlanId)navigateAfterSettings(()=>loadMealPlan(plan.id));else if(groceryTabActive||allMealsActive)navigateAfterSettings(()=>{groceryTabActive=false;allMealsActive=false;renderList()})};
   // Open tab editing as soon as the hold threshold is reached. On touch
   // devices a contextmenu/click may also fire; suppress both after a hold.
   let hold=null,held=false,pressStart=null;
@@ -2776,7 +2811,7 @@ displayedTop.forEach(({day,cat:c,meal:top,needsRotation})=>{
   }
 if(!top){
  const blank=document.createElement('div');blank.className='empty-weekday-meal';
- blank.textContent=needsRotation?'Move a meal from Ideas into In Rotation to display it here.':(meals.length===0?'Tap to choose a meal group':'No meal planned');blank.style.cursor='pointer';blank.onclick=()=>openDayCategoryPicker(day);blank.style.cssText='background:'+colorForDay(day)+';padding:10px 14px 14px;color:#777;border-radius:0 0 8px 8px;font-size:16px';
+ blank.textContent=needsRotation?'Move a meal into rotation to display it here.':(meals.length===0?'Tap to choose a meal group':'No meal planned');blank.style.cursor='pointer';blank.onclick=()=>needsRotation?openDayGroupForRotation(day):openDayCategoryPicker(day);blank.style.cssText='background:'+colorForDay(day)+';padding:10px 14px 14px;color:#777;border-radius:0 0 8px 8px;font-size:16px';
  list.append(blank);return;
 }
 let row=document.createElement('div');row.className='meal';if(mealSlotsByDay[day]>1)row.classList.add('multi-category-meal');row.dataset.mealId=String(top.id);bindMealSwipe(row,top);let body=document.createElement('div');body.className='mealbody';let name=document.createElement('button');name.className='mealname';name.textContent=top.name;name.style.userSelect='none';name.style.webkitUserSelect='none';name.style.webkitTouchCallout='none';name.style.touchAction='pan-y';name.addEventListener('selectstart',e=>e.preventDefault());// Tap for meal options; hold for the saved recipe link.
@@ -4142,5 +4177,5 @@ document.addEventListener('click',e=>{
  })().catch(err=>{console.error('Could not complete outside action',err)});
 },true);
 
-render()})();
+render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');})();
 </script></body></html>
