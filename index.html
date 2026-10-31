@@ -3202,18 +3202,25 @@ function renderMasterCategories(list){
  const featuredColorById=new Map();
  const scheduledDaysByMeal=new Map();
  // Weekday-only labels; recipes are allocated distinctly across tabs where possible.
- const plansForLabels=showMealPlanTabs&&mealPlans.length>1?mealPlans:[masterDisplayPlan()];
- // Resolve all tabs in one pass so the labels reflect the same weekly
- // allocation as My Rotation, without each tab recalculating its predecessors.
- const usedForLabels=new Map();
+ const multiplePlansVisible=showMealPlanTabs&&mealPlans.length>1;
  const scheduledEntries=[];
- for(const plan of plansForLabels){
-  const current=plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan;
-  const entries=getDisplayedWeekdayMealsForPlan(current,usedForLabels);
-  for(const entry of entries){
-   scheduledEntries.push({...entry,planName:plan.name,planId:plan.id});
-   if(!usedForLabels.has(entry.cat))usedForLabels.set(entry.cat,new Set());
-   usedForLabels.get(entry.cat).add(String(entry.meal.id));
+ if(!multiplePlansVisible){
+  // Match My Rotation exactly when tabs are hidden: only the active plan
+  // contributes highlighted recipes, weekday badges, and active groups.
+  const activePlan=mealPlans.find(p=>p.id===activePlanId);
+  for(const entry of getDisplayedWeekdayMeals()){
+   scheduledEntries.push({...entry,planName:activePlan?.name||'',planId:activePlanId});
+  }
+ }else{
+  // When tabs are visible, preserve the cross-tab allocation and highlights.
+  const usedForLabels=new Map();
+  for(const plan of mealPlans){
+   const current=plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan;
+   for(const entry of getDisplayedWeekdayMealsForPlan(current,usedForLabels)){
+    scheduledEntries.push({...entry,planName:plan.name,planId:plan.id});
+    if(!usedForLabels.has(entry.cat))usedForLabels.set(entry.cat,new Set());
+    usedForLabels.get(entry.cat).add(String(entry.meal.id));
+   }
   }
  }
  for(const entry of scheduledEntries){
