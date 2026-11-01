@@ -5,7 +5,7 @@
   "description": "The isolated test version of Meal Rotation.",
   "lang": "en",
   "start_url": "./meal-rotation-test.html",
-  "scope": "./",
+  "scope": "./meal-rotation-test.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
