@@ -4785,7 +4785,7 @@ function performOutsideAction(originalTarget){
 document.addEventListener('click',e=>{
  if(replayingOutsidePaneClick||!(e.target instanceof Element))return;
  // An existing modal (e.g. a recipe import or deletion confirmation) owns its taps.
- if(e.target.closest('[role="dialog"],#categoryDeleteDialog,#mealSwipeMenu'))return;
+ if(e.target.closest('[role="dialog"],[role="alertdialog"],#categoryDeleteDialog,#mealSwipeMenu'))return;
  const upper=document.getElementById('settingsPanel');
  const lower=document.getElementById('planSettingsPanel');
  const editor=document.querySelector('#editor .editor');
