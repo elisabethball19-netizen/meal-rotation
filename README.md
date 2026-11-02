@@ -44,3 +44,7 @@ For local development, serve the checkout with an HTTP server, such as `python3 
 ## Official app artwork
 
 `icons/meal-rotation-original.png` preserves the supplied PNG byte for byte. The regular PNG icons are uniform, uncropped resizes with transparency retained: 16, 32, 48, 180 (Apple), 192, and 512 pixels. The ICO favicon contains 16, 32, and 48 pixel images. The test icon places the unchanged artwork inside an amber surround so the two installations are distinguishable. Manifest icons use `purpose: any`; this artwork is not declared safe for maskable cropping. Launcher presentation is controlled by the device, and existing installed icons may take time to refresh.
+
+## Recipe viewing modes
+
+Inside a recipe, **Split View** puts ingredients above instructions with independent scrolling. Drag the center handle (or focus it and use arrow keys) to resize the sections; **Full View** returns to the single scrolling layout. The mode and divider position are saved locally and included in backups. Changing modes does not change occurrence-specific cooking progress. Imported instruction formatting is cleaned for display without rewriting older recipe records or their progress identifiers.
