@@ -830,6 +830,18 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 #recipeIngredientLinks .recipe-link-choices{max-height:240px;overflow-y:auto;}
 #recipeIngredientLinks .recipe-link-choices label{display:flex;align-items:center;gap:8px;min-height:40px;}
 #recipeIngredientLinks input[type="checkbox"]{width:20px;height:20px;flex:none;}
+
+/* Recipe toolbar only: fixed positions, invisible 44px targets, and decorative SVGs. */
+#recipeViewer .recipe-viewer-bar{display:grid;grid-template-columns:repeat(3,minmax(44px,1fr));gap:6px;}
+#recipeViewer .recipe-viewer-bar button.recipe-toolbar-icon{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border:0;border-radius:8px;background:transparent;color:#3c3c3c;display:grid;place-items:center;cursor:pointer;touch-action:manipulation;}
+#recipeViewer .recipe-toolbar-icon:first-child{grid-column:1;justify-self:start;}
+#recipeViewer .recipe-toolbar-icon.recipe-reset{grid-column:2;justify-self:center;}
+#recipeViewer .recipe-toolbar-icon.recipe-view-mode{grid-column:3;justify-self:end;}
+#recipeViewer .recipe-viewer-bar button.recipe-toolbar-icon[hidden]{display:none;}
+#recipeViewer .recipe-toolbar-icon svg{width:24px;height:24px;pointer-events:none;}
+#recipeViewer .recipe-viewer-bar button.recipe-toolbar-icon:active{background:#edf1f5;}
+#recipeViewer .recipe-toolbar-icon:focus-visible{outline:2px solid #5876ad;outline-offset:2px;}
+@media(hover:hover){#recipeViewer .recipe-viewer-bar button.recipe-toolbar-icon:hover{background:#f4f5f6;}}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 // Recipe content remains on existing meal records; cooking progress is separate.
@@ -1092,13 +1104,18 @@ function recipeOriginalUrl(meal){
  const value=String(meal.originalRecipeUrl||meal.sourceUrl||meal.url||meal.ingredientImportUrl||'').trim();
  try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)?u.href:''}catch(e){return ''}
 }
+function setRecipeToolbarIcon(button,kind,label){
+ const paths={close:'<path d="m6 6 12 12M18 6 6 18"/>',reset:'<path d="M3 11a9 9 0 1 1 2.7 6.3M3 4v7h7"/>',split:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 12h16"/>',full:'<rect x="4" y="3" width="16" height="18" rx="2"/>'};
+ button.innerHTML='<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+paths[kind]+'</svg>';
+ button.setAttribute('aria-label',label);button.title=label;
+}
 function openRecipeViewer(meal,context=null,pushHistory=true){
  if(recipeViewer){if(pushHistory&&window.history.state?.mealRotationRecipeViewer)window.history.replaceState({...window.history.state,mealRotationRecipeViewer:{...window.history.state.mealRotationRecipeViewer,scrollTop:recipeViewer.cover.scrollTop}},'');finishRecipeViewerClose()}
  const returnFocus=document.activeElement,scroll=window.scrollY,overflow=document.body.style.overflow;
  const cover=document.createElement('section');cover.id='recipeViewer';cover.setAttribute('role','dialog');cover.setAttribute('aria-modal','true');cover.setAttribute('aria-label','Recipe: '+(meal.name||'Untitled meal'));
  const inner=document.createElement('div');inner.className='recipe-viewer-content';cover.append(inner);
- const bar=document.createElement('header');bar.className='recipe-viewer-bar';const close=document.createElement('button');close.type='button';close.className='smallbtn';close.textContent='Close recipe';close.onclick=closeRecipeViewer;bar.append(close);
- const reset=document.createElement('button');reset.type='button';reset.className='smallbtn recipe-reset';reset.textContent='Reset Progress';reset.hidden=!context;reset.onclick=()=>{if(recipeViewer?.context){const key=cookingOccurrenceKey(recipeViewer.context);resetCookingContexts(c=>cookingOccurrenceKey(c)===key);renderRecipeViewer()}};bar.append(reset);const mode=document.createElement('button');mode.type='button';mode.className='smallbtn recipe-view-mode';mode.onclick=()=>{recipeViewPrefs.mode=recipeViewPrefs.mode==='split'?'full':'split';saveRecipeViewPrefs();if(recipeViewer)recipeViewer.syncRequested=true;renderRecipeViewer()};bar.append(mode);inner.append(bar);const sync=document.createElement('button');sync.type='button';sync.className='smallbtn recipe-sync-toggle';sync.textContent='Sync Ingredients';sync.onclick=()=>{recipeViewPrefs.syncIngredients=!recipeViewPrefs.syncIngredients;saveRecipeViewPrefs();if(recipeViewer)recipeViewer.syncRequested=true;renderRecipeViewer()};inner.append(sync);
+ const bar=document.createElement('header');bar.className='recipe-viewer-bar';const close=document.createElement('button');close.type='button';close.className='recipe-toolbar-icon';setRecipeToolbarIcon(close,'close','Close recipe');close.onclick=closeRecipeViewer;bar.append(close);
+ const reset=document.createElement('button');reset.type='button';reset.className='recipe-toolbar-icon recipe-reset';setRecipeToolbarIcon(reset,'reset','Reset Progress');reset.hidden=!context;reset.onclick=()=>{if(recipeViewer?.context){if(!window.confirm('Reset cooking progress for this scheduled meal?'))return;const key=cookingOccurrenceKey(recipeViewer.context);resetCookingContexts(c=>cookingOccurrenceKey(c)===key);renderRecipeViewer()}};bar.append(reset);const mode=document.createElement('button');mode.type='button';mode.className='recipe-toolbar-icon recipe-view-mode';mode.onclick=()=>{recipeViewPrefs.mode=recipeViewPrefs.mode==='split'?'full':'split';saveRecipeViewPrefs();if(recipeViewer)recipeViewer.syncRequested=true;renderRecipeViewer()};bar.append(mode);inner.append(bar);const sync=document.createElement('button');sync.type='button';sync.className='smallbtn recipe-sync-toggle';sync.textContent='Sync Ingredients';sync.onclick=()=>{recipeViewPrefs.syncIngredients=!recipeViewPrefs.syncIngredients;saveRecipeViewPrefs();if(recipeViewer)recipeViewer.syncRequested=true;renderRecipeViewer()};inner.append(sync);
  const content=document.createElement('article');inner.append(content);
  const inert=[...document.body.children].map(e=>[e,e.inert]);for(const [e] of inert)e.inert=true;
  recipeViewer={mealId:String(meal.id),context,cover,content,close,reset,mode,sync,inert,returnFocus,scroll,overflow,wake:null,wakeRequest:0,importController:null,previewProgress:{ingredients:[],steps:[]}};
@@ -1143,7 +1160,7 @@ function toggleCookingItem(kind,token){
 function renderRecipeViewer(){
  const v=recipeViewer;if(!v)return;const meal=meals.find(m=>String(m.id)===v.mealId);if(!meal){closeRecipeViewer();return}
  v.syncCleanup?.();
- const session=v.context?cookingSession(v.context):v.previewProgress,items=cookingItemTokens(meal),scroll=v.cover.scrollTop;const active=document.activeElement?.dataset.cookingToken;const paneScroll=[...v.content.querySelectorAll('.recipe-pane')].map(p=>p.scrollTop);v.content.replaceChildren();v.cover.classList.toggle('recipe-split',recipeViewPrefs.mode==='split');v.mode.textContent=recipeViewPrefs.mode==='split'?'Full View':'Split View';v.mode.setAttribute('aria-pressed',String(recipeViewPrefs.mode==='split'));
+ const session=v.context?cookingSession(v.context):v.previewProgress,items=cookingItemTokens(meal),scroll=v.cover.scrollTop;const active=document.activeElement?.dataset.cookingToken;const paneScroll=[...v.content.querySelectorAll('.recipe-pane')].map(p=>p.scrollTop);v.content.replaceChildren();v.cover.classList.toggle('recipe-split',recipeViewPrefs.mode==='split');setRecipeToolbarIcon(v.mode,recipeViewPrefs.mode==='split'?'full':'split',recipeViewPrefs.mode==='split'?'Full View':'Split View');v.mode.setAttribute('aria-pressed',String(recipeViewPrefs.mode==='split'));
  const title=document.createElement('h1');title.textContent=meal.name||'Untitled meal';v.content.append(title);
  const panes=document.createElement('div');panes.className='recipe-panes';v.content.append(panes);
  const ingredientsPane=document.createElement('section');ingredientsPane.className='recipe-pane recipe-ingredients-pane';ingredientsPane.setAttribute('aria-label','Ingredients');
