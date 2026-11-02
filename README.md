@@ -1,6 +1,18 @@
 # meal-rotation
 personal meal rotation app
 
+## Read and cook recipes
+
+The existing **Open recipe** action opens an internal full-page recipe view. Tap ingredients and instruction steps to fade/unfade them. Scheduled meals keep separate progress for each plan, weekday, recipe, and linked parent; **Reset Progress** affects only the displayed occurrence. Cycling a meal out clears its progress. Meal Groups previews allow temporary taps without changing a scheduled meal's saved progress.
+
+Use the optional **Cooking instructions** and **Recipe notes** fields in the existing meal editor. Put one step on each line and use `## Heading` for instruction sections. Existing ingredients, times, and recipe URLs remain in the same editor. The viewer links to the original recipe near the bottom and automatically requests a screen wake lock where supported.
+
+Supported structured website/RecipeSage responses and file imports retain available instructions, sections, notes, and times. Bulk file data is imported together; missing source details are checked in the background, with unfinished work retained across refreshes. Browser access restrictions can prevent extraction. Existing nonempty recipe content is preserved when enrichment fails or returns blank fields; manual editing and the original link remain available.
+
+Photo imports also retain recognized Instructions and Notes sections when present. Review OCR text in the editor before saving; image quality can affect recognition.
+
+Recipe content stays on existing meal records, and cooking progress is saved separately and included in version-2 backups. Older backups remain supported. Export backups regularly. Very large libraries can exceed browser storage limits; failed saves/imports preserve prior data rather than truncating recipes. Physical-device wake-lock behavior depends on browser permissions and power settings.
+
 ## Install on your phone
 
 Open https://elisabethball19-netizen.github.io/meal-rotation/index.html online once.
