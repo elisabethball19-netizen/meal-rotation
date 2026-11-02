@@ -832,15 +832,14 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 
 /* Recipe toolbar only: fixed positions, invisible 44px targets, and decorative SVGs. */
 #recipeViewer .recipe-viewer-bar{display:grid;grid-template-columns:repeat(3,minmax(44px,1fr));gap:6px;}
-#recipeViewer .recipe-viewer-bar button.recipe-toolbar-icon{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border:0;border-radius:8px;background:transparent;color:#3c3c3c;display:grid;place-items:center;cursor:pointer;touch-action:manipulation;}
+#recipeViewer .recipe-viewer-bar button.recipe-toolbar-icon{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border:0;border-radius:8px;background:transparent;color:#333;display:grid;place-items:center;cursor:pointer;touch-action:manipulation;}
 #recipeViewer .recipe-toolbar-icon:first-child{grid-column:1;justify-self:start;}
 #recipeViewer .recipe-toolbar-icon.recipe-reset{grid-column:2;justify-self:center;}
 #recipeViewer .recipe-toolbar-icon.recipe-view-mode{grid-column:3;justify-self:end;}
 #recipeViewer .recipe-viewer-bar button.recipe-toolbar-icon[hidden]{display:none;}
-#recipeViewer .recipe-toolbar-icon svg{width:24px;height:24px;pointer-events:none;}
-#recipeViewer .recipe-viewer-bar button.recipe-toolbar-icon:active{background:#edf1f5;}
+#recipeViewer .recipe-toolbar-icon,#recipeViewer .recipe-header-icon{-webkit-tap-highlight-color:transparent;}
+#recipeViewer .recipe-toolbar-icon svg{width:25px;height:25px;pointer-events:none;}
 #recipeViewer .recipe-toolbar-icon:focus-visible{outline:2px solid #5876ad;outline-offset:2px;}
-@media(hover:hover){#recipeViewer .recipe-viewer-bar button.recipe-toolbar-icon:hover{background:#f4f5f6;}}
 
 #recipeViewer .recipe-cooking-settings{flex:none;margin:2px 0 0;font-size:13px;color:#52657e;}
 #recipeViewer .recipe-auto-complete{display:flex;align-items:center;gap:9px;min-height:44px;padding:4px 0;}
@@ -850,9 +849,8 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 #recipeViewer.recipe-split .recipe-header{margin:12px 0;}
 #recipeViewer .recipe-header h1{flex:1;min-width:0;margin:0;max-height:none;overflow:visible;}
 #recipeViewer .recipe-title-actions{display:flex;align-items:center;gap:4px;flex:none;}
-#recipeViewer .recipe-header-icon{display:grid;place-items:center;width:44px;height:44px;min-width:44px;min-height:44px;border:0;padding:0;border-radius:8px;background:transparent;color:#3c3c3c;cursor:pointer;touch-action:manipulation;}
-#recipeViewer .recipe-header-icon svg{width:24px;height:24px;pointer-events:none;}
-#recipeViewer .recipe-header-icon:active{background:#edf1f5;}
+#recipeViewer .recipe-header-icon{display:grid;place-items:center;width:44px;height:44px;min-width:44px;min-height:44px;border:0;padding:0;border-radius:8px;background:transparent;color:#333;cursor:pointer;touch-action:manipulation;}
+#recipeViewer .recipe-header-icon svg{width:25px;height:25px;pointer-events:none;}
 #recipeViewer .recipe-header-icon:focus-visible,#recipeViewer .recipe-scale-option:focus-visible{outline:2px solid #5876ad;outline-offset:2px;}
 #recipeViewer .recipe-scale-wrap{position:relative;flex:none;}
 #recipeViewer .recipe-scale-wrap:has(.recipe-scale-menu:not([hidden])){z-index:3;}
@@ -869,8 +867,7 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 #recipeViewer .recipe-toolbar-icon.recipe-settings-toggle{grid-column:4;justify-self:end;}
 #recipeViewer .recipe-viewer-bar>button.recipe-toolbar-icon{justify-self:center;}
 #recipeViewer .recipe-cooking-settings{position:fixed;top:calc(77px + env(safe-area-inset-top,0px));right:max(20px,calc((100vw - 720px)/2));width:min(320px,calc(100vw - 40px));z-index:3;margin:0;padding:8px 12px;border:1px solid #dce2e9;border-radius:10px;background:#f7f9fc;max-height:40dvh;overflow-y:auto;overscroll-behavior:contain;}
-#recipeViewer .recipe-settings-close{display:grid;place-items:center;width:44px;height:44px;min-width:44px;min-height:44px;margin:8px auto 0;padding:0;border:0;border-radius:8px;background:transparent;color:#3c3c3c;cursor:pointer;touch-action:manipulation;}
-#recipeViewer .recipe-settings-close:active{background:#edf1f5;}
+#recipeViewer .recipe-settings-close{display:grid;place-items:center;width:44px;height:44px;min-width:44px;min-height:44px;margin:8px auto 0;padding:0;border:0;border-radius:8px;background:transparent;color:#333;cursor:pointer;touch-action:manipulation;}
 #recipeViewer .recipe-settings-dismiss{position:fixed;inset:0;z-index:2;touch-action:none;}
 #recipeViewerSettings[hidden]+.recipe-settings-dismiss{display:none;}
 #recipeViewer:has(#recipeViewerSettings:not([hidden])) .recipe-viewer-bar{z-index:4;}
@@ -1271,8 +1268,8 @@ function recipeOriginalUrl(meal){
  try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)?u.href:''}catch(e){return ''}
 }
 function setRecipeToolbarIcon(button,kind,label){
- const paths={edit:'<path d="m16 4 4 4M4 20l4-1L20 7a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/>',scale:'<rect x="3" y="13" width="8" height="8" rx="1"/><path d="M3 9V3h18v18h-6M13 11l7-7M14 4h6v6"/>',settings:'<path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>',reset:'<path d="M3 12a9 9 0 1 0 9-9c-2.5 0-4.8 1-6.4 2.6L3 8"/><path d="M3 3v5h5"/>',split:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 12h16"/>',full:'<rect x="4" y="3" width="16" height="18" rx="2"/>'};
- button.innerHTML='<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+paths[kind]+'</svg>';
+ const paths={edit:appIconSvg.rename,scale:'<rect x="3" y="13" width="8" height="8" rx="1"/><path d="M3 9V3h18v18h-6M13 11l7-7M14 4h6v6"/>',settings:appIconSvg.settings,close:appIconSvg.cancel,reset:'<path d="M3 12a9 9 0 1 0 9-9c-2.5 0-4.8 1-6.4 2.6L3 8"/><path d="M3 3v5h5"/>',split:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 12h16"/>',full:'<rect x="4" y="3" width="16" height="18" rx="2"/>'};
+ button.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+paths[kind]+'</svg>';
  button.setAttribute('aria-label',label);button.title=label;
 }
 function buildRecipeViewerSettings(bar,inner){
@@ -2233,7 +2230,7 @@ let promptFrame=0;
 function fitPrompt(){if(!shade.isConnected)return;cancelAnimationFrame(promptFrame);promptFrame=requestAnimationFrame(()=>{if(!shade.isConnected)return;const vv=window.visualViewport;const top=vv?vv.offsetTop:0;const height=vv?vv.height:window.innerHeight;const bottom=top+height;shade.style.top=top+'px';shade.style.bottom='auto';shade.style.height=height+'px';shade.style.alignItems='center';shade.style.overflowY='auto';panel.style.maxHeight=Math.max(160,height-24)+'px';panel.style.overflowY='auto';});}
 if(kind==='prompt'){window.visualViewport?.addEventListener('resize',fitPrompt);window.visualViewport?.addEventListener('scroll',fitPrompt);fitPrompt();}
 if(field){field.focus({preventScroll:true});field.select();setTimeout(fitPrompt,120);field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();actions.firstChild.click()}}}})}
-const appIconSvg={'chevrons-down':'<path d="m6 4 6 6 6-6M6 12l6 6 6-6"/>','chevrons-up':'<path d="m6 20 6-6 6 6M6 12l6-6 6 6"/>',left:'<path d="M15 18l-6-6 6-6"/>',right:'<path d="m9 18 6-6-6-6"/>',save:'<path d="M5 12l5 5L20 7"/>',cancel:'<path d="M5 5l14 14M19 5L5 19"/>',delete:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',rename:'<path d="M4 20h16M6 16l10-10 3 3-10 10-4 1z"/>',add:'<path d="M12 5v14M5 12h14"/>',move:'<path d="M5 12h14m-6-6 6 6-6 6"/>'};function setIconButton(b,type,label){b.textContent='';b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+appIconSvg[type]+'</svg>';b.title=label;b.setAttribute('aria-label',label);b.style.cssText='border:0;background:transparent;color:#444;display:grid;place-items:center;min-width:42px;min-height:42px;padding:6px'}
+const appIconSvg={settings:'<path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/>','chevrons-down':'<path d="m6 4 6 6 6-6M6 12l6 6 6-6"/>','chevrons-up':'<path d="m6 20 6-6 6 6M6 12l6-6 6 6"/>',left:'<path d="M15 18l-6-6 6-6"/>',right:'<path d="m9 18 6-6-6-6"/>',save:'<path d="M5 12l5 5L20 7"/>',cancel:'<path d="M5 5l14 14M19 5L5 19"/>',delete:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',rename:'<path d="M4 20h16M6 16l10-10 3 3-10 10-4 1z"/>',add:'<path d="M12 5v14M5 12h14"/>',move:'<path d="M5 12h14m-6-6 6 6-6 6"/>'};function setIconButton(b,type,label){b.textContent='';b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+appIconSvg[type]+'</svg>';b.title=label;b.setAttribute('aria-label',label);b.style.cssText='border:0;background:transparent;color:#444;display:grid;place-items:center;min-width:42px;min-height:42px;padding:6px'}
 function openMealSearch(){
   const shade=document.createElement('div');
   shade.style.cssText='position:fixed;inset:0;z-index:13020;background:#0008;display:flex;align-items:center;justify-content:center;padding:16px';
@@ -3120,7 +3117,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
     outer.append(categoryRows);weekGroup.content.append(outer);
   });
 }
-;let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/></svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
+;let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24">'+appIconSvg.settings+'</svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
 const displayGroup=makeSettingsGroup('display','Display');populateTimeSettings(displayGroup.content);populateCookedDateSetting(displayGroup.content);
 
 const sizeWrap=document.createElement('div');sizeWrap.className='meal-text-size-setting';
