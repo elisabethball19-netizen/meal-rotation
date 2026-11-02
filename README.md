@@ -13,6 +13,14 @@ Photo imports also retain recognized Instructions and Notes sections when presen
 
 Recipe content stays on existing meal records, and cooking progress is saved separately and included in version-2 backups. Older backups remain supported. Export backups regularly. Very large libraries can exceed browser storage limits; failed saves/imports preserve prior data rather than truncating recipes. Physical-device wake-lock behavior depends on browser permissions and power settings.
 
+## Import cleanup and related recipes
+
+Structured imports share a conservative instruction cleanup pass: recognizable image-only entries, account prompts, website metadata, and related-recipe lists are removed from cooking instructions. Temperatures, timings, quantities, cooking headings, and uncertain text are retained. Related recipe references are kept for optional review, separately from active relationships.
+
+After a file import, choose **Review related recipes**, or use the reference review link inside the recipe viewer. New links start unchecked; an already saved relationship remains checked. Exact source identifiers, URLs, or unique normalized titles can reuse an existing meal. Ambiguous matches require the existing Linked Meals picker. A missing recipe can be imported and linked only when a usable source provides recipe content; a failed import saves no partial changes or empty placeholders. Mentioned recipes do not enter the schedule unless you explicitly select a link, which then uses the app's existing linked-meal behavior.
+
+To clean an existing recipe, open **Recipe settings → Review instruction cleanup / related recipes**. Compare the original, editable proposal, and removed content, then Save or Cancel. Opening recipes and restoring backups do not run this cleanup on saved instructions. Original URLs and other recipe details remain intact; import references and ordinary linked-meal IDs are included in existing backups. Sources that require login or block browser readers may need manual import.
+
 ## Install on your phone
 
 Open https://elisabethball19-netizen.github.io/meal-rotation/index.html online once.
