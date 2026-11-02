@@ -798,7 +798,7 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 #test-banner{position:sticky;top:0;z-index:10000;background:#fff1bc;border:2px solid #bd7b00;color:#332600;border-radius:10px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:nowrap;margin-bottom:18px;font-size:12px;box-shadow:0 2px 8px #0002}#test-banner strong{min-width:0;line-height:1.2}#test-reset{background:#fff;border:1px solid #a46c00;border-radius:8px;padding:6px 9px;font-weight:600;color:#332600;white-space:nowrap;font-size:12px;flex-shrink:0}
 /* Recipe-only compact layout and optional independent scrolling panes. */
 #recipeViewer .cooking-item{padding:4px 2px;min-height:40px;line-height:1.5;}
-#recipeViewer .recipe-viewer-ingredients li+li{margin-top:6px;}
+#recipeViewer .recipe-viewer-ingredients li+li{margin-top:2px;}
 #recipeViewer .recipe-viewer-steps li+li{margin-top:12px;}
 #recipeViewer .recipe-viewer-steps .cooking-item{padding:4px 2px;}
 #recipeViewer .cooking-complete{color:#8a8a8a;}
@@ -821,7 +821,7 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 #recipeViewer .recipe-divider::after{content:'';width:44px;height:4px;border-radius:4px;background:#929ca8;}
 #recipeViewer .recipe-divider:focus-visible{outline:2px solid #5876ad;outline-offset:-2px;}
 
-#recipeViewer .recipe-sync-toggle{align-self:flex-end;margin:8px 0 0;padding:7px 10px;min-height:36px;font-size:13px!important;color:#52657e;}
+#recipeViewer .recipe-sync-toggle{align-self:flex-start;margin:6px 0 0;padding:7px 10px;min-height:36px;font-size:13px!important;color:#52657e;}
 #recipeViewer .recipe-sync-toggle[aria-pressed="true"]{background:#eaf1fb;border-color:#7893b9;color:#315ba8;}
 #recipeViewer .recipe-sync-relevant{background:#edf3fb;}
 #recipeViewer .recipe-pane:focus-visible{outline:2px solid #5876ad;outline-offset:-2px;}
@@ -843,10 +843,9 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 #recipeViewer .recipe-toolbar-icon:focus-visible{outline:2px solid #5876ad;outline-offset:2px;}
 @media(hover:hover){#recipeViewer .recipe-viewer-bar button.recipe-toolbar-icon:hover{background:#f4f5f6;}}
 
-#recipeViewer .recipe-cooking-settings{flex:none;margin:6px 0 0;font-size:13px;color:#52657e;}
-#recipeViewer .recipe-cooking-settings summary{padding:6px 0;min-height:32px;cursor:pointer;}
+#recipeViewer .recipe-cooking-settings{flex:none;margin:2px 0 0;font-size:13px;color:#52657e;}
 #recipeViewer .recipe-auto-complete{display:flex;align-items:center;gap:9px;min-height:44px;padding:4px 0;}
-#recipeViewer .recipe-auto-complete input{width:20px;height:20px;flex:none;}
+#recipeViewer .recipe-auto-complete input{width:20px;height:20px;flex:none;margin:0;}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -1187,7 +1186,7 @@ function recipeOriginalUrl(meal){
  try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)?u.href:''}catch(e){return ''}
 }
 function setRecipeToolbarIcon(button,kind,label){
- const paths={close:'<path d="m6 6 12 12M18 6 6 18"/>',reset:'<path d="M3 11a9 9 0 1 1 2.7 6.3M3 4v7h7"/>',split:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 12h16"/>',full:'<rect x="4" y="3" width="16" height="18" rx="2"/>'};
+ const paths={close:'<path d="m6 6 12 12M18 6 6 18"/>',reset:'<path d="M3 12a9 9 0 1 0 9-9c-2.5 0-4.8 1-6.4 2.6L3 8"/><path d="M3 3v5h5"/>',split:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 12h16"/>',full:'<rect x="4" y="3" width="16" height="18" rx="2"/>'};
  button.innerHTML='<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+paths[kind]+'</svg>';
  button.setAttribute('aria-label',label);button.title=label;
 }
@@ -1197,7 +1196,7 @@ function openRecipeViewer(meal,context=null,pushHistory=true){
  const cover=document.createElement('section');cover.id='recipeViewer';cover.setAttribute('role','dialog');cover.setAttribute('aria-modal','true');cover.setAttribute('aria-label','Recipe: '+(meal.name||'Untitled meal'));
  const inner=document.createElement('div');inner.className='recipe-viewer-content';cover.append(inner);
  const bar=document.createElement('header');bar.className='recipe-viewer-bar';const close=document.createElement('button');close.type='button';close.className='recipe-toolbar-icon';setRecipeToolbarIcon(close,'close','Close recipe');close.onclick=closeRecipeViewer;bar.append(close);
- const reset=document.createElement('button');reset.type='button';reset.className='recipe-toolbar-icon recipe-reset';setRecipeToolbarIcon(reset,'reset','Reset Progress');reset.hidden=!context;reset.onclick=()=>{if(recipeViewer?.context){cancelRecipeAdvance();if(!window.confirm('Reset cooking progress for this scheduled meal?'))return;const key=cookingOccurrenceKey(recipeViewer.context);resetCookingContexts(c=>cookingOccurrenceKey(c)===key);renderRecipeViewer()}};bar.append(reset);const mode=document.createElement('button');mode.type='button';mode.className='recipe-toolbar-icon recipe-view-mode';mode.onclick=()=>{recipeViewPrefs.mode=recipeViewPrefs.mode==='split'?'full':'split';saveRecipeViewPrefs();if(recipeViewer)recipeViewer.syncRequested=true;renderRecipeViewer()};bar.append(mode);inner.append(bar);const sync=document.createElement('button');sync.type='button';sync.className='smallbtn recipe-sync-toggle';sync.textContent='Sync Ingredients';sync.onclick=()=>{recipeViewPrefs.syncIngredients=!recipeViewPrefs.syncIngredients;saveRecipeViewPrefs();if(recipeViewer)recipeViewer.syncRequested=true;renderRecipeViewer()};inner.append(sync);const cookingSettings=document.createElement('details');cookingSettings.className='recipe-cooking-settings';const summary=document.createElement('summary');summary.textContent='Cooking settings';const autoLabel=document.createElement('label');autoLabel.className='recipe-auto-complete';const autoComplete=document.createElement('input');autoComplete.type='checkbox';autoComplete.onchange=()=>{recipeViewPrefs.autoCompleteIngredients=autoComplete.checked;saveRecipeViewPrefs();renderRecipeViewer()};autoLabel.append(autoComplete,document.createTextNode('Auto-complete Ingredients'));cookingSettings.append(summary,autoLabel);inner.append(cookingSettings);
+ const reset=document.createElement('button');reset.type='button';reset.className='recipe-toolbar-icon recipe-reset';setRecipeToolbarIcon(reset,'reset','Reset Progress');reset.hidden=!context;reset.onclick=()=>{if(recipeViewer?.context){cancelRecipeAdvance();if(!window.confirm('Reset cooking progress for this scheduled meal?'))return;const key=cookingOccurrenceKey(recipeViewer.context);resetCookingContexts(c=>cookingOccurrenceKey(c)===key);renderRecipeViewer()}};bar.append(reset);const mode=document.createElement('button');mode.type='button';mode.className='recipe-toolbar-icon recipe-view-mode';mode.onclick=()=>{recipeViewPrefs.mode=recipeViewPrefs.mode==='split'?'full':'split';saveRecipeViewPrefs();if(recipeViewer)recipeViewer.syncRequested=true;renderRecipeViewer()};bar.append(mode);inner.append(bar);const sync=document.createElement('button');sync.type='button';sync.className='smallbtn recipe-sync-toggle';sync.textContent='Sync Ingredients';sync.onclick=()=>{recipeViewPrefs.syncIngredients=!recipeViewPrefs.syncIngredients;saveRecipeViewPrefs();if(recipeViewer)recipeViewer.syncRequested=true;renderRecipeViewer()};inner.append(sync);const cookingSettings=document.createElement('div');cookingSettings.className='recipe-cooking-settings';const autoLabel=document.createElement('label');autoLabel.className='recipe-auto-complete';const autoComplete=document.createElement('input');autoComplete.type='checkbox';autoComplete.onchange=()=>{recipeViewPrefs.autoCompleteIngredients=autoComplete.checked;saveRecipeViewPrefs();renderRecipeViewer()};autoLabel.append(autoComplete,document.createTextNode('Auto-complete Ingredients'));cookingSettings.append(autoLabel);inner.append(cookingSettings);
  const content=document.createElement('article');inner.append(content);
  const inert=[...document.body.children].map(e=>[e,e.inert]);for(const [e] of inert)e.inert=true;
  recipeViewer={mealId:String(meal.id),context,cover,content,close,reset,mode,sync,cookingSettings,autoComplete,inert,returnFocus,scroll,overflow,wake:null,wakeRequest:0,importController:null,previewProgress:{ingredients:[],steps:[]}};
@@ -1277,7 +1276,7 @@ function toggleCookingItem(kind,token){
 }
 function renderRecipeViewer(){
  const v=recipeViewer;if(!v)return;const meal=meals.find(m=>String(m.id)===v.mealId);if(!meal){closeRecipeViewer();return}
- cancelRecipeAdvance(v);v.guidedCleanup?.();v.syncCleanup?.();v.cookingSettings.hidden=!recipeGuidanceEnabled();v.autoComplete.checked=recipeViewPrefs.autoCompleteIngredients===true;
+ cancelRecipeAdvance(v);v.guidedCleanup?.();v.syncCleanup?.();v.autoComplete.disabled=!recipeGuidanceEnabled();v.autoComplete.checked=recipeViewPrefs.autoCompleteIngredients===true;
  const session=v.context?cookingSession(v.context):v.previewProgress,items=cookingItemTokens(meal),scroll=v.cover.scrollTop;const active=document.activeElement?.dataset.cookingToken;const paneScroll=[...v.content.querySelectorAll('.recipe-pane')].map(p=>p.scrollTop);v.content.replaceChildren();v.cover.classList.toggle('recipe-split',recipeViewPrefs.mode==='split');setRecipeToolbarIcon(v.mode,recipeViewPrefs.mode==='split'?'full':'split',recipeViewPrefs.mode==='split'?'Full View':'Split View');v.mode.setAttribute('aria-pressed',String(recipeViewPrefs.mode==='split'));
  const title=document.createElement('h1');title.textContent=meal.name||'Untitled meal';v.content.append(title);
  const panes=document.createElement('div');panes.className='recipe-panes';v.content.append(panes);
