@@ -75,6 +75,12 @@ Scheduled progress and scaling continue using the existing V1 keys and `[planId,
 
 Recipe content and ingredient-to-step associations remain on the shared recipe record. Existing reconciliation retains compatible occurrence progress when content changes, without marking newly added items complete. Cycling an occurrence clears only that occurrence and its associated linked progress/scaling; other days remain independent. Grocery totals still read each scheduled occurrence's multiplier.
 
+## Android touch handling and split divider
+
+The entire recipe-tab strip (including tab padding, gaps and close buttons) uses one non-passive touch stream. Touch starts prevent browser takeover; a short stationary touch performs exactly one selection/close, a swipe scrolls without clicking, and a 550 ms hold starts reordering with edge scrolling. Mouse/pen use separate pointer handlers. Android pointer cancellation/capture-loss events do not cancel an ongoing touch stream; actual touch cancellation or a second finger cancels the reorder. Sorting uses CSS order while a finger is down, and commits DOM order after release, so the held element is never detached during a drag. The fixed main anchor, session-only order and independent cooking progress remain unchanged.
+
+The split divider draws a 10px band and 3px grip inside a transparent 44px target. The target occupies its own layout space, so it does not overlay ingredient or instruction controls. Touch, mouse/pen and existing keyboard resizing preserve the per-tab split ratio using the same preference storage; vertical scrolling in each pane remains independent. Full View hides the divider. Physical-device behavior still depends on browser/OS versions; regression tests use Android-sized Chromium touch simulation, including capture-loss/pointer-cancellation event variants.
+
 ## Recipe editing and amounts
 
 **Edit Recipe**, beside the internal recipe title, opens the existing editor and returns to the viewer after Save or Cancel. Ingredients appear above Cooking Instructions; each section remembers whether it is expanded. Both sections support photo selection and camera capture where supported. Instruction OCR uses the same text reader as ingredients, offers review and correction, and asks before replacing existing instructions. Nothing is saved until the meal's Save action. Image text recognition needs an Internet connection to load its reader.
