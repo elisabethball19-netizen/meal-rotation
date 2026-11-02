@@ -823,7 +823,7 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 
 #recipeViewer .recipe-sync-toggle{align-self:flex-end;margin:8px 0 0;padding:7px 10px;min-height:36px;font-size:13px!important;color:#52657e;}
 #recipeViewer .recipe-sync-toggle[aria-pressed="true"]{background:#eaf1fb;border-color:#7893b9;color:#315ba8;}
-#recipeViewer .recipe-sync-relevant{background:#edf3fb;box-shadow:inset 3px 0 #91a9cc;}
+#recipeViewer .recipe-sync-relevant{background:#edf3fb;}
 #recipeViewer .recipe-pane:focus-visible{outline:2px solid #5876ad;outline-offset:-2px;}
 #recipeIngredientLinks{margin:12px 0;padding:10px;border:1px solid #ddd;border-radius:9px;}
 #recipeIngredientLinks summary{cursor:pointer;font-size:14px;}
@@ -978,6 +978,7 @@ function saveRecipeViewPrefs(){try{testStorage.setItem(RECIPE_VIEW_PREFS_KEY,JSO
 // Recipe associations use existing content tokens, never schedule positions or progress state.
 function syncIngredientHeading(text){
  const t=normalizeRecipeText(text).replace(/^#{1,6}\s+|\*\*/g,'').trim();
+ if(/^\[[^\]\n]+\]$/.test(t))return t.slice(1,-1).replace(/^for\s+(?:the\s+)?/i,'').toLowerCase();
  if(/^(?:for\s+(?:the\s+)?)?(?:sauce|marinade|dressing|filling|topping)(?:\s+ingredients)?\s*:?$/i.test(t))return t.replace(/^for\s+(?:the\s+)?/i,'').replace(/\s+ingredients\s*:?$/i,'').replace(/:$/,'').toLowerCase();
  if(/^(?:#{1,6}\s+|\*\*)/.test(String(text))||(/^[A-Za-z][A-Za-z -]{1,55}:$/.test(t)))return t.replace(/:$/,'').toLowerCase();
  return '';
@@ -997,30 +998,63 @@ function validRecipeIngredientLinks(meal,links=meal.ingredientStepLinks){
  }).map(link=>({step:link.step,ingredients:[...new Set(link.ingredients)]}));
 }
 function syncIngredientWords(text){
- const plural={onions:'onion',tomatoes:'tomato',potatoes:'potato',leaves:'leaf',chillies:'chilli',chilies:'chili',berries:'berry'};
- return (String(text).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().match(/[a-z]+/g)||[]).map(w=>plural[w]||(w.length>3&&w.endsWith('s')&&!/(ss|ous)$/.test(w)?w.slice(0,-1):w));
+ const plural={onions:'onion',tomatoes:'tomato',potatoes:'potato',leaves:'leaf',chillies:'chili',chilies:'chili',chilli:'chili',chile:'chili',chiles:'chili',berries:'berry',inches:'inch',bunches:'bunch',halves:'half',radishes:'radish',cloves:'clove'};
+ return (String(text).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().match(/[a-z]+/g)||[]).map(w=>plural[w]||(w.length>3&&w.endsWith('s')&&!/(ss|us|ous|is)$/.test(w)?w.slice(0,-1):w));
+}
+// Only matching text is normalized. Stored recipe text and cooking tokens are untouched.
+const syncIngredientUnits=new Set(syncIngredientWords('cup tbsp tbs tsp tablespoon teaspoon gram kilogram kg g mg oz ounce lb lbs pound ml milliliter millilitre liter litre l fl fluid inch cm millimeter mm clove piece pinch dash sprig stalk bunch packet can jar x'));
+const syncIngredientPrep=new Set(syncIngredientWords('a an the of about approximately optional divided medium large small fresh freshly finely roughly thinly thickly lightly gently chopped diced sliced minced grated crushed ground peeled seeded deseeded drained rinsed softened melted packed heaped level boneless skinless dried canned frozen whole halved quartered bruised trimmed smashed squeezed thick thin only'));
+function syncIngredientMatchWords(value){
+ const words=syncIngredientWords(value),typed=words.some(w=>['oil','sauce','pepper','sugar'].includes(w));
+ return words.filter(w=>!syncIngredientPrep.has(w)||(typed&&['thin','thick'].includes(w)));
+}
+function syncIngredientNameWords(value){
+ let text=normalizeRecipeText(ingredientLine(value)).replace(/\(s\)/gi,'s').split(/[,;]/)[0];
+ // Trailing usage/quantity notes aren't part of a name (e.g. "salt to start").
+ text=text.replace(/\b(?:to\s+(?:taste|start|finish|serve)|as\s+(?:needed|required|desired)|plus\s+(?:more|extra)|for\s+(?:serving|garnish|garnishing|topping)|or\s+(?:more|less)|cut\s+(?:into|in)|(?:sliced|diced|chopped|crushed)\s+into)\b.*$/i,'');
+ const words=syncIngredientMatchWords(text);
+ // Units are stripped from the quantity prefix, not from food names such as cloves.
+ while(words.length>1&&syncIngredientUnits.has(words[0]))words.shift();
+ return words;
+}
+function syncIngredientStepText(value){
+ // Keep clause/conjunction boundaries so "rice, noodles" cannot become "rice noodles".
+ return ' '+String(value).split(/[,;.!?\n]+/).map(part=>syncIngredientMatchWords(part).join(' ')).join(' | ')+' ';
+}
+function syncIngredientSpecificity(alias,text,index){
+ const family=alias.split(' ').at(-1),after=text.slice(index+1+alias.length).trim().split(/\s+/)[0];
+ if(['free','substitute','oil','sauce','powder','paste','extract','puree','salt','sugar','pepper','milk','broth','stock'].includes(after))return false;
+ const qualifiers={oil:new Set(['olive','extra','virgin','neutral','sesame','toasted','annatto','chili','coconut','sunflower','peanut','vegetable','canola','avocado']),sauce:new Set(['thin','thick','light','dark','sweet','hot','chili','fish','soy','oyster','hoisin','tomato','barbecue','bbq']),sugar:new Set(['white','brown','light','dark','coconut','palm','rock','powdered','icing','caster','cane','granulated','raw','turbinado','demerara']),pepper:new Set(['black','white','red','green','yellow','orange','pink','bell','cayenne','chili','sichuan','szechuan']),broth:new Set(['beef','chicken','pork','turkey','duck','fish','seafood','vegetable','mushroom','bone']),stock:new Set(['beef','chicken','pork','turkey','duck','fish','seafood','vegetable','mushroom','bone']),noodle:new Set(['rice','egg','wheat','glass','soba','udon']),milk:new Set(['coconut','almond','oat','soy','rice','cashew','goat','evaporated','condensed'])};
+ if(!qualifiers[family])return true;
+ const before=text.slice(0,index).trim().split(/\s+/).at(-1);
+ return !qualifiers[family].has(before);
 }
 function recipeIngredientMatches(meal){
  const all=cookingItemTokens(meal),items=recipeAssociationItems(meal),allowed=new Set(items.ingredients.map(i=>i.token));
- const ignored=new Set(('a an the of and or to taste as needed optional divided medium large small fresh freshly finely roughly thinly thickly chopped diced sliced minced grated crushed ground peeled seeded deseeded drained rinsed softened melted packed heaped level boneless skinless dried canned frozen whole cup cups tbsp tsp tablespoon tablespoons teaspoon teaspoons gram grams kg g oz ounce ounces lb pound pounds ml liter litre clove cloves piece pieces pinch dash sprig stalk bunch packet can jar').split(' ').flatMap(syncIngredientWords));
- const ambiguous=new Set(['sauce','oil','water','mixture','ingredient','filling','topping','dressing','marinade','powder','fresh','ground']);
+ const ambiguous=new Set(['sauce','oil','mixture','ingredient','filling','topping','dressing','marinade','powder','fresh','ground']);
  const aliases=new Map(),groups=new Map(),groupCounts=new Map();let group='';
- const add=(alias,token)=>{if(!aliases.has(alias))aliases.set(alias,new Set());aliases.get(alias).add(token)};
+ const add=(alias,token,derived=false)=>{if(!aliases.has(alias))aliases.set(alias,{exact:new Set(),derived:new Set()});aliases.get(alias)[derived?'derived':'exact'].add(token)};
  for(const ingredient of all.ingredients){
   const heading=syncIngredientHeading(ingredient.text);if(heading){group=heading;groupCounts.set(group,(groupCounts.get(group)||0)+1);if(!groups.has(group))groups.set(group,[]);continue}
   if(!allowed.has(ingredient.token))continue;
   if(group)groups.get(group).push(ingredient.token);
-  const name=ingredientLine(ingredient.text).split(/[,;(]/)[0],words=syncIngredientWords(name).filter(w=>!ignored.has(w));
+  const words=syncIngredientNameWords(ingredient.text);
   if(!words.length)continue;
   const phrase=words.join(' ');if(phrase.length>=4&&!ambiguous.has(phrase))add(phrase,ingredient.token);
+  // Prepared forms can share an unambiguous food name, but never erase oil/sauce/spice/sugar types.
+  if(words.length>1&&['paste','puree','powder','extract'].includes(words.at(-1))&&!words.some(w=>['oil','sauce','pepper','sugar','chili','curry'].includes(w))){const base=words.slice(0,-1).join(' ');if(base.length>=4&&!ambiguous.has(base))add(base,ingredient.token,true)}
+  // Generic food references are allowed only for constrained forms/cuts and a unique candidate.
+  const meat=new Set(['beef','pork','chicken','lamb','turkey','duck']),cuts=new Set(['chuck','roast','steak','shank','brisket','rib','loin','tenderloin','breast','thigh','fillet','mince','bone','in','out','cubed']);
+  if(words.length>1&&meat.has(words[0])&&words.slice(1).every(w=>cuts.has(w)))add(words[0],ingredient.token,true);
+  if(words.length>1&&['broth','stock','noodle','pasta'].includes(words.at(-1)))add(words.at(-1),ingredient.token,true);
   // Short names must be explicit, familiar food names rather than measurement fragments.
   if(words.length===1&&['egg','ham','tea'].includes(phrase))add(phrase,ingredient.token);
  }
  const manual=new Map(validRecipeIngredientLinks(meal).map(l=>[l.step,l.ingredients]));const matches=new Map();
  for(const step of items.steps){
   if(manual.has(step.token)){matches.set(step.token,manual.get(step.token));continue}
-  const text=' '+syncIngredientWords(cleanInstructionBlock(step).text).filter(w=>!ignored.has(w)).join(' ')+' ',found=new Set();
-  const spans=[];for(const [alias,tokens] of aliases)if(tokens.size===1){let from=0,index;while((index=text.indexOf(' '+alias+' ',from))!==-1){spans.push({start:index+1,end:index+1+alias.length,token:[...tokens][0]});from=index+1}}
+  const text=syncIngredientStepText(cleanInstructionBlock(step).text),found=new Set();
+  const spans=[];for(const [alias,choices] of aliases){const tokens=choices.exact.size?choices.exact:choices.derived;if(tokens.size!==1)continue;let from=0,index;while((index=text.indexOf(' '+alias+' ',from))!==-1){if(syncIngredientSpecificity(alias,text,index))spans.push({start:index+1,end:index+1+alias.length,token:[...tokens][0]});from=index+1}}
   const selected=[];for(const span of spans.sort((a,b)=>(b.end-b.start)-(a.end-a.start)))if(!selected.some(s=>span.start<s.end&&span.end>s.start)){selected.push(span);found.add(span.token)}
   const raw=' '+syncIngredientWords(cleanInstructionBlock(step).text).join(' ')+' ';
   for(const [heading,tokens] of groups){if(groupCounts.get(heading)!==1)continue;const name=syncIngredientWords(heading).join(' ');if(raw.includes(' '+name+' ingredient ')||raw.includes(' ingredient for '+name+' ')||raw.includes(' ingredient for the '+name+' '))tokens.forEach(t=>found.add(t))}
