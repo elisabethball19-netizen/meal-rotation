@@ -21,6 +21,14 @@ After a file import, choose **Review related recipes**, or use the reference rev
 
 To clean an existing recipe, open **Recipe settings → Review instruction cleanup / related recipes**. Compare the original, editable proposal, and removed content, then Save or Cancel. Opening recipes and restoring backups do not run this cleanup on saved instructions. Original URLs and other recipe details remain intact; import references and ordinary linked-meal IDs are included in existing backups. Sources that require login or block browser readers may need manual import.
 
+## Meal Groups display order
+
+Meal Groups retains its existing weekday/scheduled-group ordering until you rearrange it. Long-press a group name, header background or noninteractive card area for about 550 ms, then drag up/down. Normal swipes still scroll the page. Chevron, edit/add buttons and recipe controls keep their existing actions. Drag toward the screen edges to auto-scroll through long lists. All cards are visually collapsed only during the drag; their expanded states return on drop or cancellation. Holding without moving saves no order. Cancellation or a failed save restores the previous order. Existing edit-menu arrows can also move any group using the same display-only order, including weekday-assigned groups.
+
+A successful rearrangement saves `mealRotationGroupDisplayOrderV1`, a list of group names used only by the Meal Groups page. It never changes the category array, weekday assignments, rotation, linked recipes, grocery selections, cooking progress or scaling. Weekday changes no longer move groups once a custom override exists. New/imported groups append in creation order; renames retain their position and deletions remove their entry. Unknown/stale names are ignored, and malformed stored order falls back to the normal layout without rewriting that storage during loading.
+
+**Reset to Weekday Order** appears beneath the Meal Groups heading once a custom order exists. It clears the override and immediately restores the current automatic weekday/scheduled-group arrangement, without a confirmation dialog or assignment changes. Custom ordering/reset participates in existing undo history. Version-2 backups include the override through the existing app-storage snapshot; a backup without the key uses the default order, and restoring a legacy version-1 backup clears a local override. The isolated test app stores its order only inside its existing sandbox prefix.
+
 ## Install on your phone
 
 Open https://elisabethball19-netizen.github.io/meal-rotation/index.html online once.
