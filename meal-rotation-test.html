@@ -922,7 +922,7 @@ function updateAutomaticCookingIngredients(session,meal,newlyCompletedStep=null)
  const steps=cookingItemTokens(meal).steps.filter(s=>s.type==='step'&&cleanInstructionBlock(s).type==='step');
  if(steps.every(s=>matches.has(s.token)))for(const [step,ingredients] of matches)for(const ingredient of ingredients){if(!requirements.has(ingredient))requirements.set(ingredient,[]);requirements.get(ingredient).push(step)}
  const candidates=new Set(session.autoIngredients);
- if(newlyCompletedStep)for(const token of matches.get(newlyCompletedStep)||[])candidates.add(token);
+ for(const step of Array.isArray(newlyCompletedStep)?newlyCompletedStep:[newlyCompletedStep])for(const token of matches.get(step)||[])candidates.add(token);
  session.autoIngredients=[...candidates].filter(token=>requirements.has(token)&&requirements.get(token).every(step=>session.steps.includes(step)));
  materializeIngredientChoices(session);
 }
@@ -1355,9 +1355,19 @@ function toggleCookingItem(kind,token){
  const completing=!session[kind].includes(token);
  if(kind==='ingredients'){prepareIngredientChoices(session);session.ingredientOverrides[token]=completing;materializeIngredientChoices(session)}
  else{
-  session.steps=completing?[...session.steps,token]:session.steps.filter(t=>t!==token);
+  let newlyCompleted=[token];
+  if(completing){
+   if(recipeGuidanceEnabled()){
+    // Follow the displayed step order, excluding section headings, and retain
+    // stable item tokens so each scheduled occurrence keeps its own progress.
+    const steps=cookingItemTokens(meal).steps.filter(s=>s.type==='step'&&cleanInstructionBlock(s).type==='step');
+    const index=steps.findIndex(s=>s.token===token);
+    if(index>=0)newlyCompleted=steps.slice(0,index+1).map(s=>s.token).filter(t=>!session.steps.includes(t));
+   }
+   session.steps=[...new Set([...session.steps,...newlyCompleted])];
+  }else session.steps=session.steps.filter(t=>t!==token);
   const automatic=completing&&recipeGuidanceEnabled()&&recipeViewPrefs.autoCompleteIngredients;
-  if(automatic||session.autoIngredients?.length)updateAutomaticCookingIngredients(session,meal,automatic?token:null);
+  if(automatic||session.autoIngredients?.length)updateAutomaticCookingIngredients(session,meal,automatic?newlyCompleted:null);
  }
  if(view.context){if(!writeCookingSessions(next))return}else view.previewProgress=session;
  renderRecipeViewer();
