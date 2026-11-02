@@ -1839,8 +1839,8 @@ function chooseExistingMealsForNewGroup(category,existingGroup=false){
    const option=document.createElement('label');option.style.cssText='display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px';
    const radio=document.createElement('input');radio.type='radio';radio.name=modeName;radio.value=value;radio.checked=value==='copy';option.append(radio,document.createTextNode(label));modeRow.append(option);
   }
-  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:12px;justify-content:flex-end;align-items:center;flex-shrink:0;padding-top:12px;border-top:1px solid #ddd;background:#fff';
-  const iconButton=(label,paths)=>{const btn=document.createElement('button');btn.type='button';btn.className='iconbtn';btn.title=label;btn.setAttribute('aria-label',label);btn.style.cssText='width:42px;height:42px;min-width:42px;';btn.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+paths+'</svg>';return btn};
+  const actions=document.createElement('div');actions.className='meal-unified-actions';actions.style.cssText='flex-shrink:0;padding-top:12px;border-top:1px solid #ddd;background:#fff;color:#242424';
+  const iconButton=(label,paths)=>{const btn=document.createElement('button');btn.type='button';btn.className='iconbtn';btn.title=label;btn.setAttribute('aria-label',label);btn.style.cssText='width:52px;height:48px';btn.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+paths+'</svg>';return btn};
   const remove=iconButton('Delete new group','<path d="M3 6h18M8 6V4h8v2m3 0-1 15H6L5 6m5 4v7m4-7v7"/>');
   const skip=iconButton('Cancel','<path d="M18 6 6 18M6 6l12 12"/>');
   const add=iconButton('Add selected meals','<path d="M5 12l4 4L19 6"/>');
@@ -1870,7 +1870,7 @@ function chooseExistingMealsForNewGroup(category,existingGroup=false){
    }
    close('added');
   };
-  if(!existingGroup)actions.append(remove);actions.append(skip,add);dialog.append(title,search,list,modeRow,actions);overlay.append(dialog);document.body.append(overlay);
+  actions.append(add,skip);if(!existingGroup)actions.append(remove);dialog.append(title,search,list,modeRow,actions);overlay.append(dialog);document.body.append(overlay);
  });
 }
 function showRelatedMeals(meal){
