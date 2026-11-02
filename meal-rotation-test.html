@@ -899,6 +899,18 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 .recipe-import-reference{display:flex;align-items:flex-start;gap:9px;padding:8px 0;font-size:15px;line-height:1.5;overflow-wrap:anywhere;}
 .recipe-import-reference input{width:20px;height:20px;flex:none;margin:2px 0 0;}
 .recipe-import-review .meal-unified-actions{flex:none;border-top:1px solid #ddd;padding-top:8px;}
+/* Viewer tabs retain occurrence-specific state without changing the four toolbar actions. */
+#recipeViewer .recipe-tab-strip{display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;flex:none;min-height:46px;position:sticky;top:var(--recipe-toolbar-height,77px);z-index:1;background:#fff;border-bottom:1px solid #e5e8eb;overscroll-behavior-x:contain;scrollbar-width:thin;}
+#recipeViewer.recipe-split .recipe-tab-strip{position:relative;top:auto;}
+#recipeViewer .recipe-tab{display:flex;flex:none;align-items:center;border-bottom:2px solid transparent;min-width:0;}
+#recipeViewer .recipe-tab.active{border-bottom-color:#5876ad;background:#edf3fb;border-radius:7px 7px 0 0;}
+#recipeViewer .recipe-tab button{background:transparent;border:0;color:#52657e;min-height:44px;font:inherit;cursor:pointer;touch-action:manipulation;}
+#recipeViewer .recipe-tab [role="tab"]{display:block;max-width:150px;min-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:8px;font-size:14px;text-align:left;}
+#recipeViewer .recipe-tab.active [role="tab"]{max-width:210px;color:#315ba8;font-weight:600;}
+#recipeViewer .recipe-tab .recipe-tab-close{display:grid;place-items:center;min-width:44px;width:44px;padding:0;}
+#recipeViewer .recipe-tab-close svg{width:17px;height:17px;pointer-events:none;}
+#recipeViewer .recipe-tab button:focus-visible{outline:2px solid #5876ad;outline-offset:-2px;}
+#recipeViewer .recipe-occurrence-notice{font-size:13px;color:#637080;line-height:1.4;margin:0 0 10px;}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -1108,8 +1120,8 @@ function cleanInstructionBlock(block){
  return {...block,text,type:heading?'section':block.type};
 }
 const RECIPE_VIEW_PREFS_KEY='mealRotationRecipeViewPrefsV1';
-let recipeViewPrefs={mode:'full',ratio:.4,syncIngredients:false,autoCompleteIngredients:false,keepScreenAwake:true};
-try{const p=JSON.parse(testStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null');if(p&&['full','split'].includes(p.mode)&&Number.isFinite(p.ratio))recipeViewPrefs={mode:p.mode,ratio:Math.max(.1,Math.min(.9,p.ratio)),syncIngredients:p.syncIngredients===true,autoCompleteIngredients:p.autoCompleteIngredients===true,keepScreenAwake:p.keepScreenAwake!==false}}catch(e){}
+let recipeViewPrefs={mode:'full',ratio:.4,syncIngredients:false,autoCompleteIngredients:false,keepScreenAwake:true,autoOpenLinkedRecipes:false};
+try{const p=JSON.parse(testStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null');if(p&&['full','split'].includes(p.mode)&&Number.isFinite(p.ratio))recipeViewPrefs={mode:p.mode,ratio:Math.max(.1,Math.min(.9,p.ratio)),syncIngredients:p.syncIngredients===true,autoCompleteIngredients:p.autoCompleteIngredients===true,keepScreenAwake:p.keepScreenAwake!==false,autoOpenLinkedRecipes:p.autoOpenLinkedRecipes===true}}catch(e){}
 function saveRecipeViewPrefs(){try{testStorage.setItem(RECIPE_VIEW_PREFS_KEY,JSON.stringify(recipeViewPrefs))}catch(e){/* Keep viewing available when preferences cannot be saved. */}}
 // Recipe associations use existing content tokens, never schedule positions or progress state.
 function syncIngredientHeading(text){
@@ -1200,8 +1212,8 @@ function recipeIngredientMatches(meal){
 }
 function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
  v.syncCleanup?.();
- const enabled=recipeViewPrefs.mode==='split'&&recipeViewPrefs.syncIngredients===true;
- v.sync.disabled=recipeViewPrefs.mode!=='split';v.sync.checked=recipeViewPrefs.syncIngredients===true;
+ const enabled=recipeViewingMode()==='split'&&recipeViewPrefs.syncIngredients===true;
+ v.sync.disabled=recipeViewingMode()!=='split';v.sync.checked=recipeViewPrefs.syncIngredients===true;
  if(v.linkEdit){v.syncToInstruction=null;v.cancelIngredientSync=null;return}
  const state=v.ingredientSyncState||(v.ingredientSyncState={suspended:false,lastStep:null,tokens:[]});
  const ingredientButtons=[...ingredientsPane.querySelectorAll('[data-cooking-token]')];
@@ -1239,6 +1251,7 @@ function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
  on(instructionsPane,'pointerdown',e=>{if(e.target===instructionsPane)resume()});
  ingredientsPane.tabIndex=0;instructionsPane.tabIndex=0;
  v.syncCleanup=()=>{cancel();events.abort();v.syncToInstruction=null};
+ if(v.restoreTabScroll){cancel();v.syncWasEnabled=true;v.syncRequested=false;return}
  if(!v.syncWasEnabled||v.syncRequested){state.suspended=false;state.lastStep=null;v.syncGeometryHold=false;schedule()}else if(matchesChanged)schedule();
  v.syncWasEnabled=true;v.syncRequested=false;
 }
@@ -1270,23 +1283,122 @@ function configureRecipeSplit(v,divider,panes){
   const available=Math.max(1,panes.clientHeight-divider.offsetHeight),min=Math.min(96,available*.35);
   const clamped=Math.max(min/available,Math.min(1-min/available,ratio));
   v.cover.style.setProperty('--recipe-split-ratio',clamped);divider.setAttribute('aria-valuenow',String(Math.round(clamped*100)));
-  if(save){recipeViewPrefs.ratio=clamped;saveRecipeViewPrefs()}
+  if(save){if(v.activeTab)v.activeTab.ratio=clamped;recipeViewPrefs.ratio=clamped;saveRecipeViewPrefs()}
  };
  v.resizeObserver?.disconnect();
- if(typeof ResizeObserver==='function'){v.resizeObserver=new ResizeObserver(()=>{if(recipeViewPrefs.mode==='split')setRatio(recipeViewPrefs.ratio)});v.resizeObserver.observe(panes);}
+ if(typeof ResizeObserver==='function'){v.resizeObserver=new ResizeObserver(()=>{if(recipeViewingMode()==='split')setRatio(recipeSplitRatio())});v.resizeObserver.observe(panes);}
  let dragging=false,offset=0;
  divider.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();v.syncDividerDragging=true;v.syncGeometryHold=true;v.cancelIngredientSync?.();dragging=true;offset=e.clientY-divider.getBoundingClientRect().top;divider.setPointerCapture(e.pointerId)};
  divider.onpointermove=e=>{if(!dragging)return;e.preventDefault();e.stopPropagation();const box=panes.getBoundingClientRect();setRatio((e.clientY-box.top-offset)/Math.max(1,box.height-divider.offsetHeight),true)};
  const end=e=>{if(!dragging)return;dragging=false;v.syncDividerDragging=false;e.preventDefault();e.stopPropagation();if(divider.hasPointerCapture(e.pointerId))divider.releasePointerCapture(e.pointerId)};
  divider.onpointerup=end;divider.onpointercancel=end;divider.onlostpointercapture=()=>{dragging=false;v.syncDividerDragging=false};divider.onclick=e=>{e.preventDefault();e.stopPropagation()};
- divider.onkeydown=e=>{const delta={ArrowUp:-.05,ArrowDown:.05,Home:-1,End:1}[e.key];if(delta!==undefined){e.preventDefault();v.syncGeometryHold=true;v.cancelIngredientSync?.();setRatio(recipeViewPrefs.ratio+delta,true)}};
- if(recipeViewPrefs.mode==='split')setRatio(recipeViewPrefs.ratio);
+ divider.onkeydown=e=>{const delta={ArrowUp:-.05,ArrowDown:.05,Home:-1,End:1}[e.key];if(delta!==undefined){e.preventDefault();v.syncGeometryHold=true;v.cancelIngredientSync?.();setRatio(recipeSplitRatio()+delta,true)}};
+ if(recipeViewingMode()==='split')setRatio(recipeSplitRatio());
 }
 
 let recipeViewer=null,recipeViewerHistoryClosing=false;
+// Keep content identity separate from schedule identity. A viewer deck owns its
+// temporary (unscheduled) states; persisted progress still uses the existing keys.
+function recipeViewingMode(){return recipeViewer?.activeTab?.mode||recipeViewPrefs.mode}
+function recipeSplitRatio(){return recipeViewer?.activeTab?.ratio??recipeViewPrefs.ratio}
+function recipePlanEntries(planId){
+ const plan=mealPlans.find(p=>String(p.id)===String(planId));if(!plan)return [];
+ return getDisplayedWeekdayMealsForPlan(String(plan.id)===String(activePlanId)?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan);
+}
+function definiteRecipeContext(context){
+ if(!context)return null;
+ const matches=recipePlanEntries(context.planId).filter(e=>e.day===context.day&&String(e.meal.id)===String(context.mealId)&&String(e.linkedTo||'')===String(context.parentId||''));
+ return matches.length===1?cookingContext(context.planId,context.day,matches[0].cat,matches[0].meal,matches[0].linkedTo):null;
+}
+function linkedRecipeContext(source,child){
+ const context=definiteRecipeContext(source.context);if(!context)return null;
+ const candidates=recipePlanEntries(context.planId).filter(e=>e.day===context.day&&String(e.meal.id)===String(child.id));
+ // Prefer the exact linked parent. An independently scheduled recipe on this
+ // same day is also definite; a different parent's linked occurrence is not.
+ const owned=candidates.filter(e=>String(e.linkedTo||'')===String(source.mealId));
+ const independent=candidates.filter(e=>!e.linkedTo),found=owned.length?owned:independent;
+ return found.length===1?cookingContext(context.planId,context.day,found[0].cat,child,found[0].linkedTo):null;
+}
+function viewerRecipeContext(meal,context){
+ const direct=definiteRecipeContext(context);if(direct||!context?.parentId)return direct;
+ // Existing rotation-side actions can supply a parent even when the child was
+ // already scheduled independently. Resolve that caller exactly like a tab link.
+ const parents=recipePlanEntries(context.planId).filter(e=>e.day===context.day&&String(e.meal.id)===String(context.parentId)&&(e.meal.linkedMealIds||[]).some(id=>String(id)===String(meal.id)));
+ if(parents.length!==1)return null;const parent=parents[0];
+ return linkedRecipeContext({mealId:String(parent.meal.id),context:cookingContext(context.planId,context.day,parent.cat,parent.meal,parent.linkedTo)},meal);
+}
+function recipeTabKey(meal,context){return context?'occurrence:'+cookingOccurrenceKey(context):'preview:'+String(meal.id)}
+function createRecipeTab(meal,context,mode=recipeViewPrefs.mode,ratio=recipeViewPrefs.ratio){
+ return {key:recipeTabKey(meal,context),mealId:String(meal.id),context,mode,ratio,previewProgress:{ingredients:[],steps:[]},previewScale:1,coverScroll:0,paneScroll:[0,0],recipeContent:{ingredients:meal.ingredients,instructions:meal.instructions}};
+}
+function installRecipeViewerTabs(view,meal,context,saved=null){
+ const initial=createRecipeTab(meal,viewerRecipeContext(meal,context));
+ view.tabs=[initial];view.tabCache=new Map([[initial.key,initial]]);view.activeTab=initial;
+ // Existing viewer logic continues to read/write these fields on the active tab.
+ const fields=['mealId','context','previewProgress','previewScale','ingredientSyncState','syncMatches','syncMatchSignature','syncWasEnabled','syncRequested','syncPinnedStep','syncGeometryHold','advanceSpace','linkIngredientTailSpace','linkTailSpace','linkEdit','linkNotice','linkLayoutTransition','importMessage'];
+ for(const field of fields){delete view[field];Object.defineProperty(view,field,{get:()=>view.activeTab[field],set:value=>{view.activeTab[field]=value},configurable:true})}
+ const strip=document.createElement('div');strip.className='recipe-tab-strip';strip.setAttribute('role','tablist');strip.setAttribute('aria-label','Open recipes');view.content.before(strip);view.tabStrip=strip;view.content.id='recipeViewerPanel';view.content.setAttribute('role','tabpanel');
+ if(saved){
+  const remapped=new Map();for(const tab of saved.cache.values()){
+   const current=meals.find(m=>String(m.id)===tab.mealId);if(!current)continue;
+   tab.previewProgress=compatiblePreviewProgress(tab.previewProgress,tab.recipeContent,current);tab.recipeContent={ingredients:current.ingredients,instructions:current.instructions};
+   tab.context=definiteRecipeContext(tab.context);tab.key=tab.context?recipeTabKey(current,tab.context):(tab.previewKey||recipeTabKey(current,null));remapped.set(tab.key,tab);
+  }
+  const anchor=remapped.get(saved.anchor.key)||initial;
+  view.tabCache=remapped;view.tabCache.set(anchor.key,anchor);view.tabs=[anchor,...saved.tabs.filter(t=>t!==saved.anchor&&remapped.get(t.key)===t&&t.key!==anchor.key)];view.activeTab=view.tabs.find(t=>t===saved.active)||anchor;view.restoreTabScroll=true;view.syncGeometryHold=true;
+ }else if(recipeViewPrefs.autoOpenLinkedRecipes){
+  for(const id of meal.linkedMealIds||[]){const child=meals.find(m=>String(m.id)===String(id));if(child)openLinkedRecipeTab(child,view.tabs[0],false)}
+ }
+}
+function captureRecipeTab(view){
+ const tab=view.activeTab;if(!tab)return;
+ if(recipeViewingMode()==='full')tab.coverScroll=view.cover.scrollTop;else tab.paneScroll=[...view.content.querySelectorAll('.recipe-pane')].map(p=>p.scrollTop);tab.focusToken=document.activeElement?.dataset.cookingToken;
+ for(const pane of view.content.querySelectorAll('.recipe-pane'))pane.scrollTo({top:pane.scrollTop,behavior:'instant'});
+}
+function snapshotRecipeTabs(view){captureRecipeTab(view);return {tabs:[...view.tabs],cache:new Map(view.tabCache),active:view.activeTab,anchor:view.tabs[0]}}
+function switchRecipeTab(tab){
+ const view=recipeViewer;if(!view||tab===view.activeTab)return;
+ if(view.linkEdit){recipeLinkMessage(view,'Save or cancel the current ingredient links before switching recipe tabs.');return}
+ captureRecipeTab(view);cancelRecipeAdvance(view);view.importController?.abort();view.resizeObserver?.disconnect();view.syncCleanup?.();view.guidedCleanup?.();view.scaleCleanup?.();clearRecipeLinkGestures(view);
+ view.activeTab=tab;view.restoreTabScroll=true;view.syncGeometryHold=true;view.syncDividerDragging=false;view.suppressLinkGestureClick=false;
+ view.cookingSettings.hidden=true;view.settings.setAttribute('aria-expanded','false');
+ renderRecipeViewer();const meal=meals.find(m=>String(m.id)===tab.mealId);if(meal)enrichViewedRecipe(meal);
+}
+function openLinkedRecipeTab(child,source=recipeViewer?.activeTab,activate=true){
+ const view=recipeViewer;if(!view||!source||!meals.some(m=>String(m.id)===String(child?.id)))return;
+ if(view.linkEdit){recipeLinkMessage(view,'Save or cancel the current ingredient links before opening another recipe tab.');return}
+ // A link back to the anchor always selects the definite anchor of this deck.
+ if(String(child.id)===view.tabs[0].mealId){if(activate)switchRecipeTab(view.tabs[0]);return}
+ const context=linkedRecipeContext(source,child),previewKey='preview:'+JSON.stringify([source.context?cookingOccurrenceKey(source.context):view.tabs[0].key,String(child.id)]),key=context?recipeTabKey(child,context):previewKey;
+ let tab=view.tabCache.get(key);if(!tab){tab=createRecipeTab(child,context);tab.key=key;tab.previewKey=previewKey;view.tabCache.set(key,tab)}
+ if(!view.tabs.includes(tab))view.tabs.push(tab);
+ if(activate){if(tab===view.activeTab)renderRecipeTabs(view);else switchRecipeTab(tab)}
+}
+function closeLinkedRecipeTab(tab){
+ const view=recipeViewer;if(!view||tab===view.tabs[0])return;
+ if(view.linkEdit){recipeLinkMessage(view,'Save or cancel the current ingredient links before closing a recipe tab.');return}
+ if(tab===view.activeTab)switchRecipeTab(view.tabs[0]);
+ view.tabs=view.tabs.filter(t=>t!==tab);renderRecipeTabs(view);view.tabStrip.querySelector('[role="tab"][aria-selected="true"]')?.focus({preventScroll:true});
+ // Cache the closed tab until the whole viewer closes, including its preview progress.
+}
+function renderRecipeTabs(view){
+ const strip=view.tabStrip;if(!strip)return;const left=strip.scrollLeft,focusKey=document.activeElement?.dataset.recipeTab;
+ strip.replaceChildren();
+ view.tabs.forEach((tab,index)=>{
+  const meal=meals.find(m=>String(m.id)===tab.mealId),name=meal?.name||'Recipe unavailable',item=document.createElement('div');item.className='recipe-tab';item.classList.toggle('active',tab===view.activeTab);
+  const select=document.createElement('button');select.type='button';select.setAttribute('role','tab');select.setAttribute('aria-selected',String(tab===view.activeTab));select.setAttribute('aria-controls','recipeViewerPanel');select.tabIndex=tab===view.activeTab?0:-1;select.id='recipeViewerTab'+index;select.dataset.recipeTab=tab.key;select.textContent=(index===0?'Main · ':'')+name;select.title=(index===0?'Main recipe: ':'')+name;
+  select.onclick=()=>switchRecipeTab(tab);select.onkeydown=e=>{const offset={ArrowLeft:-1,ArrowRight:1,Home:-index,End:view.tabs.length-1-index}[e.key];if(offset===undefined)return;e.preventDefault();const next=view.tabs[(index+offset+view.tabs.length)%view.tabs.length];switchRecipeTab(next);[...strip.querySelectorAll('[role="tab"]')].find(b=>b.dataset.recipeTab===next.key)?.focus({preventScroll:true})};item.append(select);
+  if(index){const close=document.createElement('button');close.type='button';close.className='recipe-tab-close';setRecipeToolbarIcon(close,'close','Close '+name+' tab');close.onclick=()=>closeLinkedRecipeTab(tab);item.append(close)}
+  strip.append(item);if(tab===view.activeTab)view.content.setAttribute('aria-labelledby',select.id);
+ });
+ strip.scrollLeft=left;const selected=strip.querySelector('.active');if(selected){const box=selected.getBoundingClientRect(),pane=strip.getBoundingClientRect();if(box.left<pane.left)strip.scrollLeft+=box.left-pane.left;else if(box.right>pane.right)strip.scrollLeft+=box.right-pane.right}
+ if(focusKey)[...strip.querySelectorAll('[role="tab"]')].find(b=>b.dataset.recipeTab===view.activeTab.key)?.focus({preventScroll:true});
+ view.cover.style.setProperty('--recipe-toolbar-height',view.close.parentElement.offsetHeight+'px');
+}
+
 function currentRecipeContext(day,category,meal){
  if(!day)return null;
- const entry=getDisplayedWeekdayMeals().find(e=>e.day===day&&String(e.meal.id)===String(meal.id));
+ const entries=getDisplayedWeekdayMeals().filter(e=>e.day===day&&String(e.meal.id)===String(meal.id)),entry=entries.length===1?entries[0]:null;
  return entry?cookingContext(activePlanId,day,category,meal,entry.linkedTo):null;
 }
 function recipeOriginalUrl(meal){
@@ -1302,7 +1414,7 @@ function buildRecipeViewerSettings(bar,inner){
  const settings=document.createElement('button');settings.type='button';settings.className='recipe-toolbar-icon recipe-settings-toggle';setRecipeToolbarIcon(settings,'settings','Recipe settings');settings.setAttribute('aria-expanded','false');settings.setAttribute('aria-controls','recipeViewerSettings');bar.append(settings);
  const cookingSettings=document.createElement('section');cookingSettings.id='recipeViewerSettings';cookingSettings.className='recipe-cooking-settings';cookingSettings.hidden=true;cookingSettings.setAttribute('role','region');cookingSettings.setAttribute('aria-label','Recipe settings');cookingSettings.addEventListener('wheel',()=>cancelRecipeAdvance(),{passive:true});
  const option=(text)=>{const label=document.createElement('label');label.className='recipe-auto-complete';const input=document.createElement('input');input.type='checkbox';label.append(input,document.createTextNode(text));cookingSettings.append(label);return input};
- const sync=option('Sync Ingredients'),autoComplete=option('Auto-complete Ingredients'),keepScreenAwake=option('Keep Screen Awake');
+ const sync=option('Sync Ingredients'),autoComplete=option('Auto-complete Ingredients'),keepScreenAwake=option('Keep Screen Awake'),autoOpenLinked=option('Automatically open linked recipes in tabs');autoOpenLinked.checked=recipeViewPrefs.autoOpenLinkedRecipes===true;autoOpenLinked.onchange=()=>{recipeViewPrefs.autoOpenLinkedRecipes=autoOpenLinked.checked;saveRecipeViewPrefs()};
  const support=document.createElement('p');support.className='muted';support.textContent='Keeping the screen awake is unavailable in this browser.';support.hidden=typeof navigator.wakeLock?.request==='function';cookingSettings.append(support);
  const reviewImport=document.createElement('button');reviewImport.type='button';reviewImport.className='smallbtn';reviewImport.textContent='Review instruction cleanup / related recipes';reviewImport.onclick=()=>{if(recipeViewer?.linkEdit){recipeLinkMessage(recipeViewer,'Save or cancel ingredient links before reviewing imported instructions.');return}const meal=meals.find(m=>String(m.id)===recipeViewer?.mealId);if(meal)openRecipeImportReview([meal],true)};cookingSettings.append(reviewImport);
  const closeSettings=document.createElement('button');closeSettings.type='button';closeSettings.className='recipe-settings-close recipe-toolbar-icon';setRecipeToolbarIcon(closeSettings,'close','Close settings');cookingSettings.append(closeSettings);const dismiss=document.createElement('div');dismiss.className='recipe-settings-dismiss';dismiss.setAttribute('aria-hidden','true');inner.append(cookingSettings,dismiss);
@@ -1327,17 +1439,18 @@ function buildRecipeNotesSection(meal){
  const display=open=>{closed.classList.toggle('hidden',open);panel.classList.toggle('hidden',!open);show.setAttribute('aria-expanded',String(open))};show.setAttribute('aria-controls','recipeNotesPanel');show.setAttribute('aria-expanded','false');show.onclick=()=>display(true);hide.onclick=()=>display(false);
 }
 
-function openRecipeViewer(meal,context=null,pushHistory=true){
+function openRecipeViewer(meal,context=null,pushHistory=true,savedTabs=null){
  if(recipeViewer?.linkEdit){recipeLinkMessage(recipeViewer,'Save or cancel the current ingredient links before opening another recipe.');return}
  if(recipeViewer){if(pushHistory&&window.history.state?.mealRotationRecipeViewer)window.history.replaceState({...window.history.state,mealRotationRecipeViewer:{...window.history.state.mealRotationRecipeViewer,scrollTop:recipeViewer.cover.scrollTop}},'');finishRecipeViewerClose()}
  const returnFocus=document.activeElement,scroll=window.scrollY,overflow=document.body.style.overflow;
  const cover=document.createElement('section');cover.id='recipeViewer';cover.setAttribute('role','dialog');cover.setAttribute('aria-modal','true');cover.setAttribute('aria-label','Recipe: '+(meal.name||'Untitled meal'));
  const inner=document.createElement('div');inner.className='recipe-viewer-content';cover.append(inner);
  const bar=document.createElement('header');bar.className='recipe-viewer-bar';const close=document.createElement('button');close.type='button';close.className='recipe-toolbar-icon';setRecipeToolbarIcon(close,'close','Close recipe');close.onclick=closeRecipeViewer;bar.append(close);
- const reset=document.createElement('button');reset.type='button';reset.className='recipe-toolbar-icon recipe-reset';setRecipeToolbarIcon(reset,'reset','Reset Progress');reset.onclick=()=>{const view=recipeViewer;if(!view)return;cancelRecipeAdvance();if(view.context){const key=cookingOccurrenceKey(view.context);resetCookingContexts(c=>cookingOccurrenceKey(c)===key)}else view.previewProgress={ingredients:[],steps:[]};renderRecipeViewer()};bar.append(reset);const mode=document.createElement('button');mode.type='button';mode.className='recipe-toolbar-icon recipe-view-mode';mode.onclick=()=>{recipeViewPrefs.mode=recipeViewPrefs.mode==='split'?'full':'split';saveRecipeViewPrefs();if(recipeViewer)recipeViewer.syncRequested=true;renderRecipeViewer()};bar.append(mode);inner.append(bar);const {settings,cookingSettings,sync,autoComplete,keepScreenAwake}=buildRecipeViewerSettings(bar,inner);
+ const reset=document.createElement('button');reset.type='button';reset.className='recipe-toolbar-icon recipe-reset';setRecipeToolbarIcon(reset,'reset','Reset Progress');reset.onclick=()=>{const view=recipeViewer;if(!view)return;cancelRecipeAdvance();if(view.context){const key=cookingOccurrenceKey(view.context);resetCookingContexts(c=>cookingOccurrenceKey(c)===key)}else view.previewProgress={ingredients:[],steps:[]};renderRecipeViewer()};bar.append(reset);const mode=document.createElement('button');mode.type='button';mode.className='recipe-toolbar-icon recipe-view-mode';mode.onclick=()=>{const view=recipeViewer;if(!view)return;captureRecipeTab(view);view.activeTab.mode=recipeViewingMode()==='split'?'full':'split';recipeViewPrefs.mode=view.activeTab.mode;saveRecipeViewPrefs();view.restoreTabScroll=true;view.syncRequested=true;renderRecipeViewer()};bar.append(mode);inner.append(bar);const {settings,cookingSettings,sync,autoComplete,keepScreenAwake}=buildRecipeViewerSettings(bar,inner);
  const content=document.createElement('article');inner.append(content);
  const inert=[...document.body.children].map(e=>[e,e.inert]);for(const [e] of inert)e.inert=true;
  recipeViewer={mealId:String(meal.id),context,cover,content,close,reset,mode,settings,sync,cookingSettings,autoComplete,keepScreenAwake,inert,returnFocus,scroll,overflow,wake:null,wakeRequest:0,importController:null,previewProgress:{ingredients:[],steps:[]}};
+ installRecipeViewerTabs(recipeViewer,meal,context,savedTabs);context=recipeViewer.tabs[0].context;
  document.body.append(cover);document.body.style.overflow='hidden';
  cover.addEventListener('pointerdown',()=>{recipeViewer&& (recipeViewer.suppressLinkGestureClick=false)},{capture:true});
  cover.addEventListener('click',e=>{if(recipeViewer?.suppressLinkGestureClick){recipeViewer.suppressLinkGestureClick=false;e.preventDefault();e.stopImmediatePropagation()}},{capture:true});
@@ -1374,7 +1487,7 @@ function restoreRecipeViewerHistory(saved){
  if(!saved)return;const meal=meals.find(m=>String(m.id)===String(saved.mealId));if(meal){openRecipeViewer(meal,saved.context||null,false);recipeViewer.cover.scrollTop=saved.scrollTop||0}
 }
 function resumeRecipeViewer(){restoreRecipeViewerHistory(window.history.state?.mealRotationRecipeViewer)}
-function recipeGuidanceEnabled(){return recipeViewPrefs.mode==='split'&&recipeViewPrefs.syncIngredients===true}
+function recipeGuidanceEnabled(){return recipeViewingMode()==='split'&&recipeViewPrefs.syncIngredients===true}
 function cancelRecipeAdvance(view=recipeViewer){if(!view)return;clearTimeout(view.advanceTimer);view.advanceTimer=null}
 function configureGuidedCooking(view,ingredientsPane,instructionsPane){
  view.guidedCleanup?.();const events=new AbortController();
@@ -1591,10 +1704,12 @@ function restoreRecipeLinkViewport(view,ingredientsPane,instructionsPane,coverSc
 }
 
 function renderRecipeViewer(){
- const v=recipeViewer;if(!v)return;const meal=meals.find(m=>String(m.id)===v.mealId);if(!meal){closeRecipeViewer();return}
+ const v=recipeViewer;if(!v)return;const meal=meals.find(m=>String(m.id)===v.mealId);if(!meal){if(v.activeTab!==v.tabs[0]){closeLinkedRecipeTab(v.activeTab);return}closeRecipeViewer();return}
+ renderRecipeTabs(v);v.cover.setAttribute('aria-label','Recipe: '+(meal.name||'Untitled meal'));
  cancelRecipeAdvance(v);clearRecipeLinkGestures(v);v.guidedCleanup?.();v.syncCleanup?.();v.autoComplete.disabled=false;v.autoComplete.checked=recipeViewPrefs.autoCompleteIngredients===true;v.keepScreenAwake.checked=recipeViewPrefs.keepScreenAwake!==false;
- const session=v.context?cookingSession(v.context):v.previewProgress,items=cookingItemTokens(meal),scroll=v.cover.scrollTop;const active=document.activeElement?.dataset.cookingToken,scaleFocused=document.activeElement?.getAttribute('aria-label')==='Scale Recipe';const paneScroll=[...v.content.querySelectorAll('.recipe-pane')].map(p=>p.scrollTop);v.scaleCleanup?.();v.content.replaceChildren();v.cover.classList.toggle('recipe-split',recipeViewPrefs.mode==='split');v.cover.classList.toggle('recipe-link-editing',!!v.linkEdit);setRecipeToolbarIcon(v.mode,recipeViewPrefs.mode==='split'?'full':'split',recipeViewPrefs.mode==='split'?'Full View':'Split View');v.mode.setAttribute('aria-pressed',String(recipeViewPrefs.mode==='split'));
+ const session=v.context?cookingSession(v.context):v.previewProgress,items=cookingItemTokens(meal),scroll=v.restoreTabScroll?v.activeTab.coverScroll:v.cover.scrollTop;const active=v.restoreTabScroll?v.activeTab.focusToken:document.activeElement?.dataset.cookingToken,scaleFocused=document.activeElement?.getAttribute('aria-label')==='Scale Recipe';const paneScroll=v.restoreTabScroll?v.activeTab.paneScroll:[...v.content.querySelectorAll('.recipe-pane')].map(p=>p.scrollTop);v.scaleCleanup?.();v.content.replaceChildren();v.cover.classList.toggle('recipe-split',recipeViewingMode()==='split');v.cover.classList.toggle('recipe-link-editing',!!v.linkEdit);setRecipeToolbarIcon(v.mode,recipeViewingMode()==='split'?'full':'split',recipeViewingMode()==='split'?'Full View':'Split View');v.mode.setAttribute('aria-pressed',String(recipeViewingMode()==='split'));
  const multiplier=v.context?occurrenceMultiplier(v.context):v.previewScale||1;const {scale}=buildRecipeTitleHeader(v,meal,multiplier);
+ if(!v.context&&v.activeTab!==v.tabs[0]){const notice=document.createElement('p');notice.className='recipe-occurrence-notice';notice.textContent='No definite scheduled occurrence for this link. Cooking progress and scaling stay in this viewer session.';v.content.append(notice)}
  if(v.linkEdit)v.linkIngredientTokens=new Set(recipeAssociationItems(meal).ingredients.map(i=>i.token));
  const panes=document.createElement('div');panes.className='recipe-panes';v.content.append(panes);
  const ingredientsPane=document.createElement('section');ingredientsPane.className='recipe-pane recipe-ingredients-pane';ingredientsPane.setAttribute('aria-label','Ingredients');
@@ -1618,17 +1733,17 @@ function renderRecipeViewer(){
   ol.append(li);stepCount++;
  }
  if(!stepCount){const p=document.createElement('p');p.className='muted recipe-import-status';p.setAttribute('role','status');p.textContent=v.importMessage||'Instructions have not been imported. You can add them in Edit meal or view the original recipe.';destination.append(p)}
- const linked=(Array.isArray(meal.linkedMealIds)?meal.linkedMealIds:[]).map(id=>meals.find(m=>String(m.id)===String(id))).filter(m=>m&&m.id!==meal.id);
- if(linked.length){section('Linked recipes');for(const child of linked){const link=document.createElement('button');link.type='button';link.className='recipe-linked-link';link.textContent=child.name;link.onclick=()=>openRecipeViewer(child,v.context?cookingContext(v.context.planId,v.context.day,child.cat,child,meal.id):null);destination.append(link)}}
+ const linked=[...new Set((Array.isArray(meal.linkedMealIds)?meal.linkedMealIds:[]).map(String))].map(id=>meals.find(m=>String(m.id)===String(id))).filter(m=>m&&m.id!==meal.id);
+ if(linked.length){section('Linked recipes');for(const child of linked){const link=document.createElement('button');link.type='button';link.className='recipe-linked-link';link.textContent=child.name;link.onclick=()=>openLinkedRecipeTab(child);destination.append(link)}}
  if(meal.recipeImportReferences?.length){const review=document.createElement('button');review.type='button';review.className='recipe-linked-link';review.textContent='Review related recipe references ('+meal.recipeImportReferences.length+')';review.onclick=()=>{if(v.linkEdit){recipeLinkMessage(v,'Save or cancel ingredient links before reviewing related recipes.');return}openRecipeImportReview([meal],false)};destination.append(review)}
  if(meal.notes){section('Notes');const p=document.createElement('div');p.className='recipe-viewer-notes';p.textContent=normalizeRecipeText(meal.notes);destination.append(p)}
  const original=recipeOriginalUrl(meal);if(original){const link=document.createElement('a');link.className='recipe-original';link.href=original;link.target='_blank';link.rel='noopener noreferrer';link.textContent='View Original Recipe';destination.append(link)}
- if(v.advanceSpace&&recipeViewPrefs.mode==='split')recipeAdvanceSpacer(v,instructionsPane);
+ if(v.advanceSpace&&recipeViewingMode()==='split')recipeAdvanceSpacer(v,instructionsPane);
  if(v.linkIngredientTailSpace){const tail=document.createElement('div');tail.className='recipe-link-ingredient-tail';tail.setAttribute('aria-hidden','true');tail.style.height=v.linkIngredientTailSpace+'px';ingredientsPane.append(tail)}
  if(v.linkTailSpace){const tail=document.createElement('div');tail.className='recipe-link-scroll-tail';tail.setAttribute('aria-hidden','true');tail.style.height=v.linkTailSpace+'px';instructionsPane.append(tail)}
  configureRecipeSplit(v,divider,panes);[ingredientsPane,instructionsPane].forEach((p,i)=>p.scrollTop=paneScroll[i]||0);v.cover.scrollTop=scroll;if(active){const target=[...v.content.querySelectorAll('[data-cooking-token]')].find(e=>e.dataset.cookingToken===active);target?.focus({preventScroll:true})}else if(scaleFocused)scale.focus({preventScroll:true});
  renderRecipeLinkBar(v);restoreRecipeLinkViewport(v,ingredientsPane,instructionsPane,scroll,paneScroll);
- configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane);configureGuidedCooking(v,ingredientsPane,instructionsPane);
+ configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane);configureGuidedCooking(v,ingredientsPane,instructionsPane);v.restoreTabScroll=false;
 }
 
 const cookingRecipeStates=new Map();
@@ -1922,10 +2037,10 @@ async function fetchInternalRecipe(meal,signal){
 }
 async function enrichViewedRecipe(meal){
  if(instructionBlocks(meal.instructions).some(x=>x.type==='step')||!recipeOriginalUrl(meal))return;
- const view=recipeViewer;view.importController=new AbortController();view.importMessage='Importing recipe details…';renderRecipeViewer();
- try{const details=await fetchInternalRecipe(meal,view.importController.signal);if(recipeViewer!==view||view.importController.signal.aborted)return;
+ const view=recipeViewer,tab=view.activeTab,controller=new AbortController();view.importController=controller;view.importMessage='Importing recipe details…';renderRecipeViewer();
+ try{const details=await fetchInternalRecipe(meal,controller.signal);if(recipeViewer!==view||view.activeTab!==tab||controller.signal.aborted)return;
   const changed=saveEnrichedRecipe(meal.id,details);view.importMessage=instructionBlocks(meal.instructions).some(x=>x.type==='step')?'':(changed?'Available recipe details were imported, but this source did not provide instructions. Add instructions in Edit meal or view the original recipe.':'Instructions could not be saved or were unavailable. Existing recipe content has been kept.');renderRecipeViewer();
- }catch(e){if(recipeViewer!==view||view.importController.signal.aborted)return;view.importMessage='Instructions could not be imported from this source. Your saved ingredients and details are still available; add instructions in Edit meal or view the original recipe.';renderRecipeViewer()}
+ }catch(e){if(recipeViewer!==view||view.activeTab!==tab||controller.signal.aborted)return;view.importMessage='Instructions could not be imported from this source. Your saved ingredients and details are still available; add instructions in Edit meal or view the original recipe.';renderRecipeViewer()}
 }
 function recipeBackgroundWritesBlocked(){return editId!==null||!!document.querySelector('[data-recipe-edit-draft], [role="dialog"]:not(#recipeViewer)')}
 const recipeImportJobs=new Set(),recipeImportInFlight=new Set();let recipeImportWorkersActive=false,recipeImportResumeTimer=null,recipePageLeaving=false;
@@ -5638,7 +5753,7 @@ function saveRecipeEditorSections(){try{testStorage.setItem(RECIPE_EDITOR_SECTIO
 function openViewedRecipeEditor(){
  if(recipeViewer?.linkEdit){recipeLinkMessage(recipeViewer,'Save or cancel the current ingredient links before opening Edit Recipe.');return}
  const view=recipeViewer;if(!view)return;const meal=meals.find(m=>String(m.id)===view.mealId);if(!meal)return;
- recipeEditorReturn={appView:appViewSnapshot(),activeCategory:active,expandedCategories:[...masterExpandedCategories],mealId:view.mealId,context:view.context,scroll:view.cover.scrollTop,panes:[...view.content.querySelectorAll('.recipe-pane')].map(p=>p.scrollTop),appScroll:view.scroll,recipeContent:{ingredients:meal.ingredients,instructions:meal.instructions},previewProgress:JSON.parse(JSON.stringify(view.previewProgress)),previewScale:view.previewScale||1};
+ recipeEditorReturn={viewerTabs:snapshotRecipeTabs(view),appView:appViewSnapshot(),activeCategory:active,expandedCategories:[...masterExpandedCategories],mealId:view.mealId,context:view.context,scroll:view.cover.scrollTop,panes:[...view.content.querySelectorAll('.recipe-pane')].map(p=>p.scrollTop),appScroll:view.scroll,recipeContent:{ingredients:meal.ingredients,instructions:meal.instructions},previewProgress:JSON.parse(JSON.stringify(view.previewProgress)),previewScale:view.previewScale||1};
  finishRecipeViewerClose();openEditor(meal.id);
 }
 function compatiblePreviewProgress(progress,oldMeal,meal){
@@ -5648,15 +5763,15 @@ function compatiblePreviewProgress(progress,oldMeal,meal){
 }
 function returnToEditedRecipe(){
  const saved=recipeEditorReturn;if(!saved)return false;recipeEditorReturn=null;
- const meal=meals.find(m=>String(m.id)===saved.mealId);if(!meal){if(window.history.state?.mealRotationRecipeViewer){const state={...window.history.state};delete state.mealRotationRecipeViewer;window.history.replaceState(state,'')}return true}
- let context=saved.context;
- if(context){const plan=mealPlans.find(p=>String(p.id)===context.planId);const entries=plan?getDisplayedWeekdayMealsForPlan(String(plan.id)===String(activePlanId)?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan):[];if(!entries.some(e=>e.day===context.day&&((String(e.meal.id)===context.mealId&&String(e.linkedTo||'')===context.parentId)||(String(e.meal.id)===context.parentId&&(e.meal.linkedMealIds||[]).some(id=>String(id)===context.mealId)))))context=null}
- // Editing reveals the meal's own row; returning to cooking restores the
- // app view beneath it so closing the viewer keeps its original navigation.
+ const anchor=saved.viewerTabs?.anchor,meal=meals.find(m=>String(m.id)===String(anchor?.mealId||saved.mealId));
+ if(!meal){if(window.history.state?.mealRotationRecipeViewer){const state={...window.history.state};delete state.mealRotationRecipeViewer;window.history.replaceState(state,'')}return true}
+ const context=definiteRecipeContext(anchor?.context||saved.context);
  if(saved.appView){showTop=saved.appView.view!=='groups';groceryTabActive=saved.appView.view==='grocery';allMealsActive=saved.appView.view==='all';setMasterCategoriesView(!showTop);if(cats.includes(saved.activeCategory))active=saved.activeCategory;masterExpandedCategories.clear();saved.expandedCategories.filter(cat=>cats.includes(cat)).forEach(cat=>masterExpandedCategories.add(cat));render()}
- openRecipeViewer(meal,context,false);const view=recipeViewer;view.scroll=saved.appScroll;view.previewProgress=compatiblePreviewProgress(saved.previewProgress,saved.recipeContent,meal);view.previewScale=saved.previewScale;renderRecipeViewer();window.history.replaceState({...window.history.state,mealRotationRecipeViewer:{mealId:String(meal.id),context}},'');
- const restore=()=>{if(recipeViewer!==view)return;view.cover.scrollTop=saved.scroll;[...view.content.querySelectorAll('.recipe-pane')].forEach((p,i)=>p.scrollTop=saved.panes[i]||0)};restore();requestAnimationFrame(restore);return true;
+ openRecipeViewer(meal,context,false,saved.viewerTabs);const view=recipeViewer;view.scroll=saved.appScroll;
+ if(!saved.viewerTabs){view.previewProgress=compatiblePreviewProgress(saved.previewProgress,saved.recipeContent,meal);view.previewScale=saved.previewScale;renderRecipeViewer();view.cover.scrollTop=saved.scroll;[...view.content.querySelectorAll('.recipe-pane')].forEach((p,i)=>p.scrollTop=saved.panes[i]||0)}
+ window.history.replaceState({...window.history.state,mealRotationRecipeViewer:{mealId:view.tabs[0].mealId,context:view.tabs[0].context}},'');return true;
 }
+
 function buildRecipeEditorSections(meal){
  const field=$('recipeInstructions'),label=field.previousElementSibling,hint=field.nextElementSibling;
  const ingredients=document.createElement('section');ingredients.id='editorIngredientsSection';label.before(ingredients);ingredients.before($('rotation').closest('label'));ingredients.append($('ingredientsClosed'),$('ingredientsPanel'));
