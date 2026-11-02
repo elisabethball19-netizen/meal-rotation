@@ -40,3 +40,7 @@ Publish the HTML files together with `pwa.js`, `service-worker.js`, both `.webma
 When changing the offline shell, increment `SHELL_VERSION` in `service-worker.js`. Only this app's static files are cached; imports, backup files, and unrelated site resources are excluded. Old shell caches for this app's exact scope are cleaned up after the new worker activates.
 
 For local development, serve the checkout with an HTTP server, such as `python3 -m http.server 8000`, and open it on localhost. Installation and service workers require HTTPS in production; opening an HTML file directly still runs the app without offline installation support.
+
+## Official app artwork
+
+`icons/meal-rotation-original.png` preserves the supplied PNG byte for byte. The regular PNG icons are uniform, uncropped resizes with transparency retained: 16, 32, 48, 180 (Apple), 192, and 512 pixels. The ICO favicon contains 16, 32, and 48 pixel images. The test icon places the unchanged artwork inside an amber surround so the two installations are distinguishable. Manifest icons use `purpose: any`; this artwork is not declared safe for maskable cropping. Launcher presentation is controlled by the device, and existing installed icons may take time to refresh.

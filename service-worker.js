@@ -1,12 +1,14 @@
 /* Bump this version when changing the offline app shell. */
-const SHELL_VERSION = 'v4';
+const SHELL_VERSION = 'v5';
 const CACHE_PREFIX = `meal-rotation-shell:${self.registration.scope}:`;
 const CACHE_NAME = CACHE_PREFIX + SHELL_VERSION;
 const SHELL_FILES = [
   './', './index.html', './meal-rotation-test.html', './pwa.js',
   './manifest.webmanifest', './manifest-test.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
-  './icons/test-icon-192.png', './icons/test-icon-512.png', './icons/test-apple-touch-icon.png'
+  './icons/test-icon-192.png', './icons/test-icon-512.png', './icons/test-apple-touch-icon.png',
+  './icons/icon-16.png', './icons/icon-32.png', './icons/favicon.ico',
+  './icons/test-icon-16.png', './icons/test-icon-32.png', './icons/test-favicon.ico'
 ];
 const SHELL_URLS = new Set(SHELL_FILES.map(path => new URL(path, self.registration.scope).href));
 
