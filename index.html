@@ -4402,16 +4402,15 @@ function openTopMealActionMenu(day,category,meal,fromLinkedGroup=false,cookingOv
   panel.style.cssText='background:#fff;color:#242424;border-radius:16px;padding:22px;width:100%;max-width:480px;box-shadow:0 12px 36px #0003';
   const heading=document.createElement('div');
   heading.textContent=meal.name||'Meal options';
-  heading.style.cssText='font-size:19px;font-weight:600;margin-bottom:18px';
-  panel.append(heading);
+  heading.style.cssText='font-size:19px;font-weight:600;min-width:0;flex:1;overflow-wrap:anywhere;padding-top:10px';
+  const header=document.createElement('div');header.style.cssText='display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px';
+  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close meal options');close.style.cssText+=';width:44px;height:44px;min-width:44px;min-height:44px;flex:0 0 44px';close.onclick=()=>overlay.remove();
+  header.append(heading,close);panel.append(header);
   const actions=document.createElement('div');
   actions.style.cssText='display:flex;flex-direction:column;gap:12px';
   const options=[['Open recipe',()=>openSavedMealRecipe(meal,cookingOverride||currentRecipeContext(day,category,meal))],['Edit meal',()=>fromLinkedGroup?openLinkedMealEditorInline(meal):openEditor(meal.id)],['Edit grocery list',()=>openTopIngredientChooser(meal)]];
   if(day)options.push(['Change '+day+"'s meal",()=>openWeekdayMealChooser(day,category,meal)]);
-  options.push(
-    ['Edit last cooked date',()=>editMealCookedDate(meal)],
-    ['Cancel',()=>{}]
-  );
+  options.push(['Edit last cooked date',()=>editMealCookedDate(meal)]);
   options.forEach(([label,action])=>{
     const button=document.createElement('button');
     button.type='button';button.className='smallbtn';button.textContent=label;
