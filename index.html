@@ -834,6 +834,18 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 #recipeViewer .recipe-sync-relevant{background:#edf3fb;}
 #recipeViewer .recipe-pane:focus-visible{outline:2px solid #5876ad;outline-offset:-2px;}
 #recipeIngredientLinks{margin:12px 0;padding:10px;border:1px solid #ddd;border-radius:9px;}
+/* Compact touch-screen landscape uses pane widths; desktop/portrait stay stacked. */
+#recipeViewer.recipe-split.recipe-landscape .recipe-viewer-content{max-width:none;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));}
+#recipeViewer.recipe-split.recipe-landscape .recipe-header{margin:6px 0;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-header h1{max-height:2.5em;overflow:auto;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-panes{flex-direction:row;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-pane{min-width:0;height:100%;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-ingredients-pane{height:100%;width:calc((100% - 44px) * var(--recipe-split-ratio,.5));}
+#recipeViewer.recipe-split.recipe-landscape .recipe-instructions-pane{min-width:0;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-divider{width:44px;height:auto;align-self:stretch;cursor:col-resize;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-divider::before{top:0;bottom:0;left:17px;right:auto;width:10px;height:auto;border-block:0;border-inline:1px solid #e5e8eb;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-divider::after{width:3px;height:44px;}
+
 #recipeIngredientLinks summary{cursor:pointer;font-size:14px;}
 #recipeIngredientLinks .recipe-link-choices{max-height:240px;overflow-y:auto;}
 #recipeIngredientLinks .recipe-link-choices label{display:flex;align-items:center;gap:8px;min-height:32px;margin:0;padding:0;}
@@ -1117,8 +1129,8 @@ function cleanInstructionBlock(block){
  return {...block,text,type:heading?'section':block.type};
 }
 const RECIPE_VIEW_PREFS_KEY='mealRotationRecipeViewPrefsV1';
-let recipeViewPrefs={mode:'full',ratio:.4,syncIngredients:false,autoCompleteIngredients:false,keepScreenAwake:true,autoOpenLinkedRecipes:false};
-try{const p=JSON.parse(localStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null');if(p&&['full','split'].includes(p.mode)&&Number.isFinite(p.ratio))recipeViewPrefs={mode:p.mode,ratio:Math.max(.1,Math.min(.9,p.ratio)),syncIngredients:p.syncIngredients===true,autoCompleteIngredients:p.autoCompleteIngredients===true,keepScreenAwake:p.keepScreenAwake!==false,autoOpenLinkedRecipes:p.autoOpenLinkedRecipes===true}}catch(e){}
+let recipeViewPrefs={mode:'full',ratio:.4,landscapeRatio:.5,syncIngredients:false,autoCompleteIngredients:false,keepScreenAwake:true,autoOpenLinkedRecipes:false};
+try{const p=JSON.parse(localStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null');if(p&&['full','split'].includes(p.mode)&&Number.isFinite(p.ratio))recipeViewPrefs={mode:p.mode,ratio:Math.max(.1,Math.min(.9,p.ratio)),landscapeRatio:Number.isFinite(p.landscapeRatio)?Math.max(.1,Math.min(.9,p.landscapeRatio)):.5,syncIngredients:p.syncIngredients===true,autoCompleteIngredients:p.autoCompleteIngredients===true,keepScreenAwake:p.keepScreenAwake!==false,autoOpenLinkedRecipes:p.autoOpenLinkedRecipes===true}}catch(e){}
 function saveRecipeViewPrefs(){try{localStorage.setItem(RECIPE_VIEW_PREFS_KEY,JSON.stringify(recipeViewPrefs))}catch(e){/* Keep viewing available when preferences cannot be saved. */}}
 // Recipe associations use existing content tokens, never schedule positions or progress state.
 function syncIngredientHeading(text){
@@ -1276,38 +1288,66 @@ function installRecipeIngredientLinkEditor(meal){
 }
 
 function configureRecipeSplit(v,divider,panes){
+ v.dividerGestureCleanup?.();v.resizeObserver?.disconnect();
+ const events=new AbortController(),signal=events.signal,tab=v.activeTab;
+ const landscape=()=>recipeViewingMode()==='split'&&matchMedia('(orientation: landscape) and (max-height: 600px) and (max-width: 1100px) and (pointer: coarse)').matches;
+ const restoreSaved=v.restoreTabScroll,children=[...panes.querySelectorAll('.recipe-pane')];let drag=null,frame=0,changing=false,positions=tab.splitPlace||null,geometry='';
+ const axis=()=>v.cover.classList.contains('recipe-landscape');
+ const extent=()=>Math.max(1,(axis()?panes.clientWidth-divider.offsetWidth:panes.clientHeight-divider.offsetHeight));
+ const snapshot=()=>children.map(pane=>{
+  const box=pane.getBoundingClientRect(),nodes=[...pane.querySelectorAll('[data-cooking-token],h2,h3,.recipe-linked-link,.recipe-viewer-notes,.recipe-original')];
+  const index=nodes.findIndex(node=>node.getBoundingClientRect().bottom>box.top+1),node=nodes[index],rect=node?.getBoundingClientRect();
+  return {scroll:pane.scrollTop,index,token:node?.dataset.cookingToken||'',fraction:rect&&rect.top<box.top?Math.min(1,(box.top-rect.top)/Math.max(1,rect.height)):0,offset:rect?Math.max(0,rect.top-box.top):0};
+ });
+ const restore=saved=>{if(!saved)return;children.forEach((pane,i)=>{
+  const place=saved[i];if(!place)return;const nodes=[...pane.querySelectorAll('[data-cooking-token],h2,h3,.recipe-linked-link,.recipe-viewer-notes,.recipe-original')],node=(place.token&&nodes.find(node=>node.dataset.cookingToken===place.token))||nodes[place.index];
+  const box=pane.getBoundingClientRect(),rect=node?.getBoundingClientRect();pane.scrollTo({top:rect?pane.scrollTop+rect.top-box.top+place.fraction*rect.height-place.offset:place.scroll,behavior:'instant'});
+ })};
+ const remember=()=>{if(!changing&&recipeViewingMode()==='split'){positions=snapshot();tab.splitPlace=positions;tab.paneScroll=children.map(p=>p.scrollTop)}};
+ v.rememberSplitViewport=remember;
+ const freeze=()=>{v.syncGeometryHold=true;v.syncRequested=false;v.cancelIngredientSync?.();cancelRecipeAdvance(v)};
  const setRatio=(ratio,save=false)=>{
-  const available=Math.max(1,panes.clientHeight-divider.offsetHeight),min=Math.min(96,available*.35);
+  const available=extent(),min=Math.min(axis()?180:96,available*(axis()?0.4:0.35));
   const clamped=Math.max(min/available,Math.min(1-min/available,ratio));
+  const before=save?snapshot():null;if(save)freeze();
   v.cover.style.setProperty('--recipe-split-ratio',clamped);divider.setAttribute('aria-valuenow',String(Math.round(clamped*100)));
-  if(save){if(v.activeTab)v.activeTab.ratio=clamped;recipeViewPrefs.ratio=clamped;saveRecipeViewPrefs()}
+  if(save){const key=axis()?'landscapeRatio':'ratio';tab[key]=clamped;recipeViewPrefs[key]=clamped;saveRecipeViewPrefs();restore(before);remember()}
  };
- v.resizeObserver?.disconnect();
- if(typeof ResizeObserver==='function'){v.resizeObserver=new ResizeObserver(()=>{if(recipeViewingMode()==='split')setRatio(recipeSplitRatio())});v.resizeObserver.observe(panes);}
- v.dividerGestureCleanup?.();
- const events=new AbortController(),signal=events.signal;let drag=null;
- const begin=(y,source,id)=>{v.syncDividerDragging=true;v.syncGeometryHold=true;v.cancelIngredientSync?.();drag={source,id,offset:y-divider.getBoundingClientRect().top}};
- const move=y=>{if(!drag)return;const box=panes.getBoundingClientRect();setRatio((y-box.top-drag.offset)/Math.max(1,box.height-divider.offsetHeight),true)};
  const end=()=>{const old=drag;drag=null;v.syncDividerDragging=false;if(old?.source==='pointer'&&divider.hasPointerCapture(old.id))divider.releasePointerCapture(old.id)};
- v.dividerGestureCleanup=()=>{end();events.abort()};
- divider.addEventListener('touchstart',e=>{if(e.cancelable)e.preventDefault();e.stopPropagation();if(e.touches.length!==1||drag){end();return}const t=e.changedTouches[0];begin(t.clientY,'touch',t.identifier)},{signal,passive:false});
- divider.addEventListener('touchmove',e=>{if(drag?.source!=='touch')return;const t=[...e.changedTouches].find(t=>t.identifier===drag.id);if(!t)return;if(e.cancelable)e.preventDefault();e.stopPropagation();move(t.clientY)},{signal,passive:false});
- divider.addEventListener('touchend',e=>{if(drag?.source!=='touch'||![...e.changedTouches].some(t=>t.identifier===drag.id))return;if(e.cancelable)e.preventDefault();e.stopPropagation();end()},{signal,passive:false});
+ const layout=()=>{v.cover.classList.toggle('recipe-landscape',landscape());divider.setAttribute('aria-orientation',axis()?'vertical':'horizontal');setRatio(recipeSplitRatio())};
+ const signature=()=>[landscape(),panes.clientWidth,panes.clientHeight,innerWidth,innerHeight].join(':');
+ const reflow=()=>{
+  if(recipeViewer!==v)return;const next=signature();if(next===geometry)return;
+  end();v.cancelTabDrag?.();freeze();const saved=positions||snapshot();changing=true;cancelAnimationFrame(frame);layout();geometry=signature();
+  if(recipeViewingMode()!=='split'){changing=false;return}
+  // Keep semantic anchors through wrapping and Android viewport-bar settling.
+  frame=requestAnimationFrame(()=>{restore(saved);frame=requestAnimationFrame(()=>{restore(saved);changing=false;remember()})});
+ };
+ layout();geometry=signature();
+ frame=requestAnimationFrame(()=>{if(restoreSaved&&positions&&recipeViewingMode()==='split')restore(positions);remember()});
+ for(const pane of children)pane.addEventListener('scroll',remember,{signal,passive:true});
+ window.addEventListener('resize',reflow,{signal});window.visualViewport?.addEventListener('resize',reflow,{signal});
+ if(typeof ResizeObserver==='function'){v.resizeObserver=new ResizeObserver(reflow);v.resizeObserver.observe(panes)}
+ const begin=(x,y,source,id)=>{freeze();v.syncDividerDragging=true;const box=divider.getBoundingClientRect();drag={source,id,offset:axis()?x-box.left:y-box.top,landscape:axis()}};
+ const move=(x,y)=>{if(!drag)return;if(drag.landscape!==axis()){end();return}const box=panes.getBoundingClientRect();setRatio(((axis()?x-box.left:y-box.top)-drag.offset)/extent(),true)};
+ v.dividerGestureCleanup=()=>{end();events.abort();cancelAnimationFrame(frame);v.rememberSplitViewport=null};
+ divider.addEventListener('touchstart',e=>{if(e.cancelable)e.preventDefault();e.stopPropagation();if(e.touches.length!==1||drag){end();return}const t=e.changedTouches[0];begin(t.clientX,t.clientY,'touch',t.identifier)},{signal,passive:false});
+ divider.addEventListener('touchmove',e=>{if(drag?.source!=='touch')return;const t=[...e.changedTouches].find(t=>t.identifier===drag.id);if(!t)return;if(e.cancelable)e.preventDefault();e.stopPropagation();move(t.clientX,t.clientY)},{signal,passive:false});
+ divider.addEventListener('touchend',e=>{if(drag?.source!=='touch'||![...e.changedTouches].some(t=>t.identifier===drag.id))return;if(e.cancelable)e.preventDefault();e.stopPropagation();end();remember()},{signal,passive:false});
  divider.addEventListener('touchcancel',()=>{if(drag?.source==='touch')end()},{signal});
- divider.onpointerdown=e=>{if(e.pointerType==='touch'||e.button!==0)return;e.preventDefault();e.stopPropagation();begin(e.clientY,'pointer',e.pointerId);divider.setPointerCapture(e.pointerId)};
- divider.onpointermove=e=>{if(drag?.source!=='pointer'||drag.id!==e.pointerId)return;e.preventDefault();e.stopPropagation();move(e.clientY)};
- divider.onpointerup=divider.onpointercancel=e=>{if(drag?.source==='pointer'&&drag.id===e.pointerId){e.preventDefault();e.stopPropagation();end()}};
+ divider.onpointerdown=e=>{if(e.pointerType==='touch'||e.button!==0)return;e.preventDefault();e.stopPropagation();begin(e.clientX,e.clientY,'pointer',e.pointerId);divider.setPointerCapture(e.pointerId)};
+ divider.onpointermove=e=>{if(drag?.source!=='pointer'||drag.id!==e.pointerId)return;e.preventDefault();e.stopPropagation();move(e.clientX,e.clientY)};
+ divider.onpointerup=divider.onpointercancel=e=>{if(drag?.source==='pointer'&&drag.id===e.pointerId){e.preventDefault();e.stopPropagation();end();remember()}};
  divider.onlostpointercapture=e=>{if(e.target===divider&&drag?.source==='pointer'&&drag.id===e.pointerId)end()};divider.onclick=e=>{e.preventDefault();e.stopPropagation()};
  window.addEventListener('blur',end,{signal});document.addEventListener('visibilitychange',()=>{if(document.hidden)end()},{signal});
- divider.onkeydown=e=>{const delta={ArrowUp:-.05,ArrowDown:.05,Home:-1,End:1}[e.key];if(delta!==undefined){e.preventDefault();v.syncGeometryHold=true;v.cancelIngredientSync?.();setRatio(recipeSplitRatio()+delta,true)}};
- if(recipeViewingMode()==='split')setRatio(recipeSplitRatio());
+ divider.onkeydown=e=>{const delta=(axis()?{ArrowLeft:-.05,ArrowRight:.05,Home:-1,End:1}:{ArrowUp:-.05,ArrowDown:.05,Home:-1,End:1})[e.key];if(delta!==undefined){e.preventDefault();setRatio(recipeSplitRatio()+delta,true)}};
 }
 
 let recipeViewer=null,recipeViewerHistoryClosing=false;
 // Keep content identity separate from schedule identity. A viewer deck owns its
 // temporary (unscheduled) states; persisted progress still uses the existing keys.
 function recipeViewingMode(){return recipeViewer?.activeTab?.mode||recipeViewPrefs.mode}
-function recipeSplitRatio(){return recipeViewer?.activeTab?.ratio??recipeViewPrefs.ratio}
+function recipeSplitRatio(){return recipeViewer?.cover.classList.contains('recipe-landscape')?(recipeViewer.activeTab?.landscapeRatio??recipeViewPrefs.landscapeRatio??.5):(recipeViewer?.activeTab?.ratio??recipeViewPrefs.ratio)}
 function recipePlanEntries(planId){
  const plan=mealPlans.find(p=>String(p.id)===String(planId));if(!plan)return [];
  return getDisplayedWeekdayMealsForPlan(String(plan.id)===String(activePlanId)?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan);
@@ -1336,7 +1376,7 @@ function viewerRecipeContext(meal,context){
 }
 function recipeTabKey(meal,context){return context?'occurrence:'+cookingOccurrenceKey(context):'preview:'+String(meal.id)}
 function createRecipeTab(meal,context,mode=recipeViewPrefs.mode,ratio=recipeViewPrefs.ratio){
- return {key:recipeTabKey(meal,context),mealId:String(meal.id),context,mode,ratio,previewProgress:{ingredients:[],steps:[]},previewScale:1,coverScroll:0,paneScroll:[0,0],recipeContent:{ingredients:meal.ingredients,instructions:meal.instructions}};
+ return {key:recipeTabKey(meal,context),mealId:String(meal.id),context,mode,ratio,landscapeRatio:recipeViewPrefs.landscapeRatio??.5,previewProgress:{ingredients:[],steps:[]},previewScale:1,coverScroll:0,paneScroll:[0,0],recipeContent:{ingredients:meal.ingredients,instructions:meal.instructions}};
 }
 function installRecipeViewerTabs(view,meal,context,saved=null){
  const initial=createRecipeTab(meal,viewerRecipeContext(meal,context));
@@ -1359,7 +1399,7 @@ function installRecipeViewerTabs(view,meal,context,saved=null){
 }
 function captureRecipeTab(view){
  const tab=view.activeTab;if(!tab)return;
- if(recipeViewingMode()==='full')tab.coverScroll=view.cover.scrollTop;else tab.paneScroll=[...view.content.querySelectorAll('.recipe-pane')].map(p=>p.scrollTop);tab.focusToken=document.activeElement?.dataset.cookingToken;
+ if(recipeViewingMode()==='full')tab.coverScroll=view.cover.scrollTop;else{view.rememberSplitViewport?.();tab.paneScroll=[...view.content.querySelectorAll('.recipe-pane')].map(p=>p.scrollTop)}tab.focusToken=document.activeElement?.dataset.cookingToken;
  for(const pane of view.content.querySelectorAll('.recipe-pane'))pane.scrollTo({top:pane.scrollTop,behavior:'instant'});
 }
 function snapshotRecipeTabs(view){view.cancelTabDrag?.();captureRecipeTab(view);return {tabs:[...view.tabs],cache:new Map(view.tabCache),active:view.activeTab,anchor:view.anchorTab}}
