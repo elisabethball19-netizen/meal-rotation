@@ -14,8 +14,8 @@ def meal(i,identifier,name='Crispy Fish Tacos',**extra):
 MEALS=[meal(1,SAGE,rotation=True,linkGroup='original-fish'),meal(2,SAGE,cat='Dinner',instructions=None,linkGroup='original-fish'),meal(3,SAGE2,instructions='My edited step. Keep overnight.'),meal(4,'partial',instructions=['Heat oil.']),meal(5,'heading',instructions=[{'type':'section','text':'Sauce'}]),meal(6,'placeholder',instructions='Instructions unavailable.'),meal(7,'associations',instructions=[],ingredientStepLinks=[{'step':'old-token','ingredients':['old-ing']}]),meal(8,'progress',instructions=[]),meal(9,'ambiguous-title',name='Shared Title'),meal(10,'conflict',name='Conflicting source',recipeSageId='different-id'),meal(11,'empty-source'),meal(12,'duplicate-source'),meal(13,'duplicate-library'),meal(14,'duplicate-library'),meal(15,'renamed',name='My renamed fish'),meal(16,'no-corroboration',name='Changed title',ingredients=['1 carrot']),meal(17,'url-fallback',importSourceId='',recipeSageId='',sourceUrl='https://original.test/fallback',url='https://original.test/fallback'),meal(18,'unproven',importSourceId='',recipeSageId='',sourceUrl='',url='https://manual.test/recipe',instructions=''),meal(19,'missing-file'),meal(50,'side',name='Side',cat='Sides',rotation=False,instructions='Boil rice.'),meal(51,'same-title-other',name='Shared Title',instructions='Existing other recipe.')]
 SOURCES=[source(SAGE),source(SAGE2),source('partial'),source('heading'),source('placeholder'),source('associations'),source('progress',instructions=[]),source('new-same-title','Shared Title'),source('other-same-title','Shared Title'),source('conflict','Conflicting source'),source('empty-source',instructions=[]),source('duplicate-source'),source('duplicate-source',instructions='Different source steps.'),source('duplicate-library'),source('renamed'),source('no-corroboration'),source('',url='https://original.test/fallback'),source('brand-new','A recipe absent from working data')]
 HOOK="""window.repairTest={
- open:()=>openRecipeInstructionRepair(repairBackup),
- items:r=>recipeImportItems(r),identity:r=>recipeImportIdentity(recipeImportItems([r])[0]),plan:(r,library=meals)=>recipeRepairPlan(recipeImportItems(r),library).rows.map(x=>({id:x.meal.id,match:x.match,ready:!!x.instructions,reason:x.reason,instructions:x.instructions})),
+ schedule:()=>({mealPlans,weekdayCategories,entries:mealPlans.map(p=>getDisplayedWeekdayMealsForPlan(p))}),open:()=>openRecipeInstructionRepair(repairBackup),
+ items:r=>recipeImportItems(r),identity:r=>recipeImportIdentity(recipeImportItems([r])[0]),plan:(r,library=meals)=>recipeRepairPlan(recipeImportItems(r),library).rows.map(x=>({id:x.meal.id,match:x.match,ready:x.instructions!==null,reason:x.reason,instructions:x.instructions})),
  state:()=>({cats,active,meals,sessions:cookingSessions,scales:occurrenceScales,prefs:recipeViewPrefs}),
  storage:()=>repairBackup.capture(),restore:b=>{repairBackup.restore(repairBackup.normalize(b));backupRestoreReloadPending=true},normal:r=>showRecipeImportSelection(recipeImportItems(r),'audit.json'),
  extract:(raw)=>extractCompleteRecipe(raw,'https://source.test/recipe','Fixture'),
@@ -23,23 +23,23 @@ HOOK="""window.repairTest={
  seedProgress:()=>{const edited=meals.find(m=>m.id===3),items=cookingItemTokens(edited);edited.ingredientStepLinks=[{step:items.steps.find(x=>x.token).token,ingredients:[items.ingredients[0].token]}];persist();for(const day of ['Tuesday','Friday']){const m=meals.find(m=>m.id===1),c=cookingContext('original',day,m.cat,m),ing=cookingItemTokens(m).ingredients[0].token;cookingSessions.occurrences[cookingOccurrenceKey(c)]={id:day,context:c,ingredients:day==='Tuesday'?[ing]:[],steps:[],autoIngredients:[],ingredientOverrides:{[ing]:day==='Tuesday'}};occurrenceScales.occurrences[cookingOccurrenceKey(c)]={context:c,multiplier:day==='Tuesday'?2:0.5}}localStorage.setItem(COOKING_SESSIONS_KEY,JSON.stringify(cookingSessions));localStorage.setItem(OCCURRENCE_SCALES_KEY,JSON.stringify(occurrenceScales))},
  show:(day='Tuesday')=>openRecipeViewer(meals.find(m=>m.id===1),cookingContext('original',day,meals.find(m=>m.id===1).cat,meals.find(m=>m.id===1))),persist:()=>persist(),
  fail:()=>{const original=localStorage.setItem.bind(localStorage);localStorage.setItem=(k,v)=>{if(k==='mealRotationDataV1')throw Error('QuotaExceededError');original(k,v)};window.repairRestoreWrite=()=>{localStorage.setItem=original}},
- saveProgress:()=>writeCookingSessions(cookingSessions),
+ saveProgress:()=>writeCookingSessions(cookingSessions),saveScales:()=>localStorage.setItem(OCCURRENCE_SCALES_KEY,JSON.stringify(occurrenceScales)),
  mutate:()=>{meals.find(m=>m.id===1).notes+=' changed';persist()}
 };"""
 
-def setup(browser,filename,width):
+def setup(browser,filename,width,library=None,seed_progress=True,weekdays=None):
     ctx=browser.new_context(viewport={'width':width,'height':851},is_mobile=width<600,has_touch=width<600,accept_downloads=True)
     page=ctx.new_page();page.set_default_timeout(10000);errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
     storage='testStorage' if filename.startswith('meal-') else 'localStorage';prefix='mealRotationTestSandboxV1:' if storage=='testStorage' else ''
     src=(ROOT/filename).read_text().replace('function validateBackupCore(d){','window.repairBackup={capture:captureBackupStorage,validate:validateBackupStorage,restore:restoreBackupStorage,normalize:normalizeImportedBackup};function validateBackupCore(d){')
     src=src.replace('resumeRecipeViewer();})();','resumeRecipeViewer();'+HOOK.replace('localStorage',storage)+'})();')
-    seed={prefix+'mealRotationDataV1':json.dumps({'cats':['Fish','Dinner','Sides'],'active':'Fish','meals':MEALS}),prefix+'mealRotationWeekdayCategoriesV1':json.dumps({'Tuesday':['Fish'],'Friday':['Fish']}),prefix+'mealRotationRecipeViewPrefsV1':json.dumps({'mode':'split','ratio':.4,'syncIngredients':True,'autoCompleteIngredients':True,'keepScreenAwake':False}),prefix+'mealRotationSelectedIngredientsV1':json.dumps({'1':['2 fish fillets']}),prefix+'mealRotationCheckedIngredientsV1':json.dumps(['1 cup flour']),prefix+'mealRotationCustomSettingV9':'preserve-unknown-setting',prefix+'mealRotationTutorialStageV1':'done'}
+    seed={prefix+'mealRotationDataV1':json.dumps({'cats':['Fish','Dinner','Sides'],'active':'Fish','meals':MEALS if library is None else library}),prefix+'mealRotationWeekdayCategoriesV1':json.dumps(weekdays or {'Tuesday':['Fish'],'Friday':['Fish']}),prefix+'mealRotationRecipeViewPrefsV1':json.dumps({'mode':'split','ratio':.4,'syncIngredients':True,'autoCompleteIngredients':True,'keepScreenAwake':False}),prefix+'mealRotationSelectedIngredientsV1':json.dumps({'1':['2 fish fillets']}),prefix+'mealRotationCheckedIngredientsV1':json.dumps(['1 cup flour']),prefix+'mealRotationCustomSettingV9':'preserve-unknown-setting',prefix+'mealRotationTutorialStageV1':'done'}
     if prefix:seed['mealRotationDataV1']='WORKING APP SENTINEL';seed['mealRotationCookingSessionsV1']='WORKING PROGRESS SENTINEL'
     page.add_init_script('if(!sessionStorage.seed){for(const[k,v]of Object.entries('+json.dumps(seed)+'))localStorage.setItem(k,v);sessionStorage.seed="1";}')
     page.route('http://meal.test/**',lambda route:route.fulfill(status=200,content_type='text/html',body=src) if route.request.url.endswith(filename) else route.fulfill(status=200,body=''))
     page.route('https://**/*',lambda route:route.fulfill(status=200,body=''))
     page.goto('http://meal.test/'+filename)
-    page.evaluate('repairTest.seedProgress()')
+    if seed_progress:page.evaluate('repairTest.seedProgress()')
     return ctx,page,errors,prefix
 
 def upload(page,name,data,filename='recipesage.json'):
@@ -65,7 +65,7 @@ def run(browser,filename,width):
     page.get_by_role('button',name='Settings and backups',exact=True).click()
     page.locator('details[data-settings-group="backups"]').evaluate('(e)=>e.open=true')
     baseline=copy.deepcopy(state());saved=storage()
-    page.get_by_role('button',name='Restore Missing Instructions from RecipeSage File',exact=True).click()
+    page.get_by_role('button',name='Repair RecipeSage Imports',exact=True).click()
     assert page.locator('#recipeInstructionRepair').is_visible()
     assert storage()==saved and state()==baseline
     page.evaluate('repairTest.corruptProgress()'); plan=page.evaluate('(r)=>repairTest.plan(r)',SOURCES)

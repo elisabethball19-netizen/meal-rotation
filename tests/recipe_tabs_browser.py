@@ -23,11 +23,17 @@ def run(browser,filename,width):
     def state():return page.evaluate('tabTest.state()')
     def op(i=1,day='Tuesday',parent=''):page.evaluate('(a)=>tabTest.open(...a)',[i,day,parent])
     def tabs():return page.locator('#recipeViewer .recipe-tab-strip [role=tab]')
-    def select(name):page.locator('#recipeViewer .recipe-tab-strip').get_by_role('tab').filter(has_text=name).click()
+    def select(name):page.locator('#recipeViewer .recipe-tab-strip').get_by_role('tab',name=name,exact=True).click()
     def step(n=0):return page.locator('.recipe-viewer-steps .cooking-item').nth(n)
     def ingredient(n=0):return page.locator('.recipe-viewer-ingredients .cooking-item').nth(n)
     def button(name):return page.get_by_role('button',name=name,exact=True)
     def option(name,value):
+        if name=='Automatically open linked recipes in tabs':
+            current=state();ctx=current['context'];close();page.locator('#settings').click()
+            group=page.locator('#settingsPanel details[data-settings-group=display]')
+            if not group.evaluate('(e)=>e.open'):group.locator('summary').click()
+            page.get_by_label(name,exact=True).set_checked(value);button('Save settings').click();op(int(current['active']),ctx['day'] if ctx else None,ctx['parentId'] if ctx else '')
+            return
         if not page.locator('#recipeViewerSettings').is_visible():button('Recipe settings').click()
         page.get_by_label(name,exact=True).set_checked(value);button('Close settings').click()
     def scale(value):button('Scale Recipe').click();page.get_by_role('menuitemradio',name=value,exact=True).click()
