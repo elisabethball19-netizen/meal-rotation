@@ -4619,27 +4619,40 @@ function preserveOtherMealPlanChoices(day,category){
 // reorder does not unexpectedly rotate unrelated Breakfast/Lunch/Dinner meals.
 // One-step restore of the display immediately before the most recent rotation.
 // Kept separately from general Undo so the dedicated arrow remains available after a reload.
+// Shared close header for the rotation menus and their empty-history message.
+function appendRotationCloseHeader(panel,message,dismiss,compact=false){
+ const header=document.createElement('div');header.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:'+(compact?'0':'18px');
+ const heading=document.createElement('h3');heading.textContent=message;heading.style.cssText='font-size:19px;font-weight:600;margin:0;min-width:0;flex:1;overflow-wrap:anywhere';
+ const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close');close.style.cssText+=';width:44px;height:44px;min-width:44px;min-height:44px;flex:0 0 44px';close.onclick=dismiss;
+ header.append(heading,close);panel.append(header);
+}
+function showNoPreviousRotation(){
+ const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;z-index:20000;background:#0008;display:flex;align-items:center;justify-content:center;padding:18px';
+ const panel=document.createElement('div');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','No previous rotation to restore.');panel.style.cssText='background:#fff;color:#242424;border-radius:16px;padding:16px 18px;width:100%;max-width:480px;box-shadow:0 12px 36px #0003';
+ appendRotationCloseHeader(panel,'No previous rotation to restore.',()=>overlay.remove(),true);
+ overlay.append(panel);overlay.addEventListener('click',event=>{if(event.target===overlay)overlay.remove()});overlay.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();overlay.remove()}});document.body.append(overlay);panel.querySelector('button').focus({preventScroll:true});
+}
 const ROTATION_BACK_KEY='mealRotationLastRotationBeforeV1';
 function rotateAllBack(){
  let previous;
  try{previous=JSON.parse(testStorage.getItem(ROTATION_BACK_KEY)||'null')}catch(e){}
  if(!previous||!Array.isArray(previous.meals)||!Array.isArray(previous.mealPlans)){
-  appDialog('No previous rotation to restore.','','alert');return;
+  showNoPreviousRotation();return;
  }
  clearCookingForCycleBack(previous);
  snapshot();
  try{testStorage.removeItem(ROTATION_BACK_KEY)}catch(e){}
  restoreState(previous);
 }
-// Offer the same all/select/cancel choices for the one-step rotation restore.
+// Offer all/select choices; closing leaves the one-step rotation history intact.
 function openRotateBackOptions(){
  const previous=readPreviousRotation();
- if(!previous){appDialog('No previous rotation to restore.','','alert');return;}
+ if(!previous){showNoPreviousRotation();return;}
  const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10002;display:flex;align-items:center;justify-content:center;padding:18px';
  const panel=document.createElement('div');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Rotate back recipes');panel.style.cssText='background:#fff;color:#242424;border-radius:16px;padding:22px;width:100%;max-width:480px;box-shadow:0 12px 36px #0003';
- const heading=document.createElement('div');heading.textContent='Rotate back recipes';heading.style.cssText='font-size:19px;font-weight:600;margin-bottom:18px';panel.append(heading);
+ appendRotationCloseHeader(panel,'Rotate back recipes',()=>overlay.remove());
  const actions=document.createElement('div');actions.style.cssText='display:flex;flex-direction:column;gap:12px';
- [['Rotate back all recipes',rotateAllBack],['Select recipes to rotate back',openRotateBackChooser],['Cancel',()=>{}]].forEach(([label,action])=>{const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=label;button.style.cssText='padding:12px 14px;width:100%;font-size:16px';button.onclick=()=>{overlay.remove();action()};actions.append(button)});
+ [['Rotate back all recipes',rotateAllBack],['Select recipes to rotate back',openRotateBackChooser]].forEach(([label,action])=>{const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=label;button.style.cssText='padding:12px 14px;width:100%;font-size:16px';button.onclick=()=>{overlay.remove();action()};actions.append(button)});
  panel.append(actions);overlay.append(panel);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});overlay.addEventListener('keydown',e=>{if(e.key==='Escape')overlay.remove()});document.body.append(overlay);
 }
 function readPreviousRotation(){
@@ -4702,7 +4715,7 @@ function rotateSelectedBack(selected){
  resetGroceriesForNewTopMeals(beforeIds);topIngredientExpanded.clear();topIngredientManualHiddenOverride.clear();persist();renderTabs();renderList();
 }
 function openRotateBackChooser(){
- const previous=readPreviousRotation();if(!previous){appDialog('No previous rotation to restore.','','alert');return;}
+ const previous=readPreviousRotation();if(!previous){showNoPreviousRotation();return;}
  const currentPlans=new Map(mealPlans.map(plan=>[plan.id,getDisplayedWeekdayMealsForPlan(plan)]));
  const choices=previousRotationSlots(previous).filter(item=>{
   const plan=mealPlans.find(p=>p.id===item.planId);if(!plan)return false;
@@ -4914,7 +4927,7 @@ function openRotateOptions(allTabs=false){
  overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10002;display:flex;align-items:center;justify-content:center;padding:18px';
  const panel=document.createElement('div');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Rotate out recipes');
  panel.style.cssText='background:#fff;color:#242424;border-radius:16px;padding:22px;width:100%;max-width:480px;box-shadow:0 12px 36px #0003';
- const heading=document.createElement('div');heading.textContent='Rotate out recipes';heading.style.cssText='font-size:19px;font-weight:600;margin-bottom:18px';panel.append(heading);
+ appendRotationCloseHeader(panel,'Rotate out recipes',()=>overlay.remove());
  const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:18px;font-size:16px';
  const check=document.createElement('input');check.type='checkbox';check.checked=testStorage.getItem(ROTATE_MARK_COOKED_KEY)==='true';check.style.cssText='width:21px;height:21px;flex:none';
  check.onchange=()=>{try{testStorage.setItem(ROTATE_MARK_COOKED_KEY,String(check.checked))}catch(e){}};
@@ -4923,7 +4936,6 @@ function openRotateOptions(allTabs=false){
  function option(text,fn){const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=text;b.style.cssText='padding:12px 14px;width:100%;font-size:16px';b.onclick=()=>{const mark=check.checked;overlay.remove();fn(mark)};actions.append(b)}
  option('Rotate out all recipes',mark=>moveDisplayedMealsToBottom(null,allTabs,mark));
  option('Select recipes to rotate out',mark=>openMoveMealChooser(allTabs,mark));
- option('Cancel',()=>{});
  panel.append(actions);overlay.append(panel);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
  overlay.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();overlay.remove()}});document.body.append(overlay);
 }
