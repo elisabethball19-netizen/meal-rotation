@@ -32,8 +32,6 @@ def cycle(p,days=None,mark=True):
  else:p.evaluate('([days,mark])=>dateTest.cycle(days.map(day=>day+"::Mains"),mark)',[days,mark])
 def dates(p):return f.local_dates(p)
 def planned(p,day):return p.evaluate('integrityTest.date',day)
-def notice(p):
- if p.get_by_role('alertdialog').count():p.get_by_role('alertdialog').get_by_role('button',name='OK',exact=True).tap()
 def check(ctx,p,errors,prefix):
  if prefix:assert p.evaluate("localStorage.getItem('mealRotationDataV1')")=='WORKING SENTINEL'
  assert not errors,errors;ctx.close()
@@ -77,10 +75,10 @@ def history_rules(browser,name,width):
 
 def legacy_and_boundaries(browser,name):
  ctx,p,errors,prefix=create(browser,name,legacy=True);p.evaluate('integrityTest.noDates()');f.clock(p,'2026-11-03');cycle(p,['Tuesday']);assert dates(p)['1'] is None
- assert 'no verified calendar date' in p.get_by_role('alertdialog').inner_text();notice(p);assert planned(p,'Tuesday')=='2026-11-03'
+ assert not p.get_by_role('alertdialog').count();assert planned(p,'Tuesday')=='2026-11-03'
  outgoing=next(r['id'] for r in rows(p) if r['planId']=='original' and r['day']=='Tuesday' and r['cat']=='Mains');cycle(p,['Tuesday']);assert dates(p)[str(outgoing)]=='2026-11-03' and planned(p,'Tuesday')=='2026-11-03'
  p.evaluate('integrityTest.legacyHistory()');old=p.evaluate('dateTest.dates()');p.evaluate('slotTest.back()');assert p.evaluate('dateTest.dates()')==old
- check(ctx,p,errors,prefix);print('PASS',name,'legacy unknown dates reported, no week subtraction or historical rewrite, later same-day cycle records correctly',flush=True)
+ check(ctx,p,errors,prefix);print('PASS',name,'legacy unknown dates quietly preserved, no week subtraction or historical rewrite, later same-day cycle records correctly',flush=True)
  cases=[('2026-12-29','2027-01-05','Tuesday','2026-12-29','UTC'),('2026-12-27','2027-01-03','Sunday','2026-12-29','UTC'),('2024-02-27','2024-03-05','Tuesday','2024-02-27','UTC'),('2026-03-03','2026-03-10','Tuesday','2026-03-03','America/New_York'),('2026-10-27','2026-11-03','Tuesday','2026-10-27','America/New_York'),('2026-10-27','2026-11-03','Tuesday','2026-10-27','Pacific/Kiritimati')]
  for start,end,weekday,want,zone in cases:
   ctx,p,errors,prefix=create(browser,name,start,start=weekday,zone=zone);p.evaluate('integrityTest.noDates()');f.clock(p,end,zone);cycle(p,['Tuesday']);assert dates(p)['1']==want,(start,end,weekday,zone,dates(p));check(ctx,p,errors,prefix)

@@ -213,6 +213,7 @@ body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inse
 .master-category-group-label{font-size:11px;letter-spacing:.08em;color:#666;padding:12px 0 5px;text-transform:uppercase;}
 .master-category-meal{display:flex;gap:5px;align-items:center;border-bottom:1px solid #eee;min-height:45px;padding:5px 0;}
 .master-category-meal:last-child{border-bottom:0;}
+.master-category-meal.featured-top-meal{padding-left:13px;}
 .master-category-meal-name{min-width:0;flex:1;text-align:left;background:none;border:0;font-size:15px;color:#242424;padding:5px 0;overflow-wrap:anywhere;}
 .master-category-meal .check{width:20px;height:20px;flex:0 0 20px;margin:0 5px 0 0;}
 .master-category-meal .iconbtn{flex:0 0 32px;width:32px;height:34px;min-width:32px;}
@@ -5190,7 +5191,6 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  topIngredientExpanded.clear();topIngredientManualHiddenOverride.clear();
  try{testStorage.setItem(ROTATION_BACK_KEY,JSON.stringify(rotationRecord))}catch(e){}
  persist();renderTabs();renderList();
- if(cookedResult.skipped.length)showAppMessage('Last-cooked dates kept: '+cookedResult.skipped.length+' outgoing recipe(s) had no verified calendar date. No dates were guessed. Replacements are now dated. Use Edit last cooked date to correct older history.');
 }
 // Cooking history is stored on the meal itself so existing data exports include it.
 function appendLastCookedLabel(parent,meal){
@@ -6041,6 +6041,7 @@ function openWeekdayMealChooser(day,category,currentMeal,occasional=false){
  function recipeButton(meal,showGroup=false){
   const button=document.createElement('button');button.type='button';button.className='weekday-meal-choice';button.dataset.mealId=String(meal.id);const selected=String(meal.id)===String(pendingMeal?.id);button.setAttribute('aria-pressed',String(selected));
   button.style.cssText='display:block;width:100%;min-height:45px;text-align:left;padding:5px 8px;margin:0;border:0;border-radius:8px;background:'+(highlights.featuredColorById.get(String(meal.id))||'white')+';color:#222;font-size:16px;overflow-wrap:anywhere';
+  if(highlights.featuredColorById.has(String(meal.id)))button.style.paddingLeft='13px';
   const name=document.createElement('span');name.textContent=meal.name||'Untitled meal';button.append(name);
   if(showGroup){const group=document.createElement('small');group.textContent=meal.cat;group.style.cssText='display:block;color:#666;font-size:12px;margin-top:3px';button.append(group)}
   const cooked=lastCookedLabel(meal);if(cooked){const info=document.createElement('span');info.className='weekday-choice-cooked';info.textContent=cooked;info.style.cssText='display:block;font-size:12px;color:#69717a;margin-top:3px';button.append(info)}
