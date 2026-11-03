@@ -20,6 +20,8 @@ def run():
       fixture.ROOT=root;ctx,p,errors,_=fixture.setup(browser,filename,width,multi=True);p.evaluate('([tabs,kind])=>cardTest.setup(tabs,kind)',[tabs,kind]);saved=p.evaluate('slotTest.storage()');new=geometry(p)
       assert new['body']==old['body'] and new['heading']==old['heading'],(filename,width,kind,new,old)
       assert new['radius']==old['radius'] and new['color']==old['color'] and new['width']==width and new['gap']>=10 and new['edge'],new
+      assert p.locator('.empty-weekday-meal').evaluate_all('(els)=>els.every(e=>e.getBoundingClientRect().height===40 && getComputedStyle(e).paddingTop==="3px" && getComputedStyle(e).paddingLeft==="14px")')
+      if kind=='single':assert new['body']==p.locator('.empty-weekday-meal').first.bounding_box()['height'],new
       assert new['heading']<30,new
       if filename.startswith('meal-') and width==360 and tabs:p.screenshot(path='/tmp/compact-cards-'+kind+'.png',full_page=True)
       p.locator('.weekday-heading').first.tap();p.get_by_role('button',name='Close',exact=True).tap();p.locator('.mealname').first.tap();p.get_by_role('button',name='Close meal options',exact=True).tap()

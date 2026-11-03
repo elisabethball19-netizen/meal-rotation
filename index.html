@@ -834,8 +834,8 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 /* Full-width weekday targets stay inside their own row, above recipe actions. */
 #list.top-summary > button.section.weekday-heading[role="button"]{display:flex;align-items:center;justify-content:flex-start;width:100%;box-sizing:border-box;border:0!important;text-align:left;touch-action:manipulation;}
 
-/* Keep empty-day messages compact; every card grows only for its own content. */
-#list.top-summary > .empty-weekday-meal{padding:3px 14px!important;}
+/* Match the single-meal body minimum only on empty days; keep existing padding. */
+#list.top-summary > .empty-weekday-meal{min-height:40px;padding:3px 14px!important;}
 /* Give the first rounded weekday edge clearance beneath the sticky cycle controls. */
 #list.top-summary > .weekday-heading:not(.weekday-heading ~ .weekday-heading){margin-top:10px!important;}
 
