@@ -32,6 +32,8 @@ def setup(browser,filename,width,library=None,seed_progress=True,weekdays=None):
     page=ctx.new_page();page.set_default_timeout(10000);errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
     storage='testStorage' if filename.startswith('meal-') else 'localStorage';prefix='mealRotationTestSandboxV1:' if storage=='testStorage' else ''
     src=(ROOT/filename).read_text().replace('function validateBackupCore(d){','window.repairBackup={capture:captureBackupStorage,validate:validateBackupStorage,restore:restoreBackupStorage,normalize:normalizeImportedBackup};function validateBackupCore(d){')
+    # Isolate the manual repair flow; test_auto_legacy_cleanup_browser.py covers authorized startup cleanup.
+    src=src.replace('render();runTestLegacyCleanupOnce();window.history','render();window.history')
     src=src.replace('resumeRecipeViewer();})();','resumeRecipeViewer();'+HOOK.replace('localStorage',storage)+'})();')
     seed={prefix+'mealRotationDataV1':json.dumps({'cats':['Fish','Dinner','Sides'],'active':'Fish','meals':MEALS if library is None else library}),prefix+'mealRotationWeekdayCategoriesV1':json.dumps(weekdays or {'Tuesday':['Fish'],'Friday':['Fish']}),prefix+'mealRotationRecipeViewPrefsV1':json.dumps({'mode':'split','ratio':.4,'syncIngredients':True,'autoCompleteIngredients':True,'keepScreenAwake':False}),prefix+'mealRotationSelectedIngredientsV1':json.dumps({'1':['2 fish fillets']}),prefix+'mealRotationCheckedIngredientsV1':json.dumps(['1 cup flour']),prefix+'mealRotationCustomSettingV9':'preserve-unknown-setting',prefix+'mealRotationTutorialStageV1':'done'}
     if prefix:seed['mealRotationDataV1']='WORKING APP SENTINEL';seed['mealRotationCookingSessionsV1']='WORKING PROGRESS SENTINEL'
