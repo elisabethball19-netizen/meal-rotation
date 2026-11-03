@@ -846,6 +846,7 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 /* Compact chooser rows and group headings mirror expanded Meal Groups. */
 .weekday-meal-picker .master-category-title{background:#f5f5f5;}
 .weekday-meal-picker .weekday-meal-choice:not(:last-child){border-bottom:1px solid #eee!important;}
+.weekday-meal-picker .master-meal-weekdays{display:block;margin-top:3px;font-size:11px;font-weight:600;letter-spacing:.02em;color:#5c6670;white-space:normal;}
 /* Internal recipe reading stays separate from the existing rotation and grocery views. */
 #recipeViewer{position:fixed;inset:0;max-width:100vw;max-height:100dvh;z-index:30000;background:#fff;color:#242424;overflow-y:auto;overscroll-behavior:contain;}
 #recipeViewer .recipe-viewer-content{max-width:760px;margin:0 auto;padding:0 20px calc(32px + env(safe-area-inset-bottom,0px));}
@@ -5343,8 +5344,9 @@ function openLabelManager(){
  function assignMeals(name){const shade=document.createElement('div');shade.style.cssText='position:fixed;inset:0;background:#0008;z-index:16010;display:flex;align-items:center;justify-content:center;padding:16px';const dialog=document.createElement('div');dialog.style.cssText='background:white;color:#222;border-radius:14px;padding:18px;width:100%;max-width:470px;max-height:85vh;display:flex;flex-direction:column;gap:10px';const title=document.createElement('h3');title.textContent='Meals labeled '+name;title.style.margin='0';dialog.append(title);const input=document.createElement('input');input.type='search';input.placeholder='Search meals';dialog.append(input);const body=document.createElement('div');body.style.cssText='overflow:auto;flex:1;min-height:60px';dialog.append(body);const unique=new Map();for(const meal of meals){const key=meal.linkGroup||'meal-'+meal.id;if(!unique.has(key))unique.set(key,meal)}const choices=[...unique.values()].map(meal=>({meal,checked:recipeLabels(meal).some(x=>labelKey(x)===labelKey(name)),onChange(v){this.checked=v}}));buildGroupedMealPicker(body,input,choices);const buttons=document.createElement('div');buttons.className='meal-unified-actions';buttons.style.cssText='border-top:1px solid #ddd;padding-top:10px';const ok=document.createElement('button');setIconButton(ok,'save','OK');ok.onclick=()=>{snapshot();for(const choice of choices){const siblings=choice.meal.linkGroup?meals.filter(m=>m.linkGroup===choice.meal.linkGroup):[choice.meal];for(const meal of siblings){meal.labels=recipeLabels(meal).filter(x=>labelKey(x)!==labelKey(name));if(choice.checked)meal.labels.push(name)}}persist();shade.remove();draw()};const cancel=document.createElement('button');setIconButton(cancel,'cancel','Cancel');cancel.onclick=()=>shade.remove();buttons.append(ok,cancel);dialog.append(buttons);shade.append(dialog);overlay.append(shade)}
  add.onclick=async()=>{const value=await appDialog('New label','','prompt');if(value===null)return;const name=String(value).trim().replace(/\s+/g,' ');if(!name)return;const existing=allRecipeLabels().find(x=>labelKey(x)===labelKey(name));if(!existing){recipeLabelCatalog.push(name);saveRecipeLabelCatalog()}draw()};search.oninput=draw;draw();overlay.append(panel);document.body.append(overlay)
 }
-function renderMasterCategories(list){
- const wrap=document.createElement('section');wrap.className='master-categories';wrap.setAttribute('aria-label','Meal Groups');
+// Both recipe lists use the library's manual order within the same two tiers.
+function masterRecipeOrder(category){const entries=meals.filter(meal=>meal.cat===category);return [...entries.filter(meal=>!!meal.rotation),...entries.filter(meal=>!meal.rotation)]}
+function scheduledRecipeHighlights(){
  const featuredColorById=new Map();
  const scheduledDaysByMeal=new Map();
  // Weekday-only labels; recipes are allocated distinctly across tabs where possible.
@@ -5377,6 +5379,19 @@ function renderMasterCategories(list){
   if(!dayPlans.has(entry.day))dayPlans.set(entry.day,[]);
   dayPlans.get(entry.day).push(entry);
  }
+ return {featuredColorById,scheduledDaysByMeal,scheduledEntries};
+}
+function appendScheduledRecipeWeekdays(row,meal,scheduledDaysByMeal){
+ const scheduledDays=scheduledDaysByMeal.get(String(meal.id));
+ if(!scheduledDays?.size)return;
+ const dayTag=document.createElement('span');dayTag.className='master-meal-weekdays';
+ dayTag.textContent=orderedDays().filter(day=>scheduledDays.has(day)).map(day=>day.slice(0,3).toUpperCase()).join(' · ');
+ dayTag.title='Scheduled: '+[...scheduledDays.entries()].map(([day,entries])=>day+' ('+[...new Set(entries.map(entry=>entry.planName))].join(', ')+')').join('; ');
+ row.append(dayTag);
+}
+function renderMasterCategories(list){
+ const wrap=document.createElement('section');wrap.className='master-categories';wrap.setAttribute('aria-label','Meal Groups');
+ const {featuredColorById,scheduledDaysByMeal,scheduledEntries}=scheduledRecipeHighlights();
  const heading=document.createElement('div');heading.className='master-categories-heading';
  const title=document.createElement('h2');title.textContent='Meal Groups';heading.append(title);
  const controls=document.createElement('div');controls.className='master-expansion-controls';
@@ -5417,7 +5432,7 @@ function renderMasterCategories(list){
  }
  const displayedGroups=masterOrderedGroups([...baseGroupOrder.filter(cat=>activeGroupNames.has(cat)),...baseGroupOrder.filter(cat=>!activeGroupNames.has(cat))]);
  for(const category of displayedGroups){ 
-  const categoryMeals=meals.filter(m=>m.cat===category);
+  const categoryMeals=masterRecipeOrder(category);
   const card=document.createElement('section');card.className='master-category-card';card.dataset.category=category;
   const header=document.createElement('div');header.className='master-category-header';header.style.background='#f8f9fa';if(activeGroupNames.has(category)){card.classList.add('master-category-this-week');}
   const expanded=masterExpandedCategories.has(category);
@@ -5460,13 +5475,7 @@ function renderMasterCategories(list){
       }
      }
      row.append(mealInfo);
-     const scheduledDays=scheduledDaysByMeal.get(String(m.id));
-     if(scheduledDays&&scheduledDays.size){
-      const dayTag=document.createElement('span');dayTag.className='master-meal-weekdays';
-      dayTag.textContent=orderedDays().filter(day=>scheduledDays.has(day)).map(day=>day.slice(0,3).toUpperCase()).join(' · ');
-      dayTag.title='Scheduled: '+[...scheduledDays.entries()].map(([day,entries])=>day+' ('+[...new Set(entries.map(entry=>entry.planName))].join(', ')+')').join('; ');
-      row.append(dayTag);
-     }
+     appendScheduledRecipeWeekdays(row,m,scheduledDaysByMeal);
      
      items.append(row);
     }
@@ -5721,7 +5730,7 @@ function applyManualWeekdayMeal(day,category,meal,replacing=null,occasional=fals
 function openWeekdayMealChooser(day,category,currentMeal,occasional=false){
  const options=meals.filter(meal=>cats.includes(meal.cat));if(!options.length)return;
  const assigned=getDayCategories(day),order=[...assigned,...masterOrderedGroups(masterDisplayOrder()).filter(cat=>!assigned.includes(cat))];
- const expanded=new Set(assigned);let pendingMeal=currentMeal;
+ const expanded=new Set(assigned);let pendingMeal=currentMeal,highlights;
  const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px';
  const box=document.createElement('div');box.className='weekday-meal-picker';box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','Choose '+day+"'s meal");box.style.cssText='background:white;color:#222;border-radius:14px;padding:18px;max-width:520px;width:100%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 30px #0004';
  const header=document.createElement('div');header.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0';
@@ -5731,20 +5740,21 @@ function openWeekdayMealChooser(day,category,currentMeal,occasional=false){
  const list=document.createElement('div');list.className='weekday-meal-picker-list';list.style.cssText='overflow-y:auto;min-height:0;flex:1;overscroll-behavior:contain';
  function recipeButton(meal,showGroup=false){
   const button=document.createElement('button');button.type='button';button.className='weekday-meal-choice';button.dataset.mealId=String(meal.id);const selected=String(meal.id)===String(pendingMeal?.id);button.setAttribute('aria-pressed',String(selected));
-  button.style.cssText='display:block;width:100%;min-height:44px;text-align:left;padding:6px 8px;margin:0;border:1px solid '+(selected?'#6b88bd':'transparent')+';border-radius:8px;background:'+(selected?'#e8eefb':'white')+';color:#222;font-size:16px;overflow-wrap:anywhere';
+  button.style.cssText='display:block;width:100%;min-height:44px;text-align:left;padding:6px 8px;margin:0;border:1px solid '+(selected?'#8996a4':'transparent')+';border-radius:8px;background:'+(highlights.featuredColorById.get(String(meal.id))||'white')+';color:#222;font-size:16px;overflow-wrap:anywhere';
   const name=document.createElement('span');name.textContent=meal.name||'Untitled meal';button.append(name);
   if(showGroup){const group=document.createElement('small');group.textContent=meal.cat;group.style.cssText='display:block;color:#666;font-size:12px;margin-top:3px';button.append(group)}
   const cooked=lastCookedLabel(meal);if(cooked){const info=document.createElement('span');info.className='weekday-choice-cooked';info.textContent=cooked;info.style.cssText='display:block;font-size:12px;color:#69717a;margin-top:3px';button.append(info)}
+  appendScheduledRecipeWeekdays(button,meal,highlights.scheduledDaysByMeal);
   button.onclick=()=>{pendingMeal=meal;renderChoices()};return button;
  }
  function renderChoices(){
-  const scroll=list.scrollTop;list.replaceChildren();
+  const scroll=list.scrollTop;highlights=scheduledRecipeHighlights();list.replaceChildren();
   if(normalizeSearchText(search.value)){
-   const matches=order.flatMap(cat=>options.filter(meal=>meal.cat===cat&&mealMatchesSearch(meal,search.value)));
+   const matches=order.flatMap(cat=>masterRecipeOrder(cat).filter(meal=>mealMatchesSearch(meal,search.value)));
    for(const meal of matches)list.append(recipeButton(meal,true));
    if(!matches.length){const empty=document.createElement('p');empty.textContent='No matching meals.';empty.style.color='#666';list.append(empty)}
   }else for(const cat of order){
-   const entries=options.filter(meal=>meal.cat===cat),open=expanded.has(cat);
+   const entries=masterRecipeOrder(cat),open=expanded.has(cat);
    const card=document.createElement('div');card.className='master-category-card';card.dataset.group=cat;card.style.marginBottom='6px';
    const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',cat+' ('+entries.length+' recipes)');toggle.style.cssText='width:100%;min-height:44px;padding:10px;gap:8px';
    const arrow=document.createElementNS('http://www.w3.org/2000/svg','svg');arrow.setAttribute('viewBox','0 0 24 24');arrow.setAttribute('aria-hidden','true');arrow.innerHTML='<path d="'+(open?'m6 15 6-6 6 6':'m6 9 6 6 6-6')+'"/>';
@@ -5755,8 +5765,10 @@ function openWeekdayMealChooser(day,category,currentMeal,occasional=false){
   list.scrollTop=scroll;
  }
  search.oninput=()=>{list.scrollTop=0;renderChoices()};searchButton.onclick=()=>{search.hidden=!search.hidden;searchButton.setAttribute('aria-expanded',String(!search.hidden));if(search.hidden){search.value='';renderChoices();searchButton.focus()}else search.focus()};
+ const scheduleObserver=new MutationObserver(()=>{if(overlay.isConnected)renderChoices()});
+ const scheduleList=document.getElementById('list');if(scheduleList)scheduleObserver.observe(scheduleList,{childList:true});
  const actions=document.createElement('div');actions.className='meal-unified-actions';actions.style.flexShrink='0';
- function close(){window.visualViewport?.removeEventListener('resize',fit);window.visualViewport?.removeEventListener('scroll',fit);overlay.remove()}
+ function close(){scheduleObserver.disconnect();window.visualViewport?.removeEventListener('resize',fit);window.visualViewport?.removeEventListener('scroll',fit);overlay.remove()}
  function fit(){const view=window.visualViewport;if(!view)return;overlay.style.top=view.offsetTop+'px';overlay.style.bottom='auto';overlay.style.height=view.height+'px';box.style.maxHeight=Math.min(innerHeight*.8,Math.max(120,view.height-32))+'px'}
  const save=document.createElement('button');save.type='button';setIconButton(save,'save','Save');save.onclick=async()=>{
   if(!pendingMeal||String(pendingMeal.id)===String(currentMeal?.id)){close();return}
