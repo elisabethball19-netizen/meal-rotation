@@ -845,7 +845,8 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 .shared-groups-panel .shared-groups-close svg{width:25px;height:25px}
 /* Compact chooser rows and group headings mirror expanded Meal Groups. */
 .weekday-meal-picker .master-category-title{background:#f5f5f5;}
-.weekday-meal-picker .weekday-meal-choice:not(:last-child){border-bottom:1px solid #eee!important;}
+.weekday-meal-picker .weekday-meal-choice{position:relative;}
+.weekday-meal-picker .weekday-meal-choice:not(:last-child)::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;border-radius:0;background:#eee;pointer-events:none;}
 .weekday-meal-picker .master-meal-weekdays{display:block;margin-top:3px;font-size:11px;font-weight:600;letter-spacing:.02em;color:#5c6670;white-space:normal;}
 /* Internal recipe reading stays separate from the existing rotation and grocery views. */
 #recipeViewer{position:fixed;inset:0;max-width:100vw;max-height:100dvh;z-index:30000;background:#fff;color:#242424;overflow-y:auto;overscroll-behavior:contain;}
@@ -5676,7 +5677,7 @@ function openWeekdayMealChooser(day,category,currentMeal,occasional=false){
  const list=document.createElement('div');list.className='weekday-meal-picker-list';list.style.cssText='overflow-y:auto;min-height:0;flex:1;overscroll-behavior:contain';
  function recipeButton(meal,showGroup=false){
   const button=document.createElement('button');button.type='button';button.className='weekday-meal-choice';button.dataset.mealId=String(meal.id);const selected=String(meal.id)===String(pendingMeal?.id);button.setAttribute('aria-pressed',String(selected));
-  button.style.cssText='display:block;width:100%;min-height:44px;text-align:left;padding:6px 8px;margin:0;border:1px solid '+(selected?'#8996a4':'transparent')+';border-radius:8px;background:'+(highlights.featuredColorById.get(String(meal.id))||'white')+';color:#222;font-size:16px;overflow-wrap:anywhere';
+  button.style.cssText='display:block;width:100%;min-height:45px;text-align:left;padding:5px 0;margin:0;border:0;border-radius:8px;background:'+(highlights.featuredColorById.get(String(meal.id))||'white')+';color:#222;font-size:16px;overflow-wrap:anywhere';
   const name=document.createElement('span');name.textContent=meal.name||'Untitled meal';button.append(name);
   if(showGroup){const group=document.createElement('small');group.textContent=meal.cat;group.style.cssText='display:block;color:#666;font-size:12px;margin-top:3px';button.append(group)}
   const cooked=lastCookedLabel(meal);if(cooked){const info=document.createElement('span');info.className='weekday-choice-cooked';info.textContent=cooked;info.style.cssText='display:block;font-size:12px;color:#69717a;margin-top:3px';button.append(info)}
@@ -6645,14 +6646,25 @@ function installInstructionPhotoControls(meal){
 }
 
 let editorCategoryBaseline=null,editorDraftCategories=null;
-let mealEditorReturnScroll=null;
+let mealEditorReturnScroll=null,mealEditorReturnView=null;
 function restoreMealEditorScroll(){
  stopMealEditorPositioning();
- if(returnToEditedRecipe()){mealEditorReturnScroll=null;return}
- const position=mealEditorReturnScroll;
- mealEditorReturnScroll=null;
+ const position=mealEditorReturnScroll,origin=mealEditorReturnView;
+ mealEditorReturnScroll=null;mealEditorReturnView=null;
+ if(origin){
+  if(origin.planId!==activePlanId&&mealPlans.some(plan=>plan.id===origin.planId))loadMealPlan(origin.planId);
+  showTop=origin.view!=='groups';groceryTabActive=origin.view==='grocery';allMealsActive=origin.view==='all';setMasterCategoriesView(!showTop);
+  if(cats.includes(origin.activeCategory))active=origin.activeCategory;
+  masterExpansionInitialized=origin.expansionInitialized;masterExpandedCategories.clear();origin.expandedCategories.filter(cat=>cats.includes(cat)).forEach(cat=>masterExpandedCategories.add(cat));
+  render();
+ }
+ if(returnToEditedRecipe())return;
  if(position===null)return;
- requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo({top:position,behavior:'instant'})));
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  // An outside tap may intentionally navigate elsewhere after closing the editor.
+  if(origin&&(activePlanId!==origin.planId||appViewSnapshot().view!==origin.view))return;
+  if(editId===null)window.scrollTo({top:position,behavior:'instant'});
+ }));
 }
 function rollbackEditorCategories(){if(!editorCategoryBaseline)return;meals=JSON.parse(editorCategoryBaseline.meals);id=editorCategoryBaseline.id;if(editorCategoryBaseline.labelCatalog!==undefined){recipeLabelCatalog=JSON.parse(editorCategoryBaseline.labelCatalog);weekdayRecipeFilters=JSON.parse(editorCategoryBaseline.labelFilters);mealPlans=JSON.parse(editorCategoryBaseline.labelPlans);const activePlan=mealPlans.find(p=>p.id===activePlanId);if(activePlan)activePlan.weekdayRecipeFilters=JSON.parse(editorCategoryBaseline.labelFilters);saveRecipeLabelCatalog();saveWeekdayRecipeFilters();}try{localStorage.setItem('mealRotationSelectedIngredientsV1',editorCategoryBaseline.selections)}catch(e){}editorCategoryBaseline=null;editorDraftCategories=null;persist()}
 let stopMealEditorPositioning=()=>{};
@@ -6694,7 +6706,7 @@ function positionMealEditor(focusNewMeal=false){
  timers.push(setTimeout(schedule,250),setTimeout(schedule,500),setTimeout(()=>stopMealEditorPositioning(),800));
 }
 function openEditor(n,focusNewMeal=false){
- if(editId===null)mealEditorReturnScroll=window.scrollY;
+ if(editId===null){mealEditorReturnScroll=window.scrollY;mealEditorReturnView={...appViewSnapshot(),activeCategory:active,expandedCategories:[...masterExpandedCategories],expansionInitialized:masterExpansionInitialized}}
  stopMealEditorPositioning();
  rollbackEditorCategories();
  const selectedMeal=meals.find(item=>String(item.id)===String(n));if(!selectedMeal)return;
@@ -7041,9 +7053,10 @@ function isRecipeLinkOutsideTap(target){
 function performOutsideAction(originalTarget){
  // Use the original control's handler: it retains its delegated/closure action
  // even if a redraw replaced the element during the confirmation dialogue.
- if(!originalTarget||typeof originalTarget.click!=='function')return;
+ const control=originalTarget instanceof Element?(originalTarget.closest('button,a,input,select,[role="button"]')||originalTarget):originalTarget;
+ if(!control||typeof control.click!=='function')return;
  replayingOutsidePaneClick=true;
- try{originalTarget.click()}finally{replayingOutsidePaneClick=false}
+ try{control.click()}finally{replayingOutsidePaneClick=false}
 }
 document.addEventListener('click',e=>{
  if(replayingOutsidePaneClick||!(e.target instanceof Element))return;

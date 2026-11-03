@@ -49,7 +49,7 @@ def run(browser,filename,width,tabs):
  p.locator('[data-weekday=Tuesday]+.top-recipe-wrap .mealname').tap();p.get_by_role('dialog',name='Meal options for Tuesday',exact=True).get_by_role('button',name='Change meal',exact=True).tap();c=p.get_by_role('dialog',name="Choose Tuesday's meal",exact=True)
  assert c.locator('.master-category-title').first.evaluate('(e)=>getComputedStyle(e).backgroundColor')=='rgb(245, 245, 245)'
  item=c.locator('.weekday-meal-choice').first;assert item.bounding_box()['height']>=44 and item.evaluate('(e)=>getComputedStyle(e).marginTop')=='0px'
- assert item.evaluate('(e)=>getComputedStyle(e).borderBottomColor')=='rgb(238, 238, 238)'
+ assert item.evaluate('(e)=>getComputedStyle(e,"::after").backgroundColor')=='rgb(238, 238, 238)'
  if filename.startswith('meal-') and width==360 and tabs:p.screenshot(path='/tmp/occasional-chooser.png')
  c.get_by_role('button',name='Cancel',exact=True).tap()
  # One-time meals are excluded from Cycle Meals and survive normal/full cycles and Cycle Back.
