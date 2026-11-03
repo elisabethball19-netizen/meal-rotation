@@ -1114,8 +1114,72 @@ function groceryQuantityParts(line){
  const name=unit?unitMatch[2]:quantity.rest;
  return {...quantity,unit,name,key:'quantity:'+JSON.stringify([unit,name.normalize('NFKC').toLowerCase().replace(/[a-z]+/g,w=>syncIngredientWords(w).join(' ')).replace(/\s+/g,' ').trim()])};
 }
-function groceryItemChecked(key,item){return checkedIngredients.has(key)||(item.checkGroups?.length?item.checkGroups.every(group=>group.some(k=>checkedIngredients.has(k))):!!item.checkKeys?.length&&item.checkKeys.every(k=>checkedIngredients.has(k)))}
-function setGroceryItemChecked(key,item,checked){if(checked)checkedIngredients.add(key);else{checkedIngredients.delete(key);for(const old of item.checkKeys||[])checkedIngredients.delete(old)}}
+// Optional per-occurrence check states supplement legacy ingredient/quantity keys.
+// Membership and recipe ingredients continue to use their existing saved records.
+const GROCERY_OCCURRENCE_CHECKS_KEY='mealRotationGroceryOccurrenceChecksV1';
+let groceryOccurrenceChecks={version:1,checks:{}},groceryCheckStorageInvalid=false;
+function validateGroceryOccurrenceChecks(value){
+ if(!value||value.version!==1||!value.checks||typeof value.checks!=='object'||Array.isArray(value.checks))throw Error('Invalid grocery occurrence checks');
+ for(const [key,checked] of Object.entries(value.checks)){
+  let source;try{source=JSON.parse(key)}catch(e){throw Error('Invalid grocery source')}
+  if(!Array.isArray(source)||source.length!==3||typeof source[0]!=='string'||typeof source[1]!=='string'||!Number.isSafeInteger(source[2])||source[2]<0||typeof checked!=='boolean')throw Error('Invalid grocery source check');
+  let occurrence;try{occurrence=JSON.parse(source[0])}catch(e){throw Error('Invalid grocery occurrence')}
+  if(!Array.isArray(occurrence)||occurrence.length!==4||occurrence.some(value=>typeof value!=='string'))throw Error('Invalid grocery occurrence');
+ }
+}
+try{const raw=localStorage.getItem(GROCERY_OCCURRENCE_CHECKS_KEY);if(raw){const value=JSON.parse(raw);validateGroceryOccurrenceChecks(value);groceryOccurrenceChecks=value}}catch(e){groceryCheckStorageInvalid=true}
+function saveGroceryOccurrenceChecks(){
+ if(groceryCheckStorageInvalid)return false;
+ try{localStorage.setItem(GROCERY_OCCURRENCE_CHECKS_KEY,JSON.stringify(groceryOccurrenceChecks));return true}catch(e){return false}
+}
+function groceryOccurrenceIdentity(plan,entry){
+ const slot=rotationGroupScheduled(plan,entry.day,entry.cat);
+ return JSON.stringify([String(plan.id),entry.day,String(entry.meal.id),slot?'slot':'linked:'+String(entry.linkedTo??entry.parentId??'')]);
+}
+function grocerySourceChecked(source,ledger=groceryOccurrenceChecks,legacy=checkedIngredients){
+ const stored=ledger?.checks?.[source.id];
+ return typeof stored==='boolean'?stored:legacy.has(source.baseKey)||source.checkKeys.some(key=>legacy.has(key));
+}
+function captureGroceryCheckStates(){return new Map(getGroceryContributions(true).map(source=>[source.id,{source,checked:grocerySourceChecked(source)}]))}
+function preserveGroceryCheckStates(states){for(const [id,item] of states)groceryOccurrenceChecks.checks[id]=item.checked}
+function groceryItemChecked(key,item){
+ if(item.contributions)return item.contributions.every(source=>grocerySourceChecked(source));
+ return checkedIngredients.has(key)||(item.checkGroups?.length?item.checkGroups.every(group=>group.some(k=>checkedIngredients.has(k))):!!item.checkKeys?.length&&item.checkKeys.every(k=>checkedIngredients.has(k)));
+}
+function setGroceryItemChecked(key,item,checked){
+ if(item.contributions){
+  // Materialize legacy states before changing a global key shared with other rows.
+  const states=captureGroceryCheckStates();preserveGroceryCheckStates(states);
+  for(const source of item.contributions)groceryOccurrenceChecks.checks[source.id]=checked;
+  const all=[...states.values()].map(item=>item.source).filter(source=>source.baseKey===item.baseKey);
+  if(all.every(source=>grocerySourceChecked(source)))checkedIngredients.add(item.baseKey);else checkedIngredients.delete(item.baseKey);
+  if(!checked){checkedIngredients.delete(key);for(const old of item.checkKeys||[])checkedIngredients.delete(old)}
+  saveGroceryOccurrenceChecks();return;
+ }
+ if(checked)checkedIngredients.add(key);else{checkedIngredients.delete(key);for(const old of item.checkKeys||[])checkedIngredients.delete(old)}
+}
+function reconcileRotatedGroceryChecks(before,affected,restore=null){
+ const reset=new Set(affected.map(item=>{const plan=mealPlans.find(plan=>plan.id===item.planId);return plan?groceryOccurrenceIdentity(plan,{...item,meal:item.meal||{id:item.mealId},linkedTo:item.linkedTo??item.parentId}):''}));
+ const restoredLegacy=restore?new Set(restore.checkedIngredients||[]):null;
+ const next={version:1,checks:{}};
+ for(const source of getGroceryContributions(true)){
+  const was=before.get(source.id);
+  if(restore&&reset.has(source.occurrence))next.checks[source.id]=grocerySourceChecked(source,restore.groceryOccurrenceChecks||{version:1,checks:{}},restoredLegacy);
+  else next.checks[source.id]=!reset.has(source.occurrence)&&was?was.checked:false;
+ }
+ groceryOccurrenceChecks=next;saveGroceryOccurrenceChecks();
+}
+function renameGrocerySourceChecks(meal,from,to){
+ const oldKey=ingredientKey(compactIngredientFractions(from)),newKey=ingredientKey(compactIngredientFractions(to));
+ for(const [id,checked] of Object.entries(groceryOccurrenceChecks.checks)){
+  const source=JSON.parse(id),occurrence=JSON.parse(source[0]);
+  if(occurrence[2]===String(meal.id)&&source[1]===oldKey)groceryOccurrenceChecks.checks[JSON.stringify([source[0],newKey,source[2]])]=checked;
+ }
+}
+function uncheckGrocerySourceLines(meal,lines){
+ const keys=new Set(lines.map(ingredientKey)),ids=new Set(mealLinkedCopies(meal).map(m=>String(m.id)));
+ for(const source of getGroceryContributions(true))if(ids.has(String(source.mealId))&&keys.has(ingredientKey(source.original)))groceryOccurrenceChecks.checks[source.id]=false;
+}
 
 function normalizeRecipeText(value){
  if(value===undefined||value===null)return '';
@@ -2791,9 +2855,9 @@ function rememberCurrentView(){
 }
 // Rendered-page identity is also used to close Settings on navigation.
 let lastRenderedPageKey=null;
-const $=x=>document.getElementById(x);let backupRestoreReloadPending=false;window.addEventListener('mealRotationBeforeStorageReset',()=>{backupRestoreReloadPending=true});function persist(){if(backupRestoreReloadPending)return;reconcileAllCookingData();try{localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}}window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function captureState(){return JSON.stringify({cats,active,meals,masterGroupOrder,checkedIngredients:[...checkedIngredients],weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,pinnedCats,expandedCats,startWeekday,topCounts,categoryColors,weekdayColors,autoPinTopCategories,applyPinsToAllTabs,masterOpenMode,masterPinsOverride,mealPlans,activePlanId,showMealPlanTabs})}
+const $=x=>document.getElementById(x);let backupRestoreReloadPending=false;window.addEventListener('mealRotationBeforeStorageReset',()=>{backupRestoreReloadPending=true});function persist(){if(backupRestoreReloadPending)return;reconcileAllCookingData();try{localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}}window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function captureState(){return JSON.stringify({cats,active,meals,masterGroupOrder,groceryOccurrenceChecks,checkedIngredients:[...checkedIngredients],weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,pinnedCats,expandedCats,startWeekday,topCounts,categoryColors,weekdayColors,autoPinTopCategories,applyPinsToAllTabs,masterOpenMode,masterPinsOverride,mealPlans,activePlanId,showMealPlanTabs})}
 function snapshot(){const state=captureState();if(history[history.length-1]!==state){history.push(state);if(history.length>100)history.shift()}redoHistory=[];groceryUndo=null}
-function restoreState(state){if(!restoreMasterGroupOrder(state.masterGroupOrder))return;cats=state.cats;active=state.active;meals=state.meals;if(Array.isArray(state.mealPlans)&&state.mealPlans.length){mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId||mealPlans[0].id;showMealPlanTabs=!!state.showMealPlanTabs;autoPinTopCategories=true;}else saveActiveMealPlan();checkedIngredients=new Set(state.checkedIngredients||[]);if(state.weekdayCategories)weekdayCategories=state.weekdayCategories;if(state.weekdayMealOverrides)weekdayMealOverrides=state.weekdayMealOverrides;if(state.weekdayRecipeFilters){weekdayRecipeFilters=state.weekdayRecipeFilters;saveWeekdayRecipeFilters();}if(state.pinnedCats)pinnedCats=state.pinnedCats;if(state.expandedCats)expandedCats=state.expandedCats;if(typeof state.autoPinTopCategories==='boolean')autoPinTopCategories=true;if(typeof state.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=state.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;if(typeof state.masterPinsOverride==='boolean')masterPinsOverride=state.masterPinsOverride;saveMasterOpeningPrefs();if(state.startWeekday)startWeekday=state.startWeekday;if(state.topCounts)topCounts=state.topCounts;categoryColors=state.categoryColors&&typeof state.categoryColors==='object'?{...state.categoryColors}:{};saveCategoryColors();weekdayColors=state.weekdayColors&&typeof state.weekdayColors==='object'?{...state.weekdayColors}:deriveWeekdayColors(categoryColors);saveWeekdayColors();id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;persist();try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));saveWeekdayCategories();saveWeekdayMealOverrides();saveTopCounts();localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));localStorage.setItem('mealRotationStartWeekdayV1',startWeekday);localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}catch(e){}render()}
+function restoreState(state){if(!restoreMasterGroupOrder(state.masterGroupOrder))return;cats=state.cats;active=state.active;meals=state.meals;if(Array.isArray(state.mealPlans)&&state.mealPlans.length){mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId||mealPlans[0].id;showMealPlanTabs=!!state.showMealPlanTabs;autoPinTopCategories=true;}else saveActiveMealPlan();checkedIngredients=new Set(state.checkedIngredients||[]);groceryOccurrenceChecks=state.groceryOccurrenceChecks?JSON.parse(JSON.stringify(state.groceryOccurrenceChecks)):{version:1,checks:{}};groceryCheckStorageInvalid=false;saveGroceryOccurrenceChecks();if(state.weekdayCategories)weekdayCategories=state.weekdayCategories;if(state.weekdayMealOverrides)weekdayMealOverrides=state.weekdayMealOverrides;if(state.weekdayRecipeFilters){weekdayRecipeFilters=state.weekdayRecipeFilters;saveWeekdayRecipeFilters();}if(state.pinnedCats)pinnedCats=state.pinnedCats;if(state.expandedCats)expandedCats=state.expandedCats;if(typeof state.autoPinTopCategories==='boolean')autoPinTopCategories=true;if(typeof state.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=state.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;if(typeof state.masterPinsOverride==='boolean')masterPinsOverride=state.masterPinsOverride;saveMasterOpeningPrefs();if(state.startWeekday)startWeekday=state.startWeekday;if(state.topCounts)topCounts=state.topCounts;categoryColors=state.categoryColors&&typeof state.categoryColors==='object'?{...state.categoryColors}:{};saveCategoryColors();weekdayColors=state.weekdayColors&&typeof state.weekdayColors==='object'?{...state.weekdayColors}:deriveWeekdayColors(categoryColors);saveWeekdayColors();id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;persist();try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));saveWeekdayCategories();saveWeekdayMealOverrides();saveTopCounts();localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));localStorage.setItem('mealRotationStartWeekdayV1',startWeekday);localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}catch(e){}resetGroceriesForNewTopMeals(new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id))));render()}
 function time(v){v=Number(v);if(!Number.isFinite(v)||v<0)return '—';if(v<60)return v+'m';let h=Math.floor(v/60),m=v%60;return h+'h'+(m?' '+m+'m':'')}
 // Times remain stored in minutes, so existing recipes and backups stay compatible.
 // For NEW bare-number entries: 0–9, 12 and 24 mean hours; other two- and
@@ -3743,23 +3807,38 @@ function makeSettingsFooter(){
  footer.append(save,cancel);return footer;
 }
 // The cart is a temporary tab, not a new meal plan or a popup.
-function getMasterGroceryItems(){
+function getGroceryContributions(allPlans=false){
  saveActiveMealPlan();let selected={};try{selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
- const groceries=new Map(),observed=new Set();
- for(const plan of (showMealPlanTabs&&mealPlans.length>1?mealPlans:mealPlans.filter(p=>p.id===activePlanId))){
-  if(showMealPlanTabs&&mealPlans.length>1&&masterGroceryExcludedPlanIds.has(String(plan.id)))continue;
+ const result=[],observed=new Set();
+ for(const plan of (allPlans||showMealPlanTabs&&mealPlans.length>1?mealPlans:mealPlans.filter(p=>p.id===activePlanId))){
+  if(!allPlans&&showMealPlanTabs&&mealPlans.length>1&&masterGroceryExcludedPlanIds.has(String(plan.id)))continue;
   for(const entry of getDisplayedWeekdayMealsForPlan(plan)){
-   const {meal,day,linkedTo}=entry;if(masterGroceryExcludedMealKeys.has(groceryMealKey(plan,meal)))continue;
-   const context=cookingContext(plan.id,day,meal.cat,meal,linkedTo),identity=cookingOccurrenceKey(context);if(observed.has(identity))continue;observed.add(identity);
-   const selectedKeys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),multiplier=occurrenceMultiplier(context);
+   const {meal,day,linkedTo}=entry;if(!allPlans&&masterGroceryExcludedMealKeys.has(groceryMealKey(plan,meal)))continue;
+   const context=cookingContext(plan.id,day,entry.cat,meal,linkedTo),identity=cookingOccurrenceKey(context);if(observed.has(identity))continue;observed.add(identity);
+   const occurrence=groceryOccurrenceIdentity(plan,entry),selectedKeys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),multiplier=occurrenceMultiplier(context),counts=new Map();
    for(const raw of Array.isArray(meal.ingredients)?meal.ingredients:[]){
     const original=String(raw??'').trim(),oldKey=ingredientKey(original);if(!oldKey||!selectedKeys.has(oldKey)||syncIngredientHeading(original))continue;
-    const line=scaleRecipeIngredient(original,multiplier),quantity=groceryQuantityParts(line),key=quantity?.key||'unmeasured:'+oldKey;
-    if(!groceries.has(key))groceries.set(key,{line,recipes:[],checkKeys:[],checkGroups:[],quantity:quantity?{...quantity,lo:0,hi:0}:null});
-    const item=groceries.get(key);if(!item.recipes.includes(meal.name))item.recipes.push(meal.name);const checkGroup=[...new Set([oldKey,original.toLowerCase().replace(/\s+/g,' ').trim()])];if(!item.checkGroups.some(group=>group[0]===oldKey))item.checkGroups.push(checkGroup);for(const checkKey of checkGroup)if(!item.checkKeys.includes(checkKey))item.checkKeys.push(checkKey);
-    if(quantity){item.quantity.lo+=quantity.lo;item.quantity.hi+=quantity.hi;const q=item.quantity;const amount=formatRecipeQuantity(q.lo)+(Math.abs(q.hi-q.lo)>1e-8?'–'+formatRecipeQuantity(q.hi):'');const unit=q.unit==='cup'?(q.hi===1?'cup':'cups'):q.unit==='clove'?(q.hi===1?'clove':'cloves'):q.unit==='piece'?(q.hi===1?'piece':'pieces'):q.unit==='sprig'?(q.hi===1?'sprig':'sprigs'):q.unit;item.line=amount+' '+(unit?unit+' ':'')+q.name}
+    const normalized=ingredientKey(compactIngredientFractions(original)),index=counts.get(normalized)||0;counts.set(normalized,index+1);
+    const line=scaleRecipeIngredient(original,multiplier),quantity=groceryQuantityParts(line),baseKey=quantity?.key||'unmeasured:'+oldKey;
+    result.push({id:JSON.stringify([occurrence,normalized,index]),occurrence,planId:plan.id,day,cat:entry.cat,mealId:meal.id,mealName:meal.name,original,line,quantity,baseKey,checkKeys:[...new Set([oldKey,original.toLowerCase().replace(/\s+/g,' ').trim()])]});
    }
   }
+ }
+ return result;
+}
+function getMasterGroceryItems(){
+ const sources=getGroceryContributions(),states=new Map(),groceries=new Map();
+ for(const source of sources){if(!states.has(source.baseKey))states.set(source.baseKey,new Set());states.get(source.baseKey).add(grocerySourceChecked(source))}
+ for(const source of sources){
+  const {line,quantity,baseKey}=source,checked=grocerySourceChecked(source);
+  // Reuse the existing quantity/check-group rows, splitting only mixed states.
+  const key=states.get(baseKey).size>1?baseKey+'|'+(checked?'checked':'unchecked'):baseKey;
+  if(!groceries.has(key))groceries.set(key,{line,recipes:[],checkKeys:[],checkGroups:[],quantity:quantity?{...quantity,lo:0,hi:0}:null,baseKey,contributions:[]});
+  const item=groceries.get(key);item.contributions.push(source);
+  if(!item.recipes.includes(source.mealName))item.recipes.push(source.mealName);
+  if(!item.checkGroups.some(group=>group[0]===source.checkKeys[0]))item.checkGroups.push(source.checkKeys);
+  for(const checkKey of source.checkKeys)if(!item.checkKeys.includes(checkKey))item.checkKeys.push(checkKey);
+  if(quantity){item.quantity.lo+=quantity.lo;item.quantity.hi+=quantity.hi;const q=item.quantity;const amount=formatRecipeQuantity(q.lo)+(Math.abs(q.hi-q.lo)>1e-8?'–'+formatRecipeQuantity(q.hi):'');const unit=q.unit==='cup'?(q.hi===1?'cup':'cups'):q.unit==='clove'?(q.hi===1?'clove':'cloves'):q.unit==='piece'?(q.hi===1?'piece':'pieces'):q.unit==='sprig'?(q.hi===1?'sprig':'sprigs'):q.unit;item.line=amount+' '+(unit?unit+' ':'')+q.name}
  }
  return groceries;
 }
@@ -4145,6 +4224,7 @@ function validateBackupStorage(data){
  validateBackupCore(parsed.mealRotationDataV1);
  if(MASTER_GROUP_ORDER_KEY in data&&!validMasterGroupOrder(parsed[MASTER_GROUP_ORDER_KEY]))throw Error('Invalid meal-group display order');
  if(OCCURRENCE_SCALES_KEY in data){let scales;try{scales=JSON.parse(data[OCCURRENCE_SCALES_KEY])}catch(e){throw Error('Invalid recipe scaling JSON')}validateOccurrenceScales(scales);}
+ if(GROCERY_OCCURRENCE_CHECKS_KEY in data)validateGroceryOccurrenceChecks(parsed[GROCERY_OCCURRENCE_CHECKS_KEY]);
  if(COOKING_SESSIONS_KEY in data){let sessions;try{sessions=JSON.parse(data[COOKING_SESSIONS_KEY])}catch(e){throw Error('Invalid cooking progress JSON')}validateCookingSessions(sessions);}
  const arrayKeys=['mealRotationCheckedIngredientsV1','mealRotationPinnedCategoriesV1','mealRotationExpandedCategoriesV1','mealRotationRecipeLabelCatalogV1'];
  for(const key of arrayKeys)if(key in data&&!Array.isArray(parsed[key]))throw new Error('Invalid '+key);
@@ -4516,7 +4596,7 @@ function getDisplayedWeekdayMeals(){
  return getDisplayedWeekdayMealsForPlan({...mealPlans.find(p=>p.id===activePlanId),id:activePlanId,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters});
 }
 // Keep grocery-list membership independent from checked-off grocery items.
-// Only a meal ENTERING Top Recipes gets its existing grocery checkmarks reset;
+// Only a meal ENTERING Top Recipes gets new unchecked source quantities;
 // never clear mealRotationSelectedIngredientsV1, which determines what remains
 // on the grocery list. The current plan is persisted so view changes do not
 // repeatedly uncheck the same ingredients.
@@ -4535,22 +4615,9 @@ function resetGroceriesForNewTopMeals(previousIdsOverride=null){
   if(previousIds){
     const enteringIds=currentIds.filter(mealId=>!previousIds.has(mealId));
     if(enteringIds.length){
-      const normalize=line=>String(line).toLowerCase().replace(/\s+/g,' ').trim();
-      // Check-off status is global by ingredient text. Reopening the newly
-      // rotated-in recipe should show every selected grocery item unchecked.
-      let selected={};
-      try{
-        const stored=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');
-        if(stored&&typeof stored==='object'&&!Array.isArray(stored))selected=stored;
-      }catch(e){}
-      enteringIds.forEach(mealId=>{
-        // Keep chosen ingredients exactly as saved: DO NOT set selected[mealId]=[].
-        const lines=selected[mealId];
-        if(Array.isArray(lines))lines.forEach(line=>{checkedIngredients.delete(normalize(line));checkedIngredients.delete(ingredientKey(line));checkedIngredients.delete(groceryQuantityParts(line)?.key||'unmeasured:'+ingredientKey(line))});
-      });
-      try{
-        localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));
-      }catch(e){}
+      const entering=new Set(enteringIds);
+      for(const source of getGroceryContributions(true))if(source.planId===activePlanId&&entering.has(String(source.mealId))&&typeof groceryOccurrenceChecks.checks[source.id]!=='boolean')groceryOccurrenceChecks.checks[source.id]=false;
+      saveGroceryOccurrenceChecks();
     }
   }
   // An existing installation should not lose checks just for loading this file.
@@ -4658,6 +4725,7 @@ function rotateSelectedBack(selected){
  if(!desired.length)return;
  const restoringSlots=new Set(desired.map(rotationSlotKey));
  const retained=new Map(mealPlans.map(plan=>[plan.id,getDisplayedWeekdayMealsForPlan(plan).filter(item=>rotationSelectable(item,plan)&&!restoringSlots.has(rotationSlotKey({...item,planId:plan.id})))]));
+ const groceryBefore=captureGroceryCheckStates();
  clearCookingForSlots(desired);
  snapshot();
  for(const plan of mealPlans){const overrides={...(plan.weekdayMealOverrides||{})},pins={...(plan.cycleRetainedSlots||{})},choices={...(plan.cycleSlotChoices||{})};for(const item of retained.get(plan.id)||[]){const key=weekdaySlotKey(item.day,item.cat);overrides[key]=String(item.meal.id);pins[key]=String(item.meal.id);const old=choices[key],valid=old&&String(old.mealId)===String(item.meal.id);choices[key]={...(valid&&old.substitution?{substitution:true}:{}),mealId:String(item.meal.id),parentId:String(item.linkedTo??''),retain:desired.some(x=>x.planId===plan.id&&x.day===item.day)||!!(valid&&old.retain),blockedParents:valid?old.blockedParents||[]:[]}}plan.weekdayMealOverrides=overrides;plan.cycleRetainedSlots=pins;plan.cycleSlotChoices=choices;}
@@ -4692,6 +4760,8 @@ function rotateSelectedBack(selected){
  const activePlan=mealPlans.find(p=>p.id===activePlanId);
  weekdayMealOverrides={...(activePlan?.weekdayMealOverrides||{})};saveWeekdayMealOverrides();
  try{localStorage.removeItem(ROTATION_BACK_KEY)}catch(e){}
+ const groceryRestored=mealPlans.flatMap(plan=>cycleAffectedEntries((getDisplayedWeekdayMealsForPlan(plan)).map(item=>({...item,planId:plan.id})),desired.filter(item=>item.planId===plan.id),plan));
+ reconcileRotatedGroceryChecks(groceryBefore,groceryRestored,previous);
  resetGroceriesForNewTopMeals(beforeIds);topIngredientExpanded.clear();topIngredientManualHiddenOverride.clear();persist();renderTabs();renderList();
 }
 function openRotateBackChooser(){
@@ -4755,6 +4825,7 @@ function resolveRotatedMealSlots(plan, selected, retained){
  }
 }
 function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=false,retainedSlots=null){
+ if(groceryCheckStorageInvalid){showAppMessage('Saved grocery check states could not be read. Export a backup before repairing this browser data.');return;}
  saveActiveMealPlan();
  const prior=new Map(mealPlans.map(plan=>[plan.id,getDisplayedWeekdayMealsForPlan(plan)]));
  const scope=allTabs?mealPlans:mealPlans.filter(plan=>plan.id===activePlanId);
@@ -4782,6 +4853,7 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
   if(meal.linkGroup)meals.filter(m=>m.linkGroup===meal.linkGroup).forEach(m=>linkedIds.add(String(m.id)));
  }
  for(const item of affected)if(item.meal.cat===item.cat)linkedIds.add(String(item.meal.id));
+ const groceryBefore=captureGroceryCheckStates();
  const beforeIds=new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)));
  snapshot();
  if(markCooked)recordRotatedMealsCooked(affected);
@@ -4837,6 +4909,7 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  weekdayMealOverrides={...(activePlan?.weekdayMealOverrides||{})};
  saveWeekdayMealOverrides();
  clearCycledCookingContexts(affected);
+ reconcileRotatedGroceryChecks(groceryBefore,affected);
  resetGroceriesForNewTopMeals(beforeIds);
  topIngredientExpanded.clear();topIngredientManualHiddenOverride.clear();
  persist();renderTabs();renderList();
@@ -5563,7 +5636,7 @@ async function editTopRecipeIngredient(meal,originalLine){
       await showAppMessage('That ingredient is already in this list.');return;
     }
   }else return;
-  snapshot();
+  snapshot();preserveGroceryCheckStates(captureGroceryCheckStates());
   const selectionKey=String(meal.id);
   let chosen={};
   try{chosen=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
@@ -5583,6 +5656,7 @@ async function editTopRecipeIngredient(meal,originalLine){
     localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(chosen));
     localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));
   }catch(e){}
+  if(newLine)renameGrocerySourceChecks(meal,originalLine,newLine);saveGroceryOccurrenceChecks();
   persist();
   renderList();
 }
@@ -5620,6 +5694,7 @@ function grocerySelectionsForMeal(meal,selections){
  return [...merged.values()];
 }
 function openTopIngredientChooser(meal){
+  const groceryBefore=captureGroceryCheckStates();
   let selectedByMeal={};try{selectedByMeal=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
   const key=String(meal.id);selectedByMeal[key]=grocerySelectionsForMeal(meal,selectedByMeal);
   if(!Array.isArray(meal.ingredients))meal.ingredients=[];const originalIngredients=[...meal.ingredients];const originalSelected=[...selectedByMeal[key]];
@@ -5821,7 +5896,7 @@ function openTopIngredientChooser(meal){
   const deselectAll=document.createElement('button');deselectAll.className='smallbtn';deselectAll.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 12h10"/></svg>';deselectAll.title='Deselect all';deselectAll.setAttribute('aria-label','Deselect all');deselectAll.onclick=()=>{checks.forEach(x=>x.cb.checked=false);rememberCheckedIngredients();renderIngredientRows()};
   const deleteSelected=document.createElement('button');deleteSelected.type='button';deleteSelected.className='smallbtn';deleteSelected.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m5 4v7m4-7v7"/></svg>';deleteSelected.title='Delete checked ingredients';deleteSelected.setAttribute('aria-label','Delete checked ingredients');deleteSelected.onclick=async()=>{const chosen=checks.filter(x=>x.cb.checked).map(x=>x.line);if(!chosen.length){await showAppMessage('Select ingredients to delete first.');return}if(!await appDialog('Delete '+chosen.length+' selected ingredient'+(chosen.length===1?'':'s')+' from this recipe?',null,'yesno')||!overlay.isConnected)return;const remove=new Set(chosen.map(ingredientKey));meal.ingredients=meal.ingredients.filter(line=>!remove.has(ingredientKey(line)));selectedByMeal[key]=checks.filter(x=>x.cb.checked&&!remove.has(ingredientKey(x.line))).map(x=>x.line);renderIngredientRows()};
   const cancel=document.createElement('button');cancel.className='smallbtn';cancel.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';cancel.title='Cancel';cancel.setAttribute('aria-label','Cancel');
-  const save=document.createElement('button');save.className='smallbtn';save.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg>';save.title='Save';save.setAttribute('aria-label','Save');save.onclick=()=>{snapshot();meal.ingredients=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);const checkedLines=checks.filter(x=>x.cb.checked).map(x=>x.line);const previousSelections=new Set(originalSelected.map(ingredientKey));checkedLines.forEach(line=>{if(!previousSelections.has(ingredientKey(line))||manualReselections.has(ingredientKey(line)))checkedIngredients.delete(ingredientKey(line))});selectedByMeal[key]=checkedLines;for(const sibling of mealLinkedCopies(meal))selectedByMeal[String(sibling.id)]=[...checkedLines];meal.url=pendingRecipeUrl;meal.ingredientImportUrl=pendingIngredientImportUrl;fillMissingRecipeContent(meal,pendingRecipeDetails);renamedIngredients.forEach(({from,to})=>{const oldKey=from.toLowerCase().replace(/\s+/g,' ').trim(),newKey=to.toLowerCase().replace(/\s+/g,' ').trim();if(checkedIngredients.has(oldKey))checkedIngredients.add(newKey)});try{localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selectedByMeal));localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}persist();overlay.remove();renderList();if(pendingRecipeDetails?.recipeImportReferences?.length)recipeImportNotice('Related recipe references were found. No new links have been selected.',[meal])};
+  const save=document.createElement('button');save.className='smallbtn';save.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg>';save.title='Save';save.setAttribute('aria-label','Save');save.onclick=()=>{snapshot();preserveGroceryCheckStates(groceryBefore);meal.ingredients=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);const checkedLines=checks.filter(x=>x.cb.checked).map(x=>x.line);const previousSelections=new Set(originalSelected.map(ingredientKey));checkedLines.forEach(line=>{if(!previousSelections.has(ingredientKey(line))||manualReselections.has(ingredientKey(line)))checkedIngredients.delete(ingredientKey(line))});selectedByMeal[key]=checkedLines;for(const sibling of mealLinkedCopies(meal))selectedByMeal[String(sibling.id)]=[...checkedLines];meal.url=pendingRecipeUrl;meal.ingredientImportUrl=pendingIngredientImportUrl;fillMissingRecipeContent(meal,pendingRecipeDetails);renamedIngredients.forEach(({from,to})=>{const oldKey=from.toLowerCase().replace(/\s+/g,' ').trim(),newKey=to.toLowerCase().replace(/\s+/g,' ').trim();if(checkedIngredients.has(oldKey))checkedIngredients.add(newKey)});try{localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selectedByMeal));localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}renamedIngredients.forEach(({from,to})=>renameGrocerySourceChecks(meal,from,to));uncheckGrocerySourceLines(meal,checkedLines.filter(line=>!previousSelections.has(ingredientKey(line))||manualReselections.has(ingredientKey(line))));saveGroceryOccurrenceChecks();persist();overlay.remove();renderList();if(pendingRecipeDetails?.recipeImportReferences?.length)recipeImportNotice('Related recipe references were found. No new links have been selected.',[meal])};
   let closeConfirmationOpen=false;
   async function requestClose(){const currentIngredients=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);const currentSelected=checks.filter(x=>x.cb.checked).map(x=>x.line);const ingredientsChanged=JSON.stringify(currentIngredients)!==JSON.stringify(originalIngredients)||pendingRecipeUrl!==String(meal.url||'')||pendingIngredientImportUrl!==String(meal.ingredientImportUrl||'')||!!pendingRecipeDetails;const selectionsChanged=JSON.stringify([...currentSelected].sort())!==JSON.stringify([...originalSelected].filter(x=>currentIngredients.includes(x)).sort());if(!ingredientsChanged&&!selectionsChanged){overlay.remove();return}if(closeConfirmationOpen)return;closeConfirmationOpen=true;try{const shouldSave=await appDialog('Save changes before closing?',null,'yesno');if(!overlay.isConnected)return;if(shouldSave){save.click()}else{meal.ingredients=[...originalIngredients];selectedByMeal[key]=[...originalSelected];overlay.remove()}}finally{closeConfirmationOpen=false}}
   cancel.onclick=requestClose;
