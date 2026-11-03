@@ -4412,7 +4412,7 @@ function renderMenu(){let box=$('catmenu');if(!box)return;box.innerHTML='';if(!s
   name.oncontextmenu=e=>e.preventDefault();
 }
 function ingredientKey(line){return String(line??'').normalize('NFKC').trim().replace(/\s+/g,' ').toLowerCase()}
-function getDisplayedWeekdayMealsForPlan(plan, priorUsedByGroup=null, savedSchedule=null){
+function getDisplayedWeekdayMealsForPlan(plan, priorUsedByGroup=null, savedSchedule=null, reservedByGroup=null){
  const library=savedSchedule?savedSchedule.meals:meals,categories=savedSchedule?savedSchedule.cats:cats,plans=savedSchedule?savedSchedule.mealPlans:mealPlans,tabsVisible=savedSchedule?savedSchedule.showMealPlanTabs:showMealPlanTabs;
  const start=savedSchedule?weekdays.indexOf(savedSchedule.startWeekday):0;
  const days=savedSchedule?weekdays.slice(start<0?0:start).concat(weekdays.slice(0,start<0?0:start)):orderedDays();
@@ -4454,8 +4454,9 @@ function getDisplayedWeekdayMealsForPlan(plan, priorUsedByGroup=null, savedSched
    // must remain exact without changing legacy manual-override behavior.
    const used=usedByGroup.get(cat)||new Set();
    const cyclePinned=pinned&&plan.cycleRetainedSlots?.[key]===String(pinned.id);
-   if(meal&&!cyclePinned&&used.has(String(meal.id))){
-    const distinct=possible.find(candidate=>!used.has(String(candidate.id)));
+   const reserved=reservedByGroup?.get(cat)||new Set();
+   if(meal&&!cyclePinned&&(used.has(String(meal.id))||reserved.has(String(meal.id)))){
+    const distinct=possible.find(candidate=>!used.has(String(candidate.id))&&!reserved.has(String(candidate.id)));
     if(distinct)meal=distinct;
    }
    if(meal){const choice=plan.cycleSlotChoices?.[key],parent=choice&&String(choice.mealId)===String(meal.id)?choice.parentId:'';shown.push({day,cat,meal,scheduledSlot:true,...(parent?{linkedTo:parent}:{})});used.add(String(meal.id));usedByGroup.set(cat,used)}
@@ -4722,6 +4723,46 @@ function openRotateBackChooser(){
  const apply=document.createElement('button');apply.type='button';apply.textContent='Move selected';apply.className='smallbtn';apply.onclick=()=>{const chosen=boxes.filter(x=>x.cb.checked).map(x=>x.key);overlay.remove();rotateSelectedBack(chosen)};
  const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.className='smallbtn';cancel.onclick=()=>overlay.remove();controls.append(selectAll,selectNone,apply,cancel);controls.style.flexWrap='wrap';box.append(controls);overlay.append(box);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay);
 }
+// Resolve a rotation against the whole resulting plan, not only earlier days.
+// Reservations and temporary choices affect selection only; skipped recipes never
+// leave their queue positions or acquire cooking/history changes.
+function resolveRotatedMealSlots(plan, selected, retained){
+ const slots=new Set(selected.map(item=>weekdaySlotKey(item.day,item.cat)));
+ const reserved=new Map();
+ for(const item of retained){if(!reserved.has(item.cat))reserved.set(item.cat,new Set());reserved.get(item.cat).add(String(item.meal.id))}
+ function keepChoice(item){
+  const key=weekdaySlotKey(item.day,item.cat),id=String(item.meal.id);
+  plan.weekdayMealOverrides[key]=id;plan.cycleRetainedSlots[key]=id;
+  plan.cycleSlotChoices[key]={...plan.cycleSlotChoices[key],mealId:id,parentId:String(item.linkedTo??'')};
+ }
+ let resolved=getDisplayedWeekdayMealsForPlan(plan,null,null,reserved);
+ for(const item of resolved)if(slots.has(weekdaySlotKey(item.day,item.cat)))keepChoice(item);
+ const tried=new Map();
+ // Linked replacements take priority. Resolve any ordinary selected slot that
+ // now conflicts with a retained meal, a linked replacement, or another new pick.
+ // Each slot tries a recipe at most once, including cyclic linked definitions.
+ while(true){
+  resolved=getDisplayedWeekdayMealsForPlan(plan);
+  const linked=item=>item.linkedTo!=null||resolved.some(parent=>parent!==item&&parent.day===item.day&&(parent.meal.linkedMealIds||[]).some(id=>String(id)===String(item.meal.id))&&!(plan.cycleSlotChoices[weekdaySlotKey(item.day,item.cat)]?.blockedParents||[]).some(id=>String(id)===String(parent.meal.id)));
+  const fixed=resolved.filter(item=>!slots.has(weekdaySlotKey(item.day,item.cat))||linked(item));
+  const used=new Map();
+  for(const item of fixed){if(!used.has(item.cat))used.set(item.cat,new Set());used.get(item.cat).add(String(item.meal.id))}
+  let changed=false;
+  for(const item of resolved){
+   const key=weekdaySlotKey(item.day,item.cat);
+   if(!slots.has(key)||linked(item))continue;
+   const ids=used.get(item.cat)||new Set(),id=String(item.meal.id);
+   if(ids.has(id)){
+    if(!tried.has(key))tried.set(key,new Set());tried.get(key).add(id);
+    const occupied=new Set(resolved.filter(other=>other!==item&&other.cat===item.cat).map(other=>String(other.meal.id)));
+    const next=meals.find(meal=>meal.cat===item.cat&&meal.rotation&&recipeMatchesFilters(meal,plan.weekdayRecipeFilters?.[key]||[])&&!occupied.has(String(meal.id))&&!tried.get(key).has(String(meal.id)));
+    if(next){tried.get(key).add(String(next.id));keepChoice({day:item.day,cat:item.cat,meal:next});changed=true;break}
+   }
+   ids.add(id);used.set(item.cat,ids);
+  }
+  if(!changed)return;
+ }
+}
 function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=false,retainedSlots=null){
  saveActiveMealPlan();
  const prior=new Map(mealPlans.map(plan=>[plan.id,getDisplayedWeekdayMealsForPlan(plan)]));
@@ -4794,11 +4835,11 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  // Resolve selected slots through the existing linked-priority planner. Retained
  // parents are suppressed only in explicitly rotated groups; new mains may link in.
  for(const plan of mealPlans){
-  const resolved=getDisplayedWeekdayMealsForPlan(plan);
-  for(const item of selected.filter(x=>x.planId===plan.id)){
-   const key=weekdaySlotKey(item.day,item.cat),next=resolved.find(x=>x.day===item.day&&x.cat===item.cat);
-   if(next)plan.cycleSlotChoices[key]={...plan.cycleSlotChoices[key],mealId:String(next.meal.id),parentId:String(next.linkedTo??'')};
-  }
+  const planSelected=selected.filter(item=>item.planId===plan.id);
+  if(!planSelected.length)continue;
+  plan.cycleRetainedSlots={...(plan.cycleRetainedSlots||{})};
+  const retained=(prior.get(plan.id)||[]).filter(item=>!affected.some(outgoing=>outgoing.planId===plan.id&&rotationOccurrenceKey(outgoing)===rotationOccurrenceKey({...item,planId:plan.id})));
+  resolveRotatedMealSlots(plan,planSelected,retained);
  }
  const activePlan=mealPlans.find(plan=>plan.id===activePlanId);
  weekdayMealOverrides={...(activePlan?.weekdayMealOverrides||{})};
