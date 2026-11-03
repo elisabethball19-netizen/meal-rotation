@@ -88,7 +88,7 @@ def run(browser,filename,width,mode,tabs=True):
  if mode=='linked':assert pick(p,'Saturday','Sides')['id']==21
  if mode=='linked-protected':assert pick(p,'Saturday','Sides')['id']==20
  if mode=='cross-group':
-  ids=group_rows(p).evaluate_all('(es)=>es.map(e=>Number(e.dataset.mealId))');assert ids==([3,5,4,2,1,6] if tabs else [3,5,2,1,4,6]),ids
+  ids=group_rows(p).evaluate_all('(es)=>es.map(e=>Number(e.dataset.mealId))');assert ids==([3,4,5,2,1,6] if tabs else [3,5,2,1,4,6]),ids
   lentils=p.locator('#list .master-category-meal[data-meal-id="3"]')
   assert 'WED' in lentils.inner_text() and lentils.evaluate('(e)=>getComputedStyle(e).backgroundColor')=='rgb(246, 222, 170)'
   assert p.locator('#list .master-category-meal[data-meal-id="1"]').evaluate('(e)=>getComputedStyle(e).backgroundColor')=='rgba(0, 0, 0, 0)'

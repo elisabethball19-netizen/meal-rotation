@@ -11,7 +11,7 @@ f.EXTRA+='''window.orderTest={
  editDate:id=>editMealCookedDate(meals.find(m=>m.id===id)),
  demote:id=>{snapshot();meals.find(m=>m.id===id).rotation=false;persist();renderList()},
  remove:day=>{clearWeekdayOverride(day,'Mains');const p=mealPlans.find(p=>p.id===activePlanId);delete p.cycleSlotChoices[weekdaySlotKey(day,'Mains')];delete p.cycleRetainedSlots[weekdaySlotKey(day,'Mains')];saveWeekdayMealOverrides();persist();renderList()},
- mixed:()=>{showMealPlanTabs=false;const plan=mealPlans.find(p=>p.id===activePlanId);weekdayCategories={Tuesday:['Weekend'],Friday:['Weekend'],Sunday:['Weekend']};weekdayMealOverrides={'Tuesday::Weekend':'3','Friday::Weekend':'30','Sunday::Weekend':'3'};plan.cycleSlotChoices={'Tuesday::Weekend':{mealId:'3'},'Friday::Weekend':{mealId:'30',substitution:true},'Sunday::Weekend':{mealId:'3',substitution:true}};plan.cycleRetainedSlots={...weekdayMealOverrides};saveActiveMealPlan();persist();renderList()},
+ mixed:()=>{showMealPlanTabs=false;const plan=mealPlans.find(p=>p.id===activePlanId);weekdayCategories={Tuesday:['Weekend'],Friday:['Weekend'],Sunday:['Weekend']};weekdayMealOverrides={'Tuesday::Weekend':'3','Friday::Weekend':'30','Sunday::Weekend':'3'};plan.cycleSlotChoices={'Tuesday::Weekend':{mealId:'3',retain:true},'Friday::Weekend':{mealId:'30',substitution:true},'Sunday::Weekend':{mealId:'3',substitution:true}};plan.cycleRetainedSlots={...weekdayMealOverrides};saveActiveMealPlan();persist();renderList()},
  manual:value=>{manualRecipeOrdering=value;saveManualRecipeOrdering();renderList()},
  restore:b=>{slotBackup.restore(slotBackup.normalize(b));backupRestoreReloadPending=true}
 };'''

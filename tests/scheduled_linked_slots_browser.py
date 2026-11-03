@@ -16,6 +16,12 @@ def setup(browser,filename,width,linked=False,side=True,duplicate=False,multi=Fa
  if multi:plans.append(dict(id='lunch',name='Lunch',weekdayCategories={'Tuesday':['Sides'],'Thursday':['Sides']},weekdayMealOverrides={'Tuesday::Sides':'10','Thursday::Sides':'10'},weekdayRecipeFilters={},pinnedCats=[],cycleRetainedSlots={'Tuesday::Sides':'10','Thursday::Sides':'10'}))
  # These fixtures model automatic slot pins, not legacy manual selections.
  for plan in plans:plan['cycleSlotChoices']={key:{'mealId':str(value),'parentId':''} for key,value in plan['weekdayMealOverrides'].items()}
+ # Repeated occurrences here are deliberate user choices, not accidental auto duplicates.
+ if duplicate:
+  for day in ['Tuesday','Friday']:
+   key=day+'::Rice';plans[0]['weekdayMealOverrides'][key]='1';plans[0]['cycleSlotChoices'][key]={'mealId':'1','parentId':'','substitution':True}
+ if multi:
+  for choice in plans[1]['cycleSlotChoices'].values():choice['substitution']=True
  prefix='mealRotationTestSandboxV1:' if filename.startswith('meal-') else ''
  data={prefix+'mealRotationDataV1':json.dumps(dict(cats=['Rice','Sides','Sauces'],active='Rice',meals=library)),prefix+'mealRotationPlansV1':json.dumps(dict(plans=plans,activeId='original')),prefix+'mealRotationShowPlanTabsV1':'true',prefix+'mealRotationSelectedIngredientsV1':json.dumps({str(m['id']):m['ingredients'] for m in library}),prefix+'mealRotationRecipeViewPrefsV1':json.dumps(dict(mode='split',ratio=.4,autoOpenLinkedRecipes=True,keepScreenAwake=False)),prefix+'mealRotationTutorialStageV1':'done'}
  if prefix:data['mealRotationDataV1']='WORKING SENTINEL';data['mealRotationCookingSessionsV1']='PROGRESS SENTINEL'
@@ -70,7 +76,7 @@ def run(browser,filename,width):
       assert after['scales']['occurrences'][context_key(r)]==before['scales']['occurrences'][context_key(r)]
     assert definitions(before)==definitions(after)
     assert before['prefs']==after['prefs']
-    assert not any(c.get('retain') for plan in after['plans'] if plan['id']=='lunch' for c in plan.get('cycleSlotChoices',{}).values())
+    assert all(c.get('substitution') for plan in after['plans'] if plan['id']=='lunch' for c in plan.get('cycleSlotChoices',{}).values())
     assert [p['weekdayCategories'] for p in before['plans']]==[p['weekdayCategories'] for p in after['plans']]
     assert p.evaluate('slotTest.storage()')['mealRotationSelectedIngredientsV1']==saved['mealRotationSelectedIngredientsV1']
     totals=p.evaluate('slotTest.groceries()');expected_total=sum(r['id']*after['scales']['occurrences'].get(context_key(r),{}).get('multiplier',1) for r in now);assert len(totals)==1 and abs(totals[0]['quantity']['lo']-expected_total)<1e-8,(linked,selection,totals,expected_total)
@@ -89,7 +95,7 @@ def run(browser,filename,width):
  ctx,p,errors,prefix=setup(browser,filename,width,side=False);original=compose(p);p.evaluate('slotTest.open()');d=p.get_by_role('heading',name='Select meals to rotate out').locator('..');assert d.get_by_role('checkbox').count()==1;d.get_by_role('button',name='Move selected',exact=True).tap();assert [r['id'] for r in rows(p)]==[2];p.evaluate('slotTest.back()');assert compose(p)==original;assert not errors;ctx.close()
  # Partial Back preserves an unselected side and restores a selected linked slot exactly.
  ctx,p,errors,prefix=setup(browser,filename,width,linked=True,multi=True);original=compose(p);apply(p,[labels['main'],labels['side']]);side_now=slot(rows(p),'Sides');p.evaluate("slotTest.partial(['original||Tuesday::Rice'])");assert slot(rows(p),'Sides')==side_now
- assert not any(c.get('retain') for plan in state(p)['plans'] if plan['id']=='lunch' for c in plan.get('cycleSlotChoices',{}).values())
+ assert all(c.get('substitution') for plan in state(p)['plans'] if plan['id']=='lunch' for c in plan.get('cycleSlotChoices',{}).values())
  # A fresh history roundtrip tests the historical explicit linked-side descriptor.
  ctx.close();ctx,p,errors,prefix=setup(browser,filename,width,linked=True);original=compose(p);apply(p,[labels['main'],labels['side']]);p.evaluate('slotTest.oldHistory()');p.evaluate("slotTest.partial(['original||Tuesday::Rice','original||Tuesday::Sides'])");assert compose(p)==original,(rows(p),original);assert not errors;ctx.close()
  # The optional cooked-date action follows selected slots, not every recipe link.

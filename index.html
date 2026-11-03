@@ -217,6 +217,7 @@ body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inse
 .recipe-section-move svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;}
 .master-category-meal .recipe-section-move{margin-left:auto;}
 .master-category-meal .recipe-section-move+.master-meal-weekdays{margin-left:0;}
+.master-category-meal.featured-top-meal .recipe-section-move[aria-label$=" to Ideas"] svg{transform:translateX(5px);}
 .master-category-meal.featured-top-meal{padding-left:13px;}
 .master-category-meal-name{min-width:0;flex:1;text-align:left;background:none;border:0;font-size:15px;color:#242424;padding:5px 0;overflow-wrap:anywhere;}
 .master-category-meal .check{width:20px;height:20px;flex:0 0 20px;margin:0 5px 0 0;}
@@ -2527,8 +2528,11 @@ function setDayCategories(day,values){
   const previous=getDayCategories(day);
   const next=values.includes(EMPTY_DAY_ASSIGNMENT)?[EMPTY_DAY_ASSIGNMENT]:[...new Set(values.filter(c=>cats.includes(c)))];
   const plan=mealPlans.find(plan=>plan.id===activePlanId),occasional=meals.find(meal=>String(meal.id)===String(plan?.occasionalMeals?.[day]));
-  const groceryBefore=occasional?captureGroceryCheckStates():null;
-  snapshot();
+  const groceryBefore=captureGroceryCheckStates(),schedules=new Map(mealPlans.map(p=>[p.id,getDisplayedWeekdayMealsForPlan(p.id===activePlanId?{...p,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:p)]));
+  snapshot();preserveOtherMealPlanChoices(null,null,schedules);
+  for(const cat of new Set([...previous,...next]))if(previous.includes(cat)!==next.includes(cat)){
+   const key=weekdaySlotKey(day,cat);delete weekdayMealOverrides[key];delete plan.cycleRetainedSlots?.[key];delete plan.cycleSlotChoices?.[key];
+  }
   weekdayCategories[day]=next;
   for(const c of previous)if(!next.includes(c)){delete weekdayMealOverrides[weekdaySlotKey(day,c)];delete weekdayRecipeFilters[weekdaySlotKey(day,c)];}saveWeekdayRecipeFilters();
   delete weekdayMealOverrides[day];
@@ -4642,60 +4646,84 @@ function renderMenu(){let box=$('catmenu');if(!box)return;box.innerHTML='';if(!s
   name.oncontextmenu=e=>e.preventDefault();
 }
 function ingredientKey(line){return String(line??'').normalize('NFKC').trim().replace(/\s+/g,' ').toLowerCase()}
+// A single whole-week allocation is used by every group and meal-plan tab.
+// Keep manual choices and established automatic slots before filling new openings.
+function recipeLastCookedTime(meal){
+ const time=meal?.lastCooked?new Date(meal.lastCooked).getTime():NaN;
+ if(!Number.isFinite(time))return null;const day=new Date(time);day.setHours(0,0,0,0);return day.getTime();
+}
+function automaticRecipeCandidates(category,labels=[],library=meals){
+ return library.filter(meal=>meal.rotation&&meal.cat===category&&recipeMatchesFilters(meal,labels)).sort((a,b)=>{
+  const x=recipeLastCookedTime(a),y=recipeLastCookedTime(b);return x===null?(y===null?0:-1):y===null?1:x-y;
+ });
+}
+function allocateScheduledWeek(library,categories,plans,days,reservedPlanId=null,reservedByGroup=null){
+ const slots=[],occasional=[],used=new Set(),result=new Map(plans.map(plan=>[String(plan.id),[]]));
+ for(const plan of plans)for(const day of days){
+  const raw=plan.weekdayCategories?.[day],groups=[...new Set((Array.isArray(raw)?raw:[raw]).filter(cat=>categories.includes(cat)))];
+  const once=library.find(meal=>String(meal.id)===String(plan.occasionalMeals?.[day]));
+  if(once){occasional.push({plan,day,cat:once.cat,meal:once,occasional:true});used.add(String(once.id))}
+  for(const cat of groups){
+   const key=weekdaySlotKey(day,cat),choice=plan.cycleSlotChoices?.[key];if(choice?.empty===true)continue;
+   const chosen=plan.weekdayMealOverrides?.[key]??(groups[0]===cat?plan.weekdayMealOverrides?.[day]:undefined);
+   const manual=manualWeekdayMealChoice(plan,day,cat),possible=automaticRecipeCandidates(cat,plan.weekdayRecipeFilters?.[key]||[],library);
+   const preferred=(manual?library:possible).find(meal=>String(meal.id)===String(chosen));
+   slots.push({plan,day,cat,key,choice,possible,preferred,manual:manual&&!!preferred,meal:null});
+  }
+ }
+ // Deliberate manual duplicates stay exact. Their IDs reserve ordinary automatic slots.
+ for(const slot of slots.filter(slot=>slot.manual)){slot.meal=slot.preferred;used.add(String(slot.meal.id))}
+ const fixed=new Set(used),owners=new Map();
+ for(const slot of slots)if(!slot.manual&&slot.preferred&&slot.choice?.retain&&fixed.has(String(slot.preferred.id)))slot.meal=slot.preferred;
+ for(const slot of slots.filter(slot=>!slot.meal&&slot.preferred))if(!used.has(String(slot.preferred.id))){slot.meal=slot.preferred;used.add(String(slot.meal.id));owners.set(String(slot.meal.id),slot)}
+ function place(slot,seenSlots=new Set(),seenIds=new Set()){
+  if(seenSlots.has(slot))return false;seenSlots.add(slot);
+  const reserved=String(slot.plan.id)===String(reservedPlanId)?reservedByGroup?.get(slot.cat):null;
+  const avoid=String(slot.choice?.avoidMealId??''),options=slot.possible.filter(meal=>!fixed.has(String(meal.id))&&!reserved?.has(String(meal.id))&&!seenIds.has(String(meal.id)));
+  options.sort((a,b)=>(String(a.id)===avoid)-(String(b.id)===avoid));
+  // Try unused choices before moving an established automatic meal. An augmenting
+  // path handles overlapping label filters without disturbing manual/retained slots.
+  for(const meal of [...options.filter(meal=>!owners.has(String(meal.id))),...options.filter(meal=>owners.has(String(meal.id)))]){
+   const id=String(meal.id),owner=owners.get(id);if(owner===slot)continue;
+   const ownerReserved=owner&&String(owner.plan.id)===String(reservedPlanId)?reservedByGroup?.get(owner.cat):null;
+   if(owner&&(owner.choice?.retain||owner.choice?.parentId||ownerReserved?.has(id)||!place(owner,new Set(seenSlots),new Set([...seenIds,id]))))continue;
+   if(slot.meal&&owners.get(String(slot.meal.id))===slot){owners.delete(String(slot.meal.id));used.delete(String(slot.meal.id))}
+   slot.meal=meal;owners.set(id,slot);used.add(id);return true;
+  }
+  return false;
+ }
+ for(const slot of slots.filter(slot=>!slot.meal))place(slot);
+ // Repeats are a bounded fallback only after all distinct assignments were tried.
+ for(const slot of slots.filter(slot=>!slot.meal))slot.meal=slot.possible.find(meal=>String(meal.id)!==String(slot.choice?.avoidMealId??''))||slot.possible[0];
+ for(const slot of slots)if(slot.meal){
+  const parent=String(slot.choice?.mealId)===String(slot.meal.id)?slot.choice?.parentId:'';
+  result.get(String(slot.plan.id)).push({day:slot.day,cat:slot.cat,meal:slot.meal,scheduledSlot:true,...(String(slot.plan.occasionalMeals?.[slot.day])===String(slot.meal.id)?{occasional:true}:{}),...(parent?{linkedTo:parent}:{})});
+ }
+ for(const item of occasional){const entries=result.get(String(item.plan.id));if(!entries.some(entry=>entry.day===item.day&&String(entry.meal.id)===String(item.meal.id)))entries.push({day:item.day,cat:item.cat,meal:item.meal,occasional:true})}
+ for(const entries of result.values())entries.sort((a,b)=>days.indexOf(a.day)-days.indexOf(b.day));return result;
+}
+// Persist optional choices in the existing plan structure so date edits or view
+// changes cannot silently reassign established meals. Never modify the manual queue.
+function stabilizeAutomaticWeekSlots(){
+ if(restoringRotationCalendars)return false;
+ const before=JSON.stringify(mealPlans),schedules=new Map();
+ for(const plan of mealPlans){const current=plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan;schedules.set(plan.id,getDisplayedWeekdayMealsForPlan(current))}
+ for(const plan of mealPlans){
+  plan.weekdayMealOverrides={...(plan.weekdayMealOverrides||{})};plan.cycleRetainedSlots={...(plan.cycleRetainedSlots||{})};plan.cycleSlotChoices={...(plan.cycleSlotChoices||{})};
+  for(const item of schedules.get(plan.id)||[]){
+   if(!rotationSelectable(item,plan))continue;const key=weekdaySlotKey(item.day,item.cat),id=String(item.meal.id),old=plan.cycleSlotChoices[key],manual=manualWeekdayMealChoice(plan,item.day,item.cat,id);
+   plan.weekdayMealOverrides[key]=id;plan.cycleRetainedSlots[key]=id;
+   plan.cycleSlotChoices[key]={...(old&&String(old.mealId)===id?old:{}),...(manual?{substitution:true}:{}),mealId:id,parentId:String(item.linkedTo??'')};
+  }
+ }
+ weekdayMealOverrides={...(mealPlans.find(plan=>plan.id===activePlanId)?.weekdayMealOverrides||{})};return before!==JSON.stringify(mealPlans);
+}
 function getDisplayedWeekdayMealsForPlan(plan, priorUsedByGroup=null, savedSchedule=null, reservedByGroup=null){
  const library=savedSchedule?savedSchedule.meals:meals,categories=savedSchedule?savedSchedule.cats:cats,plans=savedSchedule?savedSchedule.mealPlans:mealPlans,tabsVisible=savedSchedule?savedSchedule.showMealPlanTabs:showMealPlanTabs;
  const start=savedSchedule?weekdays.indexOf(savedSchedule.startWeekday):0;
  const days=savedSchedule?weekdays.slice(start<0?0:start).concat(weekdays.slice(0,start<0?0:start)):orderedDays();
- // Reserve recipes already scheduled in earlier meal-plan tabs, so a group
- // assigned more than once in a week uses distinct recipes when possible.
- if(priorUsedByGroup===null){
-  priorUsedByGroup=new Map();
-  if(tabsVisible&&plans.length>1){
-   for(const earlier of plans){
-    if(String(earlier.id)===String(plan.id))break;
-    for(const entry of getDisplayedWeekdayMealsForPlan(!savedSchedule&&earlier.id===activePlanId?{...earlier,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:earlier,priorUsedByGroup,savedSchedule)){
-     if(!priorUsedByGroup.has(entry.cat))priorUsedByGroup.set(entry.cat,new Set());
-     priorUsedByGroup.get(entry.cat).add(String(entry.meal.id));
-    }
-   }
-  }
- }
- const usedByGroup=new Map([...priorUsedByGroup].map(([cat,ids])=>[cat,new Set(ids)]));
- const assignments=plan.weekdayCategories||{};
- const overrides=plan.weekdayMealOverrides||{};
- const planFilters=plan.weekdayRecipeFilters||{};
- const shown=[],categoryDayIndex={};
- days.forEach(day=>{
-  const raw=assignments[day];
-  const groups=[...new Set((Array.isArray(raw)?raw:[raw]).filter(c=>typeof c==='string'&&categories.includes(c)))];
-  groups.forEach(cat=>{
-   const selectedLabels=planFilters[weekdaySlotKey(day,cat)]||[];
-   const possible=library.filter(m=>m.cat===cat&&m.rotation&&recipeMatchesFilters(m,selectedLabels));
-   const index=categoryDayIndex[cat]||0;categoryDayIndex[cat]=index+1;
-   // Weekdays may share a category with fewer recipes than assigned days.
-   // Wrap through the rotation instead of leaving subsequent weekdays blank.
-   let meal=possible.length?possible[index % possible.length]:undefined;
-   const key=weekdaySlotKey(day,cat);
-   if(plan.cycleSlotChoices?.[key]?.empty===true)return;
-   const chosen=overrides[key]??(groups[0]===cat?overrides[day]:undefined);
-   const substitution=plan.cycleSlotChoices?.[key]?.substitution===true||manualWeekdayMealChoice(plan,day,cat);
-   const pinned=chosen!==undefined?(substitution?library:possible).find(m=>String(m.id)===String(chosen)):null;
-   if(pinned)meal=pinned;
-   // Preserve the rotation order, but skip recipes already used for this group
-   // elsewhere in the week (including other tabs). Cycle-preserved overrides
-   // must remain exact without changing legacy manual-override behavior.
-   const used=usedByGroup.get(cat)||new Set();
-   const cyclePinned=pinned&&(plan.cycleRetainedSlots?.[key]===String(pinned.id)||manualWeekdayMealChoice(plan,day,cat,pinned.id));
-   const reserved=reservedByGroup?.get(cat)||new Set();
-   if(meal&&!cyclePinned&&(used.has(String(meal.id))||reserved.has(String(meal.id)))){
-    const distinct=possible.find(candidate=>!used.has(String(candidate.id))&&!reserved.has(String(candidate.id)));
-    if(distinct)meal=distinct;
-   }
-   if(meal){const choice=plan.cycleSlotChoices?.[key],parent=choice&&String(choice.mealId)===String(meal.id)?choice.parentId:'';shown.push({day,cat,meal,scheduledSlot:true,...(String(plan.occasionalMeals?.[day])===String(meal.id)?{occasional:true}:{}),...(parent?{linkedTo:parent}:{})});used.add(String(meal.id));usedByGroup.set(cat,used)}
-  });
-  const occasional=library.find(meal=>String(meal.id)===String(plan.occasionalMeals?.[day]));
-  if(occasional&&!shown.some(entry=>entry.day===day&&String(entry.meal.id)===String(occasional.id)))shown.push({day,cat:occasional.cat,meal:occasional,occasional:true});
- });
+ const schedulingPlans=plans.map(other=>String(other.id)===String(plan.id)?plan:!savedSchedule&&other.id===activePlanId?{...other,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:other);
+ const shown=allocateScheduledWeek(library,categories,schedulingPlans,days,plan.id,reservedByGroup).get(String(plan.id))||[];
  // Linked recipes follow the chosen main recipe, replacing an assigned group's
  // normal choice without changing the underlying rotation order.
  const result=[];
@@ -4826,7 +4854,7 @@ function preserveOtherMealPlanChoices(day,category,capturedSchedules=null){
    if(!rotationSelectable(item,plan)||(plan.id===activePlanId&&item.day===day&&item.cat===category))continue;
    const key=weekdaySlotKey(item.day,item.cat),id=String(item.meal.id),old=plan.cycleSlotChoices[key],manual=manualWeekdayMealChoice(plan,item.day,item.cat,id);
    plan.weekdayMealOverrides[key]=id;plan.cycleRetainedSlots[key]=id;
-   plan.cycleSlotChoices[key]={...(old&&String(old.mealId)===id?old:{}),...(manual?{substitution:true,retain:true}:{}),mealId:id,parentId:String(item.linkedTo??'')};
+   plan.cycleSlotChoices[key]={...(old&&String(old.mealId)===id?old:{}),...(manual?{substitution:true,retain:true}:{}),...(day!=null?{retain:true}:{}),mealId:id,parentId:String(item.linkedTo??'')};
   }
  }
  weekdayMealOverrides={...(mealPlans.find(plan=>plan.id===activePlanId)?.weekdayMealOverrides||{})};
@@ -4837,13 +4865,17 @@ function prepareRecipePromotion(meal,pin=true){
  saveActiveMealPlan();
  const schedules=new Map(mealPlans.map(plan=>[plan.id,getDisplayedWeekdayMealsForPlan(plan)]));
  const plan=mealPlans.find(p=>p.id===activePlanId),entries=schedules.get(plan.id),grocery=captureGroceryCheckStates();
- const alreadyScheduled=entries.some(item=>String(item.meal.id)===String(meal.id));
- const day=alreadyScheduled?null:orderedDays().find(day=>{
+ const alreadyScheduled=[...schedules.values()].some(entries=>entries.some(item=>String(item.meal.id)===String(meal.id)));
+ const candidates=alreadyScheduled?[]:orderedDays().filter(day=>{
   if(!rotationGroupScheduled(plan,day,meal.cat)||!recipeMatchesFilters(meal,plan.weekdayRecipeFilters?.[weekdaySlotKey(day,meal.cat)]||[]))return false;
   const current=entries.find(item=>item.day===day&&item.cat===meal.cat);
   const linked=current&&(current.linkedTo!=null||entries.some(parent=>parent.day===day&&parent!==current&&(parent.meal.linkedMealIds||[]).some(id=>String(id)===String(current.meal.id))));
   return !manualWeekdayMealChoice(plan,day,meal.cat)&&!current?.occasional&&!linked;
  });
+ const today=new Date();today.setHours(0,0,0,0);
+ function score(day){const current=entries.find(item=>item.day===day&&item.cat===meal.cat);if(!current)return Infinity;const date=recipeLastCookedTime(current.meal);return date!==null&&date<=today.getTime()?date:-Infinity}
+ // Stable sorting leaves equal/unknown dates in the configured weekday order.
+ candidates.sort((a,b)=>{const x=score(a),y=score(b);return x===y?0:x>y?-1:1});const day=candidates[0]||null;
  if(pin)preserveOtherMealPlanChoices(null,null,schedules);
  return {day,grocery,schedules,pinned:pin};
 }
@@ -5062,7 +5094,7 @@ function resolveRotatedMealSlots(plan, selected, retained){
    if(ids.has(id)){
     if(!tried.has(key))tried.set(key,new Set());tried.get(key).add(id);
     const occupied=new Set(resolved.filter(other=>other!==item&&other.cat===item.cat).map(other=>String(other.meal.id)));
-    const next=meals.find(meal=>meal.cat===item.cat&&meal.rotation&&recipeMatchesFilters(meal,plan.weekdayRecipeFilters?.[key]||[])&&!occupied.has(String(meal.id))&&!tried.get(key).has(String(meal.id)));
+    const next=automaticRecipeCandidates(item.cat,plan.weekdayRecipeFilters?.[key]||[]).find(meal=>!occupied.has(String(meal.id))&&!tried.get(key).has(String(meal.id)));
     if(next){tried.get(key).add(String(next.id));keepChoice({day:item.day,cat:item.cat,meal:next});changed=true;break}
    }
    ids.add(id);used.set(item.cat,ids);
@@ -5140,7 +5172,7 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
    if(selectedKeys.has(rotationOccurrenceKey({...item,planId:plan.id}))){
     delete overrides[key];delete pins[key];
     const blocked=entries.filter(parent=>parent.day===day&&!planSelected.some(x=>x.day===day&&String(x.meal.id)===String(parent.meal.id))&&(parent.meal.linkedMealIds||[]).some(id=>meals.some(m=>String(m.id)===String(id)&&m.cat===cat))).map(parent=>String(parent.meal.id));
-    choices[key]={parentId:'',blockedParents:[...new Set(blocked)]};
+    choices[key]={parentId:'',avoidMealId:String(meal.id),blockedParents:[...new Set(blocked)]};
    }else{
     const old=choices[key],valid=old&&String(old.mealId)===String(meal.id),manual=manualWeekdayMealChoice(plan,day,cat,meal.id);
     const blocked=(valid?old.blockedParents||[]:[]).filter(id=>entries.some(parent=>parent.day===day&&String(parent.meal.id)===String(id))&&!planSelected.some(parent=>parent.day===day&&String(parent.meal.id)===String(id)));
@@ -5244,7 +5276,7 @@ function scheduledCalendarEntries(plan){
 }
 function reconcileRotationCalendars(){
  if(!rotationCalendarTrackingReady)return;
- let changed=false;const now=new Date();
+ let changed=stabilizeAutomaticWeekSlots();const now=new Date();
  for(const plan of mealPlans){
   const calendar=rotationCalendarForPlan(plan,scheduledCalendarEntries(plan),now);
   if(JSON.stringify(plan.rotationCalendar)!==JSON.stringify(calendar)){plan.rotationCalendar=calendar;changed=true}
@@ -5608,10 +5640,10 @@ function masterRecipeOrder(category,highlights=scheduledRecipeHighlights()){
  for(const entry of highlights.scheduledEntries){
   const plan=mealPlans.find(plan=>plan.id===entry.planId),current=plan?.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides}:plan;
   const manual=(entry.occasional&&!entry.linkedTo)||manualWeekdayMealChoice(current,entry.day,entry.cat,entry.meal.id);
-  const rank=[manual?0:2,days.indexOf(entry.day)],key=String(entry.meal.id),prior=ranks.get(key);
+  const rank=[manual?0:1,days.indexOf(entry.day)],key=String(entry.meal.id),prior=ranks.get(key);
   if(prior){prior[0]=Math.min(prior[0],rank[0]);prior[1]=Math.min(prior[1],rank[1])}else ranks.set(key,rank);
  }
- const rank=meal=>{const scheduled=ranks.get(String(meal.id));if(scheduled?.[0]===0)return scheduled;if(Number.isFinite(meal.rotationPromotionPriority))return [1,-meal.rotationPromotionPriority];if(scheduled)return scheduled;const time=meal.lastCooked?new Date(meal.lastCooked).getTime():NaN;return Number.isFinite(time)?[4,time]:[3,0]};
+ const rank=meal=>{const scheduled=ranks.get(String(meal.id));if(scheduled)return scheduled;if(Number.isFinite(meal.rotationPromotionPriority))return [2,-meal.rotationPromotionPriority];const time=meal.lastCooked?new Date(meal.lastCooked).getTime():NaN;return Number.isFinite(time)?[4,time]:[3,0]};
  const names=(a,b)=>String(a.name||'').localeCompare(String(b.name||''),undefined,{sensitivity:'base',numeric:true});
  return [...rotation.sort((a,b)=>{const x=rank(a),y=rank(b);return x[0]-y[0]||x[1]-y[1]||(x[0]>=3?names(a,b):0)}),...ideas];
 }
