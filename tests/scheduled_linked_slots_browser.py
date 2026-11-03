@@ -11,6 +11,8 @@ def setup(browser,filename,width,linked=False,side=True,duplicate=False,multi=Fa
  if duplicate:assign['Friday']=['Rice','Sides'];overrides.update({'Friday::Rice':'1','Friday::Sides':'10'});pins.update({'Friday::Rice':'1','Friday::Sides':'10'})
  plans=[dict(id='original',name='Dinner',weekdayCategories=assign,weekdayMealOverrides=overrides,weekdayRecipeFilters={},pinnedCats=[],cycleRetainedSlots=pins)]
  if multi:plans.append(dict(id='lunch',name='Lunch',weekdayCategories={'Tuesday':['Sides'],'Thursday':['Sides']},weekdayMealOverrides={'Tuesday::Sides':'10','Thursday::Sides':'10'},weekdayRecipeFilters={},pinnedCats=[],cycleRetainedSlots={'Tuesday::Sides':'10','Thursday::Sides':'10'}))
+ # These fixtures model automatic slot pins, not legacy manual selections.
+ for plan in plans:plan['cycleSlotChoices']={key:{'mealId':str(value),'parentId':''} for key,value in plan['weekdayMealOverrides'].items()}
  prefix='mealRotationTestSandboxV1:' if filename.startswith('meal-') else ''
  data={prefix+'mealRotationDataV1':json.dumps(dict(cats=['Rice','Sides','Sauces'],active='Rice',meals=library)),prefix+'mealRotationPlansV1':json.dumps(dict(plans=plans,activeId='original')),prefix+'mealRotationShowPlanTabsV1':'true',prefix+'mealRotationSelectedIngredientsV1':json.dumps({str(m['id']):m['ingredients'] for m in library}),prefix+'mealRotationRecipeViewPrefsV1':json.dumps(dict(mode='split',ratio=.4,autoOpenLinkedRecipes=True,keepScreenAwake=False)),prefix+'mealRotationTutorialStageV1':'done'}
  if prefix:data['mealRotationDataV1']='WORKING SENTINEL';data['mealRotationCookingSessionsV1']='PROGRESS SENTINEL'
