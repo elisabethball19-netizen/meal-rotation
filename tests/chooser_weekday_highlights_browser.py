@@ -4,6 +4,7 @@ import scheduled_linked_slots_browser as fixture
 from scheduled_linked_slots_browser import state,definitions,compose
 fixture.HOOK+='''window.highlightTest={
  prepare:(tabs,active)=>{meals.find(m=>m.id===2).rotation=false;meals.find(m=>m.id===11).rotation=false;for(const m of meals.filter(m=>m.cat==='Rice'))m.name='Rice recipe '+m.id;const lunch=mealPlans.find(p=>p.id==='lunch');lunch.weekdayCategories={Wednesday:['Rice'],Thursday:['Sides']};lunch.weekdayMealOverrides={'Wednesday::Rice':'3','Thursday::Sides':'12'};lunch.cycleRetainedSlots={...lunch.weekdayMealOverrides};showMealPlanTabs=tabs;localStorage.setItem('mealRotationShowPlanTabsV1',String(tabs));persist();saveActiveMealPlan();if(active!==activePlanId)loadMealPlan(active);renderList()},
+ manual:()=>{manualRecipeOrdering=true;saveManualRecipeOrdering();renderList()},
  groups:()=>{masterExpansionInitialized=true;masterExpandedCategories.clear();cats.forEach(c=>masterExpandedCategories.add(c));showTop=false;allMealsActive=false;groceryTabActive=false;setMasterCategoriesView(true);renderList()},
  my:()=>{showTop=true;allMealsActive=false;groceryTabActive=false;setMasterCategoriesView(false);renderList()},
  open:()=>{const day=activePlanId==='original'?'Tuesday':'Wednesday';const current=getDisplayedWeekdayMeals().find(x=>x.day===day&&x.cat==='Rice');openWeekdayMealChooser(day,'Rice',current.meal)},
@@ -70,6 +71,7 @@ def run(browser,filename,width,tabs,active):
  search.fill('');compare(p,3);d.get_by_role('button',name='Cancel',exact=True).tap()
  assert compose(p)==schedule and p.evaluate('slotTest.storage()')==storage and definitions(state(p))==definitions(base)
  # Use the actual Meal Groups Up action. The chooser must follow its manual order.
+ p.evaluate('highlightTest.manual()')
  card=p.locator('#list .master-category-card[data-category=Rice]');card.locator('.master-category-meal[data-meal-id="3"] .move').first.tap()
  expected=master(p);assert [r['id'] for r in expected['Rice']]==['3','1','2']
  p.evaluate('highlightTest.open()');d=chooser(p);expand(d);compare(p);d.locator('[data-meal-id="2"]').tap()
