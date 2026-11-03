@@ -4887,7 +4887,7 @@ function recordRotatedMealsCooked(selected){
 }
 function editMealCookedDate(meal){
  const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:11000;display:flex;align-items:center;justify-content:center;padding:18px';
- const panel=document.createElement('div');panel.style.cssText='background:white;color:#222;border-radius:16px;padding:22px;width:100%;max-width:440px';
+ const panel=document.createElement('div');panel.style.cssText='background:white;color:#222;border-radius:16px;padding:22px 22px 16px;width:100%;max-width:440px';
  const title=document.createElement('h3');title.textContent='Edit last cooked date';title.style.margin='0 0 12px';panel.append(title);
  const name=document.createElement('div');name.textContent=meal.name||'Meal';name.style.marginBottom='12px';panel.append(name);
  const field=document.createElement('input');field.type='date';field.setAttribute('aria-label','Choose last cooked date');
@@ -4899,11 +4899,11 @@ function editMealCookedDate(meal){
  showDate();field.addEventListener('change',showDate);
  dateWrap.append(dateText);const calendarIcon=document.createElement('span');calendarIcon.innerHTML='<svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 10h18"/></svg>';dateWrap.append(calendarIcon,field);
  dateWrap.onclick=()=>{try{field.showPicker()}catch(e){field.focus()}};panel.append(dateWrap);
- const actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:space-around;gap:12px;margin-top:18px';
- const button=(label,svg,fn)=>{const el=document.createElement('button');el.type='button';el.className='smallbtn';el.title=label;el.setAttribute('aria-label',label);el.innerHTML=svg;el.style.cssText='display:grid;place-items:center;width:60px;height:52px;padding:8px';el.onclick=fn;actions.append(el)};
- button('Save','<svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m4 12 5 5L20 6"/></svg>',()=>{if(!field.value)return;const date=new Date(field.value+'T12:00:00');if(Number.isNaN(date.getTime()))return;snapshot();for(const m of meals)if(m.id===meal.id||(meal.linkGroup&&m.linkGroup===meal.linkGroup))m.lastCooked=date.toISOString();persist();overlay.remove();renderList()});
- button('Clear date','<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg>',async()=>{if(await appDialog('Are you sure you want to delete '+(meal.lastCooked?lastCookedLabel(meal).replace(/^Last cooked /,''):'this date')+'?',null,'yesno')!==true)return;snapshot();for(const m of meals)if(m.id===meal.id||(meal.linkGroup&&m.linkGroup===meal.linkGroup))delete m.lastCooked;persist();overlay.remove();renderList()});
- button('Cancel','<svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5 19 19M19 5 5 19"/></svg>',()=>overlay.remove()); panel.append(actions);overlay.append(panel);
+ const actions=document.createElement('div');actions.className='meal-unified-actions';actions.style.marginTop='10px';
+ const button=(label,type,fn)=>{const el=document.createElement('button');el.type='button';setIconButton(el,type,label);el.style.width='52px';el.style.height='48px';el.onclick=fn;actions.append(el)};
+ button('Save','save',()=>{if(!field.value)return;const date=new Date(field.value+'T12:00:00');if(Number.isNaN(date.getTime()))return;snapshot();for(const m of meals)if(m.id===meal.id||(meal.linkGroup&&m.linkGroup===meal.linkGroup))m.lastCooked=date.toISOString();persist();overlay.remove();renderList()});
+ button('Clear date','delete',async()=>{if(await appDialog('Are you sure you want to delete '+(meal.lastCooked?lastCookedLabel(meal).replace(/^Last cooked /,''):'this date')+'?',null,'yesno')!==true)return;snapshot();for(const m of meals)if(m.id===meal.id||(meal.linkGroup&&m.linkGroup===meal.linkGroup))delete m.lastCooked;persist();overlay.remove();renderList()});
+ button('Cancel','cancel',()=>overlay.remove()); panel.append(actions);overlay.append(panel);
  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
  overlay.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();overlay.remove()}});
  document.body.append(overlay);
