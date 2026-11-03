@@ -59,7 +59,7 @@ def sources(p):return {s['id']:s for s in p.evaluate('promotionTest.sources()')}
 def pick(p,day,cat='Weekend',plan='original'):return next((r for r in rows(p) if r['planId']==plan and r['day']==day and r['cat']==cat),None)
 def group_rows(p,cat='Weekend'):return p.locator('#list .master-category-card[data-category="'+cat+'"] .master-category-meal')
 def promote_ui(p,id=5):
- p.evaluate('promotionTest.groups()');p.get_by_role('checkbox',name='Move '+('Mississippi Pot Roast' if id==5 else 'New Roast')+' to rotation',exact=True).tap()
+ p.evaluate('promotionTest.groups()');p.get_by_role('button',name='Move '+('Mississippi Pot Roast' if id==5 else 'New Roast')+' to rotation',exact=True).tap()
 def stable_sources(old,new):
  for id,source in new.items():assert source['checked']==(old[id]['checked'] if id in old else False),(id,source,old.get(id))
 def run(browser,filename,width,mode,tabs=True):
@@ -76,7 +76,7 @@ def run(browser,filename,width,mode,tabs=True):
  assert p.evaluate("promotionTest.order('Weekend')")==([5]+original_order if mode!='linked-slot' else original_order)
  for m in now['meals']:
   expected=copy.deepcopy(next(x for x in before['meals'] if x['id']==m['id']))
-  if m['id']==5:expected['rotation']=True
+  if m['id']==5:expected['rotation']=True;expected['rotationPromotionPriority']=m['rotationPromotionPriority'];assert isinstance(m['rotationPromotionPriority'],(int,float))
   assert m==expected,(mode,m,expected)
  for r in rows(p):
   if any(x[0]==r['planId'] and x[1]==r['day'] and x[3]==r['id'] and x[4]==r['parent'] for x in schedule):
@@ -88,7 +88,7 @@ def run(browser,filename,width,mode,tabs=True):
  if mode=='linked':assert pick(p,'Saturday','Sides')['id']==21
  if mode=='linked-protected':assert pick(p,'Saturday','Sides')['id']==20
  if mode=='cross-group':
-  ids=group_rows(p).evaluate_all('(es)=>es.map(e=>Number(e.dataset.mealId))');assert ids==([3,4,5,2,1,6] if tabs else [3,5,2,1,4,6]),ids
+  ids=group_rows(p).evaluate_all('(es)=>es.map(e=>Number(e.dataset.mealId))');assert ids==([3,5,4,2,1,6] if tabs else [3,5,2,1,4,6]),ids
   lentils=p.locator('#list .master-category-meal[data-meal-id="3"]')
   assert 'WED' in lentils.inner_text() and lentils.evaluate('(e)=>getComputedStyle(e).backgroundColor')=='rgb(246, 222, 170)'
   assert p.locator('#list .master-category-meal[data-meal-id="1"]').evaluate('(e)=>getComputedStyle(e).backgroundColor')=='rgba(0, 0, 0, 0)'
