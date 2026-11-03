@@ -5492,7 +5492,7 @@ function openLabelManager(){
 // Both recipe lists display scheduled rotation recipes first, preserving the
 // library's manual order within each display tier without changing the queue.
 function masterRecipeOrder(category,scheduledIds=new Set(scheduledRecipeHighlights().featuredColorById.keys())){const entries=meals.filter(meal=>meal.cat===category),rotation=entries.filter(meal=>!!meal.rotation);return [...rotation.filter(meal=>scheduledIds.has(String(meal.id))),...rotation.filter(meal=>!scheduledIds.has(String(meal.id))),...entries.filter(meal=>!meal.rotation)]}
-function scheduledRecipeHighlights(){
+function scheduledRecipeHighlights(preview=null){
  const featuredColorById=new Map();
  const scheduledDaysByMeal=new Map();
  // Weekday-only labels; recipes are allocated distinctly across tabs where possible.
@@ -5515,6 +5515,17 @@ function scheduledRecipeHighlights(){
     if(!usedForLabels.has(entry.cat))usedForLabels.set(entry.cat,new Set());
     usedForLabels.get(entry.cat).add(String(entry.meal.id));
    }
+  }
+ }
+ // The chooser previews one pending slot without changing the saved schedule.
+ // Reuse the same weekday colors and multi-day badges as Meal Groups.
+ if(preview?.meal){
+  const index=scheduledEntries.findIndex(entry=>entry.planId===activePlanId&&entry.day===preview.day&&(preview.occasional?entry.occasional&&!entry.linkedTo:entry.cat===preview.category));
+  const entry={day:preview.day,cat:preview.category||preview.meal.cat,meal:preview.meal,planId:activePlanId,planName:mealPlans.find(plan=>plan.id===activePlanId)?.name||''};
+  if(index>=0)scheduledEntries.splice(index,1,entry);
+  else{
+   scheduledEntries.push(entry);const days=orderedDays();
+   scheduledEntries.sort((a,b)=>mealPlans.findIndex(plan=>plan.id===a.planId)-mealPlans.findIndex(plan=>plan.id===b.planId)||days.indexOf(a.day)-days.indexOf(b.day));
   }
  }
  for(const entry of scheduledEntries){
@@ -5894,7 +5905,7 @@ function openWeekdayMealChooser(day,category,currentMeal,occasional=false){
   button.onclick=()=>{pendingMeal=meal;renderChoices()};return button;
  }
  function renderChoices(){
-  const scroll=list.scrollTop;highlights=scheduledRecipeHighlights();list.replaceChildren();
+  const scroll=list.scrollTop;highlights=scheduledRecipeHighlights(pendingMeal&&String(pendingMeal.id)!==String(currentMeal?.id)?{day,category,meal:pendingMeal,occasional}:null);list.replaceChildren();
   if(normalizeSearchText(search.value)){
    const matches=order.flatMap(cat=>masterRecipeOrder(cat).filter(meal=>mealMatchesSearch(meal,search.value)));
    for(const meal of matches)list.append(recipeButton(meal,true));
