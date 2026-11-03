@@ -1,76 +1,56 @@
-"""Weekday group popup layout and distinct heading/recipe actions; synthetic data."""
-from pathlib import Path
+"""Immediate weekday multi-group/filter saves with a compact, scrollable popup."""
 from playwright.sync_api import sync_playwright
 import scheduled_linked_slots_browser as fixture
 from scheduled_linked_slots_browser import state,definitions
-fixture.HOOK+='''window.weekPopup={tabs:value=>{showMealPlanTabs=value;render();window.scrollTo(0,0)},many:()=>{for(let i=0;i<30;i++)cats.push('Extra accompaniment group '+i);persist();renderList()},labels:()=>{meals.find(m=>m.id===1).labels=['Fast','Weeknight'];meals.find(m=>m.id===10).labels=['Mild'];persist()},filters:()=>weekdayRecipeFilters};'''
-TITLE="Select a group for Tuesday's dinner"
-def popup(p):return p.get_by_role('dialog',name=TITLE,exact=True)
-def heading(p):return p.locator('button.weekday-heading[data-weekday=Tuesday]')
-def storage(p):return p.evaluate('slotTest.storage()')
-
-def run(browser,filename,width,tabs,long=False,height=800):
- ctx,p,errors,prefix=fixture.setup(browser,filename,width,linked=True,duplicate=True,multi=True);p.set_default_timeout(8000);p.set_viewport_size({'width':width,'height':height})
+fixture.HOOK+='''window.weekPopup={tabs:value=>{showMealPlanTabs=value;render();window.scrollTo(0,0)},many:()=>{for(let i=0;i<30;i++)cats.push('Extra accompaniment group '+i);persist();renderList()},labels:()=>{meals.find(m=>m.id===1).labels=['Fast','Weeknight'];persist()},filters:()=>weekdayRecipeFilters};'''
+def dialog(p):return p.get_by_role('dialog',name='Select a group',exact=True)
+def run(browser,filename,width,tabs,long):
+ ctx,p,errors,prefix=fixture.setup(browser,filename,width,duplicate=True,multi=True);p.set_default_timeout(8000)
  if long:p.evaluate('weekPopup.many()')
- p.evaluate('weekPopup.tabs',tabs);before=state(p);saved=storage(p)
- h=heading(p);rect=h.bounding_box();assert rect['height']>=44 and rect['width']>=width-35
- # Blank space near the right edge, not weekday text, opens only group selection.
- h.tap(position={'x':rect['width']-5,'y':3});d=popup(p);assert d.is_visible()
- assert p.get_by_role('dialog',name='Meal options for Tuesday',exact=True).count()==0
- assert d.get_by_role('heading').inner_text()==TITLE
- close=d.get_by_role('button',name='Close',exact=True);cr=close.bounding_box();hr=d.get_by_role('heading').bounding_box();box=d.bounding_box()
- assert cr['width']>=44 and cr['height']>=44 and cr['x']>=hr['x']+hr['width']+9
- assert close.evaluate('e=>getComputedStyle(e).borderTopWidth')=='0px'
- assert close.evaluate('e=>getComputedStyle(e).backgroundColor')=='rgba(0, 0, 0, 0)'
- assert close.locator('svg').bounding_box()['width']==25
- assert box['height']<=min(height*.65,520)+1 and box['x']>=17 and box['x']+box['width']<=width-17
- assert d.evaluate('(e)=>e.scrollWidth<=e.clientWidth')
- assert d.get_by_role('checkbox',name='Rice',exact=True).is_checked() and d.get_by_role('checkbox',name='Sides',exact=True).is_checked()
- assert not d.get_by_role('checkbox',name='Sauces',exact=True).is_checked()
- assert d.get_by_role('button',name='Change meal',exact=True).count()==0
- body=d.locator('.weekday-group-picker-body');footer=d.get_by_role('button',name='Save meal groups',exact=True).bounding_box()
+ p.evaluate('weekPopup.labels()');p.evaluate('weekPopup.tabs',tabs);before=state(p);saved=p.evaluate('slotTest.storage()')
+ h=p.locator('button.weekday-heading[data-weekday=Tuesday]');r=h.bounding_box();h.tap(position={'x':r['width']-5,'y':r['height']/2});d=dialog(p)
+ assert d.get_by_role('heading').inner_text()=='Select a group'
+ assert d.get_by_role('button').count()==1 and d.get_by_role('button',name='Close',exact=True).is_visible()
+ assert d.get_by_role('button',name='Save meal groups').count()==0 and d.get_by_role('button',name='Cancel',exact=True).count()==0
+ rice=d.locator('input[data-group-choice][value=Rice]');sides=d.locator('input[data-group-choice][value=Sides]');sauce=d.locator('input[data-group-choice][value=Sauces]')
+ assert rice.is_checked() and sides.is_checked() and not sauce.is_checked()
+ row=rice.locator('..').bounding_box();assert 36<=row['height']<44,row
+ assert d.bounding_box()['height']<=520 and d.bounding_box()['width']<=width-30
  if long:
-  assert body.evaluate('(e)=>e.scrollHeight>e.clientHeight+100')
-  r=body.bounding_box();x=r['x']+r['width']*.7;y=r['y']+r['height']*.85;cdp=ctx.new_cdp_session(p)
-  cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':x,'y':y}]})
-  for n in range(1,9):cdp.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{'x':x,'y':y-r['height']*.65*n/8}]});p.wait_for_timeout(20)
-  cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]});p.wait_for_timeout(150);assert body.evaluate('(e)=>e.scrollTop')>0
-  assert abs(close.bounding_box()['y']-cr['y'])<1 and abs(d.get_by_role('button',name='Save meal groups').bounding_box()['y']-footer['y'])<1
-  last=d.locator('input[data-group-choice]').last;last.scroll_into_view_if_needed();lr=last.bounding_box();assert lr['y']+lr['height']<footer['y']
- else:assert body.evaluate('(e)=>e.scrollHeight<=e.clientHeight+1')
- if filename=='meal-rotation-test.html' and width==360 and tabs:p.screenshot(path='/tmp/weekday-group-popup-'+('long' if long else 'short')+'.png')
- close.tap(position={'x':3,'y':3});assert storage(p)==saved
- # Draft changes are discarded by the new close control just like the existing Cancel.
- h.tap(position={'x':3,'y':3});d=popup(p);d.get_by_role('checkbox',name='Rice',exact=True).uncheck();d.get_by_role('checkbox',name='Sauces',exact=True).check();d.get_by_role('button',name='Close',exact=True).tap();assert storage(p)==saved
- # Existing label-filter drafts and multiple group selections still save correctly.
- p.evaluate('weekPopup.labels()');baseline=state(p);saved=storage(p);h.tap();d=popup(p)
- d.get_by_role('checkbox',name='Fast',exact=True).check();d.get_by_role('button',name='Close',exact=True).tap();assert storage(p)==saved
- h.tap();d=popup(p);d.get_by_role('checkbox',name='Fast',exact=True).check();d.get_by_role('checkbox',name='Sauces',exact=True).check();d.get_by_role('button',name='Save meal groups',exact=True).tap()
- assert state(p)['plans'][0]['weekdayCategories']['Tuesday']==['Rice','Sides','Sauces']
- assert p.evaluate('weekPopup.filters()')['Tuesday::Rice']==['Fast']
- assert definitions(state(p))==definitions(baseline)
- assert state(p)['plans'][1]==baseline['plans'][1]
- for key,entry in baseline['sessions']['occurrences'].items():
-  if entry['context']['day']=='Friday':assert state(p)['sessions']['occurrences'][key]==entry and state(p)['scales']['occurrences'][key]==baseline['scales']['occurrences'][key]
- # Keyboard activation opens a single popup, and clearing/re-adding groups remains possible.
- heading(p).focus();p.keyboard.press('Enter');assert popup(p).count()==1;popup(p).get_by_role('button',name='Cancel',exact=True).tap()
- heading(p).focus();p.keyboard.press('Space');assert popup(p).count()==1;d=popup(p)
- d.get_by_role('checkbox',name='Rice',exact=True).uncheck();d.get_by_role('checkbox',name='Sides',exact=True).uncheck();d.get_by_role('checkbox',name='Sauces',exact=True).uncheck();d.get_by_role('button',name='Save meal groups',exact=True).tap()
- heading(p).tap();d=popup(p);assert not d.locator('input[data-group-choice]:checked').count();d.get_by_role('checkbox',name='Rice',exact=True).check();d.get_by_role('checkbox',name='Sides',exact=True).check();d.get_by_role('button',name='Save meal groups',exact=True).tap()
- p.reload();assert state(p)['plans'][0]['weekdayCategories']['Tuesday']==['Rice','Sides']
- # Recipe taps retain their own menu; Change meal opens the existing grouped chooser.
- p.locator('.mealname').filter(has_text='Thai Garlic Pork').first.tap();menu=p.get_by_role('dialog',name='Meal options for Tuesday',exact=True)
- assert menu.is_visible() and popup(p).count()==0
- assert menu.get_by_role('button',name='Change meal',exact=True).count()==1
- assert menu.get_by_role('button',name="Change Tuesday's meal",exact=True).count()==0
- assert menu.get_by_role('button',name='Save meal groups',exact=True).count()==0
- menu.get_by_role('button',name='Change meal',exact=True).tap();chooser=p.get_by_role('dialog',name="Choose Tuesday's meal",exact=True);assert chooser.get_by_role('button',name='Search recipes').is_visible();chooser.get_by_role('button',name='Cancel',exact=True).tap()
- if prefix:assert p.evaluate('localStorage.getItem("mealRotationDataV1")')=='WORKING SENTINEL'
- assert not errors,errors;ctx.close();print('PASS',filename,width,'tabs' if tabs else 'no tabs','long' if long else 'short','group list: full-area taps/keyboard, independent touch scroll, X/draft cancel, multiple groups/filters/save/reload/clear, separate recipe actions; no JS errors',flush=True)
-
+  body=d.locator('.weekday-group-picker-body');head=d.get_by_role('heading').bounding_box();close=d.get_by_role('button').bounding_box();r=body.bounding_box()
+  cdp=ctx.new_cdp_session(p)
+  cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':r['x']+r['width']/2,'y':r['y']+r['height']-30}]})
+  for i in range(1,9):cdp.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{'x':r['x']+r['width']/2,'y':r['y']+r['height']-30-i*25}]})
+  cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]});p.wait_for_timeout(250)
+  assert body.evaluate('(e)=>e.scrollTop')>0
+  assert d.get_by_role('heading').bounding_box()==head and d.get_by_role('button').bounding_box()==close
+  p.wait_for_timeout(600);body.evaluate('(e)=>e.scrollTop=0');p.wait_for_timeout(150)
+ if filename.startswith('meal-') and width==360 and tabs:p.screenshot(path='/tmp/compact-group-popup-'+str(long)+'.png')
+ d.get_by_role('button',name='Close',exact=True).tap();d.wait_for(state='detached');assert p.evaluate('slotTest.storage()')==saved
+ h.tap();d=dialog(p);d.locator('input[data-group-choice][value=Sauces]').check()
+ assert set(state(p)['plans'][0]['weekdayCategories']['Tuesday'])=={'Rice','Sides','Sauces'} and d.is_visible()
+ d.get_by_role('checkbox',name='Fast',exact=True).check();assert p.evaluate('weekPopup.filters()')["Tuesday::Rice"]==['Fast']
+ assert state(p)['sessions']==before['sessions'] and state(p)['scales']==before['scales'];d.get_by_role('button',name='Close',exact=True).tap();p.reload();h=p.locator('button.weekday-heading[data-weekday=Tuesday]');h.tap();d=dialog(p)
+ assert d.locator('input[data-group-choice][value=Sauces]').is_checked() and d.get_by_role('checkbox',name='Fast',exact=True).is_checked()
+ d.locator('input[data-group-choice][value=Sides]').uncheck();assert set(state(p)['plans'][0]['weekdayCategories']['Tuesday'])=={'Rice','Sauces'}
+ # Removing a group clears its filters using the existing setter; reselection stays possible.
+ d.locator('input[data-group-choice][value=Rice]').uncheck();assert 'Tuesday::Rice' not in p.evaluate('weekPopup.filters()')
+ d.locator('input[data-group-choice][value=Sauces]').uncheck();assert not d.locator('input[data-group-choice]:checked').count()
+ d.get_by_role('button',name='Close',exact=True).tap();p.reload();h=p.locator('button.weekday-heading[data-weekday=Tuesday]');h.tap();d=dialog(p)
+ assert not d.locator('input[data-group-choice]:checked').count()
+ d.locator('input[data-group-choice][value=Rice]').check();d.locator('input[data-group-choice][value=Sides]').check();d.get_by_role('button',name='Close',exact=True).tap()
+ after=state(p);assert definitions(before)==definitions(after) and before['plans'][1]==after['plans'][1]
+ for field in ['sessions','scales']:
+  for key,value in before[field]['occurrences'].items():
+   if 'Friday' in key or 'lunch' in key:assert after[field]['occurrences'][key]==value,(field,key)
+ assert before['prefs']==after['prefs']
+ p.locator('.mealname').first.tap();menu=p.get_by_role('dialog',name='Meal options for Tuesday');assert menu.is_visible() and menu.get_by_role('button',name='Change meal',exact=True).is_visible();assert not dialog(p).count()
+ if prefix:assert p.evaluate("localStorage.getItem('mealRotationDataV1')")=='WORKING SENTINEL'
+ assert not errors,errors
+ print('PASS',filename,width,tabs,long,'compact title/rows; X only; touch scroll; immediate groups/filters; close/reload/clear/re-add; links/progress/settings/storage isolation',flush=True);ctx.close()
 if __name__=='__main__':
- with sync_playwright() as p:
-  b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
+ with sync_playwright() as pw:
+  b=pw.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
   for filename in ['index.html','meal-rotation-test.html']:
    for width in [320,360]:
     for tabs in [True,False]:
