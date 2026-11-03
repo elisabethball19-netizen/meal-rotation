@@ -150,7 +150,7 @@ body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inse
 #list.top-summary > .top-controls > button{flex-shrink:0}
 #list.top-summary{padding-bottom:5px;}
 .all-meals-overview{margin:10px 2px 90px;}
-.all-meals-overview h2{font-size:20px;margin:4px 0 14px;}
+.all-meals-overview h2{font-size:20px;}
 .all-meals-day{border-radius:11px;margin:0 0 12px;overflow:hidden;padding:12px 14px 10px;}
 .all-meals-day h3{text-transform:uppercase;font-size:12px;font-weight:500;letter-spacing:.08em;color:#666;margin:0 0 6px;}
 .all-meals-entry{border-bottom:1px solid rgba(60,60,60,.12);padding:9px 0;}
@@ -184,8 +184,8 @@ body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inse
 /* Larger, easier-to-tap Add Group button beside meal-plan tabs. */
 .tab-actions .top-add-group{width:36px!important;min-width:36px;height:36px!important;padding:4px!important;font-size:28px!important;font-weight:400;line-height:1;display:grid;place-items:center;touch-action:manipulation;}
 .master-categories{display:flex;flex-direction:column;gap:10px;padding-bottom:80px;}
-.master-categories-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 2px 4px;}
-.master-categories-heading h2{font-size:19px;margin:0;font-weight:650;}
+.master-categories-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.master-categories-heading h2{font-size:19px;font-weight:650;}
 .master-expansion-controls{display:flex;align-items:center;gap:4px}.master-add-group{font-size:28px!important;font-weight:400;line-height:1}.master-expansion-controls .iconbtn{width:35px;height:35px;min-width:35px;}
 .master-hidden-categories-toggle{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin:14px 0;padding:13px;border:1px solid #d4d4d4;border-radius:12px;background:#fff;color:#333;font:inherit;cursor:pointer;}
 .master-hidden-categories-toggle svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round;}
@@ -344,8 +344,7 @@ body{padding-bottom:calc(310px + env(safe-area-inset-bottom, 0px));}
 
 /* Unified headings and separators across the app views. */
 #list .view-page-title,#list .master-categories-heading h2,#list .meal-plan-grocery > h2,#list .all-meals-overview > h2{font-size:20px;line-height:1.3;font-weight:700;text-align:left;}
-#list .view-page-title{margin:16px 3px 10px;}
-#list .master-categories-heading{padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid #dedede;}
+#list .master-categories-heading{border-bottom:1px solid #dedede;}
 #list .top-controls:has(.rotation-action-pair){border-bottom:1px solid #dedede;padding-bottom:12px;margin-bottom:14px!important;}
 
 /* Accessible text-size preference. Icons and navigation geometry stay unchanged. */
@@ -384,17 +383,16 @@ body[data-meal-text-size] .master-categories-heading h2{font-size:calc(20px * va
 .meal-text-size-setting select{min-height:42px;padding:8px 12px;border:1px solid #ccc;border-radius:9px;background:white;font:inherit}
 
 /* Consistent page hierarchy: toolbar, title, controls, divider, content. */
-#list .view-page-title{margin:16px 3px 10px!important;}
 #list.top-summary > .top-controls:has(.rotation-action-pair){border-bottom:0!important;padding-bottom:0!important;margin-bottom:4px!important;}
 #list .view-page-title + .top-controls{border:0!important;}
-#list .view-page-title{border-bottom:1px solid #dedede;padding-bottom:12px;margin-bottom:14px!important;}
+#list .view-page-title{border-bottom:1px solid #dedede;}
 #list .meal-plan-grocery{margin-top:12px;}
 #list .meal-plan-grocery > h2{margin:4px 0 12px!important;}
 #list .meal-plan-grocery .master-grocery-plan-filters{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;row-gap:8px;padding-bottom:12px!important;border-bottom:1px solid #dedede!important;margin-bottom:14px!important;}
 #list .meal-plan-grocery .master-grocery-plan-filters .grocery-choose-meals{flex:0 0 auto;white-space:nowrap;}
 #list .meal-plan-grocery .master-grocery-plan-filters .grocery-inline-actions{display:flex!important;align-items:center!important;flex:0 0 auto;gap:6px!important;flex-wrap:nowrap!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;}
 #list .all-meals-overview{margin-top:12px;}
-#list .all-meals-overview > h2{border-bottom:1px solid #dedede;padding-bottom:12px;margin-bottom:14px!important;}
+#list .all-meals-overview > h2{border-bottom:1px solid #dedede;}
 body:has(.all-meals-overview) #list > .top-controls{border:0!important;padding-bottom:0!important;margin-bottom:4px!important;}
 
 /* Optional, compact source recipe labels on the consolidated grocery list. */
@@ -452,12 +450,12 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 
 
 /* Compact, responsive page headers: controls wrap only when space requires it. */
-#list .rotation-compact-header{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;row-gap:4px;border-bottom:1px solid #dedede;padding-bottom:12px;margin:10px 3px 14px;}
-#list .rotation-compact-header .view-page-title{flex:0 0 auto;margin:0!important;padding:0!important;border:0!important;}
+#list .rotation-compact-header{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;border-bottom:1px solid #dedede;}
+#list .rotation-compact-header .view-page-title{flex:0 0 auto;border:0!important;}
 #list .rotation-heading-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
 #list .rotation-heading-actions .rotation-standalone-action{flex:0 0 auto;}
-#list .meal-plan-grocery .grocery-compact-header{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;row-gap:8px;border-bottom:1px solid #dedede;padding-bottom:12px;margin-bottom:14px;}
-#list .meal-plan-grocery .grocery-compact-header > h2{flex:0 0 auto;margin:0!important;padding:0!important;}
+#list .meal-plan-grocery .grocery-compact-header{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;border-bottom:1px solid #dedede;}
+#list .meal-plan-grocery .grocery-compact-header > h2{flex:0 0 auto;}
 #list .meal-plan-grocery .grocery-compact-header .master-grocery-plan-filters{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0!important;padding:0!important;border:0!important;flex:0 1 auto;min-width:0;}
 #list .meal-plan-grocery .grocery-compact-header .grocery-inline-actions{display:flex!important;gap:6px!important;flex:0 0 auto;}
 
@@ -476,7 +474,6 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 #list .meal-plan-grocery .grocery-compact-header,
 #list .master-categories-heading{isolation:isolate;}
 #list .master-category-card{scroll-margin-top:88px;}
-#list .all-meals-overview > h2{margin-top:0!important;padding-top:10px;padding-bottom:12px;}
 
 /* Header refinement: Meal Groups scrolls normally; My Rotation remains opaque
    across the full content width, covering colored weekday cards underneath. */
@@ -504,7 +501,7 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 #list .rotation-heading-actions .rotation-labeled-button:focus-visible{outline:2px solid #5076b5;outline-offset:2px;}
 
 /* Refined primary actions: visible button surfaces and natural responsive wrapping. */
-#list .rotation-compact-header{column-gap:10px!important;row-gap:8px!important;margin-top:2px!important;padding-top:3px!important;align-items:center!important;}
+#list .rotation-compact-header{column-gap:10px!important;align-items:center!important;}
 #list .rotation-compact-header .rotation-heading-actions{display:flex!important;flex-wrap:wrap!important;gap:7px!important;flex:0 1 auto!important;}
 #list .rotation-compact-header .rotation-heading-actions button.rotation-labeled-button.iconbtn{
   display:inline-flex!important;align-items:center!important;justify-content:center!important;
@@ -520,9 +517,6 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 #list.top-summary > .top-controls:has(.rotation-action-pair){margin-bottom:0!important;padding-bottom:0!important;}
 #list .rotation-compact-header .rotation-heading-actions button.rotation-labeled-button.iconbtn{border:1px solid #b9c5d2!important;background:#e9eef5!important;box-shadow:0 1px 2px rgba(0,0,0,.09)!important;padding:7px 10px!important;min-height:40px!important;border-radius:9px!important;}
 #list .rotation-compact-header .rotation-heading-actions button.rotation-labeled-button.iconbtn:active{background:#d8e3f0!important;}
-/* Reduce only the gap between the My Rotation title and its cycle buttons when wrapped. */
-#list .rotation-compact-header{row-gap:3px!important;}
-
 /* Compact weekday cards: single-group labels share the weekday line. */
 #list.top-summary .section.weekday-single-group{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0;padding-bottom:10px!important;}
 #list.top-summary .weekday-inline-group{border:0;background:transparent;color:inherit;opacity:.88;font:inherit;letter-spacing:normal;text-transform:uppercase;cursor:pointer;text-align:right;padding:0;min-width:0;overflow-wrap:anywhere;}
@@ -534,27 +528,18 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 #list .rotation-compact-header,
 #list .meal-plan-grocery .grocery-compact-header,
 #list .all-meals-overview > h2 {
-  padding-top:14px!important;
   background:#fff!important;
   background-clip:padding-box;
 }
 #list .rotation-compact-header {
-  box-shadow:0 0 0 14px #fff!important;
+  box-shadow:-14px 0 #fff,14px 0 #fff!important;
 }
 #list .meal-plan-grocery .grocery-compact-header {
-  box-shadow:0 0 0 10px #fff!important;
+  box-shadow:-10px 0 #fff,10px 0 #fff!important;
 }
 #list .all-meals-overview > h2 {
-  box-shadow:0 0 0 10px #fff!important;
+  box-shadow:-10px 0 #fff,10px 0 #fff!important;
 }
-
-/* Keep page headers compact at rest; give them breathing room only while stuck. */
-#list .rotation-compact-header,
-#list .meal-plan-grocery .grocery-compact-header,
-#list .all-meals-overview > h2 { padding-top:3px!important; }
-#list .rotation-compact-header.is-stuck,
-#list .meal-plan-grocery .grocery-compact-header.is-stuck,
-#list .all-meals-overview > h2.is-stuck { padding-top:14px!important; }
 
 /* Compact weekday identifiers beside the Meal Groups controls. */
 /* Weekday labels sit at the top of their corresponding color segments. */
@@ -762,13 +747,72 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 #list .meal-plan-tab.selected{border-bottom-color:#fff!important;background:#fff!important;z-index:5!important;}
 #list .meal-plan-tab.selected::after{bottom:-1px!important;height:3px!important;background:#fff!important;}
 
-/* Align page-title spacing to the Grocery List reference view. */
-#list .rotation-compact-header{margin-top:12px!important;padding-top:3px!important;margin-bottom:12px!important;}
-#list .rotation-compact-header .view-page-title{margin:4px 0 12px!important;padding:0!important;border:0!important;}
-#list .all-meals-overview{margin-top:12px!important;}
-#list .all-meals-overview > h2{margin:4px 0 12px!important;padding:3px 0 0!important;border:0!important;}
-#list .master-categories-heading{margin-top:12px!important;margin-bottom:12px!important;padding-top:3px!important;padding-bottom:0!important;border:0!important;}
-#list .master-categories-heading h2{margin:4px 0 12px!important;}
+/* Shared page spacing, using Grocery List's 12px approach and 3px inset.
+   Page-specific headers retain their controls, sizing and sticky behavior. */
+#list{
+ --page-heading-before:12px;
+ --page-heading-inset:3px;
+ --page-heading-controls-gap:8px;
+ --page-heading-content-gap:8px;
+ --page-heading-stuck-inset:14px;
+ --group-card-gap:10px;
+ --page-heading-line-height:calc(20px * var(--meal-text-factor,1) * 1.3);
+}
+/* Empty per-view toolbars must not add another margin above the title. */
+#list > .top-controls:empty{display:none!important;margin:0!important;padding:0!important;}
+#list .meal-plan-grocery,
+#list .all-meals-overview,
+#list .master-categories{margin-top:var(--page-heading-before)!important;}
+#list .rotation-compact-header{
+ flex-direction:column;align-items:flex-start!important;
+ margin-top:var(--page-heading-before)!important;
+ margin-bottom:var(--page-heading-content-gap)!important;
+ padding-top:var(--page-heading-inset)!important;padding-bottom:0!important;
+ row-gap:var(--page-heading-controls-gap)!important;
+}
+#list .rotation-compact-header .view-page-title,
+#list .master-categories-heading h2{
+ margin:0!important;padding:0!important;border:0!important;
+ min-width:0;max-width:100%;overflow-wrap:anywhere;line-height:1.3;
+}
+#list .meal-plan-grocery .grocery-compact-header{
+ --inline-controls-rise:max(0px,(40px - var(--page-heading-line-height)) / 2);
+ align-items:flex-start;
+ margin-bottom:var(--page-heading-content-gap)!important;
+ padding-top:var(--page-heading-inset)!important;padding-bottom:0!important;
+ row-gap:calc(var(--page-heading-controls-gap) + var(--inline-controls-rise));
+}
+#list .meal-plan-grocery .grocery-compact-header .master-grocery-plan-filters{
+ margin-top:calc(-1 * var(--inline-controls-rise))!important;
+}
+#list .meal-plan-grocery .grocery-compact-header > h2{
+ margin:0!important;padding:0!important;min-width:0;max-width:100%;overflow-wrap:anywhere;line-height:1.3;
+}
+#list .all-meals-overview > h2{
+ margin:0 0 var(--page-heading-content-gap)!important;
+ padding:var(--page-heading-inset) 0 0!important;
+}
+#list .master-categories{gap:var(--group-card-gap);}
+#list .master-categories-heading{
+ align-items:flex-start;
+ margin:0 2px calc(var(--page-heading-content-gap) - var(--group-card-gap))!important;
+ padding:var(--page-heading-inset) 0 0!important;
+}
+/* Align inline icons with the title's first line without shifting that line down.
+   Their existing touch targets keep their full height. */
+#list .master-categories-heading .master-expansion-controls{
+ flex-shrink:0;
+ margin-top:calc(-1 * max(0px,(42px - var(--page-heading-line-height)) / 2));
+}
+#list .master-order-reset:not([hidden]){
+ margin:0 2px calc(var(--page-heading-content-gap) - var(--group-card-gap));
+}
+#list .rotation-compact-header,
+#list .meal-plan-grocery .grocery-compact-header,
+#list .all-meals-overview > h2{top:var(--page-heading-sticky-top,0px);}
+#list .rotation-compact-header.is-stuck,
+#list .meal-plan-grocery .grocery-compact-header.is-stuck,
+#list .all-meals-overview > h2.is-stuck{padding-top:var(--page-heading-stuck-inset)!important;}
 
 /* Shared-recipe and linked-meal dialogs use identical button choices and bottom X. */
 .shared-groups-panel .shared-groups-choice{display:block;width:100%;border:1px solid #cbd0d6;border-radius:11px;background:#f5f6f8;box-shadow:0 2px 5px rgba(0,0,0,.08);padding:12px 14px;margin:10px 0;text-align:left;font:inherit;color:#242424;min-height:48px;cursor:pointer;}
@@ -6873,7 +6917,8 @@ render();window.history.replaceState({...window.history.state,mealRotationView:a
   function update(){
     queued=false;
     document.querySelectorAll(selector).forEach(header=>{
-      const stuck=window.scrollY>0 && header.getBoundingClientRect().top<=1;
+      const stickyTop=parseFloat(getComputedStyle(header).top)||0;
+      const stuck=window.scrollY>0 && header.getBoundingClientRect().top<=stickyTop+1;
       header.classList.toggle('is-stuck',stuck);
     });
   }
