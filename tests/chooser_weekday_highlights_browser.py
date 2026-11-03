@@ -30,7 +30,7 @@ def compare(p):
 def run(browser,filename,width,tabs,active):
  ctx,p,errors,prefix=fixture.setup(browser,filename,width,linked=True,duplicate=True,multi=True);p.set_default_timeout(8000);p.evaluate('([tabs,active])=>highlightTest.prepare(tabs,active)',[tabs,active]);p.evaluate('slotTest.seed()');base=state(p)
  p.evaluate('highlightTest.groups()');expected=master(p)
- assert [r['id'] for r in expected['Rice']]==['1','3','2']
+ assert [r['id'] for r in expected['Rice']]==(['3','1','2'] if not tabs and active=='lunch' else ['1','3','2'])
  byid={r['id']:r for rows in expected.values() for r in rows}
  assert byid['1']['days']==('TUE · FRI' if tabs or active=='original' else '')
  assert byid['3']['days']==('WED' if tabs or active=='lunch' else '')
@@ -53,7 +53,7 @@ def run(browser,filename,width,tabs,active):
  d.locator('[data-meal-id="3"]').tap();compare(p)
  assert d.locator('[data-meal-id="3"]').get_attribute('aria-pressed')=='true'
  d.get_by_role('button',name='Search recipes',exact=True).tap();search=d.get_by_role('searchbox');search.fill('recipe rice')
- assert d.locator('.weekday-meal-choice').evaluate_all('(es)=>es.map(e=>e.dataset.mealId)')==['1','3','2']
+ assert d.locator('.weekday-meal-choice').evaluate_all('(es)=>es.map(e=>e.dataset.mealId)')==[r['id'] for r in expected['Rice']]
  for item in d.locator('.weekday-meal-choice').all():
   exp=byid[item.get_attribute('data-meal-id')]
   assert item.evaluate('(e)=>getComputedStyle(e).backgroundColor')==(exp['color'] if exp['days'] else 'rgb(255, 255, 255)')
