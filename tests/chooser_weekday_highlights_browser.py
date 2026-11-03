@@ -55,8 +55,8 @@ def run(browser,filename,width,tabs,active):
  r=d.locator('[data-meal-id="2"]');assert r.get_attribute('aria-pressed')=='true' and ('TUE' if active=='original' else 'WED') in r.locator('.master-meal-weekdays').inner_text()
  assert r.evaluate('(e)=>getComputedStyle(e).borderTopWidth')=='0px'
  selected=d.locator('[data-meal-id="1"]')
- assert d.locator('.weekday-meal-choice').evaluate_all('(rows)=>rows.every(e=>getComputedStyle(e).padding==="5px 8px")')
- assert selected.evaluate('(e)=>{const x=e.getBoundingClientRect().x;return [...e.querySelectorAll("span")].every(text=>Math.abs(text.getBoundingClientRect().x-x-8)<1)}')
+ assert d.locator('.weekday-meal-choice').evaluate_all('(rows)=>rows.every(e=>(getComputedStyle(e).padding===((e.querySelector(".master-meal-weekdays"))?"5px 8px 5px 13px":"5px 8px")))')
+ assert selected.evaluate('(e)=>{const x=e.getBoundingClientRect().x;return [...e.querySelectorAll("span")].every(text=>Math.abs(text.getBoundingClientRect().x-x-parseFloat(getComputedStyle(e).paddingLeft))<1)}')
  assert selected.evaluate('(e)=>getComputedStyle(e).borderRadius')=='8px'
  line=selected.evaluate('(e)=>{const s=getComputedStyle(e,"::after");return {left:s.left,right:s.right,height:s.height,radius:s.borderRadius,color:s.backgroundColor}}')
  assert line=={'left':'0px','right':'0px','height':'1px','radius':'0px','color':'rgb(238, 238, 238)'},line
@@ -110,7 +110,7 @@ def feedback(browser,filename,width,tabs):
   if id==3:assert days(3)==('WED · FRI' if tabs else 'FRI') and days(2)==''
   assert p.evaluate('slotTest.storage()')==saved and compose(p)==before
  d.get_by_role('button',name='Search recipes',exact=True).tap();d.get_by_role('searchbox').fill('carne asada');assert days(2)=='FRI';d.get_by_role('searchbox').fill('');expand(d)
- assert d.locator('.weekday-meal-choice').evaluate_all('(es)=>es.every(e=>getComputedStyle(e).padding==="5px 8px"&&getComputedStyle(e).borderWidth==="0px")')
+ assert d.locator('.weekday-meal-choice').evaluate_all('(es)=>es.every(e=>(getComputedStyle(e).padding===((e.querySelector(".master-meal-weekdays"))?"5px 8px 5px 13px":"5px 8px"))&&getComputedStyle(e).borderWidth==="0px")')
  if filename.startswith('meal-') and width==360 and tabs:p.screenshot(path='/tmp/chooser-selection-friday.png')
  d.get_by_role('button',name='Cancel',exact=True).tap();assert p.evaluate('slotTest.storage()')==saved and compose(p)==before
  # Save still commits only on the checkmark, and survives reopening/reload.
