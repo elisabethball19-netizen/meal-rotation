@@ -1,6 +1,7 @@
 """Promotion and protected manual slots, with synthetic data in isolated storage."""
 import copy,json
 from pathlib import Path
+from section_visibility_fixture import reveal_recipe
 from playwright.sync_api import sync_playwright
 from scheduled_linked_slots_browser import HOOK,meal,rows,state,compose,context_key,definitions
 ROOT=Path(__file__).resolve().parents[1]
@@ -59,7 +60,7 @@ def sources(p):return {s['id']:s for s in p.evaluate('promotionTest.sources()')}
 def pick(p,day,cat='Weekend',plan='original'):return next((r for r in rows(p) if r['planId']==plan and r['day']==day and r['cat']==cat),None)
 def group_rows(p,cat='Weekend'):return p.locator('#list .master-category-card[data-category="'+cat+'"] .master-category-meal')
 def promote_ui(p,id=5):
- p.evaluate('promotionTest.groups()');p.get_by_role('button',name='Move '+('Mississippi Pot Roast' if id==5 else 'New Roast')+' to rotation',exact=True).tap()
+ p.evaluate('promotionTest.groups()');reveal_recipe(p,id);p.get_by_role('button',name='Move '+('Mississippi Pot Roast' if id==5 else 'New Roast')+' to rotation',exact=True).tap()
 def stable_sources(old,new):
  for id,source in new.items():assert source['checked']==(old[id]['checked'] if id in old else False),(id,source,old.get(id))
 def run(browser,filename,width,mode,tabs=True):

@@ -74,7 +74,7 @@ def updates(b,name,w,tabs):
  # A real date editor save immediately reorders only unscheduled dated recipes.
  raw=p.evaluate("orderTest.raw('Weekend')");schedule=compose(p);p.evaluate('orderTest.editDate(32)');p.get_by_label('Choose last cooked date').fill('2018-01-01');p.get_by_role('button',name='Save',exact=True).tap();assert ids(p).index(32)<ids(p).index(33);assert p.evaluate("orderTest.raw('Weekend')")==raw and compose(p)==schedule
  p.evaluate('([id,date])=>orderTest.dates(id,date)',[33,None]);assert ids(p).index(33)<ids(p).index(30);compare(p)
- p.evaluate("promotionTest.manual('Sunday','Weekend',3)");groups(p);assert ids(p).count(3)==1;assert 'WED · SUN' in p.locator('#list .master-category-meal[data-meal-id="3"]').inner_text();compare(p)
+ p.evaluate("promotionTest.manual('Sunday','Weekend',3)");groups(p);assert ids(p).count(3)==1;assert p.locator('#list .master-category-meal[data-meal-id="3"] .master-meal-weekdays').text_content()=='WED · SUN';compare(p)
  p.evaluate("promotionTest.manual('Saturday','Weekend',30)");groups(p);assert ids(p)[:2]==[3,30];compare(p)
  p.evaluate("promotionTest.start('Sunday')");groups(p);assert ids(p)[:2]==[3,30];compare(p)
  p.evaluate("orderTest.remove('Wednesday')");groups(p);assert ids(p)[:2]==[3,30]

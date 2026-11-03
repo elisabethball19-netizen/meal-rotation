@@ -1,5 +1,6 @@
 """Immediate section moves, temporary promotion ranking and occurrence-safe demotion."""
 from playwright.sync_api import sync_playwright
+from section_visibility_fixture import reveal_recipe
 import promotion_schedule_browser as f
 from scheduled_linked_slots_browser import state,compose,context_key
 f.EXTRA+='''window.sectionTest={
@@ -13,7 +14,7 @@ f.EXTRA+='''window.sectionTest={
 def ids(p):return f.group_rows(p).evaluate_all('(es)=>es.map(e=>Number(e.dataset.mealId))')
 def groups(p):p.evaluate('promotionTest.groups()')
 def move(p,id):
- groups(p);p.locator('#list .master-category-meal[data-meal-id="'+str(id)+'"] .recipe-section-move').tap();assert not p.get_by_role('dialog').count() and not p.get_by_role('alertdialog').count()
+ groups(p);reveal_recipe(p,id).locator('.recipe-section-move').tap();assert not p.get_by_role('dialog').count() and not p.get_by_role('alertdialog').count()
 def consistent(p):
  groups(p);expected=ids(p);p.evaluate("promotionTest.chooser('Saturday','Weekend')");d=p.locator('.weekday-meal-picker');toggle=d.locator('[data-group=Weekend] .master-category-title')
  if toggle.get_attribute('aria-expanded')=='false':toggle.tap()

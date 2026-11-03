@@ -2,11 +2,12 @@
 import subprocess,tempfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from section_visibility_fixture import expand_recipe_sections
 import promotion_schedule_browser as f
 f.EXTRA+='''window.paddingTest={manual:value=>{manualRecipeOrdering=value;saveManualRecipeOrdering();renderList()}};'''
 ROOT=Path(__file__).resolve().parents[1]
 def snapshot(b,name,width,tabs,manual):
- c,p,e,prefix=f.setup(b,name,width,'cross-group',tabs);p.evaluate('paddingTest.manual',manual);p.evaluate('promotionTest.groups()')
+ c,p,e,prefix=f.setup(b,name,width,'cross-group',tabs);p.evaluate('paddingTest.manual',manual);p.evaluate('promotionTest.groups()');expand_recipe_sections(p)
  def data(selector):return p.locator(selector).evaluate_all('''rows=>rows.map(e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return {id:e.dataset.mealId,h:r.height,color:s.backgroundColor,radius:s.borderRadius,top:s.paddingTop,bottom:s.paddingBottom,left:s.paddingLeft,right:s.paddingRight,border:s.borderBottomWidth,days:e.querySelector('.master-meal-weekdays')?.textContent||'',dayRight:e.querySelector('.master-meal-weekdays')?getComputedStyle(e.querySelector('.master-meal-weekdays')).marginRight:null}})''')
  group=data('#list .master-category-meal');p.evaluate("promotionTest.chooser('Saturday','Weekend')");chooser=data('.weekday-meal-choice');assert not e,e
  assert p.evaluate('document.documentElement.scrollWidth<=innerWidth')

@@ -210,7 +210,12 @@ body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inse
 .master-category-title strong{font-size:16px;overflow-wrap:anywhere;}
 .master-category-count{color:#646a74;font-size:12px;white-space:nowrap;}
 .master-category-meals{padding:0 12px 10px;border-top:1px solid #e2e2e2;}
-.master-category-group-label{font-size:11px;letter-spacing:.08em;color:#666;padding:12px 0 5px;text-transform:uppercase;}
+.master-category-group-label{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;margin:10px 0 0;padding:8px 10px;border:0;border-radius:7px;background:#f2f3f1;color:#555;font-size:13px;font-weight:600;letter-spacing:.02em;text-align:left;touch-action:manipulation;}
+.master-recipe-section[data-recipe-section="ideas"]>.master-category-group-label{margin-top:16px;}
+.master-category-group-label svg{width:16px;height:16px;flex:0 0 16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.master-recipe-section-name{flex:1;min-width:0;overflow-wrap:anywhere;}
+.master-recipe-section-count{margin-left:auto;font-size:12px;font-weight:500;color:#69717a;}
+.master-recipe-section[data-recipe-section="rotation"] .master-category-meal:last-child{border-bottom:1px solid #eee;}
 .master-category-meal{display:flex;gap:5px;align-items:center;border-bottom:1px solid #eee;min-height:45px;padding:5px 0;}
 .master-category-meal:last-child{border-bottom:0;}
 .recipe-section-move{margin-block:-5px;flex:0 0 44px;width:44px;height:44px;min-width:44px;padding:0;border:0;background:transparent;color:#777;display:grid;place-items:center;touch-action:manipulation;}
@@ -226,7 +231,10 @@ body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inse
 .master-category-meal .move{flex:0 0 19px;width:19px;min-width:19px;padding:0;border:0;background:transparent;font-size:24px;line-height:1.1;}
 .master-category-header{transition:background-color .1s;}
 .master-category-reorder{display:flex;align-items:center;gap:2px;flex:0 0 auto}.master-category-reorder .iconbtn{width:34px;height:36px}.master-category-reorder .iconbtn svg{width:23px;height:23px}
-.master-category-meal .master-meal-weekdays{font-size:11px;font-weight:600;letter-spacing:.02em;color:#5c6670;white-space:nowrap;flex:0 0 auto;margin-left:auto;margin-right:8px;align-self:center;}
+/* Fixed badge widths align arrows while retaining every scheduled weekday. */
+.master-category-meal .master-meal-weekdays{font-size:11px;font-weight:600;letter-spacing:.02em;color:#5c6670;white-space:normal;flex:0 0 2.6em;width:2.6em;text-align:right;margin-left:auto;margin-right:8px;align-self:center;}
+.master-category-meal .master-weekday-token{display:block;}
+.master-category-meal .master-weekday-separator{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
 .master-category-meal .master-meal-weekdays + .linked-meal-dot{margin-left:0;}
 .master-category-meal .linked-meal-dot{font-size:21px;color:#697383;padding:0 2px;}
 /* Inset shared-recipe markers from the right edge without moving other controls. */
@@ -439,7 +447,7 @@ body[data-meal-text-size] .master-category-title strong{--text-base-size:16px}
 body[data-meal-text-size] .master-category-meal-name{--text-base-size:15px}
 body[data-meal-text-size] .master-category-count,
 body[data-meal-text-size] .all-meals-day h3{--text-base-size:12px}
-body[data-meal-text-size] .master-category-group-label{--text-base-size:11px}
+body[data-meal-text-size] .master-category-group-label{--text-base-size:13px}
 body[data-meal-text-size] .all-meals-plan-label,
 body[data-meal-text-size] .all-meals-empty strong,
 body[data-meal-text-size] .top-inline-linked{--text-base-size:13px}
@@ -2839,6 +2847,18 @@ function installMasterGroupDragging(wrap,reset){
 
 const MASTER_CATEGORIES_VALUE='__all_categories__';
 let masterCategoriesView=false;try{masterCategoriesView=sessionStorage.getItem('mealRotationMasterCategoriesV1')==='true'}catch(e){}
+// UI-only section visibility, independent for each group and included in backups.
+const masterSectionExpansionKey='mealRotationGroupSectionExpansionV1',masterSectionExpansion=new Map();
+try{const saved=JSON.parse(testStorage.getItem(masterSectionExpansionKey)||'null');if(saved?.version===1&&saved.groups&&typeof saved.groups==='object'&&!Array.isArray(saved.groups))for(const [category,sections]of Object.entries(saved.groups)){
+ if(sections&&typeof sections==='object'&&!Array.isArray(sections)){const known={};for(const key of ['rotation','ideas'])if(typeof sections[key]==='boolean')known[key]=sections[key];masterSectionExpansion.set(category,known)}
+}}catch(e){}
+function masterRecipeSectionOpen(category,rotation){const key=rotation?'rotation':'ideas';return masterSectionExpansion.get(category)?.[key]??rotation}
+function saveMasterSectionExpansion(){try{testStorage.setItem(masterSectionExpansionKey,JSON.stringify({version:1,groups:Object.fromEntries(masterSectionExpansion)}))}catch(e){/* Keep navigation preferences in memory if storage is unavailable. */}}
+function setMasterRecipeSectionOpen(category,rotation,open){
+ if(masterRecipeSectionOpen(category,rotation)===open)return false;
+ masterSectionExpansion.set(category,{...masterSectionExpansion.get(category),[rotation?'rotation':'ideas']:open});saveMasterSectionExpansion();return true;
+}
+function copyMasterSectionExpansion(oldName,newName){if(masterSectionExpansion.has(oldName)){masterSectionExpansion.set(newName,{...masterSectionExpansion.get(oldName)});saveMasterSectionExpansion()}}
 const masterExpandedCategories=new Set();let masterExpansionInitialized=false;
 function initializeMasterCategoryExpansion(extraCategory){
  masterExpansionInitialized=true;
@@ -4669,7 +4689,7 @@ function removeMealCategory(category,action,target){
 }
 function renameCategoryDirect(categoryToRename){
   if(!cats.includes(categoryToRename))return;
-  (async()=>{let n=await appDialog('Rename group',categoryToRename,'prompt');if(n&&n.trim()&&cats.includes(categoryToRename)&&!cats.includes(n.trim())){snapshot();let old=categoryToRename;if(!renameMasterGroupOrder(old,n.trim()))return;cats[cats.indexOf(old)]=n.trim();if(categoryColors[old]){categoryColors[n.trim()]=categoryColors[old];delete categoryColors[old];saveCategoryColors()}meals.forEach(m=>{if(m.cat===old)m.cat=n.trim()});pinnedCats=pinnedCats.map(c=>c===old?n.trim():c);expandedCats=expandedCats.map(c=>c===old?n.trim():c);mealPlans.forEach(p=>{if(Array.isArray(p.pinnedDisplayOrder))p.pinnedDisplayOrder=p.pinnedDisplayOrder.map(c=>c===old?n.trim():c)});try{testStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));testStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}weekdays.forEach(day=>{weekdayCategories[day]=(Array.isArray(weekdayCategories[day])?weekdayCategories[day]:[weekdayCategories[day]]).filter(Boolean).map(c=>c===old?n.trim():c);if(weekdayMealOverrides[weekdaySlotKey(day,old)]!==undefined){weekdayMealOverrides[weekdaySlotKey(day,n.trim())]=weekdayMealOverrides[weekdaySlotKey(day,old)];delete weekdayMealOverrides[weekdaySlotKey(day,old)]}});saveWeekdayMealOverrides();saveWeekdayCategories();updateOtherMealPlansForCategory(old,n.trim());active=n.trim();menuCat=n.trim();if(masterExpandedCategories.delete(old))masterExpandedCategories.add(n.trim());render()}
+  (async()=>{let n=await appDialog('Rename group',categoryToRename,'prompt');if(n&&n.trim()&&cats.includes(categoryToRename)&&!cats.includes(n.trim())){snapshot();let old=categoryToRename;if(!renameMasterGroupOrder(old,n.trim()))return;cats[cats.indexOf(old)]=n.trim();if(categoryColors[old]){categoryColors[n.trim()]=categoryColors[old];delete categoryColors[old];saveCategoryColors()}meals.forEach(m=>{if(m.cat===old)m.cat=n.trim()});pinnedCats=pinnedCats.map(c=>c===old?n.trim():c);expandedCats=expandedCats.map(c=>c===old?n.trim():c);mealPlans.forEach(p=>{if(Array.isArray(p.pinnedDisplayOrder))p.pinnedDisplayOrder=p.pinnedDisplayOrder.map(c=>c===old?n.trim():c)});try{testStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));testStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}weekdays.forEach(day=>{weekdayCategories[day]=(Array.isArray(weekdayCategories[day])?weekdayCategories[day]:[weekdayCategories[day]]).filter(Boolean).map(c=>c===old?n.trim():c);if(weekdayMealOverrides[weekdaySlotKey(day,old)]!==undefined){weekdayMealOverrides[weekdaySlotKey(day,n.trim())]=weekdayMealOverrides[weekdaySlotKey(day,old)];delete weekdayMealOverrides[weekdaySlotKey(day,old)]}});saveWeekdayMealOverrides();saveWeekdayCategories();updateOtherMealPlansForCategory(old,n.trim());active=n.trim();menuCat=n.trim();copyMasterSectionExpansion(old,n.trim());if(masterExpandedCategories.delete(old))masterExpandedCategories.add(n.trim());render()}
   })();
 }
 function renderMenu(){let box=$('catmenu');if(!box)return;box.innerHTML='';if(!showTop||!menuCat||!cats.includes(menuCat)){box.classList.add('hidden');return}box.classList.remove('hidden');const categoryRow=document.getElementById('categoryButtons');if(categoryRow)categoryRow.append(box);function arrow(direction,label){let b=document.createElement('button');b.className='arrow iconbtn';b.title=label;b.setAttribute('aria-label',label);b.innerHTML=direction<0?'<svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>':'<svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>';b.onclick=()=>{
@@ -4996,7 +5016,7 @@ function recipeSectionMoveButton(meal){
  const button=document.createElement('button');button.type='button';button.className='recipe-section-move';
  const label='Move '+(meal.name||'meal')+' to '+(meal.rotation?'Ideas':'rotation');button.title=label;button.setAttribute('aria-label',label);
  button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(meal.rotation?'m6 10 6 6 6-6M12 16V3':'m6 14 6-6 6 6M12 8v13')+'"/></svg>';
- button.onclick=e=>{e.preventDefault();e.stopPropagation();if(meal.rotation)demoteMealToIdeas(meal);else promoteMealToRotation(meal)};return button;
+ button.onclick=e=>{e.preventDefault();e.stopPropagation();const wasRotation=meal.rotation;if(wasRotation)demoteMealToIdeas(meal);else promoteMealToRotation(meal);if(meal.rotation!==wasRotation&&setMasterRecipeSectionOpen(meal.cat,meal.rotation,true))renderList()};return button;
 }
 // A recipe rotating out advances in every plan where it was being shown.
 // Other visible recipes are preserved with explicit overrides so a category
@@ -5762,6 +5782,9 @@ function appendScheduledRecipeWeekdays(row,meal,scheduledDaysByMeal){
  if(!scheduledDays?.size)return;
  const dayTag=document.createElement('span');dayTag.className='master-meal-weekdays';
  dayTag.textContent=orderedDays().filter(day=>scheduledDays.has(day)).map(day=>day.slice(0,3).toUpperCase()).join(' · ');
+ if(row.classList.contains('master-category-meal')&&scheduledDays.size>1){
+  const days=dayTag.textContent.split(' · ');dayTag.replaceChildren();days.forEach((day,index)=>{if(index){const separator=document.createElement('span');separator.className='master-weekday-separator';separator.textContent=' · ';separator.setAttribute('aria-hidden','true');dayTag.append(separator)}const token=document.createElement('span');token.className='master-weekday-token';token.textContent=day;dayTag.append(token)});
+ }
  dayTag.title='Scheduled: '+[...scheduledDays.entries()].map(([day,entries])=>day+' ('+[...new Set(entries.map(entry=>entry.planName))].join(', ')+')').join('; ');
  row.append(dayTag);
 }
@@ -5826,9 +5849,16 @@ function renderMasterCategories(list){
   header.append(addMeal);card.append(header);
   if(expanded){
    const items=document.createElement('div');items.className='master-category-meals';
-   for(const [label,rot] of [['In rotation',true],['Ideas',false]]){
+   for(const [label,rot] of [['In Rotation',true],['Ideas',false]]){
     const groupMeals=categoryMeals.filter(m=>!!m.rotation===rot);
-    const group=document.createElement('div');group.className='master-category-group-label';group.textContent=label+' ('+groupMeals.length+')';items.append(group);
+    const section=document.createElement('div');section.className='master-recipe-section';section.dataset.recipeSection=rot?'rotation':'ideas';
+    const open=masterRecipeSectionOpen(category,rot),bodyId='master-section-'+cats.indexOf(category)+'-'+section.dataset.recipeSection;
+    const group=document.createElement('button');group.type='button';group.className='master-category-group-label';group.setAttribute('aria-expanded',String(open));group.setAttribute('aria-controls',bodyId);group.setAttribute('aria-label',category+': '+label+' ('+groupMeals.length+' recipes)');
+    const chevron=document.createElementNS('http://www.w3.org/2000/svg','svg');chevron.setAttribute('viewBox','0 0 24 24');chevron.setAttribute('aria-hidden','true');chevron.innerHTML='<path d="'+(open?'m6 15 6-6 6 6':'m6 9 6 6 6-6')+'"/>';
+    const sectionName=document.createElement('span');sectionName.className='master-recipe-section-name';sectionName.textContent=label;
+    const sectionCount=document.createElement('span');sectionCount.className='master-recipe-section-count';sectionCount.textContent=String(groupMeals.length);group.append(chevron,sectionName,sectionCount);
+    group.onclick=e=>{e.preventDefault();e.stopPropagation();setMasterRecipeSectionOpen(category,rot,!masterRecipeSectionOpen(category,rot));renderList();document.getElementById(bodyId)?.previousElementSibling?.focus({preventScroll:true})};
+    const sectionBody=document.createElement('div');sectionBody.className='master-recipe-section-recipes';sectionBody.id=bodyId;sectionBody.hidden=!open;section.append(group,sectionBody);items.append(section);
     for(const m of groupMeals){
      const row=document.createElement('div');row.className='master-category-meal';row.dataset.mealId=String(m.id);const manualMoves=[];if(featuredColorById.has(String(m.id))){row.style.backgroundColor=featuredColorById.get(String(m.id));row.style.borderRadius='8px';row.classList.add('featured-top-meal')}bindMealSwipe(row,m);
      if(rot&&manualRecipeOrdering){for(const [glyph,dir] of [['↑',-1],['↓',1]]){const btn=document.createElement('button');btn.type='button';btn.className='move';btn.textContent=glyph;btn.title=(dir<0?'Up':'Down')+': tap to move to '+(dir<0?'top':'bottom')+', hold to move one position';bindMasterCategoryMove(btn,m,dir);manualMoves.push(btn)}}
@@ -5854,7 +5884,7 @@ function renderMasterCategories(list){
      row.append(recipeSectionMoveButton(m));
      appendScheduledRecipeWeekdays(row,m,scheduledDaysByMeal);
      
-     items.append(row);
+     sectionBody.append(row);
     }
    }
    card.append(items);

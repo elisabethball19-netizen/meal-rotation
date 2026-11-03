@@ -2,6 +2,7 @@
 import sys,tempfile,subprocess,random
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from section_visibility_fixture import reveal_recipe
 import promotion_schedule_browser as f
 from scheduled_linked_slots_browser import state,compose,context_key
 ROOT=Path(__file__).resolve().parents[1]
@@ -25,7 +26,7 @@ def setup(b,name,w=360,mode='cross-group',tabs=True):
 def pick(p,day,plan='original',cat='Weekend'):return next((r for r in f.rows(p) if r['planId']==plan and r['day']==day and r['cat']==cat),None)
 def assign(p,day,groups=['Weekend']):p.evaluate('([day,groups])=>sharedTest.assign(day,groups)',[day,groups])
 def move(p,id):
- p.evaluate('promotionTest.groups()');p.locator('#list .master-category-meal[data-meal-id="'+str(id)+'"] .recipe-section-move').tap();assert not p.get_by_role('dialog').count()
+ p.evaluate('promotionTest.groups()');reveal_recipe(p,id).locator('.recipe-section-move').tap();assert not p.get_by_role('dialog').count()
 def order(p):return p.evaluate("sharedTest.order('Weekend')")
 def chooser(p):
  p.evaluate('promotionTest.groups()');expected=order(p);p.evaluate("promotionTest.chooser('Saturday','Weekend')");d=p.locator('.weekday-meal-picker');t=d.locator('[data-group=Weekend] .master-category-title')
