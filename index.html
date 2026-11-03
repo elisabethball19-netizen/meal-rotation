@@ -1026,7 +1026,7 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 #recipeViewer .recipe-tab button:focus-visible{outline:2px solid #5876ad;outline-offset:-2px;}
 #recipeViewer .recipe-occurrence-notice{font-size:13px;color:#637080;line-height:1.4;margin:0 0 10px;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
-(()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
+(()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];let rotationCalendarTrackingReady=false,restoringRotationCalendars=false;try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 // Recipe content remains on existing meal records; cooking progress is separate.
 const COOKING_SESSIONS_KEY='mealRotationCookingSessionsV1';
 let cookingSessions={version:1,occurrences:{}},cookingStorageInvalid=false;
@@ -2682,6 +2682,7 @@ if(isFirstMealPlanSetup){try{localStorage.setItem('mealRotationPlansV1',JSON.str
 function saveActiveMealPlan(){
  const plan=mealPlans.find(p=>p.id===activePlanId);
  if(plan){plan.weekdayCategories=JSON.parse(JSON.stringify(weekdayCategories));plan.weekdayMealOverrides={...weekdayMealOverrides};plan.autoPinTopCategories=autoPinTopCategories;plan.pinnedCats=[...pinnedCats];plan.weekdayRecipeFilters=JSON.parse(JSON.stringify(weekdayRecipeFilters));}
+ reconcileRotationCalendars();
  try{localStorage.setItem(mealPlansKey,JSON.stringify({plans:mealPlans,activeId:activePlanId}))}catch(e){}
 }
 function loadMealPlan(planId){
@@ -2977,9 +2978,9 @@ function rememberCurrentView(){
 }
 // Rendered-page identity is also used to close Settings on navigation.
 let lastRenderedPageKey=null;
-const $=x=>document.getElementById(x);let backupRestoreReloadPending=false;window.addEventListener('mealRotationBeforeStorageReset',()=>{backupRestoreReloadPending=true});function persist(){if(backupRestoreReloadPending)return;reconcileAllCookingData();try{localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}}window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function captureState(){return JSON.stringify({cats,active,meals,masterGroupOrder,groceryOccurrenceChecks,checkedIngredients:[...checkedIngredients],weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,pinnedCats,expandedCats,startWeekday,topCounts,categoryColors,weekdayColors,autoPinTopCategories,applyPinsToAllTabs,masterOpenMode,masterPinsOverride,mealPlans,activePlanId,showMealPlanTabs})}
+const $=x=>document.getElementById(x);let backupRestoreReloadPending=false;window.addEventListener('mealRotationBeforeStorageReset',()=>{backupRestoreReloadPending=true});function persist(){if(backupRestoreReloadPending)return;reconcileRotationCalendars();reconcileAllCookingData();try{localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}}window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function captureState(){return JSON.stringify({lastRotationBefore:localStorage.getItem('mealRotationLastRotationBeforeV1'),cats,active,meals,masterGroupOrder,groceryOccurrenceChecks,checkedIngredients:[...checkedIngredients],weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,pinnedCats,expandedCats,startWeekday,topCounts,categoryColors,weekdayColors,autoPinTopCategories,applyPinsToAllTabs,masterOpenMode,masterPinsOverride,mealPlans,activePlanId,showMealPlanTabs})}
 function snapshot(state=captureState()){if(history[history.length-1]!==state){history.push(state);if(history.length>100)history.shift()}redoHistory=[];groceryUndo=null}
-function restoreState(state){if(!restoreMasterGroupOrder(state.masterGroupOrder))return;cats=state.cats;active=state.active;meals=state.meals;if(Array.isArray(state.mealPlans)&&state.mealPlans.length){mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId||mealPlans[0].id;showMealPlanTabs=!!state.showMealPlanTabs;autoPinTopCategories=true;}else saveActiveMealPlan();checkedIngredients=new Set(state.checkedIngredients||[]);groceryOccurrenceChecks=state.groceryOccurrenceChecks?JSON.parse(JSON.stringify(state.groceryOccurrenceChecks)):{version:1,checks:{}};groceryCheckStorageInvalid=false;saveGroceryOccurrenceChecks();if(state.weekdayCategories)weekdayCategories=state.weekdayCategories;if(state.weekdayMealOverrides)weekdayMealOverrides=state.weekdayMealOverrides;if(state.weekdayRecipeFilters){weekdayRecipeFilters=state.weekdayRecipeFilters;saveWeekdayRecipeFilters();}if(state.pinnedCats)pinnedCats=state.pinnedCats;if(state.expandedCats)expandedCats=state.expandedCats;if(typeof state.autoPinTopCategories==='boolean')autoPinTopCategories=true;if(typeof state.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=state.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;if(typeof state.masterPinsOverride==='boolean')masterPinsOverride=state.masterPinsOverride;saveMasterOpeningPrefs();if(state.startWeekday)startWeekday=state.startWeekday;if(state.topCounts)topCounts=state.topCounts;categoryColors=state.categoryColors&&typeof state.categoryColors==='object'?{...state.categoryColors}:{};saveCategoryColors();weekdayColors=state.weekdayColors&&typeof state.weekdayColors==='object'?{...state.weekdayColors}:deriveWeekdayColors(categoryColors);saveWeekdayColors();id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;persist();try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));saveWeekdayCategories();saveWeekdayMealOverrides();saveTopCounts();localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));localStorage.setItem('mealRotationStartWeekdayV1',startWeekday);localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}catch(e){}resetGroceriesForNewTopMeals(new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id))));render()}
+function restoreState(state){const wasRestoring=restoringRotationCalendars;restoringRotationCalendars=true;try{if(Object.prototype.hasOwnProperty.call(state,'lastRotationBefore')){try{if(state.lastRotationBefore===null)localStorage.removeItem('mealRotationLastRotationBeforeV1');else if(typeof state.lastRotationBefore==='string')localStorage.setItem('mealRotationLastRotationBeforeV1',state.lastRotationBefore)}catch(e){}}if(!restoreMasterGroupOrder(state.masterGroupOrder))return;cats=state.cats;active=state.active;meals=state.meals;if(Array.isArray(state.mealPlans)&&state.mealPlans.length){mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId||mealPlans[0].id;showMealPlanTabs=!!state.showMealPlanTabs;autoPinTopCategories=true;}else saveActiveMealPlan();checkedIngredients=new Set(state.checkedIngredients||[]);groceryOccurrenceChecks=state.groceryOccurrenceChecks?JSON.parse(JSON.stringify(state.groceryOccurrenceChecks)):{version:1,checks:{}};groceryCheckStorageInvalid=false;saveGroceryOccurrenceChecks();if(state.weekdayCategories)weekdayCategories=state.weekdayCategories;if(state.weekdayMealOverrides)weekdayMealOverrides=state.weekdayMealOverrides;if(state.weekdayRecipeFilters){weekdayRecipeFilters=state.weekdayRecipeFilters;saveWeekdayRecipeFilters();}if(state.pinnedCats)pinnedCats=state.pinnedCats;if(state.expandedCats)expandedCats=state.expandedCats;if(typeof state.autoPinTopCategories==='boolean')autoPinTopCategories=true;if(typeof state.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=state.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;if(typeof state.masterPinsOverride==='boolean')masterPinsOverride=state.masterPinsOverride;saveMasterOpeningPrefs();if(state.startWeekday)startWeekday=state.startWeekday;if(state.topCounts)topCounts=state.topCounts;categoryColors=state.categoryColors&&typeof state.categoryColors==='object'?{...state.categoryColors}:{};saveCategoryColors();weekdayColors=state.weekdayColors&&typeof state.weekdayColors==='object'?{...state.weekdayColors}:deriveWeekdayColors(categoryColors);saveWeekdayColors();id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;persist();try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));saveWeekdayCategories();saveWeekdayMealOverrides();saveTopCounts();localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));localStorage.setItem('mealRotationStartWeekdayV1',startWeekday);localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}catch(e){}resetGroceriesForNewTopMeals(new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id))));render()}finally{restoringRotationCalendars=wasRestoring}}
 function time(v){v=Number(v);if(!Number.isFinite(v)||v<0)return '—';if(v<60)return v+'m';let h=Math.floor(v/60),m=v%60;return h+'h'+(m?' '+m+'m':'')}
 // Times remain stored in minutes, so existing recipes and backups stay compatible.
 // For NEW bare-number entries: 0–9, 12 and 24 mean hours; other two- and
@@ -4875,6 +4876,7 @@ function rotateAllBack(){
  if(!previous||!Array.isArray(previous.meals)||!Array.isArray(previous.mealPlans)){
   showNoPreviousRotation();return;
  }
+ const dates=restoredRotationCookedDates(previous);previous=JSON.parse(JSON.stringify(previous));applyRestoredCookedDates(previous.meals,dates);
  clearCookingForCycleBack(previous);
  snapshot();
  try{localStorage.removeItem(ROTATION_BACK_KEY)}catch(e){}
@@ -4945,6 +4947,8 @@ function rotateSelectedBack(selected){
   const reordered=restored.concat(remaining);
   currentSlots.forEach((slot,i)=>{meals[slot]=reordered[i]});
  }
+ const restoredEntries=previous.mealPlans.flatMap(plan=>cycleAffectedEntries(getDisplayedWeekdayMealsForPlan(plan,null,previous).map(item=>({...item,planId:plan.id})),desired.filter(item=>item.planId===plan.id),plan));
+ applyRestoredCookedDates(meals,restoredRotationCookedDates(previous,new Set(restoredEntries.map(rotationOccurrenceKey))));
  restoreRotationCalendarSlots(previous,desired);
  previouslyActiveLinkedIds=new Set();
  const activePlan=mealPlans.find(p=>p.id===activePlanId);
@@ -5043,7 +5047,8 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  }
  // Capture the exact state before this rotation, including cross-tab meal overrides.
  // A manual move stages its destination first; keep its true pre-change Undo/Cycle Back state.
- try{localStorage.setItem(ROTATION_BACK_KEY,JSON.stringify({...(beforeState||JSON.parse(captureState())),rotationOccurrences:beforeState?beforeState.mealPlans.flatMap(plan=>getDisplayedWeekdayMealsForPlan(plan,null,beforeState).map(item=>({planId:plan.id,planName:plan.name,day:item.day,cat:item.cat,mealId:String(item.meal.id),parentId:String(item.linkedTo??''),scheduledSlot:rotationGroupScheduled(plan,item.day,item.cat),...(item.occasional?{occasional:true}:{})}))):rotationOccurrences,cookingCycledContexts:affected.map(x=>({planId:x.planId,day:x.day,cat:x.cat,mealId:String(x.meal.id),parentId:String(x.linkedTo??''),exact:true}))}))}catch(e){}
+ const undoBefore=beforeState||JSON.parse(captureState()),{lastRotationBefore:oldRotationHistory,...rotationBefore}=undoBefore;
+ const rotationRecord={...rotationBefore,cycledAt:rotationNow.toISOString(),rotationOccurrences:beforeState?beforeState.mealPlans.flatMap(plan=>getDisplayedWeekdayMealsForPlan(plan,null,beforeState).map(item=>({planId:plan.id,planName:plan.name,day:item.day,cat:item.cat,mealId:String(item.meal.id),parentId:String(item.linkedTo??''),scheduledSlot:rotationGroupScheduled(plan,item.day,item.cat),...(item.occasional?{occasional:true}:{})}))):rotationOccurrences,cookingCycledContexts:affected.map(x=>({planId:x.planId,day:x.day,cat:x.cat,mealId:String(x.meal.id),parentId:String(x.linkedTo??''),exact:true}))};
  const linkedIds=new Set();
  for(const {meal,cat} of selected){
   if(meal.cat!==cat)continue;
@@ -5053,8 +5058,8 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  for(const item of affected)if(item.meal.cat===item.cat)linkedIds.add(String(item.meal.id));
  const groceryBefore=captureGroceryCheckStates();
  const beforeIds=new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)));
- snapshot(beforeState?JSON.stringify(beforeState):undefined);
- if(markCooked)recordRotatedMealsCooked(affected,calendars,rotationNow);
+ snapshot(JSON.stringify(undoBefore));
+ const cookedResult=markCooked?recordRotatedMealsCooked(affected,calendars,rotationNow):{updates:[],skipped:[]};rotationRecord.cookedDateUpdates=cookedResult.updates;
  const byCategory={};
  for(const m of meals){
   if(m.rotation&&linkedIds.has(String(m.id))){
@@ -5105,13 +5110,15 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  }
  const activePlan=mealPlans.find(plan=>plan.id===activePlanId);
  weekdayMealOverrides={...(activePlan?.weekdayMealOverrides||{})};
- advanceRotationCalendars(calendars,affected,rotationNow);
+ advanceRotationCalendars(calendars,affected,rotationNow,selectedSlots===null);
  saveWeekdayMealOverrides();
  clearCycledCookingContexts(affected);
  reconcileRotatedGroceryChecks(groceryBefore,affected);
  resetGroceriesForNewTopMeals(beforeIds);
  topIngredientExpanded.clear();topIngredientManualHiddenOverride.clear();
+ try{localStorage.setItem(ROTATION_BACK_KEY,JSON.stringify(rotationRecord))}catch(e){}
  persist();renderTabs();renderList();
+ if(cookedResult.skipped.length)showAppMessage('Last-cooked dates kept: '+cookedResult.skipped.length+' outgoing recipe(s) had no verified calendar date. No dates were guessed. Replacements are now dated. Use Edit last cooked date to correct older history.');
 }
 // Cooking history is stored on the meal itself so existing data exports include it.
 function appendLastCookedLabel(parent,meal){
@@ -5127,8 +5134,8 @@ function lastCookedLabel(meal){
  const date=new Date(meal.lastCooked);
  return Number.isNaN(date.getTime())?'':'Last cooked '+date.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
 }
-// Calendar dates belong to scheduled occurrences, not the button-press date.
-// Older undated plans initially use the last completed configured planning week.
+// Scheduled local dates are assigned when an occurrence is created, never inferred
+// from the day it is cycled or from a number of rotations. V1 dates were guesses.
 const cookingWeekdays=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function cookingLocalDate(date){return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')}
 function parseCookingLocalDate(value){
@@ -5143,70 +5150,118 @@ function cookingDateInWeek(day,start){
  const target=cookingWeekdays.indexOf(day);if(target<0||!start)return null;
  const date=new Date(start);date.setDate(date.getDate()+(target-start.getDay()+7)%7);return date;
 }
+function nextScheduledCookingDate(day,now,week=null,prior=null){
+ let date=cookingDateInWeek(day,week||cookingPlanningWeekStart(now));if(!date)return null;
+ while(cookingLocalDate(date)<cookingLocalDate(now))date.setDate(date.getDate()+7);
+ const saved=parseCookingLocalDate(prior);if(saved&&saved>date)date=saved;
+ return cookingLocalDate(date);
+}
+function rotationCalendarSlot(item){return weekdaySlotKey(item.day,item.cat)+(item.occasional?'::one-time':'::slot')}
 function rotationCalendarForPlan(plan,entries,now=new Date()){
- const saved=plan.rotationCalendar,start=parseCookingLocalDate(saved?.weekStart)||cookingPlanningWeekStart(now);
- if(!parseCookingLocalDate(saved?.weekStart))start.setDate(start.getDate()-7);
- const occurrences={};
+ const saved=plan.rotationCalendar,dated=saved?.version===2,occurrences={},assignedOn={},assignedAt={},slots={};
+ const canAssign=!restoringRotationCalendars&&dated;
  for(const item of entries){
-  const key=rotationOccurrenceKey({...item,planId:plan.id}),stored=parseCookingLocalDate(saved?.occurrences?.[key]);
-  const date=stored&&cookingWeekdays[stored.getDay()]===item.day?stored:cookingDateInWeek(item.day,start);
-  if(date)occurrences[key]=cookingLocalDate(date);
+  const key=rotationOccurrenceKey({...item,planId:plan.id}),stored=dated?parseCookingLocalDate(saved.occurrences?.[key]):null;
+  const on=dated?parseCookingLocalDate(saved.assignedOn?.[key]):null;
+  let date=stored&&on&&on<=stored&&cookingWeekdays[stored.getDay()]===item.day?cookingLocalDate(stored):null;
+  const known=dated&&Object.prototype.hasOwnProperty.call(saved.occurrences||{},key);
+  if(!known&&canAssign)date=nextScheduledCookingDate(item.day,now,null,saved?.slots?.[rotationCalendarSlot(item)]);
+  occurrences[key]=date;assignedOn[key]=known?saved.assignedOn?.[key]||null:date?cookingLocalDate(now):null;assignedAt[key]=known?saved.assignedAt?.[key]||null:date?now.toISOString():null;
  }
- return {weekStart:cookingLocalDate(start),occurrences};
+ // A linked-only attachment has its parent's scheduled date, not a separate week.
+ for(const item of entries)if(item.linkedTo!=null&&!rotationGroupScheduled(plan,item.day,item.cat)){
+  const parent=entries.find(parent=>parent.day===item.day&&String(parent.meal.id)===String(item.linkedTo));if(!parent)continue;
+  const key=rotationOccurrenceKey({...item,planId:plan.id}),owner=rotationOccurrenceKey({...parent,planId:plan.id});
+  occurrences[key]=occurrences[owner];assignedOn[key]=assignedOn[owner];assignedAt[key]=assignedAt[owner];
+ }
+ const weeks=[];
+ for(const item of entries){const key=rotationOccurrenceKey({...item,planId:plan.id}),date=occurrences[key];slots[rotationCalendarSlot(item)]=date;if(date&&rotationSelectable(item,plan))weeks.push(cookingLocalDate(cookingPlanningWeekStart(parseCookingLocalDate(date))))}
+ const calendar={version:2,weekStart:weeks.length?weeks.sort()[0]:null,occurrences,assignedOn,assignedAt,slots};
+ if(dated&&saved.legacyCalendar)calendar.legacyCalendar=saved.legacyCalendar;
+ else if(saved&&!dated)calendar.legacyCalendar=JSON.parse(JSON.stringify(saved));
+ return calendar;
+}
+function scheduledCalendarEntries(plan){
+ const visible=showMealPlanTabs,entries=new Map();
+ try{for(const mode of [true,false]){
+  showMealPlanTabs=mode;const current=plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan;
+  for(const item of getDisplayedWeekdayMealsForPlan(current))entries.set(rotationOccurrenceKey({...item,planId:plan.id}),item);
+ }}finally{showMealPlanTabs=visible}
+ return [...entries.values()];
+}
+function reconcileRotationCalendars(){
+ if(!rotationCalendarTrackingReady)return;
+ let changed=false;const now=new Date();
+ for(const plan of mealPlans){
+  const calendar=rotationCalendarForPlan(plan,scheduledCalendarEntries(plan),now);
+  if(JSON.stringify(plan.rotationCalendar)!==JSON.stringify(calendar)){plan.rotationCalendar=calendar;changed=true}
+ }
+ if(changed)try{localStorage.setItem(mealPlansKey,JSON.stringify({plans:mealPlans,activeId:activePlanId}))}catch(e){}
 }
 function cookedDateForWeekday(day,weekStart=null,now=new Date()){
- const start=parseCookingLocalDate(weekStart)||cookingPlanningWeekStart(now);if(!parseCookingLocalDate(weekStart))start.setDate(start.getDate()-7);
- const date=cookingDateInWeek(day,start);
- return date&&cookingLocalDate(date)<=cookingLocalDate(now)?date:null;
+ const date=cookingDateInWeek(day,parseCookingLocalDate(weekStart));return date&&cookingLocalDate(date)<=cookingLocalDate(now)?date:null;
 }
 function recordRotatedMealsCooked(selected,calendars=new Map(),now=new Date()){
- const dates=new Map(),identity=meal=>meal.linkGroup?'linked:'+meal.linkGroup:'meal:'+meal.id;
+ const groups=new Map(),skipped=[],identity=meal=>meal.linkGroup?'linked:'+meal.linkGroup:'meal:'+meal.id;
  for(const item of selected){
-  const calendar=calendars.get(item.planId),stored=calendar?.occurrences?.[rotationOccurrenceKey(item)];
-  const date=stored?parseCookingLocalDate(stored):cookedDateForWeekday(item.day,calendar?.weekStart,now);
-  if(!date||cookingLocalDate(date)>cookingLocalDate(now))continue;
-  const key=identity(item.meal),current=dates.get(key);if(!current||date>current)dates.set(key,date);
+  const calendar=calendars.get(item.planId),key=rotationOccurrenceKey(item),date=calendar?.version===2?parseCookingLocalDate(calendar.occurrences?.[key]):null;
+  if(!date){skipped.push(item.meal.name||'Untitled meal');continue}
+  if(cookingLocalDate(date)>cookingLocalDate(now))continue;
+  const id=identity(item.meal);if(!groups.has(id))groups.set(id,[]);groups.get(id).push({key,date:cookingLocalDate(date)});
  }
- // Each recipe/shared copy receives at most one update: its latest outgoing occurrence.
- // Keep later saved/manual dates, and write nothing unless the caller enabled marking.
+ const updates=[];
  for(const meal of meals){
-  const date=dates.get(identity(meal));if(!date)continue;
-  const existing=meal.lastCooked?new Date(meal.lastCooked):null;
-  if(!existing||Number.isNaN(existing.getTime())||date>existing)meal.lastCooked=date.toISOString();
+  const events=groups.get(identity(meal));if(!events?.length)continue;
+  const date=parseCookingLocalDate(events.map(event=>event.date).sort().at(-1)),existing=meal.lastCooked?new Date(meal.lastCooked):null;
+  if(!existing||Number.isNaN(existing.getTime())||date>existing){const before=meal.lastCooked??null,after=date.toISOString();meal.lastCooked=after;updates.push({mealId:String(meal.id),before,after,events})}
  }
+ return {updates,skipped:[...new Set(skipped)]};
 }
-function advanceRotationCalendars(calendars,affected,now){
+function advanceRotationCalendars(calendars,affected,now,wholeWeek=false){
  for(const plan of mealPlans){
   const before=calendars.get(plan.id);if(!before)continue;
-  const currentStart=cookingPlanningWeekStart(now),weeks=new Map(),outgoing=new Set();let incomingStart=currentStart;
-  for(const item of affected.filter(item=>item.planId===plan.id)){
-   const key=rotationOccurrenceKey(item),date=parseCookingLocalDate(before.occurrences[key]);if(!date)continue;
-   outgoing.add(key);const next=cookingPlanningWeekStart(date);next.setDate(next.getDate()+7);
-   const start=next>currentStart?next:currentStart;weeks.set(weekdaySlotKey(item.day,item.cat),start);if(start>incomingStart)incomingStart=start;
+  const entries=getDisplayedWeekdayMealsForPlan(plan),outgoing=new Set(affected.filter(item=>item.planId===plan.id).map(rotationOccurrenceKey));
+  let incomingWeek=null;
+  if(wholeWeek){
+   const current=cookingPlanningWeekStart(now),old=parseCookingLocalDate(before.weekStart);
+   if(old){old.setDate(old.getDate()+7);incomingWeek=old>current?old:current}
+   else{incomingWeek=current;if(cookingLocalDate(incomingWeek)<cookingLocalDate(now))incomingWeek.setDate(incomingWeek.getDate()+7)}
   }
-  const entries=getDisplayedWeekdayMealsForPlan(plan),occurrences={};
+  const calendar={...before,occurrences:{},assignedOn:{},assignedAt:{},slots:{}};
   for(const item of entries){
-   const key=rotationOccurrenceKey({...item,planId:plan.id});
-   if(before.occurrences[key]&&!outgoing.has(key)){occurrences[key]=before.occurrences[key];continue}
-   const parent=entries.find(parent=>parent.day===item.day&&String(parent.meal.id)===String(item.linkedTo??''));
-   const start=weeks.get(weekdaySlotKey(item.day,item.cat))||(parent&&weeks.get(weekdaySlotKey(parent.day,parent.cat)))||incomingStart;
-   const date=cookingDateInWeek(item.day,start);if(date)occurrences[key]=cookingLocalDate(date);
+   const key=rotationOccurrenceKey({...item,planId:plan.id}),known=Object.prototype.hasOwnProperty.call(before.occurrences||{},key);
+   if(known&&!outgoing.has(key)){calendar.occurrences[key]=before.occurrences[key];calendar.assignedOn[key]=before.assignedOn[key];calendar.assignedAt[key]=before.assignedAt[key]}
+   else{calendar.occurrences[key]=nextScheduledCookingDate(item.day,now,incomingWeek,before.occurrences?.[key]);calendar.assignedOn[key]=cookingLocalDate(now);calendar.assignedAt[key]=now.toISOString()}
   }
-  plan.rotationCalendar={weekStart:cookingLocalDate(incomingStart),occurrences};
+  plan.rotationCalendar=calendar;plan.rotationCalendar=rotationCalendarForPlan(plan,entries,now);
  }
 }
 function restoreRotationCalendarSlots(previous,desired){
- for(const plan of mealPlans){
+ const wasRestoring=restoringRotationCalendars;restoringRotationCalendars=true;
+ try{for(const plan of mealPlans){
   const selected=desired.filter(item=>item.planId===plan.id);if(!selected.length)continue;
   const old=previous.mealPlans.find(old=>old.id===plan.id);if(!old)continue;
   const prior=rotationCalendarForPlan(old,getDisplayedWeekdayMealsForPlan(old,null,previous));
   const entries=getDisplayedWeekdayMealsForPlan(plan),current=rotationCalendarForPlan(plan,entries);
   for(const item of cycleAffectedEntries(entries.map(item=>({...item,planId:plan.id})),selected,plan)){
-   const key=rotationOccurrenceKey(item);if(prior.occurrences[key])current.occurrences[key]=prior.occurrences[key];
+   const key=rotationOccurrenceKey(item);current.occurrences[key]=prior.occurrences[key]??null;current.assignedOn[key]=prior.assignedOn[key]??null;current.assignedAt[key]=prior.assignedAt[key]??null;
   }
-  plan.rotationCalendar=current;
- }
+  plan.rotationCalendar=current;plan.rotationCalendar=rotationCalendarForPlan(plan,entries);
+ }}finally{restoringRotationCalendars=wasRestoring}
 }
+function restoredRotationCookedDates(previous,keys=null){
+ const result=new Map(),updates=Array.isArray(previous.cookedDateUpdates)?previous.cookedDateUpdates:[];
+ for(const meal of meals){
+  const update=updates.find(update=>update.mealId===String(meal.id));let value=meal.lastCooked??null;
+  if(update&&value===update.after){
+   const remaining=keys?(update.events||[]).filter(event=>!keys.has(event.key)):[];
+   value=update.before;for(const event of remaining){const date=parseCookingLocalDate(event.date),prior=value?new Date(value):null;if(date&&(!prior||Number.isNaN(prior.getTime())||date>prior))value=date.toISOString()}
+  }
+  result.set(String(meal.id),value);
+ }
+ return result;
+}
+function applyRestoredCookedDates(records,dates){for(const meal of records)if(dates.has(String(meal.id))){const value=dates.get(String(meal.id));if(value===null)delete meal.lastCooked;else meal.lastCooked=value}}
 function editMealCookedDate(meal){
  const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:11000;display:flex;align-items:center;justify-content:center;padding:18px';
  const panel=document.createElement('div');panel.style.cssText='background:white;color:#222;border-radius:16px;padding:22px 22px 16px;width:100%;max-width:440px';
@@ -5239,7 +5294,7 @@ function openRotateOptions(allTabs=false){
  panel.style.cssText='background:#fff;color:#242424;border-radius:16px;padding:22px;width:100%;max-width:480px;box-shadow:0 12px 36px #0003';
  appendRotationCloseHeader(panel,'Rotate out recipes',()=>overlay.remove());
  const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:18px;font-size:16px';
- const check=document.createElement('input');check.type='checkbox';check.checked=localStorage.getItem(ROTATE_MARK_COOKED_KEY)==='true';check.style.cssText='width:21px;height:21px;flex:none';
+ const check=document.createElement('input');check.type='checkbox';check.checked=(localStorage.getItem(ROTATE_MARK_COOKED_KEY)??localStorage.getItem('mealRotationMarkRotatedAsCookedV1'))==='true';check.style.cssText='width:21px;height:21px;flex:none';
  check.onchange=()=>{try{localStorage.setItem(ROTATE_MARK_COOKED_KEY,String(check.checked))}catch(e){}};
  label.append(check,document.createTextNode('Mark rotated recipes as cooked'));panel.append(label);
  const actions=document.createElement('div');actions.style.cssText='display:flex;flex-direction:column;gap:12px';
@@ -7321,7 +7376,7 @@ document.addEventListener('click',e=>{
  })().catch(err=>{console.error('Could not complete outside action',err)});
 },true);
 
-render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');resumeRecipeViewer();})();
+rotationCalendarTrackingReady=true;render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');resumeRecipeViewer();})();
 </script><script>
 /* Detect when each page-specific header actually reaches its sticky position.
    Page renders replace these elements, so re-evaluate after DOM changes. */

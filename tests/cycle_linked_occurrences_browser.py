@@ -2,11 +2,14 @@
 import json,copy,tempfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from scheduled_date_fixture import DATED_SCHEDULE_HOOK,establish_dated_schedule
 ROOT=Path(__file__).resolve().parents[1]
 def meal(id,name,cat,links=None,labels=None):
  return dict(id=id,name=name,cat=cat,rotation=True,ingredients=[str(id)+' cups rice'],instructions=[{'type':'step','text':'Cook rice for 15 minutes.'}],notes='Keep notes '+str(id),url='https://recipes.test/'+str(id),linkedMealIds=links or [],labels=labels or [],custom={'keep':id})
 MEALS=[meal(1,'Crying Tiger','Mains',[10,20]),meal(2,'Next Main','Mains'),meal(3,'Other Parent','Other',[10]),meal(4,'Next Other','Other'),meal(10,'Roasted Garlic Rice','Rice',labels=['Only']),meal(11,'Plain Rice','Rice'),meal(12,'Other Rice','Rice'),meal(20,'Puerto Vallarta salsa roja','Salsa'),meal(21,'Other Salsa','Salsa')]
 HOOK='''window.cycleTest={state:()=>({meals,plans:mealPlans,activePlanId,sessions:cookingSessions,scales:occurrenceScales,prefs:recipeViewPrefs}),rows:()=>mealPlans.flatMap(plan=>getDisplayedWeekdayMealsForPlan(plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan).map(x=>({planId:plan.id,day:x.day,cat:x.cat,id:x.meal.id,parent:String(x.linkedTo??''),scheduled:rotationGroupScheduled(plan,x.day,x.cat)}))),chooser:(all=false)=>openMoveMealChooser(all),cycle:(keys=null,all=false,mark=false)=>moveDisplayedMealsToBottom(keys?new Set(keys):null,all,mark),back:()=>rotateAllBack(),partial:keys=>rotateSelectedBack(keys),backChooser:()=>openRotateBackChooser(),previous:()=>readPreviousRotation(),oldHistory:()=>{const p=readPreviousRotation();delete p.rotationOccurrences;localStorage.setItem(ROTATION_BACK_KEY,JSON.stringify(p))},storage:()=>cycleBackup.capture(),groceries:()=>[...getMasterGroceryItems().values()],restore:b=>{cycleBackup.restore(cycleBackup.normalize(b));backupRestoreReloadPending=true},seed:()=>{for(const plan of mealPlans)for(const entry of getDisplayedWeekdayMealsForPlan(plan)){const c=cookingContext(plan.id,entry.day,entry.cat,entry.meal,entry.linkedTo),key=cookingOccurrenceKey(c),items=cookingItemTokens(entry.meal);cookingSessions.occurrences[key]={id:'session-'+key,context:c,ingredients:[items.ingredients[0].token],steps:[items.steps[0].token],autoIngredients:[],ingredientOverrides:{[items.ingredients[0].token]:true}};occurrenceScales.occurrences[key]={context:c,multiplier:2}}writeCookingSessions(cookingSessions);writeOccurrenceScales(occurrenceScales)},edit:()=>{meals.find(m=>m.id===2).notes='Edited after cycling';persist()}};'''
+HOOK+=DATED_SCHEDULE_HOOK
+
 def setup(browser,filename,width,mode='simple'):
  assignments={'Tuesday':['Mains']};overrides={};plans=[]
  if mode in ['independent','shared','multi','replacement']:assignments['Friday']=['Rice']
@@ -17,6 +20,8 @@ def setup(browser,filename,width,mode='simple'):
  if mode=='legacy-pin':overrides={'Thursday':'1'}
  plans=[dict(id='original',name='Dinner',weekdayCategories=assignments,weekdayMealOverrides=overrides,weekdayRecipeFilters={},pinnedCats=[])]
  if mode=='multi':plans.append(dict(id='lunch',name='Lunch',weekdayCategories={'Friday':['Rice']},weekdayMealOverrides={},weekdayRecipeFilters={'Friday::Rice':['Only']},pinnedCats=[]))
+ # These normal overrides model automatic choices, not user substitutions.
+ for plan in plans:plan['cycleSlotChoices']={key:{'mealId':str(value),'parentId':''} for key,value in plan['weekdayMealOverrides'].items() if '::' in key}
  prefix='mealRotationTestSandboxV1:' if filename.startswith('meal-') else ''
  seed={prefix+'mealRotationDataV1':json.dumps(dict(cats=['Mains','Other','Rice','Salsa'],active='Mains',meals=MEALS)),prefix+'mealRotationPlansV1':json.dumps(dict(plans=plans,activeId='original')),prefix+'mealRotationShowPlanTabsV1':'true',prefix+'mealRotationRecipeViewPrefsV1':json.dumps(dict(mode='split',ratio=.4,syncIngredients=True,autoCompleteIngredients=True,keepScreenAwake=False,autoOpenLinkedRecipes=True)),prefix+'mealRotationSelectedIngredientsV1':json.dumps({'1':['1 cups rice'],'10':['10 cups rice']}),prefix+'mealRotationCheckedIngredientsV1':json.dumps(['10 cups rice']),prefix+'mealRotationTutorialStageV1':'done'}
  if prefix:seed['mealRotationDataV1']='WORKING SENTINEL';seed['mealRotationCookingSessionsV1']='PROGRESS SENTINEL'
@@ -57,7 +62,8 @@ def run(browser,filename,width):
  assert not errors,errors;ctx.close()
  for mode in ['independent','same-day','shared','replacement','multi','repeated','legacy-pin']:
   ctx,page,errors,prefix=setup(browser,filename,width,mode);before=state(page);before_rows=core(page);prior=rows(page);storage=page.evaluate('cycleTest.storage()');groceries=page.evaluate('cycleTest.groceries()')
-  if mode=='legacy-pin':assert any(r['day']=='Thursday' and r['id']==2 for r in prior)
+  # Legacy day-only manual overrides remain protected, including intentional repeats.
+  if mode=='legacy-pin':assert any(r['day']=='Thursday' and r['id']==1 for r in prior)
   page.evaluate('cycleTest.chooser(true)');dialog=page.get_by_role('heading',name='Select meals to rotate out').locator('..');expected=[r for r in prior if (r['parent']=='' or r.get('scheduled'))];assert dialog.get_by_role('checkbox').count()==len(expected),(mode,prior)
   # Only select Tuesday's main; every other top-level occurrence must stay.
   dialog.get_by_role('button',name='Deselect all',exact=True).click();dialog.get_by_role('checkbox').nth(next(i for i,r in enumerate(expected) if r['id']==1)).check();dialog.get_by_role('button',name='Move selected',exact=True).click()
@@ -86,7 +92,7 @@ def run(browser,filename,width):
    page.evaluate('cycleTest.chooser(true)');all_dialog=page.get_by_role('heading',name='Select meals to rotate out').locator('..');all_dialog.get_by_role('button',name='Deselect all',exact=True).tap();assert all_dialog.locator('input:checked').count()==0;all_dialog.get_by_role('button',name='Select all',exact=True).tap();assert all_dialog.locator('input:checked').count()==len([r for r in rows(page) if (r['parent']=='' or r.get('scheduled'))]);all_dialog.get_by_role('button',name='Move selected',exact=True).tap();page.evaluate('cycleTest.back()');assert core(page)==before_rows
   assert not errors,errors;ctx.close()
  # Explicit mark-cooked behavior and backup/history compatibility remain available.
- ctx,page,errors,prefix=setup(browser,filename,width,'independent');original_rows=core(page);page.evaluate("cycleTest.cycle(['Tuesday::Mains'],false,true)");marked=state(page)
+ ctx,page,errors,prefix=setup(browser,filename,width,'independent');establish_dated_schedule(page);original_rows=core(page);page.evaluate("cycleTest.cycle(['Tuesday::Mains'],false,true)");marked=state(page)
  assert all(next(m for m in marked['meals'] if m['id']==id).get('lastCooked') for id in [1,10,20]);assert not next(m for m in marked['meals'] if m['id']==2).get('lastCooked')
  page.get_by_role('button',name='Settings and backups',exact=True).click();page.locator('details[data-settings-group=backups]').evaluate('(e)=>e.open=true')
  with tempfile.TemporaryDirectory() as tmp:
