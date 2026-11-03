@@ -3,13 +3,13 @@ from playwright.sync_api import sync_playwright
 import scheduled_linked_slots_browser as fixture
 from scheduled_linked_slots_browser import state,definitions
 fixture.HOOK+='''window.weekPopup={tabs:value=>{showMealPlanTabs=value;render();window.scrollTo(0,0)},many:()=>{for(let i=0;i<30;i++)cats.push('Extra accompaniment group '+i);persist();renderList()},labels:()=>{meals.find(m=>m.id===1).labels=['Fast','Weeknight'];persist()},filters:()=>weekdayRecipeFilters};'''
-def dialog(p):return p.get_by_role('dialog',name='Select a group',exact=True)
+def dialog(p):return p.get_by_role('dialog',name="Choose Tuesday's meal groups",exact=True)
 def run(browser,filename,width,tabs,long):
  ctx,p,errors,prefix=fixture.setup(browser,filename,width,duplicate=True,multi=True);p.set_default_timeout(8000)
  if long:p.evaluate('weekPopup.many()')
  p.evaluate('weekPopup.labels()');p.evaluate('weekPopup.tabs',tabs);before=state(p);saved=p.evaluate('slotTest.storage()')
  h=p.locator('button.weekday-heading[data-weekday=Tuesday]');r=h.bounding_box();h.tap(position={'x':r['width']-5,'y':r['height']/2});d=dialog(p)
- assert d.get_by_role('heading').inner_text()=='Select a group'
+ assert d.get_by_role('heading').inner_text()=="Choose Tuesday's meal groups"
  assert d.get_by_role('button').count()==1 and d.get_by_role('button',name='Close',exact=True).is_visible()
  assert d.get_by_role('button',name='Save meal groups').count()==0 and d.get_by_role('button',name='Cancel',exact=True).count()==0
  rice=d.locator('input[data-group-choice][value=Rice]');sides=d.locator('input[data-group-choice][value=Sides]');sauce=d.locator('input[data-group-choice][value=Sauces]')
