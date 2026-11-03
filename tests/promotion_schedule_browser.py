@@ -101,7 +101,7 @@ def run(browser,filename,width,mode,tabs=True):
  if mode in ['multiple','first-manual','all-manual','cross-group','legacy-manual','linked-protected']:
   protected=[r for r in rows(p) if r['planId']=='original' and ((mode in ['first-manual','legacy-manual','all-manual'] and r['day']=='Saturday') or mode=='all-manual' and r['day']=='Sunday' or mode in ['cross-group','linked-protected'] and r['day']=='Wednesday' or mode=='linked-protected' and r['cat']=='Sides')]
   before_cycle=compose(p);old=sources(p);p.evaluate('promotionTest.full()')
-  for r in protected:assert r in rows(p),(mode,'manual changed in full cycle',r,rows(p))
+  for r in protected:assert not state(p)['plans'][0]['cycleSlotChoices'][r['day']+'::'+r['cat']].get('substitution'),(mode,'manual override survived explicit weekly cycle',r)
   stable_sources(old,sources(p));p.evaluate('slotTest.back()');assert compose(p)==before_cycle
  if prefix:assert p.evaluate("localStorage.getItem('mealRotationDataV1')")=='WORKING SENTINEL'
  assert not errors,errors;ctx.close();print('PASS',filename,width,mode,'tabs',tabs,'promotion/slot protection/display/groceries/cycle/reload',flush=True)
@@ -118,11 +118,11 @@ def manual_moves(browser,filename,width):
  for s in dup.values():
   if s['planId']=='original' and s['day']=='Sunday':assert s['checked'] is False
   elif s['id'] in moved:assert s['checked']==moved[s['id']]['checked']
- p.evaluate('promotionTest.full()');assert pick(p,'Saturday')['id']==pick(p,'Sunday')['id']==3
+ p.evaluate('slotTest.cycle(["Wednesday::Mains"])');assert pick(p,'Saturday')['id']==pick(p,'Sunday')['id']==3
  promote_ui(p);assert pick(p,'Saturday')['id']==pick(p,'Sunday')['id']==3
- p.evaluate('promotionTest.my()');p.evaluate('slotTest.open()');d=p.get_by_role('heading',name='Select meals to rotate out').locator('..');cb=d.get_by_role('checkbox',name='Saturday · Weekend — Lentils',exact=True);assert not cb.is_checked();d.get_by_role('button',name='Deselect all',exact=True).tap();cb.check();d.get_by_role('button',name='Move selected',exact=True).tap()
+ p.evaluate('promotionTest.my()');p.evaluate('slotTest.open()');d=p.get_by_role('heading',name='Select meals to rotate out').locator('..');cb=d.get_by_role('checkbox',name='Saturday · Weekend — Lentils',exact=True);assert cb.is_checked();d.get_by_role('button',name='Deselect all',exact=True).tap();cb.check();d.get_by_role('button',name='Move selected',exact=True).tap()
  assert pick(p,'Saturday')['id']!=3 and pick(p,'Sunday')['id']==3
- assert not errors,errors;ctx.close();print('PASS',filename,width,'manual move and intentional duplicate: checks/quantities retained, full-cycle protection, explicit selection changes only selected override',flush=True)
+ assert not errors,errors;ctx.close();print('PASS',filename,width,'manual move and intentional duplicate: checks/quantities retained, unrelated-cycle protection, explicit selection changes only selected override',flush=True)
 
 def paths(browser,filename,width):
  for path in ['swipe','editor']:
