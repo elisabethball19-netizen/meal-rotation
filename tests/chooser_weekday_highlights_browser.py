@@ -42,8 +42,9 @@ def run(browser,filename,width,tabs,active):
  d.locator('[data-meal-id="2"]').tap();compare(p)
  r=d.locator('[data-meal-id="2"]');assert r.get_attribute('aria-pressed')=='true' and r.evaluate('(e)=>getComputedStyle(e).backgroundColor')=='rgb(255, 255, 255)'
  assert r.evaluate('(e)=>getComputedStyle(e).borderTopWidth')=='0px'
- selected=d.locator('[data-meal-id="1"]');reference=p.locator('#list .master-category-meal[data-meal-id="1"]')
- assert selected.evaluate('(e)=>getComputedStyle(e).padding')==reference.evaluate('(e)=>getComputedStyle(e).padding')=='5px 0px'
+ selected=d.locator('[data-meal-id="1"]')
+ assert d.locator('.weekday-meal-choice').evaluate_all('(rows)=>rows.every(e=>getComputedStyle(e).padding==="5px 8px")')
+ assert selected.evaluate('(e)=>{const x=e.getBoundingClientRect().x;return [...e.querySelectorAll("span")].every(text=>Math.abs(text.getBoundingClientRect().x-x-8)<1)}')
  assert selected.evaluate('(e)=>getComputedStyle(e).borderRadius')=='8px'
  line=selected.evaluate('(e)=>{const s=getComputedStyle(e,"::after");return {left:s.left,right:s.right,height:s.height,radius:s.borderRadius,color:s.backgroundColor}}')
  assert line=={'left':'0px','right':'0px','height':'1px','radius':'0px','color':'rgb(238, 238, 238)'},line
