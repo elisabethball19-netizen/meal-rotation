@@ -814,7 +814,7 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 #recipeViewer .recipe-linked-link{display:block;border:0;background:transparent;color:#315ba8;text-align:left;font:inherit;padding:10px 0;cursor:pointer;}
 #recipeViewer .recipe-original{display:inline-block;margin:30px 0 10px;color:#315ba8;}
 
-#test-banner{position:sticky;top:0;z-index:10000;background:#fff1bc;border:2px solid #bd7b00;color:#332600;border-radius:10px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:nowrap;margin-bottom:18px;font-size:12px;box-shadow:0 2px 8px #0002}#test-banner strong{min-width:0;line-height:1.2}#test-reset{background:#fff;border:1px solid #a46c00;border-radius:8px;padding:6px 9px;font-weight:600;color:#332600;white-space:nowrap;font-size:12px;flex-shrink:0}
+#test-banner{position:sticky;top:0;z-index:10000;background:#fff1bc;border:2px solid #bd7b00;color:#332600;border-radius:10px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:18px;font-size:12px;box-shadow:0 2px 8px #0002}#test-banner strong{min-width:0;line-height:1.2}#test-reset{background:#fff;border:1px solid #a46c00;border-radius:8px;padding:6px 9px;font-weight:600;color:#332600;white-space:nowrap;font-size:12px;flex-shrink:0}
 /* Recipe-only compact layout and optional independent scrolling panes. */
 #recipeViewer .cooking-item{padding:4px 2px;min-height:40px;line-height:1.5;}
 #recipeViewer .recipe-viewer-ingredients li+li{margin-top:2px;}
@@ -3451,7 +3451,30 @@ function recipeRepairPlan(items,library=meals){
 }
 function recipeRepairPreviewText(value){return typeof value==='string'?value:Array.isArray(value)?value.map(block=>typeof block==='string'?block:block&&typeof block.text==='string'?(block.type==='section'?'## ':'')+block.text:JSON.stringify(block)).join('\n\n'):JSON.stringify(value??'',null,2)}
 
-function openRecipeInstructionRepair(backup){
+// User-authorized, one-time TEST-only cleanup. Never reads production storage.
+const TEST_LEGACY_BACKUP_KEY='mealRotationTESTONLY__LegacyCleanupBackupV1';
+const TEST_LEGACY_RUN_KEY='mealRotationTESTONLY__LegacyCleanupRunV1';
+let testLegacyBackupTools=null;
+function showTestLegacyCleanupStatus(message){
+ const banner=document.getElementById('test-banner');let status=document.getElementById('test-legacy-cleanup-status');
+ if(!status){status=document.createElement('div');status.id='test-legacy-cleanup-status';status.setAttribute('role','status');status.style.cssText='flex:1 0 100%;font-size:12px;line-height:1.4';banner.append(status)}
+ status.replaceChildren(document.createTextNode(message));
+ let hasBackup=false;try{hasBackup=!!testStorage.getItem(TEST_LEGACY_BACKUP_KEY)}catch(e){}
+ if(hasBackup){
+  const download=document.createElement('button');download.type='button';download.className='smallbtn';download.textContent='Download pre-repair test backup';download.style.cssText='margin-top:6px;font-size:12px';
+  download.onclick=()=>{try{const raw=testStorage.getItem(TEST_LEGACY_BACKUP_KEY),data=JSON.parse(raw);testLegacyBackupTools.validate(data.storage);const url=URL.createObjectURL(new Blob([raw],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='meal-rotation-test-before-legacy-cleanup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(e){status.textContent='The saved test backup could not be read. '+e.message}};
+  status.append(document.createElement('br'),download);
+ }
+}
+function runTestLegacyCleanupOnce(){
+ try{
+  const saved=testStorage.getItem(TEST_LEGACY_RUN_KEY);
+  if(saved){const run=JSON.parse(saved);showTestLegacyCleanupStatus(run.message||'The one-time test cleanup has already been attempted.');return}
+  if(!testLegacyBackupTools)throw Error('Backup tools are unavailable.');
+  openRecipeInstructionRepair(testLegacyBackupTools,true);
+ }catch(e){showTestLegacyCleanupStatus('Automatic test cleanup stopped. No repair applied. '+e.message)}
+}
+function openRecipeInstructionRepair(backup,automaticTestCleanup=false){
  if(document.getElementById('recipeInstructionRepair'))return;
  if(editId!==null||recipeViewer){recipeImportNotice('Close the recipe viewer or meal editor before repairing saved recipe content.');return}
  const overlay=document.createElement('div');overlay.id='recipeInstructionRepair';overlay.style.cssText='position:fixed;inset:0;z-index:16200;background:#0008;padding:16px;display:flex;align-items:center;justify-content:center';
@@ -3482,7 +3505,7 @@ function openRecipeInstructionRepair(backup){
  const showPreview=(items,label,start)=>{
   baseline=start;unchanged();sourceItems=items;plan=recipeRepairPlan(items);selected=new Set(plan.ready);
   summary.textContent=label+' · '+plan.matched+' saved records confidently matched · '+plan.restoring+' empty records ready · '+plan.cleaning+' recipes / '+plan.lines+' saved lines to clean · '+plan.ambiguous+' ambiguous · '+plan.uncertain+' recipes with retained/blocked uncertain content · '+plan.skippedLines+' recognized lines skipped · '+(plan.rows.length-plan.ready.length)+' records preserved/skipped';
-  for(const row of plan.rows){
+  for(const row of automaticTestCleanup?[]:plan.rows){
    const details=document.createElement('details'),heading=document.createElement('summary');heading.textContent=row.meal.name+' (ID '+row.meal.id+', '+row.meal.cat+') — '+row.reason;details.append(heading);
    if(row.instructions!==null||row.notes!==null){
     const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=true;check.setAttribute('aria-label','Apply repair to '+row.meal.name+' (ID '+row.meal.id+')');label.style.cssText='display:flex;align-items:center;gap:8px;min-height:44px';label.append(check,document.createTextNode('Include this repair'));details.append(label);check.onchange=()=>{if(check.checked)selected.add(row);else selected.delete(row);apply.disabled=!verified||!selected.size};
@@ -3531,6 +3554,29 @@ function openRecipeInstructionRepair(backup){
    finished=true;panel.querySelectorAll('input[type="checkbox"]').forEach(el=>el.disabled=true);apply.disabled=cleanup.disabled=choose.disabled=download.disabled=verify.disabled=true;cancel.textContent='Close';status.textContent='Restored instructions for '+[...selected].filter(r=>r.kind.includes('restore')).length+' saved recipe records; cleaned '+[...selected].filter(r=>r.kind.includes('cleanup')).length+' recipes ('+[...selected].reduce((n,r)=>n+(r.kind.includes('cleanup')?r.removedSaved.length:0),0)+' saved lines). Only previewed instructions/notes were changed. Other recipe fields, saved progress and settings were preserved. Keep your verified backup.';
   }catch(e){fail(e)}
  };
+ if(automaticTestCleanup){
+  // Use the exact same planner, snapshot guard and atomic Apply handler. Only
+  // TEST storage substitutes a persisted/read-back backup for the manual file step.
+  overlay.style.display='none';
+  try{
+   cleanup.onclick();if(!plan)throw Error(status.textContent||'Cleanup could not be planned.');
+   if(!plan.ready.length){const message='Test cleanup checked: no confirmed legacy clutter needs repair.';testStorage.setItem(TEST_LEGACY_RUN_KEY,JSON.stringify({status:'no-changes',message}));close();showTestLegacyCleanupStatus(message);return}
+   const now=unchanged();backup.validate(now.storage);const core=JSON.parse(now.storage.mealRotationDataV1);
+   if(JSON.stringify(core)!==JSON.stringify({cats,active,meals}))throw Error('Saved recipes and the open test app differ. Reload and try the manual repair.');
+   exported=JSON.stringify({version:2,...core,storage:now.storage},null,2);
+   const previous=testStorage.getItem(TEST_LEGACY_BACKUP_KEY);if(previous&&previous!==exported)throw Error('An earlier test backup is already saved; it has been preserved. Use the manual repair for the changed data.');
+   testStorage.setItem(TEST_LEGACY_BACKUP_KEY,exported);const readBack=testStorage.getItem(TEST_LEGACY_BACKUP_KEY);
+   if(readBack!==exported)throw Error('Complete test backup readback failed.');backup.validate(JSON.parse(readBack).storage);unchanged();
+   // Arm before Apply so an interrupted attempt cannot rerun against later edits.
+   const armed=JSON.stringify({status:'attempted',message:'The one-time test cleanup was attempted. Your pre-repair test backup is available below.'});testStorage.setItem(TEST_LEGACY_RUN_KEY,armed);
+   if(testStorage.getItem(TEST_LEGACY_RUN_KEY)!==armed)throw Error('Test cleanup marker could not be verified.');
+   verified=true;apply.onclick();
+   const message=finished?'Test cleanup complete: '+plan.cleaning+' recipes cleaned. A complete pre-repair test backup is saved. Uncertain content was kept.':'Test cleanup stopped: '+status.textContent;
+   if(finished){try{testStorage.setItem(TEST_LEGACY_RUN_KEY,JSON.stringify({status:'complete',message}))}catch(e){/* Armed marker and verified backup already exist. */}}
+   close();showTestLegacyCleanupStatus(message);
+  }catch(e){close();showTestLegacyCleanupStatus('Automatic test cleanup stopped. No repair applied. '+e.message)}
+  return;
+ }
  choose.focus({preventScroll:true});
 }
 
@@ -4172,6 +4218,7 @@ let exportBtn=document.createElement('button');exportBtn.textContent='Export bac
  const planHint=document.createElement('small');planHint.id='mealPlanTabsHint';planHint.className='settings-display-option-help';planHint.textContent='Hide tabs to focus on your currently selected meal plan. Other plans are preserved.';
  planCheck.setAttribute('aria-labelledby',planLabel.id);planCheck.setAttribute('aria-describedby',planHint.id);
  planCopy.append(planLabel,planHint);planOption.append(planCheck,planCopy);planGroup.content.append(planOption);
+ testLegacyBackupTools={capture:captureBackupStorage,validate:validateBackupStorage};
  const backupGroup=makeSettingsGroup('backups','Data & Backups');const backupRow=document.createElement('div');backupRow.className='settings-backup-controls';const repairInstructions=document.createElement('button');repairInstructions.textContent='Repair RecipeSage Imports';repairInstructions.onclick=()=>openRecipeInstructionRepair({capture:captureBackupStorage,validate:validateBackupStorage});backupRow.append(exportBtn,importBtn,restoreBtn,repairInstructions);backupGroup.content.append(backupRow);panel.append(backupGroup.details);
  panel.append(makeSettingsFooter());
  const help=document.createElement('button');help.id='help';help.className='iconbtn';help.title='Help and gestures';help.setAttribute('aria-label','Help and gestures');help.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01" stroke-linecap="round"/></svg>';help.onclick=()=>openHelpModal();actions.append(help);settings.onclick=async()=>{
@@ -6754,7 +6801,7 @@ document.addEventListener('click',e=>{
  })().catch(err=>{console.error('Could not complete outside action',err)});
 },true);
 
-render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');resumeRecipeViewer();})();
+render();runTestLegacyCleanupOnce();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');resumeRecipeViewer();})();
 </script><script>
 /* Detect when each page-specific header actually reaches its sticky position.
    Page renders replace these elements, so re-evaluate after DOM changes. */
