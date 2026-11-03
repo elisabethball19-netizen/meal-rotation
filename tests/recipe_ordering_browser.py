@@ -79,13 +79,13 @@ def updates(b,name,w,tabs):
  p.evaluate("promotionTest.start('Sunday')");groups(p);assert ids(p)[:2]==[3,30];compare(p)
  p.evaluate("orderTest.remove('Wednesday')");groups(p);assert ids(p)[:2]==[3,30]
  p.evaluate("promotionTest.manual('Sunday','Weekend',1)");groups(p);assert ids(p)[:2]==[1,30] and ids(p).index(3)>ids(p).index(31);compare(p)
- # Promoting and demoting retain Ideas order; automatic sorting never rearranges the queue.
+ # Promoting and demoting keep Ideas alphabetical; automatic sorting never rearranges the queue.
  old_ideas=[id for id in ids(p) if id in [5,6]];assert old_ideas==[5,6]
  p.evaluate('promotionTest.promote(5)');groups(p);assert ids(p)[-1]==6;compare(p)
  old=compose(p);p.evaluate('promotionTest.full()');groups(p);compare(p)
  assert all(not x.get('substitution',False) for plan in state(p)['plans'] for x in plan.get('cycleSlotChoices',{}).values())
  p.evaluate('slotTest.back()');groups(p);assert compose(p)==old;compare(p)
- p.evaluate('orderTest.demote(33)');groups(p);assert ids(p)[-2:]==[6,33];compare(p)
+ p.evaluate('orderTest.demote(33)');groups(p);assert ids(p)[-2:]==[33,6];compare(p)
  p.reload();groups(p);compare(p)
  if name.startswith('meal-') and w==320 and tabs:p.screenshot(path='/tmp/recipe-ordering-mobile.png')
  done(c,p,e,prefix);print('PASS',name,w,'tabs',tabs,'manual/scheduled/undated/oldest tiers; weekday labels/repeats; date edits; configured start; removal; promotion/demotion; override expiry/Cycle Back; reload',flush=True)

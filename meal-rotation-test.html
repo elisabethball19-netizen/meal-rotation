@@ -331,6 +331,7 @@ body{padding-bottom:calc(310px + env(safe-area-inset-bottom, 0px));}
 .meal-last-cooked{font-size:12px;color:#69717a;margin-top:4px;line-height:1.35;cursor:pointer;display:block;max-width:max-content}
 .meal-last-cooked:focus-visible{outline:2px solid #6484b5;border-radius:3px}
 .master-meal-info{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+.master-category-meal:not(.featured-top-meal)>.master-meal-info{padding-left:13px;}
 .master-meal-info .master-category-meal-name{max-width:100%;text-align:left}
 
 .recipe-related-buttons{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:6px 0 16px}
@@ -5717,8 +5718,9 @@ function openLabelManager(){
 }
 // Display-only ordering shared by Meal Groups and Choose Meal. The recipe array
 // remains the existing manual rotation queue; switching modes never sorts it.
+const ideasRecipeNameCollator=new Intl.Collator(undefined,{sensitivity:'base'});
 function masterRecipeOrder(category,highlights=scheduledRecipeHighlights()){
- const entries=meals.filter(meal=>meal.cat===category),rotation=entries.filter(meal=>!!meal.rotation),ideas=entries.filter(meal=>!meal.rotation);
+ const entries=meals.filter(meal=>meal.cat===category),rotation=entries.filter(meal=>!!meal.rotation),ideas=entries.filter(meal=>!meal.rotation).sort((a,b)=>ideasRecipeNameCollator.compare(String(a.name||''),String(b.name||'')));
  if(manualRecipeOrdering)return [...rotation,...ideas];
  const days=orderedDays(),ranks=new Map();
  for(const entry of highlights.scheduledEntries){
