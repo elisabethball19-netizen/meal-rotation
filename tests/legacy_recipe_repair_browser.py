@@ -48,7 +48,7 @@ def run(browser,filename,width):
     assert rows[72]['instructions']==COOK
     assert rows[74]['ready'] and rows[74]['instructions']==''
     # Open/preview/cancel cannot modify storage, including completed occurrences.
-    page.evaluate('repairTest.open()');page.get_by_role('button',name='Preview saved instruction cleanup',exact=True).click()
+    page.evaluate('repairTest.open()');page.get_by_role('button',name='Preview saved recipe cleanup',exact=True).click()
     dialog=page.locator('#recipeInstructionRepair');assert 'saved lines to clean' in dialog.inner_text()
     row=dialog.locator('details').filter(has_text='(ID 60, Fish)');row.locator('summary').click()
     assert all(x in row.inner_text() for x in ['Current saved instructions','Proposed instructions','180°C','15 minutes','Recognized saved lines to remove','stray linked heading'])
@@ -57,16 +57,16 @@ def run(browser,filename,width):
     assert page.evaluate('repairTest.storage()')==saved
     page.get_by_role('button',name='Cancel',exact=True).click();assert page.evaluate('repairTest.storage()')==saved
     # Deselect all then include only the screenshot fixture and raw CRLF variants.
-    page.evaluate('repairTest.open()');page.get_by_role('button',name='Preview saved instruction cleanup',exact=True).click()
+    page.evaluate('repairTest.open()');page.get_by_role('button',name='Preview saved recipe cleanup',exact=True).click()
     for details in dialog.locator('details').all():details.evaluate('(e)=>e.open=true')
     for check in dialog.get_by_role('checkbox').all():check.uncheck()
     for i in [60,65,73,74]:dialog.get_by_role('checkbox',name=f'Apply repair to Thai Garlic Pork {i} (ID {i})',exact=True).check()
     with tempfile.TemporaryDirectory() as tmp:
         backup=base.verified_backup(page,tmp);assert backup['storage']==saved
-        page.evaluate('repairTest.fail()');page.get_by_role('button',name='Apply instruction repair',exact=True).click()
+        page.evaluate('repairTest.fail()');page.get_by_role('button',name='Apply selected repairs',exact=True).click()
         assert 'could not be saved' in dialog.inner_text() and page.evaluate('repairTest.storage()')==saved
         page.evaluate('repairRestoreWrite()');base.verified_backup(page,tmp)
-        page.get_by_role('button',name='Apply instruction repair',exact=True).click()
+        page.get_by_role('button',name='Apply selected repairs',exact=True).click()
         assert 'cleaned 4 recipes (19 saved lines)' in dialog.inner_text(),dialog.inner_text()[-600:]
         after=page.evaluate('repairTest.state()');storage=page.evaluate('repairTest.storage()')
         for before,m in zip(baseline['meals'],after['meals']):
@@ -92,7 +92,7 @@ def run(browser,filename,width):
         for d in dialog.locator('details').all():d.evaluate('(e)=>e.open=true')
         for c in dialog.get_by_role('checkbox').all():c.uncheck()
         dialog.get_by_role('checkbox',name='Apply repair to Thai Garlic Pork 70 (ID 70)',exact=True).check()
-        base.verified_backup(page,tmp);page.get_by_role('button',name='Apply instruction repair',exact=True).click()
+        base.verified_backup(page,tmp);page.get_by_role('button',name='Apply selected repairs',exact=True).click()
         result=page.evaluate('repairTest.state()');assert len(result['meals'])==len(library)
         updated=next(m for m in result['meals'] if m['id']==70);assert '200°C' in json.dumps(updated['instructions'],ensure_ascii=False)
         assert {k:v for k,v in updated.items() if k!='instructions'}=={k:v for k,v in next(m for m in baseline['meals'] if m['id']==70).items() if k!='instructions'}

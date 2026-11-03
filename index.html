@@ -3272,7 +3272,7 @@ function showRecipeImportSelection(items,filename){
  };
  updateSummary();
 }
-// Explicit, instruction-only repair. No imports, inferred meals or background writes.
+// Explicit, previewed instructions/notes repair. No imports, inferred meals or background writes.
 function recipeRepairEmpty(value){
  if(value==null)return true;
  if(typeof value==='string')return !value.trim();
@@ -3320,30 +3320,30 @@ function recipeMissingInstructionPlan(items,library=meals){
 }
 // Legacy-only recognition: never run the broad import cleaner over saved edits.
 function recipeRepairImported(meal){return recipeRepairIds(meal).length>0||!!meal.sourceUrl||!!meal.ingredientImportUrl||meal.recipeImportPending!==undefined||meal.recipeImportReferences!==undefined}
-function recipeRepairLegacyCleanup(meal,library=meals){
- const result={instructions:null,removed:[],uncertain:[],reason:''};if(!recipeRepairImported(meal)||recipeRepairEmpty(meal.instructions))return result;
- const units=[],DROP=Symbol('removed instruction');
- const visible=raw=>{
+function recipeRepairLegacyLine(raw){
   let text=normalizeRecipeText(raw),links=[];
   if(/<a\b/i.test(raw)){const doc=new DOMParser().parseFromString(raw,'text/html');links=[...doc.querySelectorAll('a[href]')].map(a=>a.getAttribute('href'))}
   text=text.replace(/\[([^\]]+)\]\(<?([^\s)>]+)>?\)/g,(_,label,url)=>{links.push(url);return label});
   text=text.trim().replace(/^(?:(?:step\s+)?\d+[.)]\s+|\*\*\d+\*\*\s*|[-*•]\s+)/i,'').replace(/^[*_]+|[*_]+$/g,'').replace(/^#{1,6}\s+/,'').trim();
   return {text,links};
- };
- const accountUrl=url=>{
+}
+function recipeRepairAccountUrl(url){
   try{const absolute=new URL(url);if(!['http:','https:'].includes(absolute.protocol)||!/^(?:www\.|android\.)?recipesage\.com$/i.test(absolute.hostname))return false;return /^\/(?:app\/)?(?:login|register|sign[-_]?up|sign[-_]?in|auth|account)(?:[/?#]|$)/i.test(absolute.pathname)||/^#\/?(?:login|register|sign[-_]?up|sign[-_]?in|auth|account)(?:[/?#]|$)/i.test(absolute.hash)}catch(e){return /^(?:#\/|\/)(?:login|register|sign[-_]?up|sign[-_]?in|auth|account)(?:[/?#]|$)/i.test(url)}
- };
- const type=(text,links)=>{
-  if(links.length&&!links.every(accountUrl))return '';
+}
+function recipeRepairBoilerplate(text,links){
+  if(links.length&&!links.every(recipeRepairAccountUrl))return '';
   const prompt=/^(?:create (?:an? |your )?(?:free )?account(?:\s+or\s+(?:login|log in|sign in))?|register(?:\s*(?:\/|or)\s*(?:login|log in|sign in))?|sign up|login|log in|sign in)(?:\s+to\s+(?:(?:save|share|view|edit|rate)\s+(?:this |the |your )?recipe(?:\s+to\s+your\s+collection)?|save))?[.!]?$/i;
-  if(prompt.test(text)||(accountUrl(text)&&!links.length))return 'account';
+  if(prompt.test(text)||(recipeRepairAccountUrl(text)&&!links.length))return 'account';
   if(/^(?:created(?: on| at)?|last[ -]*(?:edited|updated|modified)(?: on| at)?|date created|datePublished|dateModified)\s*:?\s*(?:\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})(?:[T, ]+(?:at\s+)?\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:\s*(?:AM|PM))?(?:\s*(?:Z|UTC|[+-]\d{2}:?\d{2}))?)?[.]?$/i.test(text))return 'timestamp';
   return '';
- };
+}
+function recipeRepairLegacyCleanup(meal,library=meals){
+ const result={instructions:null,removed:[],uncertain:[],reason:''};if(!recipeRepairImported(meal)||recipeRepairEmpty(meal.instructions))return result;
+ const units=[],DROP=Symbol('removed instruction');
  const visit=(value,section=false)=>{
   if(typeof value==='string'){
    const entries=(value.match(/[^\r\n]*(?:\r\n|\r|\n|$)/g)||[]).filter(Boolean).map(raw=>{
-    const line=raw.replace(/(?:\r\n|\r|\n)$/,''),plain=visible(line),unit={raw,line,text:plain.text,links:plain.links,kind:section?'section':instructionBlocks(line)[0]?.type||'step',remove:type(plain.text,plain.links)};units.push(unit);return unit;
+    const line=raw.replace(/(?:\r\n|\r|\n)$/,''),plain=recipeRepairLegacyLine(line),unit={raw,line,text:plain.text,links:plain.links,kind:section?'section':instructionBlocks(line)[0]?.type||'step',remove:recipeRepairBoilerplate(plain.text,plain.links)};units.push(unit);return unit;
    });
    return ()=>{const kept=entries.filter(u=>!u.remove).map(u=>u.raw).join('');return value.trim()&&!kept.trim()?DROP:kept};
   }
@@ -3351,7 +3351,12 @@ function recipeRepairLegacyCleanup(meal,library=meals){
   if(value&&typeof value==='object'&&['step','section'].includes(value.type)&&typeof value.text==='string'&&Object.keys(value).every(k=>['type','text'].includes(k))){const text=visit(value.text,value.type==='section');return ()=>{const next=text();return next===DROP?DROP:{...value,text:next}}}
   if(value!=null)result.uncertain.push('Unsupported instruction structure retained without modification.');return ()=>value;
  };
- const rebuild=visit(meal.instructions),linked=new Set((meal.linkedMealIds||[]).map(id=>library.find(m=>String(m.id)===String(id))).filter(Boolean).map(m=>recipeReferenceTitle(m.name)));
+ const rebuild=visit(meal.instructions);
+ // Reuse the same proven website-section/image recognition for legacy instruction
+ // lines, then apply the existing cooking-token, association and progress guards.
+ const footer=recipeRepairLegacyNotes({...meal,notes:units.map(u=>u.line).join('\n')},library);
+ for(const index of footer.removedIndices)if(!units[index].remove)units[index].remove='Confirmed RecipeSage footer/image clutter (instructions)';
+ const linked=new Set((meal.linkedMealIds||[]).map(id=>library.find(m=>String(m.id)===String(id))).filter(Boolean).map(m=>recipeReferenceTitle(m.name)));
  for(let i=0;i<units.length;i++){
   const unit=units[i];if(unit.remove||!unit.text)continue;
   const isLinked=linked.has(recipeReferenceTitle(unit.text));if(unit.kind!=='section'&&!isLinked)continue;
@@ -3369,6 +3374,45 @@ function recipeRepairLegacyCleanup(meal,library=meals){
  if(Object.values(cookingSessions.occurrences).some(s=>s.context.mealId===String(meal.id)&&s.steps.some(token=>!nextTokens.has(token)))){result.reason='Cleanup would remove a step with saved progress; skipped for review.';return result}
  result.instructions=instructions;return result;
 }
+// Notes are displayed separately by the viewer; instruction cleanup cannot repair them.
+function recipeRepairLegacyNotes(meal,library=meals){
+ const result={notes:null,removed:[],uncertain:[],removedIndices:[]};
+ const sage=recipeSageUuidPattern.test(String(meal.recipeSageId||''))||[meal.url,meal.originalRecipeUrl,meal.sourceUrl,meal.ingredientImportUrl].some(value=>{try{const u=new URL(value);return /^(?:www\.|android\.)?recipesage\.com$/i.test(u.hostname)&&recipeRepairIds(meal).some(id=>recipeSageUuidPattern.test(id))}catch(e){return false}});
+ if(!sage||meal.notes==null||meal.notes==='')return result;
+ if(typeof meal.notes!=='string'){result.uncertain.push('Unsupported notes structure retained without modification.');return result}
+ const units=(meal.notes.match(/[^\r\n]*(?:\r\n|\r|\n|$)/g)||[]).filter(Boolean).map(raw=>{const line=raw.replace(/(?:\r\n|\r|\n)$/,''),plain=recipeRepairLegacyLine(line);return {raw,line,...plain,metadata:recipeRepairBoilerplate(plain.text,plain.links),remove:''}});
+ // A pair of standalone account/date lines in the terminal footer is evidence;
+ // a heading, a date, or an image by itself never justifies changing saved notes.
+ let footer=units.length;while(footer>0&&(!units[footer-1].text||units[footer-1].metadata))footer--;
+ const trailer=units.slice(footer),types=new Set(trailer.map(u=>u.metadata));
+ if(!types.has('account')||!types.has('timestamp')){
+  if(units.some(u=>u.metadata||/linked recipes|!\[/i.test(u.line)))result.uncertain.push('Notes retained: no confirmed terminal RecipeSage account-and-timestamp footer.');
+  return result;
+ }
+ trailer.forEach(u=>{if(u.metadata)u.remove='RecipeSage '+u.metadata+' footer (notes)'});
+ const related=unit=>!unit.links.length&&/^(?:linked|related) recipes:?$/i.test(unit.text);
+ const genericAlt=alt=>/^(?:image|photo|picture)(?:\s+\d+)?$/i.test(alt.trim());
+ const logoUrl=value=>{try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)&&/^(?:www\.)?recipesage\.com$/i.test(u.hostname)&&u.pathname==='/app/assets/imgs/logo_green_padded.png'&&!u.search&&!u.hash}catch(e){return false}};
+ const image=unit=>{const md=unit.line.trim().match(/^!\[([^\]]*)\](?:\((<?[^\s)>]+>?)\))?$/);if(md&&genericAlt(md[1]))return md[2]?(logoUrl(md[2].replace(/^<|>$/g,''))?'logo':''):'placeholder';return ''};
+ for(let i=footer-1;i>=0;i--){if(!units[i].text)continue;if(!image(units[i]))break;units[i].remove='RecipeSage footer image placeholder (notes)'}
+ let marker=-1;for(let i=0;i<footer;i++)if(related(units[i]))marker=i;
+ const titles=new Set(library.map(m=>recipeReferenceTitle(m.name))),savedLinks=new Set((meal.linkedMealIds||[]).map(id=>library.find(m=>String(m.id)===String(id))).filter(Boolean).map(m=>recipeReferenceTitle(m.name)));
+ if(marker>=0){
+  const body=units.slice(marker+1,footer),nonblank=body.filter(u=>u.text),hasLogo=nonblank.some(u=>image(u)==='logo');
+  const plainTitles=new Set();let previous='';
+  for(const u of nonblank){const img=image(u);if(img){previous=img;continue}if(previous==='logo'&&!u.links.length&&!/https?:\/\/|<a\b/i.test(u.line)&&titles.has(recipeReferenceTitle(u.text))&&!savedLinks.has(recipeReferenceTitle(u.text)))plainTitles.add(u);previous=''}
+  const proven=hasLogo&&nonblank.every(u=>image(u)||plainTitles.has(u));
+  // Never delete an actual linked-recipe URL, saved-link title, meaningful image,
+  // unknown suggestion or surrounding user text. Preserve uncertain sections.
+  if(proven){units[marker].remove='Confirmed RecipeSage related-section heading (notes)';for(const u of nonblank)u.remove=image(u)?'RecipeSage logo/image placeholder (notes)':'RecipeSage logo-associated suggestion heading (notes)'}
+  else{
+   for(const u of body)if(image(u))u.remove='RecipeSage footer image placeholder (notes)';
+   result.uncertain.push('Related-recipe heading/content retained in notes: the section contains a saved link, URL, meaningful image or unconfirmed user content.');
+  }
+ }
+ units.forEach((u,i)=>{if(u.remove){result.removed.push({text:u.line,reason:u.remove});result.removedIndices.push(i)}});
+ const kept=units.filter(u=>!u.remove).map(u=>u.raw).join('');result.notes=kept.trim()?kept:'';return result;
+}
 function recipeRepairPlan(items,library=meals){
  const cleanups=library.map(meal=>recipeRepairLegacyCleanup(meal,library));
  const projected=library.map((meal,i)=>cleanups[i].instructions!==null?{...meal,instructions:cleanups[i].instructions}:meal);
@@ -3380,26 +3424,31 @@ function recipeRepairPlan(items,library=meals){
   else row.kind=restoring?'restore':'';
   return row;
  });
- const ready=rows.filter(r=>r.instructions!==null);
- return {rows,ready,matched:missing.matched,ambiguous:missing.ambiguous,restoring:ready.filter(r=>r.kind.includes('restore')).length,cleaning:ready.filter(r=>r.kind.includes('cleanup')).length,lines:ready.reduce((n,r)=>n+(r.kind.includes('cleanup')?r.removedSaved.length:0),0),uncertain:rows.filter(r=>r.uncertain.length||r.cleanup.reason).length,skippedLines:rows.filter(r=>r.instructions===null).reduce((n,r)=>n+r.removedSaved.length,0)};
+ for(const row of rows){
+  const notes=recipeRepairLegacyNotes(row.meal,library);row.notes=notes.notes;row.notesCleanup=notes;row.uncertain=[...row.uncertain,...notes.uncertain];
+  if(row.notes!==null&&row.cleanup.reason){row.blockedSaved=row.removedSaved;row.removedSaved=[];row.uncertain.push('Instruction cleanup skipped; '+row.blockedSaved.length+' recognized instruction lines retained: '+row.cleanup.reason)}
+  if(row.notes!==null){row.removedSaved=[...row.removedSaved,...notes.removed];if(!row.kind.includes('cleanup'))row.kind+=(row.kind?'+':'')+'cleanup';row.reason+=' Clean confirmed RecipeSage clutter from notes; preserve remaining notes verbatim.';row.method=(row.method?row.method+' ':'')+'Notes: RecipeSage provenance + terminal account/date footer; related headings require a confirmed logo-only website section.'}
+ }
+ const ready=rows.filter(r=>r.instructions!==null||r.notes!==null);
+ return {rows,ready,matched:missing.matched,ambiguous:missing.ambiguous,restoring:ready.filter(r=>r.kind.includes('restore')).length,cleaning:ready.filter(r=>r.kind.includes('cleanup')).length,lines:ready.reduce((n,r)=>n+(r.kind.includes('cleanup')?r.removedSaved.length:0),0),uncertain:rows.filter(r=>r.uncertain.length||r.cleanup.reason).length,skippedLines:rows.reduce((n,r)=>n+(r.blockedSaved?.length||0)+(r.instructions===null&&r.notes===null?r.removedSaved.length:0),0)};
 }
 function recipeRepairPreviewText(value){return typeof value==='string'?value:Array.isArray(value)?value.map(block=>typeof block==='string'?block:block&&typeof block.text==='string'?(block.type==='section'?'## ':'')+block.text:JSON.stringify(block)).join('\n\n'):JSON.stringify(value??'',null,2)}
 
 function openRecipeInstructionRepair(backup){
  if(document.getElementById('recipeInstructionRepair'))return;
- if(editId!==null||recipeViewer){recipeImportNotice('Close the recipe viewer or meal editor before restoring instructions.');return}
+ if(editId!==null||recipeViewer){recipeImportNotice('Close the recipe viewer or meal editor before repairing saved recipe content.');return}
  const overlay=document.createElement('div');overlay.id='recipeInstructionRepair';overlay.style.cssText='position:fixed;inset:0;z-index:16200;background:#0008;padding:16px;display:flex;align-items:center;justify-content:center';
  const panel=document.createElement('section');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','recipeRepairTitle');panel.style.cssText='width:100%;max-width:560px;max-height:90dvh;overflow:auto;overscroll-behavior:contain;background:#fff;color:#242424;border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;overflow-wrap:anywhere';
- const title=document.createElement('h2');title.id='recipeRepairTitle';title.textContent='Repair RecipeSage Instructions';title.style.cssText='font-size:20px;margin:0';
- const intro=document.createElement('p');intro.textContent='Choose your original export to restore missing instructions, or preview cleanup of saved RecipeSage boilerplate. Review each proposed change. Nothing is saved until you verify a complete backup and apply the selected repairs. No recipes, links or rotation entries are created.';intro.style.cssText='font-size:14px;margin:0';
+ const title=document.createElement('h2');title.id='recipeRepairTitle';title.textContent='Repair RecipeSage Imports';title.style.cssText='font-size:20px;margin:0';
+ const intro=document.createElement('p');intro.textContent='Choose your original export to restore missing instructions, or preview cleanup of saved instructions and notes containing confirmed RecipeSage boilerplate. Review each proposed change. Nothing is saved until you verify a complete backup and apply the selected repairs. No recipes, links or rotation entries are created.';intro.style.cssText='font-size:14px;margin:0';
  const controls=document.createElement('div');controls.style.cssText='display:flex;flex-wrap:wrap;gap:8px';
  const button=text=>{const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=text;return b};
- const cleanup=button('Preview saved instruction cleanup'),choose=button('Choose RecipeSage file'),download=button('Download complete backup'),verify=button('Verify downloaded backup');download.disabled=verify.disabled=true;controls.append(choose,cleanup,download,verify);
+ const cleanup=button('Preview saved recipe cleanup'),choose=button('Choose RecipeSage file'),download=button('Download complete backup'),verify=button('Verify downloaded backup');download.disabled=verify.disabled=true;controls.append(choose,cleanup,download,verify);
  const summary=document.createElement('p');summary.setAttribute('role','status');summary.style.margin='0';
  const list=document.createElement('div');
  const status=document.createElement('p');status.setAttribute('role','status');status.style.cssText='font-size:14px;margin:0';
  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap';
- const apply=button('Apply instruction repair'),cancel=button('Cancel');apply.disabled=true;actions.append(cancel,apply);
+ const apply=button('Apply selected repairs'),cancel=button('Cancel');apply.disabled=true;actions.append(cancel,apply);
  panel.append(title,intro,controls,summary,list,status,actions);overlay.append(panel);
  const focus=document.activeElement,inert=[...document.body.children].map(el=>[el,el.inert]);inert.forEach(([el])=>el.inert=true);document.body.append(overlay);
  let plan=null,baseline=null,exported=null,verified=false,finished=false,generation=0,sourceItems=[],selected=new Set();
@@ -3407,7 +3456,7 @@ function openRecipeInstructionRepair(backup){
  const state=()=>{if(backupRestoreReloadPending||recipePageLeaving||editId!==null||recipeViewer)throw Error('The app is changing. Close and reopen this repair.');const storage=backup.capture();return {storage,memory:JSON.stringify([captureState(),cookingSessions,occurrenceScales,recipeViewPrefs,timeDisplayPrefs,mealTextSize,showLastCooked])}};
  const storageText=data=>JSON.stringify(Object.entries(data).sort(([a],[b])=>a.localeCompare(b)));
  const unchanged=()=>{const now=state();if(!baseline||now.memory!==baseline.memory||storageText(now.storage)!==storageText(baseline.storage))throw Error('Saved data changed. Close and reopen the repair, then download and verify a fresh backup.');return now};
- const fail=e=>{verified=false;apply.disabled=true;status.textContent=e.message||'Repair stopped. No instructions were changed.'};
+ const fail=e=>{verified=false;apply.disabled=true;status.textContent=e.message||'Repair stopped. No recipe repairs were applied.'};
  const close=()=>{generation++;overlay.remove();window.removeEventListener('storage',changed);for(const [el,was]of inert)if(el.isConnected)el.inert=was;if(focus?.isConnected)focus.focus({preventScroll:true})};
  const changed=event=>{if(!finished&&event.key?.startsWith('mealRotation'))fail(Error('Saved data changed in another tab. Close and reopen this repair.'))};window.addEventListener('storage',changed);
  cancel.onclick=close;
@@ -3418,20 +3467,20 @@ function openRecipeInstructionRepair(backup){
   summary.textContent=label+' · '+plan.matched+' saved records confidently matched · '+plan.restoring+' empty records ready · '+plan.cleaning+' recipes / '+plan.lines+' saved lines to clean · '+plan.ambiguous+' ambiguous · '+plan.uncertain+' recipes with retained/blocked uncertain content · '+plan.skippedLines+' recognized lines skipped · '+(plan.rows.length-plan.ready.length)+' records preserved/skipped';
   for(const row of plan.rows){
    const details=document.createElement('details'),heading=document.createElement('summary');heading.textContent=row.meal.name+' (ID '+row.meal.id+', '+row.meal.cat+') — '+row.reason;details.append(heading);
-   if(row.instructions!==null){
+   if(row.instructions!==null||row.notes!==null){
     const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=true;check.setAttribute('aria-label','Apply repair to '+row.meal.name+' (ID '+row.meal.id+')');label.style.cssText='display:flex;align-items:center;gap:8px;min-height:44px';label.append(check,document.createTextNode('Include this repair'));details.append(label);check.onchange=()=>{if(check.checked)selected.add(row);else selected.delete(row);apply.disabled=!verified||!selected.size};
     const how=document.createElement('p');how.textContent=row.method;details.append(how);
-    for(const [title,value]of [['Current saved instructions',row.meal.instructions],['Proposed instructions',row.instructions]]){const h=document.createElement('strong'),pre=document.createElement('pre');h.textContent=title;pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.5 system-ui';pre.textContent=recipeRepairPreviewText(value);details.append(h,pre)}
+    for(const [title,value]of [...(row.instructions!==null?[['Current saved instructions',row.meal.instructions],['Proposed instructions',row.instructions]]:[]),...(row.notes!==null?[['Current saved notes',row.meal.notes],['Proposed notes',row.notes]]:[])]){const h=document.createElement('strong'),pre=document.createElement('pre');h.textContent=title;pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.5 system-ui';pre.textContent=recipeRepairPreviewText(value);details.append(h,pre)}
     if(row.removed?.length){const note=document.createElement('p');note.textContent=row.removed.length+' recognized clutter entries/fragments omitted from the file instructions.';details.append(note)}
    }
-   if(row.removedSaved.length){const removed=document.createElement('pre');removed.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.5 system-ui';removed.textContent='Recognized saved lines'+(row.instructions===null?' (NOT removed; repair blocked)':' to remove')+':\n'+row.removedSaved.map(x=>x.reason+': '+x.text).join('\n');details.append(removed)}
+   if(row.removedSaved.length){const removed=document.createElement('pre');removed.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.5 system-ui';removed.textContent='Recognized saved lines'+(row.instructions===null&&row.notes===null?' (NOT removed; repair blocked)':' to remove')+':\n'+row.removedSaved.map(x=>x.reason+': '+x.text).join('\n');details.append(removed)}
    for(const text of row.uncertain){const note=document.createElement('p');note.textContent=text;details.append(note)}
    list.append(details);
   }
-  download.disabled=!plan.ready.length;status.textContent=plan.ready.length?'Review the current and proposed instructions, then download and verify the complete backup. Keep the backup file.':'Nothing can safely be repaired in this preview. No data was changed.';
+  download.disabled=!plan.ready.length;status.textContent=plan.ready.length?'Review the current and proposed instructions/notes, then download and verify the complete backup. Keep the backup file.':'Nothing can safely be repaired in this preview. No data was changed.';
  };
  const resetPreview=()=>{verified=false;exported=null;apply.disabled=download.disabled=verify.disabled=true;list.replaceChildren();summary.textContent='Reading…';status.textContent=''};
- cleanup.onclick=()=>{++generation;resetPreview();try{showPreview([],'Saved instruction cleanup (no source file)',state())}catch(e){fail(e)}};
+ cleanup.onclick=()=>{++generation;resetPreview();try{showPreview([],'Saved instruction and notes cleanup (no source file)',state())}catch(e){fail(e)}};
  choose.onclick=()=>pick('.json,.jsonld,.zip,application/json,application/zip',async file=>{
   const current=++generation;resetPreview();
   try{
@@ -3444,25 +3493,25 @@ function openRecipeInstructionRepair(backup){
   try{
    const now=unchanged();backup.validate(now.storage);const core=JSON.parse(now.storage.mealRotationDataV1);if(JSON.stringify(core)!==JSON.stringify({cats,active,meals}))throw Error('Saved recipes and the open app differ. Reload the app, then start again.');
    exported=JSON.stringify({version:2,...core,storage:now.storage},null,2);verified=false;apply.disabled=true;
-   const blob=new Blob([exported],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='meal-rotation-before-instruction-repair.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);verify.disabled=false;status.textContent='Select the backup file you just downloaded to verify its complete contents before applying.';
+   const blob=new Blob([exported],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='meal-rotation-before-recipe-repair.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);verify.disabled=false;status.textContent='Select the backup file you just downloaded to verify its complete contents before applying.';
   }catch(e){fail(e)}
  };
  verify.onclick=()=>pick('.json,application/json',async file=>{
   const current=generation;apply.disabled=true;verified=false;
-  try{const text=await file.text();if(current!==generation||!overlay.isConnected)return;unchanged();const data=JSON.parse(text);backup.validate(data.storage);if(!exported||text!==exported)throw Error('This is not the complete backup just downloaded for this preview. Choose that file, or download a fresh backup.');verified=true;apply.disabled=!selected.size;status.textContent='Complete backup verified against the unchanged saved data. You can now apply the instruction-only repair.'}catch(e){if(current===generation&&overlay.isConnected)fail(e)}
+  try{const text=await file.text();if(current!==generation||!overlay.isConnected)return;unchanged();const data=JSON.parse(text);backup.validate(data.storage);if(!exported||text!==exported)throw Error('This is not the complete backup just downloaded for this preview. Choose that file, or download a fresh backup.');verified=true;apply.disabled=!selected.size;status.textContent='Complete backup verified against the unchanged saved data. You can now apply the selected instruction/notes repairs.'}catch(e){if(current===generation&&overlay.isConnected)fail(e)}
  });
  apply.onclick=()=>{
   try{
    if(!verified||!selected.size)throw Error('Download and verify the complete backup first.');unchanged();
    // Recheck eligibility immediately before the one atomic primary-record write.
    const current=recipeRepairPlan(sourceItems);
-   for(const row of selected){const now=current.rows.find(r=>r.meal===row.meal);if(!now||now.instructions===null||JSON.stringify(now.instructions)!==JSON.stringify(row.instructions))throw Error('A recipe is no longer safe to repair. Close and preview the file again.')}
-   const replacements=new Map([...selected].map(row=>[row.meal,{...row.meal,instructions:JSON.parse(JSON.stringify(row.instructions))}]));
+   for(const row of selected){const now=current.rows.find(r=>r.meal===row.meal);if(!now||(now.instructions===null&&now.notes===null)||JSON.stringify([now.instructions,now.notes])!==JSON.stringify([row.instructions,row.notes]))throw Error('A recipe is no longer safe to repair. Close and preview the file again.')}
+   const replacements=new Map([...selected].map(row=>[row.meal,{...row.meal,...(row.instructions!==null?{instructions:JSON.parse(JSON.stringify(row.instructions))}:{}),...(row.notes!==null?{notes:row.notes}:{})}]));
    const encoded=JSON.stringify({cats,active,meals:meals.map(m=>replacements.get(m)||m)});
    try{localStorage.setItem('mealRotationDataV1',encoded)}catch(e){throw Error('Repair could not be saved. No recipes were changed. Your verified backup is unchanged.')}
-   for(const [meal,replacement]of replacements){meal.instructions=replacement.instructions;cookingRecipeStates.set(String(meal.id),JSON.stringify({id:meal.id,ingredients:meal.ingredients,instructions:meal.instructions,ingredientStepLinks:meal.ingredientStepLinks}))}
+   for(const [meal,replacement]of replacements){if(Object.prototype.hasOwnProperty.call(replacement,'instructions'))meal.instructions=replacement.instructions;if(Object.prototype.hasOwnProperty.call(replacement,'notes'))meal.notes=replacement.notes;cookingRecipeStates.set(String(meal.id),JSON.stringify({id:meal.id,ingredients:meal.ingredients,instructions:meal.instructions,ingredientStepLinks:meal.ingredientStepLinks}))}
    // No persist/render/reconciliation here: unrelated progress and settings stay byte-for-byte intact.
-   finished=true;panel.querySelectorAll('input[type="checkbox"]').forEach(el=>el.disabled=true);apply.disabled=cleanup.disabled=choose.disabled=download.disabled=verify.disabled=true;cancel.textContent='Close';status.textContent='Restored instructions for '+[...selected].filter(r=>r.kind.includes('restore')).length+' saved recipe records; cleaned '+[...selected].filter(r=>r.kind.includes('cleanup')).length+' recipes ('+[...selected].reduce((n,r)=>n+(r.kind.includes('cleanup')?r.removedSaved.length:0),0)+' saved lines). No other recipe fields, saved progress or settings were changed. Keep your verified backup.';
+   finished=true;panel.querySelectorAll('input[type="checkbox"]').forEach(el=>el.disabled=true);apply.disabled=cleanup.disabled=choose.disabled=download.disabled=verify.disabled=true;cancel.textContent='Close';status.textContent='Restored instructions for '+[...selected].filter(r=>r.kind.includes('restore')).length+' saved recipe records; cleaned '+[...selected].filter(r=>r.kind.includes('cleanup')).length+' recipes ('+[...selected].reduce((n,r)=>n+(r.kind.includes('cleanup')?r.removedSaved.length:0),0)+' saved lines). Only previewed instructions/notes were changed. Other recipe fields, saved progress and settings were preserved. Keep your verified backup.';
   }catch(e){fail(e)}
  };
  choose.focus({preventScroll:true});

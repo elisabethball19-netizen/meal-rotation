@@ -52,7 +52,7 @@ def verified_backup(page,tmp):
     with page.expect_download() as event:page.get_by_role('button',name='Download complete backup',exact=True).click()
     target=Path(tmp)/'backup.json';event.value.save_as(target)
     upload(page,'Verify downloaded backup',target.read_bytes(),'backup.json')
-    assert page.get_by_role('button',name='Apply instruction repair',exact=True).is_enabled()
+    assert page.get_by_role('button',name='Apply selected repairs',exact=True).is_enabled()
     return json.loads(target.read_text())
 
 def run(browser,filename,width):
@@ -77,7 +77,7 @@ def run(browser,filename,width):
     assert next(r for r in plan if r['id']==12)['reason'].startswith('Ambiguous')
     assert next(r for r in plan if r['id']==13)['reason'].startswith('Several unrelated')
     assert next(r for r in plan if r['id']==18)['reason'].startswith('No saved import provenance')
-    assert not page.get_by_role('button',name='Apply instruction repair',exact=True).is_enabled()
+    assert not page.get_by_role('button',name='Apply selected repairs',exact=True).is_enabled()
     upload(page,'Choose RecipeSage file',SOURCES)
     dialog=page.locator('#recipeInstructionRepair');assert '4 empty records ready' in dialog.inner_text()
     dialog.locator('details').filter(has_text='(ID 1, Fish)').locator('summary').click()
@@ -95,17 +95,17 @@ def run(browser,filename,width):
         backup=verified_backup(page,tmp);assert backup['version']==2 and backup['storage']==saved
         # A truncated/incomplete/old backup cannot authorize repairs.
         upload(page,'Verify downloaded backup',{'version':2,'storage':{'mealRotationDataV1':saved['mealRotationDataV1']}})
-        assert page.get_by_role('button',name='Apply instruction repair',exact=True).is_disabled()
+        assert page.get_by_role('button',name='Apply selected repairs',exact=True).is_disabled()
         verified_backup(page,tmp)
         # Storage failure leaves every key and every in-memory record untouched.
-        page.evaluate('repairTest.fail()');page.get_by_role('button',name='Apply instruction repair',exact=True).click()
+        page.evaluate('repairTest.fail()');page.get_by_role('button',name='Apply selected repairs',exact=True).click()
         assert 'No recipes were changed' in dialog.inner_text();assert storage()==saved and state()==baseline
         page.evaluate('repairRestoreWrite()');verified_backup(page,tmp)
         # Selecting another export invalidates previous verification.
-        upload(page,'Choose RecipeSage file',SOURCES);assert page.get_by_role('button',name='Apply instruction repair',exact=True).is_disabled()
+        upload(page,'Choose RecipeSage file',SOURCES);assert page.get_by_role('button',name='Apply selected repairs',exact=True).is_disabled()
         verified_backup(page,tmp)
         if width==320:page.screenshot(path='/workspace/issue5-repair-preview-'+filename+'.png')
-        page.get_by_role('button',name='Apply instruction repair',exact=True).click()
+        page.get_by_role('button',name='Apply selected repairs',exact=True).click()
         assert 'Restored instructions for 4' in dialog.inner_text()
         after=state();after_storage=storage()
         assert set(after_storage)==set(saved)
@@ -148,7 +148,7 @@ def run(browser,filename,width):
     page.evaluate('repairTest.open()');upload(page,'Choose RecipeSage file',SOURCES)
     with tempfile.TemporaryDirectory() as tmp:
         verified_backup(page,tmp);page.evaluate('repairTest.mutate()');changed=page.evaluate('repairTest.storage()')
-        page.get_by_role('button',name='Apply instruction repair',exact=True).click()
+        page.get_by_role('button',name='Apply selected repairs',exact=True).click()
         assert 'Saved data changed' in page.locator('#recipeInstructionRepair').inner_text()
         assert page.evaluate('repairTest.storage()')==changed
     assert not errors,errors;ctx.close()
