@@ -213,6 +213,10 @@ body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inse
 .master-category-group-label{font-size:11px;letter-spacing:.08em;color:#666;padding:12px 0 5px;text-transform:uppercase;}
 .master-category-meal{display:flex;gap:5px;align-items:center;border-bottom:1px solid #eee;min-height:45px;padding:5px 0;}
 .master-category-meal:last-child{border-bottom:0;}
+.recipe-section-move{margin-block:-5px;flex:0 0 44px;width:44px;height:44px;min-width:44px;padding:0;border:0;background:transparent;color:#777;display:grid;place-items:center;touch-action:manipulation;}
+.recipe-section-move svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.master-category-meal .recipe-section-move{margin-left:auto;}
+.master-category-meal .recipe-section-move+.master-meal-weekdays{margin-left:0;}
 .master-category-meal.featured-top-meal{padding-left:13px;}
 .master-category-meal-name{min-width:0;flex:1;text-align:left;background:none;border:0;font-size:15px;color:#242424;padding:5px 0;overflow-wrap:anywhere;}
 .master-category-meal .check{width:20px;height:20px;flex:0 0 20px;margin:0 5px 0 0;}
@@ -4736,6 +4740,7 @@ function getDisplayedWeekdayMealsForPlan(plan, priorUsedByGroup=null, savedSched
    // Wrap through the rotation instead of leaving subsequent weekdays blank.
    let meal=possible.length?possible[index % possible.length]:undefined;
    const key=weekdaySlotKey(day,cat);
+   if(plan.cycleSlotChoices?.[key]?.empty===true)return;
    const chosen=overrides[key]??(groups[0]===cat?overrides[day]:undefined);
    const substitution=plan.cycleSlotChoices?.[key]?.substitution===true||manualWeekdayMealChoice(plan,day,cat);
    const pinned=chosen!==undefined?(substitution?library:possible).find(m=>String(m.id)===String(chosen)):null;
@@ -4769,6 +4774,7 @@ function getDisplayedWeekdayMealsForPlan(plan, priorUsedByGroup=null, savedSched
    for(const targetId of ids){
     const target=library.find(m=>String(m.id)===String(targetId));
     if(!target||String(target.id)===String(entry.meal.id)||visited.has(String(target.id)))continue;
+    if((plan.cycleSlotChoices?.[weekdaySlotKey(day,target.cat)]?.excludedMealIds||[]).some(id=>String(id)===String(target.id)))continue;
     const slot=dayEntries.find(e=>e.cat===target.cat),choice=plan.cycleSlotChoices?.[weekdaySlotKey(day,target.cat)];
     const applies=slot&&choice&&(choice.mealId==null||String(choice.mealId)===String(slot.meal.id));
     if(slot&&manualWeekdayMealChoice(plan,day,target.cat,slot.meal.id)||applies&&(choice.retain||(choice.blockedParents||[]).some(id=>String(id)===String(entry.meal.id))))continue;
@@ -4908,6 +4914,8 @@ function prepareRecipePromotion(meal,pin=true){
 function finishRecipePromotion(meal,before){
  if(!before.pinned)preserveOtherMealPlanChoices(null,null,before.schedules);
  const plan=mealPlans.find(p=>p.id===activePlanId);
+ meal.rotationPromotionPriority=Math.max(Date.now(),...meals.map(m=>Number(m.rotationPromotionPriority)||0))+1;
+ for(const p of mealPlans)for(const choice of Object.values(p.cycleSlotChoices||{}))if(Array.isArray(choice.excludedMealIds))choice.excludedMealIds=choice.excludedMealIds.filter(id=>String(id)!==String(meal.id));
  if(before.day){
   const key=weekdaySlotKey(before.day,meal.cat),id=String(meal.id);
   setWeekdayOverride(before.day,meal.cat,id);
@@ -4923,6 +4931,40 @@ function promoteMealToRotation(meal){
  meal.rotation=true;const from=meals.indexOf(meal);if(from>=0)meals.splice(from,1);
  const first=meals.findIndex(m=>m.cat===meal.cat&&m.rotation);if(first<0)meals.push(meal);else meals.splice(first,0,meal);
  finishRecipePromotion(meal,before);persist();renderList();
+}
+// Section moves reuse occurrence-aware scheduling and groceries without cooking events.
+function demoteMealToIdeas(meal){
+ if(!meal.rotation)return;
+ if(groceryCheckStorageInvalid){showAppMessage('Saved grocery check states could not be read. Export a backup before repairing this browser data.');return}
+ saveActiveMealPlan();const schedules=new Map(mealPlans.map(p=>[p.id,getDisplayedWeekdayMealsForPlan(p)])),grocery=captureGroceryCheckStates();
+ snapshot();preserveOtherMealPlanChoices(null,null,schedules);meal.rotation=false;delete meal.rotationPromotionPriority;
+ const position=meals.indexOf(meal);if(position>=0){meals.splice(position,1);meals.push(meal)}
+ const outgoing=[];
+ for(const plan of mealPlans){
+  const entries=schedules.get(plan.id)||[],selected=entries.filter(item=>String(item.meal.id)===String(meal.id)),affected=cycleAffectedEntries(entries,selected,plan);
+  outgoing.push(...affected.map(item=>({...item,planId:plan.id})));
+  const slots=[];
+  for(const item of selected){
+   const key=weekdaySlotKey(item.day,item.cat),old=plan.cycleSlotChoices[key]||{},excluded=[...new Set([...(old.excludedMealIds||[]),String(meal.id)])];
+   if(String(plan.occasionalMeals?.[item.day])===String(meal.id))delete plan.occasionalMeals[item.day];
+   if(rotationGroupScheduled(plan,item.day,item.cat)){
+    delete plan.weekdayMealOverrides[key];delete plan.cycleRetainedSlots[key];
+    const raw=plan.weekdayCategories[item.day],groups=Array.isArray(raw)?raw:[raw];if(groups[0]===item.cat)delete plan.weekdayMealOverrides[item.day];
+    const possible=meals.some(m=>m.rotation&&m.cat===item.cat&&recipeMatchesFilters(m,plan.weekdayRecipeFilters?.[key]||[]));
+    plan.cycleSlotChoices[key]={parentId:'',blockedParents:[],excludedMealIds:excluded,...(!possible?{empty:true}:{})};
+    if(possible)slots.push({...item,planId:plan.id});
+   }else plan.cycleSlotChoices[key]={...old,excludedMealIds:excluded};
+  }
+  if(slots.length)resolveRotatedMealSlots(plan,slots,entries.filter(item=>!affected.includes(item)));
+ }
+ weekdayMealOverrides={...(mealPlans.find(p=>p.id===activePlanId)?.weekdayMealOverrides||{})};
+ saveWeekdayMealOverrides();clearCycledCookingContexts(outgoing);reconcileRotatedGroceryChecks(grocery,outgoing);persist();renderList();
+}
+function recipeSectionMoveButton(meal){
+ const button=document.createElement('button');button.type='button';button.className='recipe-section-move';
+ const label='Move '+(meal.name||'meal')+' to '+(meal.rotation?'Ideas':'rotation');button.title=label;button.setAttribute('aria-label',label);
+ button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(meal.rotation?'m6 10 6 6 6-6M12 16V3':'m6 14 6-6 6 6M12 8v13')+'"/></svg>';
+ button.onclick=e=>{e.preventDefault();e.stopPropagation();if(meal.rotation)demoteMealToIdeas(meal);else promoteMealToRotation(meal)};return button;
 }
 // A recipe rotating out advances in every plan where it was being shown.
 // Other visible recipes are preserved with explicit overrides so a category
@@ -5009,6 +5051,7 @@ function rotateSelectedBack(selected){
  // Restore linked children's positions from the saved pre-cycle order.
  const restoringIds=new Set(desired.filter(item=>item.meal.cat===item.cat||!previous.mealPlans.find(plan=>plan.id===item.planId)?.cycleSlotChoices?.[weekdaySlotKey(item.day,item.cat)]?.substitution).map(item=>String(item.meal.id)));
  for(const item of desired)for(const linkedId of (Array.isArray(item.meal.linkedMealIds)?item.meal.linkedMealIds:[]))restoringIds.add(String(linkedId));
+ for(const item of desired){const meal=meals.find(m=>String(m.id)===String(item.meal.id)),prior=previous.meals.find(m=>String(m.id)===String(item.meal.id));if(meal?.rotation&&meal.rotationPromotionPriority==null&&Number.isFinite(prior?.rotationPromotionPriority))meal.rotationPromotionPriority=prior.rotationPromotionPriority;}
  for(const cat of new Set(previous.meals.filter(m=>restoringIds.has(String(m.id))).map(m=>m.cat))){
   const priorOrder=previous.meals.filter(m=>m.cat===cat&&m.rotation).map(m=>String(m.id));
   const currentSlots=[];
@@ -5133,6 +5176,7 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  const beforeIds=new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)));
  snapshot(JSON.stringify(undoBefore));
  const cookedResult=markCooked?recordRotatedMealsCooked(affected,calendars,rotationNow):{updates:[],skipped:[]};rotationRecord.cookedDateUpdates=cookedResult.updates;
+ for(const meal of meals)delete meal.rotationPromotionPriority;
  const byCategory={};
  for(const m of meals){
   if(m.rotation&&linkedIds.has(String(m.id))){
@@ -5149,8 +5193,9 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
   slots.forEach((slot,i)=>{meals[slot]=reordered[i]});
  }
  for(const plan of mealPlans){
-  const overrides={...(plan.weekdayMealOverrides||{})},pins={...(plan.cycleRetainedSlots||{})},choices={...(plan.cycleSlotChoices||{})};
+  const overrides={...(plan.weekdayMealOverrides||{})},pins={...(plan.cycleRetainedSlots||{})},choices=JSON.parse(JSON.stringify(plan.cycleSlotChoices||{}));
   const entries=prior.get(plan.id)||[],planSelected=selected.filter(item=>item.planId===plan.id);
+  for(const [key,choice]of Object.entries(choices))if((selectedSlots===null&&scope.includes(plan))||planSelected.some(item=>key.startsWith(item.day+'::'))){delete choice.excludedMealIds;delete choice.empty;}
   for(const item of entries){
    if(!rotationSelectable(item,plan))continue;
    const {day,cat,meal}=item,key=weekdaySlotKey(day,cat),scopedKey=(allTabs?plan.id+'||':'')+key;
@@ -5401,14 +5446,13 @@ function openMealSwipeMenu(meal){
  const move=option(meal.rotation?'Remove from rotation':'Move to rotation',()=>{
   const current=meals.find(item=>item.id===meal.id);if(!current)return;
   if(!current.rotation){promoteMealToRotation(current);return}
-  snapshot();current.rotation=false;
-  clearOverridesForCat(current.cat);persist();render();
+  demoteMealToIdeas(current);
  });
  panel.append(buttons);shade.append(panel);shade.onclick=e=>{if(e.target===shade)shade.remove()};
  shade.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();shade.remove()}});
  document.body.append(shade);
 }
-function bindMealSwipe(row,m){let startX=0,startY=0,tracking=false,swipedAt=0,touchStart=null;function finish(dx,dy,e){if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.2)return false;swipedAt=Date.now();if(e&&e.cancelable)e.preventDefault();if(e)e.stopPropagation();if(dx<0){openEditor(m.id)}else{openMealSwipeMenu(m)}return true}row.addEventListener('touchstart',e=>{touchStart=null;if(e.target.closest('.move,.check'))return;const t=e.touches[0];if(t)touchStart={x:t.clientX,y:t.clientY}},{passive:true});row.addEventListener('touchend',e=>{if(!touchStart)return;const t=e.changedTouches[0],start=touchStart;touchStart=null;if(t)finish(t.clientX-start.x,t.clientY-start.y,e)},{passive:false});row.addEventListener('touchcancel',()=>{touchStart=null});row.addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse')return;if(e.button!==0||e.target.closest('.move,.check'))return;startX=e.clientX;startY=e.clientY;tracking=true});row.addEventListener('pointerup',e=>{if(!tracking)return;tracking=false;finish(e.clientX-startX,e.clientY-startY,e)},{passive:false});row.addEventListener('pointercancel',()=>{tracking=false});row.addEventListener('click',e=>{if(Date.now()-swipedAt<700){e.preventDefault();e.stopPropagation();swipedAt=0}},true)}
+function bindMealSwipe(row,m){let startX=0,startY=0,tracking=false,swipedAt=0,touchStart=null;function finish(dx,dy,e){if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.2)return false;swipedAt=Date.now();if(e&&e.cancelable)e.preventDefault();if(e)e.stopPropagation();if(dx<0){openEditor(m.id)}else{openMealSwipeMenu(m)}return true}row.addEventListener('touchstart',e=>{touchStart=null;if(e.target.closest('.move,.check,.recipe-section-move'))return;const t=e.touches[0];if(t)touchStart={x:t.clientX,y:t.clientY}},{passive:true});row.addEventListener('touchend',e=>{if(!touchStart)return;const t=e.changedTouches[0],start=touchStart;touchStart=null;if(t)finish(t.clientX-start.x,t.clientY-start.y,e)},{passive:false});row.addEventListener('touchcancel',()=>{touchStart=null});row.addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse')return;if(e.button!==0||e.target.closest('.move,.check,.recipe-section-move'))return;startX=e.clientX;startY=e.clientY;tracking=true});row.addEventListener('pointerup',e=>{if(!tracking)return;tracking=false;finish(e.clientX-startX,e.clientY-startY,e)},{passive:false});row.addEventListener('pointercancel',()=>{tracking=false});row.addEventListener('click',e=>{if(Date.now()-swipedAt<700){e.preventDefault();e.stopPropagation();swipedAt=0}},true)}
 // My Rotation uses the single Settings button in the main toolbar.
 // Keep these callers as no-ops so other view toolbars remain unchanged.
 function appendMealPlanSettingsGear(topControls){}
@@ -5628,12 +5672,12 @@ function masterRecipeOrder(category,highlights=scheduledRecipeHighlights()){
  for(const entry of highlights.scheduledEntries){
   const plan=mealPlans.find(plan=>plan.id===entry.planId),current=plan?.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides}:plan;
   const manual=(entry.occasional&&!entry.linkedTo)||manualWeekdayMealChoice(current,entry.day,entry.cat,entry.meal.id);
-  const rank=[manual?0:1,days.indexOf(entry.day)],key=String(entry.meal.id),prior=ranks.get(key);
+  const rank=[manual?0:2,days.indexOf(entry.day)],key=String(entry.meal.id),prior=ranks.get(key);
   if(prior){prior[0]=Math.min(prior[0],rank[0]);prior[1]=Math.min(prior[1],rank[1])}else ranks.set(key,rank);
  }
- const rank=meal=>{const scheduled=ranks.get(String(meal.id));if(scheduled)return scheduled;const time=meal.lastCooked?new Date(meal.lastCooked).getTime():NaN;return Number.isFinite(time)?[3,time]:[2,0]};
+ const rank=meal=>{const scheduled=ranks.get(String(meal.id));if(scheduled?.[0]===0)return scheduled;if(Number.isFinite(meal.rotationPromotionPriority))return [1,-meal.rotationPromotionPriority];if(scheduled)return scheduled;const time=meal.lastCooked?new Date(meal.lastCooked).getTime():NaN;return Number.isFinite(time)?[4,time]:[3,0]};
  const names=(a,b)=>String(a.name||'').localeCompare(String(b.name||''),undefined,{sensitivity:'base',numeric:true});
- return [...rotation.sort((a,b)=>{const x=rank(a),y=rank(b);return x[0]-y[0]||x[1]-y[1]||(x[0]>=2?names(a,b):0)}),...ideas];
+ return [...rotation.sort((a,b)=>{const x=rank(a),y=rank(b);return x[0]-y[0]||x[1]-y[1]||(x[0]>=3?names(a,b):0)}),...ideas];
 }
 function scheduledRecipeHighlights(preview=null){
  const featuredColorById=new Map();
@@ -5754,9 +5798,9 @@ function renderMasterCategories(list){
     const groupMeals=categoryMeals.filter(m=>!!m.rotation===rot);
     const group=document.createElement('div');group.className='master-category-group-label';group.textContent=label+' ('+groupMeals.length+')';items.append(group);
     for(const m of groupMeals){
-     const row=document.createElement('div');row.className='master-category-meal';row.dataset.mealId=String(m.id);if(featuredColorById.has(String(m.id))){row.style.backgroundColor=featuredColorById.get(String(m.id));row.style.borderRadius='8px';row.classList.add('featured-top-meal')}bindMealSwipe(row,m);
-     if(rot&&manualRecipeOrdering){for(const [glyph,dir] of [['↑',-1],['↓',1]]){const btn=document.createElement('button');btn.type='button';btn.className='move';btn.textContent=glyph;btn.title=(dir<0?'Up':'Down')+': tap to move to '+(dir<0?'top':'bottom')+', hold to move one position';bindMasterCategoryMove(btn,m,dir);row.append(btn)}}
-     else if(!rot){const cb=document.createElement('input');cb.type='checkbox';cb.className='check';cb.checked=false;cb.setAttribute('aria-label','Move '+m.name+' to rotation');cb.onchange=()=>promoteMealToRotation(m);row.append(cb)}
+     const row=document.createElement('div');row.className='master-category-meal';row.dataset.mealId=String(m.id);const manualMoves=[];if(featuredColorById.has(String(m.id))){row.style.backgroundColor=featuredColorById.get(String(m.id));row.style.borderRadius='8px';row.classList.add('featured-top-meal')}bindMealSwipe(row,m);
+     if(rot&&manualRecipeOrdering){for(const [glyph,dir] of [['↑',-1],['↓',1]]){const btn=document.createElement('button');btn.type='button';btn.className='move';btn.textContent=glyph;btn.title=(dir<0?'Up':'Down')+': tap to move to '+(dir<0?'top':'bottom')+', hold to move one position';bindMasterCategoryMove(btn,m,dir);manualMoves.push(btn)}}
+
      const name=document.createElement('button');name.type='button';name.className='master-category-meal-name';name.textContent=m.name||'Untitled meal';bindGroupMealPress(name,m);const mealInfo=document.createElement('div');mealInfo.className='master-meal-info';const nameLine=document.createElement('div');nameLine.className='shared-meal-name-line';nameLine.append(name);const sharedCopies=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup&&x.id!==m.id):[];if(sharedCopies.length){const sharedButton=document.createElement('button');sharedButton.type='button';sharedButton.className='shared-meal-link-button';sharedButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg>';sharedButton.title='View other groups containing this recipe';sharedButton.setAttribute('aria-label','View groups sharing '+(m.name||'this recipe'));sharedButton.onclick=e=>{e.preventDefault();e.stopPropagation();showSharedRecipeGroups(m)};nameLine.append(sharedButton)}
      const hasOutgoing=Array.isArray(m.linkedMealIds)&&m.linkedMealIds.some(id=>meals.some(other=>String(other.id)===String(id)));
      const hasIncoming=meals.some(other=>other!==m&&Array.isArray(other.linkedMealIds)&&other.linkedMealIds.some(id=>String(id)===String(m.id)));
@@ -5774,7 +5818,8 @@ function renderMasterCategories(list){
        });mealInfo.append(linkedInfo)
       }
      }
-     row.append(mealInfo);
+     row.append(mealInfo,...manualMoves);
+     row.append(recipeSectionMoveButton(m));
      appendScheduledRecipeWeekdays(row,m,scheduledDaysByMeal);
      
      items.append(row);
