@@ -532,7 +532,7 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
   background-clip:padding-box;
 }
 #list .rotation-compact-header {
-  box-shadow:-14px 0 #fff,14px 0 #fff!important;
+  box-shadow:-14px 0 #fff,14px 0 #fff,0 14px #fff!important;
 }
 #list .meal-plan-grocery .grocery-compact-header {
   box-shadow:-10px 0 #fff,10px 0 #fff!important;
@@ -837,7 +837,7 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 /* Match the single-meal body minimum only on empty days; keep existing padding. */
 #list.top-summary > .empty-weekday-meal{min-height:40px;padding:3px 14px!important;}
 /* Give the first rounded weekday edge clearance beneath the sticky cycle controls. */
-#list.top-summary > .weekday-heading:not(.weekday-heading ~ .weekday-heading){margin-top:10px!important;}
+#list.top-summary > .weekday-heading:not(.weekday-heading ~ .weekday-heading){margin-top:14px!important;}
 
 /* Single-action dialogs: close in the title row; multi-action footers stay unchanged. */
 .shared-groups-panel{position:relative;padding-top:22px;padding-right:65px}
