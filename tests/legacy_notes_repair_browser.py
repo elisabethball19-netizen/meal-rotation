@@ -3,8 +3,8 @@ import copy,json,tempfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 import instruction_repair_browser as base
-TIP='1 tsp toasted sesame oil stirred in at the end (just enough to add aroma without making it taste like fried rice).'
-FOOTER='Create an account or login to save this recipe to your collection.\n\n Register/Login to Save \n\n_Created 7/21/2026, 11:45 PM  \n Last edited 7/22/2026, 2:18 AM_'
+TIP='Add 1 tsp sesame oil just before serving.'
+FOOTER='Create an account or login to save this recipe to your collection.\n\n Register/Login to Save \n\n_Created 1/2/2025, 3:04 PM  \n Last edited 1/3/2025, 4:05 PM_'
 LOGO='![Image 1](https://recipesage.com/app/assets/imgs/logo_green_padded.png)'
 NOTES=TIP+'\n\n  \n\nLinked Recipes\n\n'+LOGO+'\n## Thai garlic pork\n\n  \n\n  \n\n'+FOOTER
 STEPS=[{'type':'step','text':'Cook rice in broth for 15 minutes.'},{'type':'step','text':'Stir in the green onions and cilantro.'}]
@@ -14,8 +14,8 @@ def imported(i,notes,**extra):
 def run(browser,filename,width):
     library=[imported(1,NOTES,rotation=True,name_override='unused'),base.meal(3,base.SAGE2,instructions='My edited step. Keep overnight.'),base.meal(50,'side',cat='Sides',name='Side',instructions='Boil the side.',linkedMealIds=[]),base.meal(51,'pork',cat='Sides',name='Thai garlic pork',instructions='Fry pork.',linkedMealIds=[])]
     library[0]['name']='Garlic Jasmine Rice with Cauliflower';library[0].pop('name_override');library[0]['ingredients']=['1½ cups jasmine rice','1 tsp sesame oil']
-    library += [imported(60,NOTES,importSourceId='',recipeSageId='',url='https://manual.test/recipe'),imported(61,'Linked Recipes\n[Side](https://recipes.test/side)\n![My icing diagram](https://images.test/diagram.png)'),imported(62,'Linked Recipes\n'+LOGO+'\n## Thai garlic pork\nServe with [Side](https://recipes.test/side).\nKeep chilled at 4°C.\n'+FOOTER),imported(63,NOTES,linkedMealIds=[51]),imported(64,'Created 7/21/2026, 11:45 PM\nLast edited 7/22/2026, 2:18 AM'),imported(65,'Linked Recipes\n![My saved layout](https://recipesage.com/app/assets/imgs/logo_green_padded.png)\n## Thai garlic pork\n'+FOOTER),imported(66,'Linked Recipes\n'+LOGO+'\nCreated with love on Grandma’s birthday.\nCreate an account or login to save this recipe to your collection.'),imported(67,TIP+'\n'+LOGO+'\n'+FOOTER),imported(68,NOTES,recipeSageId='',url='https://manual.test/recipe'),imported(70,'<div>Linked Recipes</div><p>'+LOGO+'</p><p>'+FOOTER.replace('\n','<br>')+'</p>'),imported(71,NOTES),imported(72,TIP+'\n![Image 1]\n'+FOOTER),imported(73,NOTES.replace('\n','\r\n'))]
-    library[-3]['instructions']=[{'type':'step','text':'Create an account or login to save this recipe to your collection.'},{'type':'step','text':'Created 7/21/2026, 11:45 PM'}]
+    library += [imported(60,NOTES,importSourceId='',recipeSageId='',url='https://manual.test/recipe'),imported(61,'Linked Recipes\n[Side](https://recipes.test/side)\n![My icing diagram](https://images.test/diagram.png)'),imported(62,'Linked Recipes\n'+LOGO+'\n## Thai garlic pork\nServe with [Side](https://recipes.test/side).\nKeep chilled at 4°C.\n'+FOOTER),imported(63,NOTES,linkedMealIds=[51]),imported(64,'Created 1/2/2025, 3:04 PM\nLast edited 1/3/2025, 4:05 PM'),imported(65,'Linked Recipes\n![My saved layout](https://recipesage.com/app/assets/imgs/logo_green_padded.png)\n## Thai garlic pork\n'+FOOTER),imported(66,'Linked Recipes\n'+LOGO+'\nCreated with love on Grandma’s birthday.\nCreate an account or login to save this recipe to your collection.'),imported(67,TIP+'\n'+LOGO+'\n'+FOOTER),imported(68,NOTES,recipeSageId='',url='https://manual.test/recipe'),imported(70,'<div>Linked Recipes</div><p>'+LOGO+'</p><p>'+FOOTER.replace('\n','<br>')+'</p>'),imported(71,NOTES),imported(72,TIP+'\n![Image 1]\n'+FOOTER),imported(73,NOTES.replace('\n','\r\n'))]
+    library[-3]['instructions']=[{'type':'step','text':'Create an account or login to save this recipe to your collection.'},{'type':'step','text':'Created 1/2/2025, 3:04 PM'}]
     for i in [74,75]:
         m=imported(i,TIP);m['instructions']=copy.deepcopy(STEPS)+[{'type':'step','text':line} for line in ('Linked Recipes\n'+LOGO+'\n## Thai garlic pork\n'+FOOTER).split('\n') if line.strip()];library.append(m)
     ctx,page,errors,prefix=base.setup(browser,filename,width,library=library)
