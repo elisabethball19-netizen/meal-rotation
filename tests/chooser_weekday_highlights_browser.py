@@ -41,7 +41,14 @@ def run(browser,filename,width,tabs,active):
  # The temporary selection never overrides scheduled weekday colors.
  d.locator('[data-meal-id="2"]').tap();compare(p)
  r=d.locator('[data-meal-id="2"]');assert r.get_attribute('aria-pressed')=='true' and r.evaluate('(e)=>getComputedStyle(e).backgroundColor')=='rgb(255, 255, 255)'
- assert r.evaluate('(e)=>getComputedStyle(e).borderTopColor')=='rgb(137, 150, 164)'
+ assert r.evaluate('(e)=>getComputedStyle(e).borderTopWidth')=='0px'
+ selected=d.locator('[data-meal-id="1"]');reference=p.locator('#list .master-category-meal[data-meal-id="1"]')
+ assert selected.evaluate('(e)=>getComputedStyle(e).padding')==reference.evaluate('(e)=>getComputedStyle(e).padding')=='5px 0px'
+ assert selected.evaluate('(e)=>getComputedStyle(e).borderRadius')=='8px'
+ line=selected.evaluate('(e)=>{const s=getComputedStyle(e,"::after");return {left:s.left,right:s.right,height:s.height,radius:s.borderRadius,color:s.backgroundColor}}')
+ assert line=={'left':'0px','right':'0px','height':'1px','radius':'0px','color':'rgb(238, 238, 238)'},line
+ assert selected.evaluate('(e)=>getComputedStyle(e).borderWidth')=='0px'
+
  d.locator('[data-meal-id="3"]').tap();compare(p)
  assert d.locator('[data-meal-id="3"]').get_attribute('aria-pressed')=='true'
  d.get_by_role('button',name='Search recipes',exact=True).tap();search=d.get_by_role('searchbox');search.fill('recipe rice')
@@ -67,7 +74,7 @@ def run(browser,filename,width,tabs,active):
  d.get_by_role('button',name='Cancel',exact=True).tap()
  if prefix:assert p.evaluate("localStorage.getItem('mealRotationDataV1')")=='WORKING SENTINEL'
  assert not errors,errors
- print('PASS',filename,width,tabs,active,'actual Meal Groups order/color/badge parity, manual Up, multi-day labels, search, neutral selection, live visibility/schedule refresh and cancel',flush=True);ctx.close()
+ print('PASS',filename,width,tabs,active,'actual Meal Groups order/color/badge parity, manual Up, multi-day labels, search, borderless selection, live visibility/schedule refresh and cancel',flush=True);ctx.close()
 def occasional(browser,filename,tabs):
  ctx,p,errors,_=fixture.setup(browser,filename,320,linked=True,duplicate=True,multi=True);p.evaluate('([tabs,active])=>highlightTest.prepare(tabs,active)',[tabs,'original']);p.evaluate('highlightTest.once()');p.evaluate('highlightTest.groups()');before=p.evaluate('slotTest.storage()');expected=master(p)
  p.evaluate('highlightTest.open()');d=chooser(p);expand(d);actual=compare(p);row=d.locator('[data-meal-id="2"]')
