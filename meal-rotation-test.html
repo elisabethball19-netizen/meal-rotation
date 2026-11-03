@@ -4656,7 +4656,7 @@ function rotateSelectedBack(selected){
  const retained=new Map(mealPlans.map(plan=>[plan.id,getDisplayedWeekdayMealsForPlan(plan).filter(item=>rotationSelectable(item,plan)&&!restoringSlots.has(rotationSlotKey({...item,planId:plan.id})))]));
  clearCookingForSlots(desired);
  snapshot();
- for(const plan of mealPlans){const overrides={...(plan.weekdayMealOverrides||{})},pins={...(plan.cycleRetainedSlots||{})},choices={...(plan.cycleSlotChoices||{})};for(const item of retained.get(plan.id)||[]){const key=weekdaySlotKey(item.day,item.cat);overrides[key]=String(item.meal.id);pins[key]=String(item.meal.id);choices[key]={mealId:String(item.meal.id),parentId:String(item.linkedTo??''),retain:true}}plan.weekdayMealOverrides=overrides;plan.cycleRetainedSlots=pins;plan.cycleSlotChoices=choices;}
+ for(const plan of mealPlans){const overrides={...(plan.weekdayMealOverrides||{})},pins={...(plan.cycleRetainedSlots||{})},choices={...(plan.cycleSlotChoices||{})};for(const item of retained.get(plan.id)||[]){const key=weekdaySlotKey(item.day,item.cat);overrides[key]=String(item.meal.id);pins[key]=String(item.meal.id);const old=choices[key],valid=old&&String(old.mealId)===String(item.meal.id);choices[key]={mealId:String(item.meal.id),parentId:String(item.linkedTo??''),retain:desired.some(x=>x.planId===plan.id&&x.day===item.day)||!!(valid&&old.retain),blockedParents:valid?old.blockedParents||[]:[]}}plan.weekdayMealOverrides=overrides;plan.cycleRetainedSlots=pins;plan.cycleSlotChoices=choices;}
  // Keep unselected meals and current edits intact; restore only selected slots.
  for(const item of desired){
   const plan=mealPlans.find(p=>p.id===item.planId);
@@ -4770,7 +4770,7 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
     const old=choices[key],valid=old&&String(old.mealId)===String(meal.id);
     const blocked=(valid?old.blockedParents||[]:[]).filter(id=>entries.some(parent=>parent.day===day&&String(parent.meal.id)===String(id))&&!planSelected.some(parent=>parent.day===day&&String(parent.meal.id)===String(id)));
     overrides[key]=String(meal.id);pins[key]=String(meal.id);
-    choices[key]={mealId:String(meal.id),parentId:String(item.linkedTo??''),retain:!!retainedSlots?.has(scopedKey)||!!(valid&&old.retain),blockedParents:blocked};
+    choices[key]={mealId:String(meal.id),parentId:String(item.linkedTo??''),retain:!!((allTabs||plan.id===activePlanId)&&retainedSlots?.has(scopedKey))||!!(valid&&old.retain),blockedParents:blocked};
    }
   }
   plan.weekdayMealOverrides=overrides;
