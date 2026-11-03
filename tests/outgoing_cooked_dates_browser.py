@@ -35,6 +35,8 @@ def setup(browser,name,width=360,zone='UTC',start='Tuesday',anchor=None,repeat=F
  if repeat:overrides['Saturday::Mains']='1'
  plans=[dict(id='original',name='Dinner',weekdayCategories=assign,weekdayMealOverrides=overrides,cycleRetainedSlots=dict(overrides),cycleSlotChoices={k:{'mealId':v,'parentId':''} for k,v in overrides.items()},weekdayRecipeFilters={},pinnedCats=[]),dict(id='lunch',name='Lunch',weekdayCategories={'Tuesday':['Lunch']},weekdayMealOverrides={'Tuesday::Lunch':'50'},cycleRetainedSlots={'Tuesday::Lunch':'50'},cycleSlotChoices={'Tuesday::Lunch':{'mealId':'50','parentId':''}},weekdayRecipeFilters={},pinnedCats=[])]
  if anchor:plans[0]['rotationCalendar']={'weekStart':anchor,'occurrences':{}}
+ if repeat:
+  for day in ['Tuesday','Saturday']:plans[0]['cycleSlotChoices'][day+'::Mains']['substitution']=True
  prefix='mealRotationTestSandboxV1:' if name.startswith('meal-') else ''
  seed={prefix+'mealRotationDataV1':json.dumps({'cats':['Mains','Copies','Lunch','Sides'],'active':'Mains','meals':library}),prefix+'mealRotationPlansV1':json.dumps({'plans':plans,'activeId':'original'}),prefix+'mealRotationStartWeekdayV1':start,prefix+'mealRotationShowPlanTabsV1':'true',prefix+'mealRotationSelectedIngredientsV1':json.dumps({str(m['id']):m['ingredients'] for m in library}),prefix+'mealRotationTutorialStageV1':'done',prefix+'mealRotationCustomSettingV9':'keep',prefix+'mealRotationRecipeViewPrefsV1':json.dumps({'mode':'split','ratio':.4,'keepScreenAwake':False})}
  if prefix:seed['mealRotationDataV1']='WORKING SENTINEL'

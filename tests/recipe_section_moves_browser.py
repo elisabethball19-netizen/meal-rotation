@@ -31,7 +31,7 @@ def promotion(b,name,w,mode):
  expected_day='Sunday' if mode=='first-manual' else 'Saturday'
  if mode not in ['all-manual','no-days']:assert f.pick(p,expected_day)['id']==5
  else:assert compose(p)==schedule
- assert ids(p).index(5)==(2 if mode=='all-manual' else 1 if mode=='first-manual' else 0),(mode,ids(p))
+ assert ids(p).index(5)==({'all-manual':3,'first-manual':2,'no-days':1,'single':1,'multiple':1}[mode]),(mode,ids(p))
  assert state(p)['meals'][next(i for i,m in enumerate(state(p)['meals']) if m['id']==5)]['lastCooked']=='2030-01-01T12:00:00.000Z'
  f.stable_sources(old,f.sources(p));consistent(p)
  marker=next(m for m in state(p)['meals'] if m['id']==5)['rotationPromotionPriority'];p.reload();groups(p);assert next(m for m in state(p)['meals'] if m['id']==5)['rotationPromotionPriority']==marker;consistent(p)
@@ -75,7 +75,7 @@ def demotion(b,name,w,mode):
  if name.startswith('meal-') and w==320 and mode=='normal':p.screenshot(path='/tmp/section-move-mobile.png')
  check(c,p,e,prefix);print('PASS',name,w,mode,'demotion/replacements/empty slots, links and repeated tabs, unchanged unrelated progress/groceries/dates/definitions, reload/backup and reverse arrow',flush=True)
 def multiple_priorities(b,name):
- c,p,e,prefix=f.setup(b,name,320,'cross-group');move(p,5);move(p,6);assert ids(p)[:3]==[3,6,5];old=state(p);schedule=compose(p)
+ c,p,e,prefix=f.setup(b,name,320,'cross-group');move(p,5);move(p,6);assert ids(p)[:4]==[3,4,6,2] and ids(p).index(5)>=4;old=state(p);schedule=compose(p)
  p.evaluate('slotTest.cycle(["Saturday::Weekend"])');groups(p);assert all('rotationPromotionPriority' not in m for m in state(p)['meals'])
  p.evaluate('sectionTest.partial("original||Saturday::Weekend")');groups(p);assert compose(p)==schedule and next(m for m in state(p)['meals'] if m['id']==6)['rotationPromotionPriority']==next(m for m in old['meals'] if m['id']==6)['rotationPromotionPriority'];consistent(p)
  saved=state(p);schedule=compose(p);move(p,6);p.get_by_role('button',name='Undo',exact=True).tap();groups(p);assert compose(p)==schedule and state(p)['meals']==saved['meals'];consistent(p)
