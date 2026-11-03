@@ -2,9 +2,12 @@
 import json,copy,tempfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from scheduled_date_fixture import DATED_SCHEDULE_HOOK,establish_dated_schedule
 ROOT=Path(__file__).resolve().parents[1]
 def meal(id,name,cat,links=None):return dict(id=id,name=name,cat=cat,rotation=True,ingredients=[str(id)+' cups rice'],instructions=[{'type':'step','text':'Cook rice for 15 minutes.'}],notes='User note '+str(id),url='https://recipes.test/'+str(id),linkedMealIds=links or [],labels=[],custom={'keep':id})
 HOOK='''window.slotTest={state:()=>({meals,plans:mealPlans,sessions:cookingSessions,scales:occurrenceScales,prefs:recipeViewPrefs}),rows:()=>mealPlans.flatMap(plan=>getDisplayedWeekdayMealsForPlan(plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan).map(x=>({planId:plan.id,day:x.day,cat:x.cat,id:x.meal.id,parent:String(x.linkedTo??''),slot:rotationGroupScheduled(plan,x.day,x.cat)}))),open:(all=false)=>openMoveMealChooser(all),cycle:(slots,all=false,mark=false)=>moveDisplayedMealsToBottom(new Set(slots),all,mark),back:()=>rotateAllBack(),partial:keys=>rotateSelectedBack(keys),backChooser:()=>openRotateBackChooser(),history:()=>readPreviousRotation(),oldHistory:()=>{const old=readPreviousRotation();delete old.rotationOccurrences;localStorage.setItem(ROTATION_BACK_KEY,JSON.stringify(old))},storage:()=>slotBackup.capture(),restore:b=>{slotBackup.restore(slotBackup.normalize(b));backupRestoreReloadPending=true},groceries:()=>[...getMasterGroceryItems().values()],seed:()=>{for(const plan of mealPlans)for(const x of getDisplayedWeekdayMealsForPlan(plan)){const c=cookingContext(plan.id,x.day,x.cat,x.meal,x.linkedTo),key=cookingOccurrenceKey(c),t=cookingItemTokens(x.meal);cookingSessions.occurrences[key]={id:'session-'+key,context:c,ingredients:[t.ingredients[0].token],steps:[t.steps[0].token],autoIngredients:[],ingredientOverrides:{[t.ingredients[0].token]:true}};occurrenceScales.occurrences[key]={context:c,multiplier:x.day==='Friday'?3:2}}writeCookingSessions(cookingSessions);writeOccurrenceScales(occurrenceScales)}};'''
+HOOK+=DATED_SCHEDULE_HOOK
+
 def setup(browser,filename,width,linked=False,side=True,duplicate=False,multi=False):
  library=[meal(1,'Thai Garlic Pork','Rice',[10,20]),meal(2,'Replacement Main','Rice',[12] if linked else []),meal(3,'Third Main','Rice'),meal(11,'New Sides Recipe','Sides'),meal(10,'Garlic Jasmine Rice with Cauliflower','Sides'),meal(12,'Replacement Linked Side','Sides'),meal(13,'Another Side','Sides'),meal(20,'Attached Sauce','Sauces'),meal(21,'Next Sauce','Sauces')]
  assign={'Tuesday':['Rice','Sides'] if side else ['Rice']};overrides={'Tuesday::Sides':'11'} if side else {};pins={}
@@ -91,7 +94,7 @@ def run(browser,filename,width):
  ctx.close();ctx,p,errors,prefix=setup(browser,filename,width,linked=True);original=compose(p);apply(p,[labels['main'],labels['side']]);p.evaluate('slotTest.oldHistory()');p.evaluate("slotTest.partial(['original||Tuesday::Rice','original||Tuesday::Sides'])");assert compose(p)==original,(rows(p),original);assert not errors;ctx.close()
  # The optional cooked-date action follows selected slots, not every recipe link.
  for chosen,marked,unmarked in [(['Tuesday::Rice'],[1,20],[10]),(['Tuesday::Sides'],[10],[1,20])]:
-  ctx,p,errors,prefix=setup(browser,filename,width);p.evaluate('(keys)=>slotTest.cycle(keys,false,true)',chosen);s=state(p)
+  ctx,p,errors,prefix=setup(browser,filename,width);establish_dated_schedule(p);p.evaluate('(keys)=>slotTest.cycle(keys,false,true)',chosen);s=state(p)
   assert all(next(m for m in s['meals'] if m['id']==id).get('lastCooked') for id in marked)
   assert all(not next(m for m in s['meals'] if m['id']==id).get('lastCooked') for id in unmarked)
   assert not errors;ctx.close()

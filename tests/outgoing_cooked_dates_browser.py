@@ -9,6 +9,7 @@ ROOT=Path(__file__).resolve().parents[1]
 DAYS=['Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday','Monday']
 OLD='2020-01-01T12:00:00.000Z'
 EXTRA='''window.dateTest={
+ createSchedule:()=>window.establishDatedFixtureSchedule(),
  localDates:()=>Object.fromEntries(meals.map(m=>[m.id,m.lastCooked?cookingLocalDate(new Date(m.lastCooked)):null])),
  calendarDate:day=>{const plan=mealPlans.find(p=>p.id===activePlanId),entry=getDisplayedWeekdayMealsForPlan(plan).find(x=>x.day===day&&x.cat==='Mains');return plan.rotationCalendar?.occurrences[rotationOccurrenceKey({...entry,planId:plan.id})]},
  recent:()=>{meals.find(m=>m.id===1).lastCooked='2026-11-03T12:00:00.000Z';persist()},
@@ -19,10 +20,10 @@ EXTRA='''window.dateTest={
  cycle:(slots,mark=true)=>moveDisplayedMealsToBottom(new Set(slots),false,mark),
  sources:()=>getGroceryContributions(true).map(s=>({...s,checked:grocerySourceChecked(s)})),
  seed:()=>{for(const source of getGroceryContributions(true))groceryOccurrenceChecks.checks[source.id]=source.day==='Tuesday'||source.planId==='lunch';saveGroceryOccurrenceChecks()},
- otherWeek:()=>{mealPlans.find(p=>p.id==='lunch').rotationCalendar={weekStart:'2026-10-20',occurrences:{}};saveActiveMealPlan()},
+ otherWeek:()=>{const p=mealPlans.find(p=>p.id==='lunch'),key=rotationOccurrenceKey({planId:p.id,day:'Tuesday',mealId:'50'});p.rotationCalendar={version:2,weekStart:'2026-10-20',occurrences:{[key]:'2026-10-20'},assignedOn:{[key]:'2026-10-20'},assignedAt:{[key]:'2026-10-20T08:00:00.000Z'},slots:{'Tuesday::Lunch::slot':'2026-10-20'}};saveActiveMealPlan()},
  manual:()=>applyManualWeekdayMeal('Tuesday','Mains',meals.find(m=>m.id===9)),
  backup:()=>{const storage=slotBackup.capture();return {version:2,...JSON.parse(storage.mealRotationDataV1),storage}},
- dedup:()=>{const counts={};for(const m of meals.filter(m=>m.linkGroup==='shared-tiger')){let value=m.lastCooked;Object.defineProperty(m,'lastCooked',{enumerable:true,configurable:true,get:()=>value,set:next=>{counts[m.id]=(counts[m.id]||0)+1;value=next}})}recordRotatedMealsCooked([{planId:'original',day:'Tuesday',meal:meals.find(m=>m.id===1)},{planId:'original',day:'Sunday',meal:meals.find(m=>m.id===30)},{planId:'original',day:'Tuesday',meal:meals.find(m=>m.id===1)}]);return counts}
+ dedup:()=>{const counts={};for(const m of meals.filter(m=>m.linkGroup==='shared-tiger')){let value=m.lastCooked;Object.defineProperty(m,'lastCooked',{enumerable:true,configurable:true,get:()=>value,set:next=>{counts[m.id]=(counts[m.id]||0)+1;value=next}})}const p=mealPlans.find(p=>p.id===activePlanId),item=getDisplayedWeekdayMealsForPlan(p).find(x=>x.day==='Tuesday'&&x.cat==='Mains');recordRotatedMealsCooked([{...item,planId:p.id},{...item,planId:p.id}],new Map([[p.id,p.rotationCalendar]]));return counts}
 };'''
 def setup(browser,name,width=360,zone='UTC',start='Tuesday',anchor=None,repeat=False):
  library=[meal(i,'Crying Tiger' if i==1 else 'Recipe '+str(i),'Mains',[100] if i==1 else []) for i in range(1,15)]
@@ -44,6 +45,8 @@ def setup(browser,name,width=360,zone='UTC',start='Tuesday',anchor=None,repeat=F
  p.goto('http://dates.test/'+name);p.evaluate('slotTest.seed()');p.evaluate('dateTest.seed()');return ctx,p,errors,prefix
 
 def clock(p,day,zone='UTC'):p.clock.set_fixed_time(datetime.fromisoformat(day+'T08:00:00').replace(tzinfo=ZoneInfo(zone)))
+def establish(p,day='2026-10-27',zone='UTC'):
+ clock(p,day,zone);p.evaluate('dateTest.createSchedule()');p.evaluate('slotTest.seed()');p.evaluate('dateTest.seed()')
 def local_dates(p):return p.evaluate('dateTest.localDates()')
 def calendar_date(p,day):return p.evaluate('dateTest.calendarDate',day)
 
@@ -52,7 +55,7 @@ def week_cases(browser,name):
  for today,start,anchor,expected,zone in cases:
   results=[]
   for mark in [False,True]:
-   ctx,p,errors,prefix=setup(browser,name,zone=zone,start=start,anchor=anchor);clock(p,today,zone);before=state(p);original_dates=local_dates(p);saved=p.evaluate('slotTest.storage()');assert all(v==OLD for v in p.evaluate('dateTest.dates()').values())
+   ctx,p,errors,prefix=setup(browser,name,zone=zone,start=start,anchor=anchor);establish(p,anchor or expected[DAYS.index(start)],zone);clock(p,today,zone);before=state(p);original_dates=local_dates(p);saved=p.evaluate('slotTest.storage()');assert all(v==OLD for v in p.evaluate('dateTest.dates()').values())
    if today=='2026-11-03' and zone=='UTC' and mark:
     # Reproduce the report through the actual setting and menu.
     p.get_by_role('button',name='Cycle Meals',exact=True).tap();d=p.get_by_role('dialog',name='Rotate out recipes');d.get_by_role('checkbox',name='Mark rotated recipes as cooked',exact=True).check();d.get_by_role('button',name='Rotate out all recipes',exact=True).tap()
@@ -72,10 +75,10 @@ def week_cases(browser,name):
    if prefix:assert p.evaluate("localStorage.getItem('mealRotationDataV1')")=='WORKING SENTINEL'
    assert not errors,errors;ctx.close()
   assert results[0]==results[1],(today,start,zone,'marking changed schedule/groceries/progress/settings')
-  print('PASS',name,today,start,anchor or 'undated',zone,'outgoing dates, no future dates, mark-off preservation, links, identical rotation/grocery/progress results, Cycle Back',flush=True)
+  print('PASS',name,today,start,anchor or 'explicit schedule',zone,'outgoing dates, no future dates, mark-off preservation, links, identical rotation/grocery/progress results, Cycle Back',flush=True)
 
 def partial_and_reload(browser,name,width):
- ctx,p,errors,prefix=setup(browser,name,width);clock(p,'2026-11-03');p.evaluate('dateTest.cycle(["Tuesday::Mains","Wednesday::Mains"])')
+ ctx,p,errors,prefix=setup(browser,name,width);establish(p);clock(p,'2026-11-03');p.evaluate('dateTest.cycle(["Tuesday::Mains","Wednesday::Mains"])')
  assert local_dates(p)['1']=='2026-10-27' and local_dates(p)['2']=='2026-10-28'
  assert calendar_date(p,'Tuesday')=='2026-11-03' and calendar_date(p,'Wednesday')=='2026-11-04' and calendar_date(p,'Monday')=='2026-11-02'
  saved=p.evaluate('dateTest.calendar()');backup=p.evaluate('dateTest.backup()');p.evaluate('(b)=>slotTest.restore(b)',backup);p.reload();assert p.evaluate('dateTest.calendar()')==saved
@@ -87,19 +90,19 @@ def partial_and_reload(browser,name,width):
  assert not errors,errors;ctx.close();print('PASS',name,width,'partial rotations, mixed outgoing weeks, full backup/reload, partial Cycle Back, missed weeks',flush=True)
 
 def protections(browser,name,width):
- ctx,p,errors,_=setup(browser,name,width);clock(p,'2026-11-03')
+ ctx,p,errors,_=setup(browser,name,width);establish(p);clock(p,'2026-11-03')
  p.evaluate('dateTest.recent()');p.reload();clock(p,'2026-11-03');assert local_dates(p)['1']=='2026-11-03'
  p.evaluate('dateTest.cycle(["Tuesday::Mains"])');assert local_dates(p)['1']=='2026-11-03' and local_dates(p)['30']=='2026-10-27'
  old=p.evaluate('dateTest.dates()');p.evaluate('dateTest.manual()');assert p.evaluate('dateTest.dates()')==old
  clock(p,'2026-11-10');p.evaluate('dateTest.cycle(["Tuesday::Mains"])');assert local_dates(p)['9']=='2026-11-03'
  assert not errors,errors;ctx.close()
- ctx,p,errors,_=setup(browser,name,width,anchor='2026-11-10');clock(p,'2026-11-03');p.evaluate('dateTest.all()');assert all(v==OLD for v in p.evaluate('dateTest.dates()').values());assert not errors,errors;ctx.close()
- ctx,p,errors,_=setup(browser,name,width,repeat=True);clock(p,'2026-11-03');p.evaluate('dateTest.all()');assert local_dates(p)['1']==local_dates(p)['30']==local_dates(p)['100']=='2026-10-31';assert not errors,errors;ctx.close()
- ctx,p,errors,_=setup(browser,name,width);clock(p,'2026-11-03');counts=p.evaluate('dateTest.dedup()');assert counts=={'1':1,'30':1},counts;assert local_dates(p)['1']==local_dates(p)['30']=='2026-11-01';assert not errors,errors;ctx.close()
+ ctx,p,errors,_=setup(browser,name,width,anchor='2026-11-10');establish(p,'2026-11-03');p.evaluate('dateTest.all',False);p.evaluate('dateTest.all()');assert all(v==OLD for v in p.evaluate('dateTest.dates()').values());assert not errors,errors;ctx.close()
+ ctx,p,errors,_=setup(browser,name,width,repeat=True);establish(p);clock(p,'2026-11-03');p.evaluate('dateTest.all()');assert local_dates(p)['1']==local_dates(p)['30']==local_dates(p)['100']=='2026-10-31';assert not errors,errors;ctx.close()
+ ctx,p,errors,_=setup(browser,name,width);establish(p);clock(p,'2026-11-03');counts=p.evaluate('dateTest.dedup()');assert counts=={'1':1,'30':1},counts;assert local_dates(p)['1']==local_dates(p)['30']=='2026-10-27';assert not errors,errors;ctx.close()
  print('PASS',name,width,'later manual dates retained, individual changes do not mark cooked, future dates skipped, repeated/shared/linked recipes deduplicated',flush=True)
 
 def all_tabs(browser,name):
- ctx,p,errors,_=setup(browser,name);clock(p,'2026-11-03');p.evaluate('dateTest.otherWeek()');before=compose(p);p.evaluate('(args)=>dateTest.all(...args)',[True,True]);dates=local_dates(p)
+ ctx,p,errors,_=setup(browser,name);establish(p);clock(p,'2026-11-03');p.evaluate('dateTest.otherWeek()');before=compose(p);p.evaluate('(args)=>dateTest.all(...args)',[True,True]);dates=local_dates(p)
  assert dates['1']=='2026-10-27' and dates['50']=='2026-10-20'
  p.evaluate('slotTest.back()');assert compose(p)==before and all(v==OLD for v in p.evaluate('dateTest.dates()').values())
  assert not errors,errors;ctx.close();print('PASS',name,'all-plan rotation respects independent stored outgoing weeks; Cycle Back restores dates and schedule',flush=True)

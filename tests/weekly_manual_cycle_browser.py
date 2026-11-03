@@ -24,7 +24,7 @@ fixture.EXTRA+='''window.weeklyTest={
 def sources(p):return {s['id']:s for s in p.evaluate('dateTest.sources()')}
 def pick(p,day,plan='original'):return next(r for r in rows(p) if r['planId']==plan and r['day']==day and r['cat']==('Mains' if plan=='original' else 'Lunch'))
 def setup(browser,name,width,anchor=None):
- ctx,p,errors,prefix=fixture.setup(browser,name,width,anchor=anchor);fixture.clock(p,'2026-11-03');p.evaluate('weeklyTest.prepare()');p.evaluate('slotTest.seed()');p.evaluate('weeklyTest.check()');return ctx,p,errors,prefix
+ ctx,p,errors,prefix=fixture.setup(browser,name,width,anchor=anchor);fixture.establish(p,anchor or '2026-10-27');p.evaluate('weeklyTest.prepare()');p.evaluate('slotTest.seed()');p.evaluate('weeklyTest.check()');fixture.clock(p,'2026-11-03');return ctx,p,errors,prefix
 
 def apply(p,mode,mark,all_tabs=False):
  p.evaluate('weeklyTest.all',all_tabs);dialog=p.get_by_role('dialog',name='Rotate out recipes');dialog.get_by_role('checkbox',name='Mark rotated recipes as cooked',exact=True).set_checked(mark)
