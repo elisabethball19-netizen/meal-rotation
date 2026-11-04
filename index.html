@@ -2464,7 +2464,7 @@ async function fetchInternalRecipe(meal,signal){
 }
 async function enrichViewedRecipe(meal){
  if(instructionBlocks(meal.instructions).some(x=>x.type==='step')||!recipeOriginalUrl(meal))return;
- const view=recipeViewer;if(!meal.recipeImportPending){view.importMessage='Instructions are missing. Use Settings → Data & Backups → Repair RecipeSage Imports to preview a retry from the saved URL, or add them in Edit meal.';renderRecipeViewer();return}const tab=view.activeTab,controller=new AbortController();view.importController=controller;view.importMessage='Importing recipe details…';renderRecipeViewer();
+ const view=recipeViewer;if(!meal.recipeImportPending){view.importMessage='Instructions are missing. Use Settings → Data & Backups → Refresh Recipes from RecipeSage with your export, or add them in Edit meal.';renderRecipeViewer();return}const tab=view.activeTab,controller=new AbortController();view.importController=controller;view.importMessage='Importing recipe details…';renderRecipeViewer();
  try{const details=await fetchInternalRecipe(meal,controller.signal);if(recipeViewer!==view||view.activeTab!==tab||controller.signal.aborted)return;
   const changed=saveEnrichedRecipe(meal.id,details);view.importMessage=instructionBlocks(meal.instructions).some(x=>x.type==='step')?'':(changed?'Available recipe details were imported, but this source did not provide instructions. Add instructions in Edit meal or view the original recipe.':'Instructions could not be saved or were unavailable. Existing recipe content has been kept.');renderRecipeViewer();
  }catch(e){if(recipeViewer!==view||view.activeTab!==tab||controller.signal.aborted)return;view.importMessage='Instructions could not be imported from this source. Your saved ingredients and details are still available; add instructions in Edit meal or view the original recipe.';renderRecipeViewer()}
@@ -3588,7 +3588,7 @@ function showRecipeImportSelection(items,filename){
   expandedCats=[...new Set([...expandedCats,...addedCats])];
   try{localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}
   overlay.remove();render();
-  recipeImportNotice('Imported '+added+' recipes into Ideas across '+addedCats.length+' new groups.'+(enriched?' Added missing details to '+enriched+' existing recipe records.':'')+(skipped?' Skipped '+skipped+' duplicate recipes.':'')+(enrichIds.some(id=>!instructionBlocks(meals.find(m=>m.id===id)?.instructions).some(b=>b.type==='step'))?' Some imports have no reliable cooking instructions yet. Available ingredients were preserved. Supported source URLs will be checked in the background; use Repair RecipeSage Imports to review any still incomplete recipes.':''),meals.filter(m=>m.recipeImportReferences?.length&&(enrichIds.includes(m.id)||items.some(r=>recipeImportIdentity(r)===m.importSourceId))));
+  recipeImportNotice('Imported '+added+' recipes into Ideas across '+addedCats.length+' new groups.'+(enriched?' Added missing details to '+enriched+' existing recipe records.':'')+(skipped?' Skipped '+skipped+' duplicate recipes.':'')+(enrichIds.some(id=>!instructionBlocks(meals.find(m=>m.id===id)?.instructions).some(b=>b.type==='step'))?' Some imports have no reliable cooking instructions yet. Available ingredients were preserved. Supported source URLs will be checked in the background; use Refresh Recipes from RecipeSage with your export for any still incomplete recipes.':''),meals.filter(m=>m.recipeImportReferences?.length&&(enrichIds.includes(m.id)||items.some(r=>recipeImportIdentity(r)===m.importSourceId))));
   enrichImportedRecipes(enrichIds);
  };
  updateSummary();
@@ -3757,110 +3757,84 @@ function recipeRepairPlan(items,library=meals,allowWeb=false){
 }
 function recipeRepairPreviewText(value){return typeof value==='string'?value:Array.isArray(value)?value.map(block=>typeof block==='string'?block:block&&typeof block.text==='string'?(block.type==='section'?'## ':'')+block.text:JSON.stringify(block)).join('\n\n'):JSON.stringify(value??'',null,2)}
 
-function openRecipeInstructionRepair(backup){
- if(document.getElementById('recipeInstructionRepair'))return;
- if(editId!==null||recipeViewer){recipeImportNotice('Close the recipe viewer or meal editor before repairing saved recipe content.');return}
- const overlay=document.createElement('div');overlay.id='recipeInstructionRepair';overlay.style.cssText='position:fixed;inset:0;z-index:16200;background:#0008;padding:16px;display:flex;align-items:center;justify-content:center';
- const panel=document.createElement('section');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','recipeRepairTitle');panel.style.cssText='width:100%;max-width:560px;max-height:90dvh;overflow:auto;overscroll-behavior:contain;background:#fff;color:#242424;border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;overflow-wrap:anywhere';
- const title=document.createElement('h2');title.id='recipeRepairTitle';title.textContent='Repair RecipeSage Imports';title.style.cssText='font-size:20px;margin:0';
- const intro=document.createElement('p');intro.textContent='Choose your original export, retry missing instructions from saved URLs, or preview cleanup of saved instructions and notes containing confirmed website boilerplate. Review each proposed change. Nothing is saved until you verify a complete backup and apply the selected repairs. No recipes, links or rotation entries are created.';intro.style.cssText='font-size:14px;margin:0';
- const controls=document.createElement('div');controls.style.cssText='display:flex;flex-wrap:wrap;gap:8px';
- const button=text=>{const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=text;return b};
- const cleanup=button('Preview saved recipe cleanup'),choose=button('Choose RecipeSage file'),download=button('Download complete backup'),verify=button('Verify downloaded backup');const retry=button('Retry missing instructions from saved URLs');download.disabled=verify.disabled=true;controls.append(choose,cleanup,retry,download,verify);
- const summary=document.createElement('p');summary.setAttribute('role','status');summary.style.margin='0';
- const list=document.createElement('div');
- const status=document.createElement('p');status.setAttribute('role','status');status.style.cssText='font-size:14px;margin:0';
- const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap';
- const apply=button('Apply selected repairs'),cancel=button('Cancel');apply.disabled=true;actions.append(cancel,apply);
- panel.append(title,intro,controls,summary,list,status,actions);overlay.append(panel);
- const focus=document.activeElement,inert=[...document.body.children].map(el=>[el,el.inert]);inert.forEach(([el])=>el.inert=true);document.body.append(overlay);
- let plan=null,baseline=null,exported=null,verified=false,finished=false,generation=0,sourceItems=[],urlRepairs=new Map(),allowWeb=false,selected=new Set(),retryController=null;
- // Reading a snapshot never persists or reconciles recipes/progress/settings.
- const state=()=>{if(backupRestoreReloadPending||recipePageLeaving||editId!==null||recipeViewer)throw Error('The app is changing. Close and reopen this repair.');const storage=backup.capture();return {storage,memory:JSON.stringify([captureState(),cookingSessions,occurrenceScales,recipeViewPrefs,timeDisplayPrefs,mealTextSize,showLastCooked])}};
- const storageText=data=>JSON.stringify(Object.entries(data).sort(([a],[b])=>a.localeCompare(b)));
- const unchanged=()=>{const now=state();if(!baseline||now.memory!==baseline.memory||storageText(now.storage)!==storageText(baseline.storage))throw Error('Saved data changed. Close and reopen the repair, then download and verify a fresh backup.');return now};
- const fail=e=>{verified=false;apply.disabled=true;status.textContent=e.message||'Repair stopped. No recipe repairs were applied.'};
- const close=()=>{generation++;retryController?.abort();overlay.remove();window.removeEventListener('storage',changed);for(const [el,was]of inert)if(el.isConnected)el.inert=was;if(focus?.isConnected)focus.focus({preventScroll:true})};
- const changed=event=>{if(!finished&&event.key?.startsWith('mealRotation'))fail(Error('Saved data changed in another tab. Close and reopen this repair.'))};window.addEventListener('storage',changed);
- cancel.onclick=close;
- overlay.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close()}if(e.key==='Tab'){const all=[...panel.querySelectorAll('button:not([disabled]),input:not([disabled]),summary')].filter(e=>e.getClientRects().length),first=all[0],last=all.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}});
- const pick=(accept,read)=>{const input=document.createElement('input');input.type='file';input.accept=accept;input.onchange=()=>{const file=input.files?.[0];if(file)read(file)};input.click()};
- const showPreview=(items,label,start)=>{
-  baseline=start;unchanged();sourceItems=items;plan=recipeUrlRepairPlan(items,meals,urlRepairs,allowWeb);selected=new Set(plan.ready);
-  summary.textContent=label+' · '+plan.matched+' saved records confidently matched · '+plan.restoring+' empty records ready · '+plan.cleaning+' recipes / '+plan.lines+' saved lines to clean · '+plan.ambiguous+' ambiguous · '+plan.uncertain+' recipes with retained/blocked uncertain content · '+plan.skippedLines+' recognized lines skipped · '+(plan.rows.length-plan.ready.length)+' records preserved/skipped';
-  for(const row of plan.rows){
-   const details=document.createElement('details'),heading=document.createElement('summary');heading.textContent=row.meal.name+' (ID '+row.meal.id+', '+row.meal.cat+') — '+row.reason;details.append(heading);
-   if(recipeRepairEmpty(row.cleanup.instructions??row.meal.instructions)&&recipeRepairUrls(row.meal).length){const one=button('Retry instructions from saved URL');one.setAttribute('aria-label','Retry instructions for '+row.meal.name+' (ID '+row.meal.id+')');one.onclick=()=>retryFromUrls([row.meal]);details.append(one)}
-   if(row.instructions!==null||row.notes!==null){
-    const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=true;check.setAttribute('aria-label','Apply repair to '+row.meal.name+' (ID '+row.meal.id+')');label.style.cssText='display:flex;align-items:center;gap:8px;min-height:44px';label.append(check,document.createTextNode('Include this repair'));details.append(label);check.onchange=()=>{if(check.checked)selected.add(row);else selected.delete(row);apply.disabled=!verified||!selected.size};
-    const how=document.createElement('p');how.textContent=row.method;details.append(how);
-    for(const [title,value]of [...(row.instructions!==null?[['Current saved instructions',row.meal.instructions],['Proposed instructions',row.instructions]]:[]),...(row.notes!==null?[['Current saved notes',row.meal.notes],['Proposed notes',row.notes]]:[])]){const h=document.createElement('strong'),pre=document.createElement('pre');h.textContent=title;pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.5 system-ui';pre.textContent=recipeRepairPreviewText(value);details.append(h,pre)}
-    if(row.removed?.length){const note=document.createElement('p');note.textContent=row.removed.length+' recognized clutter entries/fragments omitted from the file instructions.';details.append(note)}
-   }
-   if(row.removedSaved.length){const removed=document.createElement('pre');removed.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.5 system-ui';removed.textContent='Recognized saved lines'+(row.instructions===null&&row.notes===null?' (NOT removed; repair blocked)':' to remove')+':\n'+row.removedSaved.map(x=>x.reason+': '+x.text).join('\n');details.append(removed)}
-   for(const text of row.uncertain){const note=document.createElement('p');note.textContent=text;details.append(note)}
-   list.append(details);
-  }
-  download.disabled=!plan.ready.length;status.textContent=plan.ready.length?'Review the current and proposed instructions/notes, then download and verify the complete backup. Keep the backup file.':'Nothing can safely be repaired in this preview. No data was changed.';
- };
- const resetPreview=()=>{verified=false;exported=null;apply.disabled=download.disabled=verify.disabled=true;list.replaceChildren();summary.textContent='Reading…';status.textContent=''};
- cleanup.onclick=()=>{++generation;retryController?.abort();retry.disabled=false;urlRepairs=new Map();allowWeb=true;resetPreview();try{showPreview([],'Saved instruction and notes cleanup (no source file)',state())}catch(e){fail(e)}};
- choose.onclick=()=>pick('.json,.jsonld,.zip,application/json,application/zip',async file=>{
-  const current=++generation;retryController?.abort();retry.disabled=false;urlRepairs=new Map();allowWeb=false;resetPreview();
-  try{
-   if(file.size>60000000)throw Error('This file is too large. Use a smaller RecipeSage export.');
-   const start=state(),items=await recipeImportReadFile(file);if(current!==generation||!overlay.isConnected)return;
-   if(!items.length)throw Error('No recipes were found in this file.');showPreview(items,items.length+' file entries',start);
-  }catch(e){if(current===generation&&overlay.isConnected){summary.textContent='No repair applied.';fail(e)}}
- });
- async function retryFromUrls(targets=meals){
-  const current=++generation;retryController?.abort();retryController=new AbortController();const controller=retryController;retry.disabled=true;urlRepairs=new Map();allowWeb=true;resetPreview();
-  try{
-   const start=state(),requests=new Map(),eligible=targets.filter(meal=>{const cleanup=recipeRepairLegacyCleanup(meal,meals,true);return recipeRepairEmpty(cleanup.instructions??meal.instructions)});let done=0;
-   async function worker(){while(eligible.length){
-    const meal=eligible.shift();if(current!==generation||controller.signal.aborted||!overlay.isConnected)return;
-    const urls=[...new Set([meal.originalRecipeUrl,meal.sourceUrl,meal.url].filter(value=>typeof value==='string'&&/^https?:\/\//i.test(value)))];
-    if(!urls.length){urlRepairs.set(String(meal.id),{error:'No usable saved URL.'});continue}
-    let result=null;
-    for(const url of urls){
-     status.textContent='Reading '+meal.name+' ('+(++done)+' source checks)…';
-     try{if(!requests.has(url))requests.set(url,importIngredientsFromWebsite(url,controller.signal,meal.name));const lines=await requests.get(url);if(lines.recipeDetails?.instructions?.some(block=>block.type==='step')){result={url,instructions:lines.recipeDetails.instructions};break}}catch(e){if(controller.signal.aborted)throw e}
-    }
-    urlRepairs.set(String(meal.id),result||{error:'The saved sources were unavailable or provided no reliable instructions.'});
-   }}
-   await Promise.all([worker(),worker()]);
-   if(current!==generation||!overlay.isConnected)return;showPreview([],'Saved URL retry (review only)',start);
-  }catch(e){if(current===generation&&!controller.signal.aborted&&overlay.isConnected)fail(e)}finally{if(current===generation&&overlay.isConnected)retry.disabled=false}
+// Refresh only recipe content; schedules, recipe identity and all custom fields stay intact.
+function recipeSageRefreshPlan(items,library=meals){
+ const ids=r=>recipeRepairIds(r,true).filter(id=>recipeSageUuidPattern.test(id));
+ const urls=r=>recipeRepairUrls(r).map(url=>correctedRecipeSageUrl({url})).filter(url=>{try{return /^(?:www\.|android\.)?recipesage\.com$/i.test(new URL(url).hostname)}catch(e){return false}});
+ const sources=items.map(raw=>({raw,ids:ids(raw),urls:urls(raw),title:recipeReferenceTitle(raw.name)}));
+ const rows=[],skipped=[];
+ for(const meal of library){
+  const savedIds=ids(meal),savedUrls=urls(meal),title=recipeReferenceTitle(meal.name);
+  let matches=sources.filter(s=>s.ids.some(id=>savedIds.includes(id)));
+  if(!matches.length)matches=sources.filter(s=>s.urls.some(url=>savedUrls.includes(url)));
+  if(!matches.length){const names=sources.filter(s=>s.title===title);if(names.length===1&&library.filter(m=>recipeReferenceTitle(m.name)===title).length===1&&!(savedIds.length&&names[0].ids.length&&!names[0].ids.some(id=>savedIds.includes(id))))matches=names;}
+  if(matches.length!==1){skipped.push(meal.id);continue}
+  const source=matches[0];
+  if(source.ids.length>1||(savedIds.length&&source.ids.length&&savedIds.some(id=>!source.ids.includes(id)))){skipped.push(meal.id);continue}
+  // Separate copies in multiple groups may share a proven source identity.
+  const details=completeRecipeFields(source.raw);
+  if(!details.ingredients.length||!details.instructions.some(b=>b.type==='step'&&b.text.trim())){skipped.push(meal.id);continue}
+  const replacement={...meal,ingredients:details.ingredients,instructions:details.instructions};
+  const oldNotes=String(meal.notes||''),cleaned=recipeRepairLegacyNotes(meal,library).notes;
+  const importedBefore=meal.recipeSageImportedNotes,rawNotes=source.raw.recipeNotes??source.raw.notes??source.raw.note??source.raw.description;
+  // Unknown/personal notes are never replaced. Strip only proven legacy footer text.
+  if(details.notes&&(!oldNotes.trim()||oldNotes===importedBefore||oldNotes===details.notes||(typeof rawNotes==='string'&&oldNotes===rawNotes)||cleaned==='')){
+   replacement.notes=details.notes;replacement.recipeSageImportedNotes=details.notes;
+  }else if(cleaned!==null&&cleaned!==oldNotes)replacement.notes=cleaned;
+  // Do not invalidate saved manual associations or completed cooking tokens.
+  const after=cookingItemTokens(replacement);
+  const ingredients=new Set(after.ingredients.map(x=>x.token)),steps=new Set(after.steps.map(x=>x.token));
+  const links=Array.isArray(meal.ingredientStepLinks)?meal.ingredientStepLinks:[];
+  if(links.some(l=>!steps.has(l.step)||!Array.isArray(l.ingredients)||l.ingredients.some(t=>!ingredients.has(t)))||Object.values(cookingSessions.occurrences).some(s=>String(s.context.mealId)===String(meal.id)&&(s.steps.some(t=>!steps.has(t))||s.ingredients.some(t=>!ingredients.has(t))||(s.autoIngredients||[]).some(t=>!ingredients.has(t))||Object.keys(s.ingredientOverrides||{}).some(t=>!ingredients.has(t))))){skipped.push(meal.id);continue}
+  rows.push({meal,replacement});
  }
- retry.onclick=()=>retryFromUrls();
- download.onclick=()=>{
-  try{
-   const now=unchanged();backup.validate(now.storage);const core=JSON.parse(now.storage.mealRotationDataV1);if(JSON.stringify(core)!==JSON.stringify({cats,active,meals}))throw Error('Saved recipes and the open app differ. Reload the app, then start again.');
-   exported=JSON.stringify({version:2,...core,storage:now.storage},null,2);verified=false;apply.disabled=true;
-   const blob=new Blob([exported],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='meal-rotation-before-recipe-repair.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);verify.disabled=false;status.textContent='Select the backup file you just downloaded to verify its complete contents before applying.';
-  }catch(e){fail(e)}
- };
- verify.onclick=()=>pick('.json,application/json',async file=>{
-  const current=generation;apply.disabled=true;verified=false;
-  try{const text=await file.text();if(current!==generation||!overlay.isConnected)return;unchanged();const data=JSON.parse(text);backup.validate(data.storage);if(!exported||text!==exported)throw Error('This is not the complete backup just downloaded for this preview. Choose that file, or download a fresh backup.');verified=true;apply.disabled=!selected.size;status.textContent='Complete backup verified against the unchanged saved data. You can now apply the selected instruction/notes repairs.'}catch(e){if(current===generation&&overlay.isConnected)fail(e)}
- });
- apply.onclick=()=>{
-  try{
-   if(!verified||!selected.size)throw Error('Download and verify the complete backup first.');unchanged();
-   // Recheck eligibility immediately before the one atomic primary-record write.
-   const current=recipeUrlRepairPlan(sourceItems,meals,urlRepairs,allowWeb);
-   for(const row of selected){const now=current.rows.find(r=>r.meal===row.meal);if(!now||(now.instructions===null&&now.notes===null)||JSON.stringify([now.instructions,now.notes])!==JSON.stringify([row.instructions,row.notes]))throw Error('A recipe is no longer safe to repair. Close and preview the file again.')}
-   const replacements=new Map([...selected].map(row=>[row.meal,{...row.meal,...(row.instructions!==null?{instructions:JSON.parse(JSON.stringify(row.instructions))}:{}),...(row.notes!==null?{notes:row.notes}:{})}]));
-   const encoded=JSON.stringify({cats,active,meals:meals.map(m=>replacements.get(m)||m)});
-   try{localStorage.setItem('mealRotationDataV1',encoded)}catch(e){throw Error('Repair could not be saved. No recipes were changed. Your verified backup is unchanged.')}
-   for(const [meal,replacement]of replacements){if(Object.prototype.hasOwnProperty.call(replacement,'instructions'))meal.instructions=replacement.instructions;if(Object.prototype.hasOwnProperty.call(replacement,'notes'))meal.notes=replacement.notes;cookingRecipeStates.set(String(meal.id),JSON.stringify({id:meal.id,ingredients:meal.ingredients,instructions:meal.instructions,ingredientStepLinks:meal.ingredientStepLinks}))}
-   // No persist/render/reconciliation here: unrelated progress and settings stay byte-for-byte intact.
-   finished=true;panel.querySelectorAll('input[type="checkbox"]').forEach(el=>el.disabled=true);apply.disabled=cleanup.disabled=choose.disabled=retry.disabled=download.disabled=verify.disabled=true;cancel.textContent='Close';status.textContent='Restored instructions for '+[...selected].filter(r=>r.kind.includes('restore')).length+' saved recipe records; cleaned '+[...selected].filter(r=>r.kind.includes('cleanup')).length+' recipes ('+[...selected].reduce((n,r)=>n+(r.kind.includes('cleanup')?r.removedSaved.length:0),0)+' saved lines). Only previewed instructions/notes were changed. Other recipe fields, saved progress and settings were preserved. Keep your verified backup.';
-  }catch(e){fail(e)}
- };
- choose.focus({preventScroll:true});
+ return {rows,skipped};
 }
-
+async function storeRecipeSageSafetyBackup(data,database){
+ // IndexedDB transaction completion plus a read-back is required before any recipe write.
+ if(typeof indexedDB==='undefined')throw Error('Safety backup is unavailable. No recipes changed.');
+ const text=JSON.stringify(data),key=Date.now()+'-'+Math.random().toString(36).slice(2);
+ const db=await new Promise((resolve,reject)=>{const request=indexedDB.open(database,1);request.onupgradeneeded=()=>request.result.createObjectStore('backups');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(Error('Safety backup could not be created. No recipes changed.'));request.onblocked=()=>reject(Error('Safety backup is unavailable. No recipes changed.'))});
+ try{
+  await new Promise((resolve,reject)=>{const tx=db.transaction('backups','readwrite');tx.objectStore('backups').put(text,key);tx.oncomplete=resolve;tx.onabort=tx.onerror=()=>reject(Error('Safety backup could not be saved. No recipes changed.'))});
+  const saved=await new Promise((resolve,reject)=>{const tx=db.transaction('backups','readonly'),r=tx.objectStore('backups').get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(Error('Safety backup could not be checked. No recipes changed.'))});
+  if(saved!==text)throw Error('Safety backup verification failed. No recipes changed.');
+  return text;
+ }finally{db.close()}
+}
+function buildRecipeSageRefresh(backup){
+ const box=document.createElement('section');box.id='recipeSageRefresh';box.style.cssText='margin-top:12px;display:grid;gap:8px';
+ const title=document.createElement('strong');title.textContent='Refresh Recipes from RecipeSage';
+ const explanation=document.createElement('p');explanation.style.margin='0';explanation.textContent='Choose a RecipeSage export to refresh matching recipes. Your customizations and personal notes stay intact. A complete safety backup is saved and downloaded automatically first. Incomplete or uncertain matches are skipped.';
+ const choose=document.createElement('button');choose.type='button';choose.textContent='Choose RecipeSage export file';
+ const input=document.createElement('input');input.type='file';input.accept='.json,.jsonld,.zip,application/json,application/zip';input.hidden=true;
+ const apply=document.createElement('button');apply.type='button';apply.textContent='Refresh Recipes';apply.disabled=true;
+ const result=document.createElement('p');result.style.margin='0';result.setAttribute('role','status');result.setAttribute('aria-live','polite');
+ box.append(title,explanation,choose,input,apply,result);let items=null,generation=0;
+ const memoryState=()=>JSON.stringify([captureState(),cookingSessions,occurrenceScales,recipeViewPrefs,timeDisplayPrefs]);
+ choose.onclick=()=>input.click();
+ input.onchange=async()=>{const file=input.files?.[0],current=++generation;items=null;apply.disabled=true;if(!file)return;result.textContent='Reading export…';try{if(file.size>60000000)throw Error('Choose an export smaller than 60 MB.');const parsed=await recipeImportReadFile(file);if(current!==generation)return;if(!parsed.length)throw Error('No recipes were found in this file.');items=parsed;result.textContent=file.name;apply.disabled=false}catch(e){if(current===generation)result.textContent=e.message}};
+ apply.onclick=async()=>{
+  if(!items)return;apply.disabled=choose.disabled=true;
+  try{
+   if(editId!==null||recipeViewer||backupRestoreReloadPending||recipePageLeaving)throw Error('Close the recipe viewer or editor before refreshing.');
+   const storage=backup.capture(),memory=memoryState();backup.validate(storage);
+   const core=JSON.parse(storage.mealRotationDataV1);if(JSON.stringify(core)!==JSON.stringify({cats,active,meals}))throw Error('Saved data changed. Reload the app before refreshing.');
+   const plan=recipeSageRefreshPlan(items),next={...core,meals:meals.map(m=>plan.rows.find(r=>r.meal===m)?.replacement||m)},encoded=JSON.stringify(next);
+   backup.validate({...storage,mealRotationDataV1:encoded});
+   if(!plan.rows.length){result.textContent='0 recipes refreshed. '+plan.skipped.length+' skipped.';return}
+   result.textContent='Saving safety backup…';
+   const text=await storeRecipeSageSafetyBackup({version:2,...core,storage},backup.database);
+   if(!box.isConnected||JSON.stringify(backup.capture())!==JSON.stringify(storage)||memoryState()!==memory||editId!==null||recipeViewer||backupRestoreReloadPending||recipePageLeaving)throw Error('Saved data changed. No recipes refreshed. Try again.');
+   const url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='meal-rotation-before-recipesage-refresh-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+   // One synchronous, atomic localStorage write; no reconciliation of unrelated data.
+   try{localStorage.setItem('mealRotationDataV1',encoded)}catch(e){throw Error('Refresh could not be saved. No recipes changed. Your safety backup was kept.')}
+   for(const {meal,replacement} of plan.rows){Object.assign(meal,replacement);cookingRecipeStates.set(String(meal.id),JSON.stringify({id:meal.id,ingredients:meal.ingredients,instructions:meal.instructions,ingredientStepLinks:meal.ingredientStepLinks}))}
+   result.textContent=plan.rows.length+' recipes refreshed. '+plan.skipped.length+' skipped.';
+  }catch(e){result.textContent=e.message||'Refresh stopped. No recipes changed.'}finally{apply.disabled=!items;choose.disabled=false}
+ };
+ return box;
+}
 function openRecipeImportFilePicker(){
  const input=document.createElement('input');input.type='file';input.accept='.jsonld,.json,.csv,.html,.htm,.zip,.paprikarecipes,.melarecipe,.melarecipes,.paprikarecipe,application/json,text/csv,application/zip';
  input.onchange=async()=>{const file=input.files?.[0];if(!file)return;
@@ -4532,7 +4506,7 @@ let exportBtn=document.createElement('button');exportBtn.textContent='Export bac
  const planHint=document.createElement('small');planHint.id='mealPlanTabsHint';planHint.className='settings-display-option-help';planHint.textContent='Hide tabs to focus on your currently selected meal plan. Other plans are preserved.';
  planCheck.setAttribute('aria-labelledby',planLabel.id);planCheck.setAttribute('aria-describedby',planHint.id);
  planCopy.append(planLabel,planHint);planOption.append(planCheck,planCopy);planGroup.content.append(planOption);
- const backupGroup=makeSettingsGroup('backups','Data & Backups');const backupRow=document.createElement('div');backupRow.className='settings-backup-controls';const repairInstructions=document.createElement('button');repairInstructions.textContent='Repair RecipeSage Imports';repairInstructions.onclick=()=>openRecipeInstructionRepair({capture:captureBackupStorage,validate:validateBackupStorage});backupRow.append(exportBtn,importBtn,restoreBtn,repairInstructions);backupGroup.content.append(backupRow);panel.append(backupGroup.details);
+ const backupGroup=makeSettingsGroup('backups','Data & Backups');const backupRow=document.createElement('div');backupRow.className='settings-backup-controls';backupRow.append(exportBtn,importBtn,restoreBtn);backupGroup.content.append(backupRow,buildRecipeSageRefresh({capture:captureBackupStorage,validate:validateBackupStorage,database:'meal-rotation-recipesage-safety'}));panel.append(backupGroup.details);
  panel.append(makeSettingsFooter());
  const help=document.createElement('button');help.id='help';help.className='iconbtn';help.title='Help and gestures';help.setAttribute('aria-label','Help and gestures');help.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01" stroke-linecap="round"/></svg>';help.onclick=()=>openHelpModal();actions.append(help);settings.onclick=async()=>{
  const opening=panel.classList.contains('hidden');
