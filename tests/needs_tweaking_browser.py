@@ -1,4 +1,4 @@
-"""Needs Tweaking status-only marking, read popups, shared removal confirmation and persistence."""
+"""Needs Adjusting status-only marking, read popups, shared removal confirmation and persistence."""
 import copy,json,tempfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -32,18 +32,25 @@ def dialog(p):
  return d
 def save(p,note=None):
  d=dialog(p)
- if not d.get_by_role('button',name='Save Needs Tweaking',exact=True).count():d.get_by_role('button',name='Edit note',exact=True).tap()
+ if not d.get_by_role('button',name='Save Needs Adjusting',exact=True).count():d.get_by_role('button',name='Edit note',exact=True).tap()
  if note is not None:d.get_by_role('textbox',name='What would you change? (optional)',exact=True).fill(note)
- d.get_by_role('button',name='Save Needs Tweaking',exact=True).tap()
+ d.get_by_role('button',name='Save Needs Adjusting',exact=True).tap()
  assert not d.count()
 def icon(p,id,where='#list'):
  return p.locator(where+' [data-meal-id="'+str(id)+'"] .needs-tweaking-icon').first
 
 def removal(p,confirm):
- d=p.get_by_role('dialog',name='Remove Needs Tweaking?',exact=True)
+ d=p.get_by_role('dialog',name='Remove Needs Adjusting?',exact=True)
  d.wait_for(state='visible')
  assert d.get_by_text('This will remove the warning and its note. The recipe and its place in your rotation will not change.',exact=True).count()==1
- d.get_by_role('button',name='Remove' if confirm else 'Cancel',exact=True).tap()
+ actions=d.locator('.meal-unified-actions');assert actions.get_by_role('button').count()==2
+ for label in ['Confirm removal','Cancel removal']:
+  button=actions.get_by_role('button',name=label,exact=True)
+  assert button.inner_text()=='' and button.locator('svg').count()==1
+  assert button.get_attribute('title')==label
+  box=button.bounding_box();assert box['width']>=44 and box['height']>=44
+ assert actions.get_by_role('button').nth(0).bounding_box()['x']<actions.get_by_role('button').nth(1).bounding_box()['x']
+ actions.get_by_role('button',name='Confirm removal' if confirm else 'Cancel removal',exact=True).tap()
  d.wait_for(state='hidden');p.wait_for_timeout(50)
 
 def unchanged(p,before,schedule,groceries,skip=1):
@@ -59,9 +66,9 @@ def unchanged(p,before,schedule,groceries,skip=1):
 def scheduled(b,name,width):
  c,p,errors,prefix=f.setup(b,name,width,'multiple');p.evaluate('tweakTest.setup()');p.evaluate('tweakTest.viewer(1)')
  before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p);storage=p.evaluate('tweakTest.backup()')
- action=p.get_by_role('button',name='Mark as Needs Tweaking',exact=True)
+ action=p.get_by_role('button',name='Mark as Needs Adjusting',exact=True)
  assert action.count()==1 and action.locator('svg').count()==0
- action.tap();dialog(p).get_by_role('textbox').fill('Discard draft');dialog(p).get_by_role('button',name='Cancel Needs Tweaking',exact=True).tap()
+ action.tap();dialog(p).get_by_role('textbox').fill('Discard draft');dialog(p).get_by_role('button',name='Cancel Needs Adjusting',exact=True).tap()
  assert state(p)==before
  action.tap();save(p)
  assert meal(p,1)['needsTweaking'] and meal(p,1)['needsTweakingNote']=='' and meal(p,1)['rotation']
@@ -71,12 +78,12 @@ def scheduled(b,name,width):
  assert status.count()==1 and status.locator('.recipe-tweaking-heading svg').count()==1
  assert status.locator('.recipe-tweaking-header > .recipe-tweaking-trash').count()==1
  assert not status.locator('.recipe-tweaking-note').count() and not action.count()
- assert status.get_by_role('button',name='Remove Needs Tweaking',exact=True).inner_text()==''
+ assert status.get_by_role('button',name='Remove Needs Adjusting',exact=True).inner_text()==''
  # Viewer editor edits the note without changing occurrences, progress, scaling or dates.
  status.get_by_role('button',name='Edit note',exact=True).tap();save(p,'Try more seasoning.\nUse a different cooking method.')
  assert status.locator('.recipe-tweaking-note').inner_text()==meal(p,1)['needsTweakingNote']
  unchanged(p,before,schedule,groceries)
- status.get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();removal(p,False)
+ status.get_by_role('button',name='Remove Needs Adjusting',exact=True).tap();removal(p,False)
  assert meal(p,1)['needsTweaking'];unchanged(p,before,schedule,groceries)
  p.evaluate('tweakTest.closeViewer()');p.evaluate('promotionTest.groups()');reveal_recipe(p,1)
  assert icon(p,1).count()==1 and 'Try more seasoning' not in p.locator('#list [data-meal-id="1"]').inner_text()
@@ -85,28 +92,28 @@ def scheduled(b,name,width):
  assert d.locator('.recipe-tweaking-heading svg').count()==1 and d.get_by_text('Pernil',exact=True).count()==1
  assert d.locator('.recipe-tweaking-note').inner_text()==meal(p,1)['needsTweakingNote']
  assert d.get_by_role('button',name='Edit note',exact=True).locator('svg').count()==1
- d.get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();removal(p,False)
+ d.get_by_role('button',name='Remove Needs Adjusting',exact=True).tap();removal(p,False)
  assert d.is_visible() and meal(p,1)['needsTweaking']
  d.get_by_role('button',name='Edit note',exact=True).tap();save(p,'Read and edit from a card.')
  unchanged(p,before,schedule,groceries)
  # Rotation card icon and chooser icon never trigger their parent row action/selection.
  p.evaluate('promotionTest.my()');icon(p,1).tap();assert dialog(p).locator('textarea').count()==0
  assert not p.get_by_role('dialog',name='Meal options for Saturday',exact=True).count()
- dialog(p).get_by_role('button',name='Close Needs Tweaking',exact=True).tap()
+ dialog(p).get_by_role('button',name='Close Needs Adjusting',exact=True).tap()
  p.evaluate("promotionTest.chooser('Sunday','Weekend')");choice=p.locator('.weekday-meal-picker [data-meal-id="1"]')
  choice.locator('.needs-tweaking-icon').tap();assert dialog(p).locator('textarea').count()==0
- dialog(p).get_by_role('button',name='Close Needs Tweaking',exact=True).tap()
+ dialog(p).get_by_role('button',name='Close Needs Adjusting',exact=True).tap()
  assert choice.locator('.weekday-meal-choice-name').get_attribute('aria-pressed')=='false'
  p.locator('.weekday-meal-picker').get_by_role('button',name='Cancel',exact=True).tap()
  unchanged(p,before,schedule,groceries)
  saved=p.evaluate('tweakTest.backup()');p.reload();assert meal(p,1)['needsTweakingNote']=='Read and edit from a card.'
- p.evaluate('promotionTest.groups()');reveal_recipe(p,1);icon(p,1).tap();dialog(p).get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();removal(p,True)
+ p.evaluate('promotionTest.groups()');reveal_recipe(p,1);icon(p,1).tap();dialog(p).get_by_role('button',name='Remove Needs Adjusting',exact=True).tap();removal(p,True)
  assert not dialog(p).count() and 'needsTweaking' not in meal(p,1) and 'needsTweakingNote' not in meal(p,1)
  assert not icon(p,1).count();unchanged(p,before,schedule,groceries)
  p.evaluate('(s)=>tweakTest.restore(s)',saved);p.reload();assert meal(p,1)['needsTweakingNote']=='Read and edit from a card.'
- p.evaluate('tweakTest.viewer(1)');p.locator('#recipeViewer .recipe-tweaking-status').get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();removal(p,True)
+ p.evaluate('tweakTest.viewer(1)');p.locator('#recipeViewer .recipe-tweaking-status').get_by_role('button',name='Remove Needs Adjusting',exact=True).tap();removal(p,True)
  assert meal(p,1)['rotation'] and 'needsTweaking' not in meal(p,1)
- assert p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).count()==1
+ assert p.get_by_role('button',name='Mark as Needs Adjusting',exact=True).count()==1
  unchanged(p,before,schedule,groceries)
  check(c,p,errors,prefix);print('PASS',name,width,'status-only mark/edit/cancel/confirmed remove; read-only card popup; viewer/cards/chooser; exact schedule/grocery/progress/scale/date/order/history preservation; reload/backup',flush=True)
 
@@ -142,9 +149,9 @@ def scheduled_variants(b,name):
   else:
    target=20;p.evaluate('tweakTest.attachProgress()');p.evaluate('tweakTest.viewer(1)');p.locator('#recipeViewer .recipe-linked-link').filter(has_text='Current side').tap()
   before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p)
-  p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).tap();save(p,'Status only.')
+  p.get_by_role('button',name='Mark as Needs Adjusting',exact=True).tap();save(p,'Status only.')
   assert meal(p,target)['needsTweaking'];unchanged(p,before,schedule,groceries,skip=target)
-  p.locator('#recipeViewer .recipe-tweaking-status').get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();removal(p,True)
+  p.locator('#recipeViewer .recipe-tweaking-status').get_by_role('button',name='Remove Needs Adjusting',exact=True).tap();removal(p,True)
   assert 'needsTweaking' not in meal(p,target);unchanged(p,before,schedule,groceries,skip=target)
   check(c,p,errors,prefix)
  print('PASS',name,'manual out-of-group occurrence and linked-side tab keep exact schedules, ingredient associations, occurrence progress/scales and groceries through mark/remove',flush=True)
