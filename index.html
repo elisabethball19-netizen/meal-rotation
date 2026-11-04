@@ -5859,7 +5859,7 @@ function renderMasterCategories(list){
   const editCat=document.createElement('button');editCat.type='button';editCat.className='iconbtn';setIconButton(editCat,'rename','Edit '+category+' (reorder, rename, delete)');editCat.onclick=()=>openMasterCategoryEditMenu(category);
   header.append(editCat);
   const addMeal=document.createElement('button');addMeal.type='button';addMeal.className='iconbtn';addMeal.title='Add meal to '+category;addMeal.setAttribute('aria-label',addMeal.title);addMeal.textContent='+';addMeal.style.cssText='font-size:24px';
-  addMeal.onclick=()=>{if(tutorialStage==='2')setTutorialStage('editing');snapshot();const meal={id:id++,cat:category,name:'',rotation:false,prep:'',cook:'',total:'',url:'',ingredients:[]};meals.push(meal);masterExpansionInitialized=true;masterExpandedCategories.clear();masterExpandedCategories.add(category);renderList();openEditor(meal.id,true)};
+  addMeal.disabled=addingGroupRecipe||newRecipeDraftId!==null;addMeal.onclick=()=>addRecipeToGroup(category);
   header.append(addMeal);card.append(header);
   if(expanded){
    const items=document.createElement('div');items.className='master-category-meals';
@@ -7127,6 +7127,20 @@ function installInstructionPhotoControls(meal){
  for(const [button,input] of [['instructionPhotoButton','instructionGalleryInput'],['instructionCameraButton','instructionCameraInput']]){$(button).onclick=()=>$(input).click();$(input).onchange=e=>{const file=e.target.files?.[0];e.target.value='';if(file)importInstructionsFromPhoto(file,meal.id)}}
 }
 
+let addingGroupRecipe=false,newRecipeDraftId=null;
+function addRecipeToGroup(category){
+ // Keep the whole create/open sequence single-flight, including detached old + controls.
+ if(addingGroupRecipe||newRecipeDraftId!==null||editId!==null||!cats.includes(category))return;
+ addingGroupRecipe=true;
+ try{
+  if(tutorialStage==='2')setTutorialStage('editing');snapshot();
+  const meal={id:id++,cat:category,name:'',rotation:false,prep:'',cook:'',total:'',url:'',ingredients:[]};
+  meals.push(meal);newRecipeDraftId=meal.id;
+  masterExpansionInitialized=true;masterExpandedCategories.add(category);
+  setMasterRecipeSectionOpen(category,false,true);setMasterRecipeSectionOpen(category,true,false);
+  openEditor(meal.id,true);
+ }finally{addingGroupRecipe=false}
+}
 let editorCategoryBaseline=null,editorDraftCategories=null;
 let mealEditorReturnScroll=null,mealEditorReturnView=null;
 function restoreMealEditorScroll(){
@@ -7148,7 +7162,7 @@ function restoreMealEditorScroll(){
   if(editId===null)window.scrollTo({top:position,behavior:'instant'});
  }));
 }
-function rollbackEditorCategories(){if(!editorCategoryBaseline)return;meals=JSON.parse(editorCategoryBaseline.meals);id=editorCategoryBaseline.id;if(editorCategoryBaseline.labelCatalog!==undefined){recipeLabelCatalog=JSON.parse(editorCategoryBaseline.labelCatalog);weekdayRecipeFilters=JSON.parse(editorCategoryBaseline.labelFilters);mealPlans=JSON.parse(editorCategoryBaseline.labelPlans);const activePlan=mealPlans.find(p=>p.id===activePlanId);if(activePlan)activePlan.weekdayRecipeFilters=JSON.parse(editorCategoryBaseline.labelFilters);saveRecipeLabelCatalog();saveWeekdayRecipeFilters();}try{localStorage.setItem('mealRotationSelectedIngredientsV1',editorCategoryBaseline.selections)}catch(e){}editorCategoryBaseline=null;editorDraftCategories=null;persist()}
+function rollbackEditorCategories(){if(!editorCategoryBaseline)return;if(newRecipeDraftId===editorCategoryBaseline.newMealId)newRecipeDraftId=null;meals=JSON.parse(editorCategoryBaseline.meals);id=editorCategoryBaseline.id;if(editorCategoryBaseline.labelCatalog!==undefined){recipeLabelCatalog=JSON.parse(editorCategoryBaseline.labelCatalog);weekdayRecipeFilters=JSON.parse(editorCategoryBaseline.labelFilters);mealPlans=JSON.parse(editorCategoryBaseline.labelPlans);const activePlan=mealPlans.find(p=>p.id===activePlanId);if(activePlan)activePlan.weekdayRecipeFilters=JSON.parse(editorCategoryBaseline.labelFilters);saveRecipeLabelCatalog();saveWeekdayRecipeFilters();}try{localStorage.setItem('mealRotationSelectedIngredientsV1',editorCategoryBaseline.selections)}catch(e){}editorCategoryBaseline=null;editorDraftCategories=null;persist()}
 let stopMealEditorPositioning=()=>{};
 function mealEditorRow(){
  const meal=meals.find(item=>String(item.id)===String(editId));
@@ -7197,7 +7211,7 @@ function openEditor(n,focusNewMeal=false){
  editId=null;setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;
  masterExpansionInitialized=true;masterExpandedCategories.add(selectedMeal.cat);
  active=selectedMeal.cat;menuCat=null;render();
- editorCategoryBaseline={meals:JSON.stringify(meals),id,selections:localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}',labelCatalog:JSON.stringify(recipeLabelCatalog),labelFilters:JSON.stringify(weekdayRecipeFilters),labelPlans:JSON.stringify(mealPlans)};
+ editorCategoryBaseline={newMealId:newRecipeDraftId===selectedMeal.id?selectedMeal.id:null,meals:JSON.stringify(meals.filter(meal=>meal.id!==newRecipeDraftId)),id,selections:localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}',labelCatalog:JSON.stringify(recipeLabelCatalog),labelFilters:JSON.stringify(weekdayRecipeFilters),labelPlans:JSON.stringify(mealPlans)};
  editId=selectedMeal.id;
  editorDraftCategories=[...new Set((selectedMeal.linkGroup?meals.filter(x=>x.linkGroup===selectedMeal.linkGroup):[selectedMeal]).map(x=>x.cat).filter(Boolean))];
  renderEditor();placeEditorInline();positionMealEditor(focusNewMeal);
@@ -7490,9 +7504,9 @@ $('save').onclick=async()=>{
     await showAppMessage('Recipe could not be saved. Your browser may be low on storage. Your existing recipes are unchanged; your draft is still open.');return;
   }
   if(promotion)finishRecipePromotion(m,promotion);
-  editorCategoryBaseline=null;editorDraftCategories=null;editId=null;if(tutorialStage==='editing')setTutorialStage('3');render();restoreMealEditorScroll();if(importedRecipeDetailsDraft?.recipeImportReferences?.length)recipeImportNotice('Related recipe references were found. No new links have been selected.',[m]);
+  if(newRecipeDraftId===m.id)newRecipeDraftId=null;editorCategoryBaseline=null;editorDraftCategories=null;editId=null;if(tutorialStage==='editing')setTutorialStage('3');render();restoreMealEditorScroll();if(importedRecipeDetailsDraft?.recipeImportReferences?.length)recipeImportNotice('Related recipe references were found. No new links have been selected.',[m]);
 };
-$('cancel').onclick=()=>{rollbackEditorCategories();editId=null;if(tutorialStage==='editing')setTutorialStage('2');render();restoreMealEditorScroll()};$('delete').onclick=async()=>{const linked=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[];let all=false;if(linked.length>1){all=await askLinkedChange('Delete all linked meals?',true);if(all===null)return}else if(!await appDialog('Delete this meal?',null,'yesno'))return;snapshot();meals=meals.filter(x=>all?x.linkGroup!==m.linkGroup:x.id!==m.id);if(!all&&linked.length===2){const remaining=meals.find(x=>x.linkGroup===m.linkGroup);if(remaining)remaining.linkGroup=''}editorCategoryBaseline=null;editorDraftCategories=null;editId=null;render();restoreMealEditorScroll()}}function placeEditorInline(){
+$('cancel').onclick=()=>{rollbackEditorCategories();editId=null;if(tutorialStage==='editing')setTutorialStage('2');render();restoreMealEditorScroll()};$('delete').onclick=async()=>{const linked=m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[];let all=false;if(linked.length>1){all=await askLinkedChange('Delete all linked meals?',true);if(all===null)return}else if(!await appDialog('Delete this meal?',null,'yesno'))return;snapshot();meals=meals.filter(x=>all?x.linkGroup!==m.linkGroup:x.id!==m.id);if(!all&&linked.length===2){const remaining=meals.find(x=>x.linkGroup===m.linkGroup);if(remaining)remaining.linkGroup=''}if(newRecipeDraftId===m.id)newRecipeDraftId=null;editorCategoryBaseline=null;editorDraftCategories=null;editId=null;render();restoreMealEditorScroll()}}function placeEditorInline(){
  const editor=$('editor'),row=mealEditorRow();
  if(row&&row.parentNode)row.insertAdjacentElement('afterend',editor);
  else if(editor.parentNode!==document.body)document.body.insertBefore(editor,$('list'));

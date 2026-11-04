@@ -13,6 +13,12 @@ Photo imports also retain recognized Instructions and Notes sections when presen
 
 Recipe content stays on existing meal records, and cooking progress is saved separately and included in version-2 backups. Older backups remain supported. Export backups regularly. Very large libraries can exceed browser storage limits; failed saves/imports preserve prior data rather than truncating recipes. Physical-device wake-lock behavior depends on browser permissions and power settings.
 
+## Add a recipe to a meal group
+
+Tap the group's **+** to create an Idea and immediately open the existing recipe editor. That group expands, its Ideas section opens, and In Rotation closes. The new row and name field are brought into view using the existing mobile/keyboard positioning. Other groups keep their expansion preferences. Creation is guarded against repeated taps while the new draft is open, and Save re-enables adding. Cancel or discarding the draft removes the new unsaved recipe without leaving an empty entry; existing saved recipes are unaffected.
+
+`tests/add_recipe_ideas_browser.py` checks both apps at 320px/360px, collapsed bottom-of-page groups and long lists, focus/scrolling, keyboard-sized viewports, native disabled-control taps and detached-handler reentry, Save/Cancel/outside close, reload, and preservation of existing recipes, schedules, groceries, progress, scaling and unrelated section preferences.
+
 ## Needs Tweaking
 
 At the bottom of any recipe viewer, tap **Needs Tweaking**, optionally enter a note, and Save. The recipe moves into Ideas using the existing scheduled-slot replacement and grocery handling. Its recipe content, regular notes, links, labels, times and last-cooked date stay intact. This feature is available in both apps without a setting.
