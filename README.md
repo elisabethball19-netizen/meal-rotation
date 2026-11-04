@@ -13,6 +13,14 @@ Photo imports also retain recognized Instructions and Notes sections when presen
 
 Recipe content stays on existing meal records, and cooking progress is saved separately and included in version-2 backups. Older backups remain supported. Export backups regularly. Very large libraries can exceed browser storage limits; failed saves/imports preserve prior data rather than truncating recipes. Physical-device wake-lock behavior depends on browser permissions and power settings.
 
+## Needs Tweaking
+
+At the bottom of any recipe viewer, tap **Needs Tweaking**, optionally enter a note, and Save. The recipe moves into Ideas using the existing scheduled-slot replacement and grocery handling. Its recipe content, regular notes, links, labels, times and last-cooked date stay intact. This feature is available in both apps without a setting.
+
+An amber circled exclamation mark appears beside marked recipes in Meal Groups, Choose Meal (including search), and My Rotation, including linked recipe names. Tap it to read/edit the note, or use the trash icon to explicitly clear the status. Clearing does not move the recipe. Promoting, scheduling, cooking, cycling and Cycle Back keep the status; the note is not displayed in recipe lists.
+
+The optional `needsTweaking` and `needsTweakingNote` fields live on the existing recipe record and are included in complete app backups/restores. Older recipes need no migration. Normal structured recipe import/export fields and regular Notes are unchanged. `tests/needs_tweaking_browser.py` checks both apps at 320px/360px, scheduled and Ideas recipes, linked tabs, repeated occurrences across plans, grocery/progress preservation, optional notes, search/selection isolation, promotion, Cycle Back, clear, reload and backup restoration.
+
 ## Import cleanup and related recipes
 
 Structured imports share a conservative instruction cleanup pass: recognizable image-only entries, account prompts, website metadata, and related-recipe lists are removed from cooking instructions. Temperatures, timings, quantities, cooking headings, and uncertain text are retained. Related recipe references are kept for optional review, separately from active relationships.
