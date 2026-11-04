@@ -10,7 +10,7 @@ f.EXTRA+='''window.tweakRefine={
  dirty:()=>editorHasPendingChanges(),history:()=>localStorage.getItem(ROTATION_BACK_KEY)
 };'''
 def status(p):return p.locator('#recipeViewer .recipe-tweaking-status')
-def mark_control(p):return p.get_by_role('checkbox',name='Needs Tweaking',exact=True)
+def mark_control(p):return p.get_by_role('checkbox',name='Needs Adjusting',exact=True)
 def note_control(p):return p.get_by_role('textbox',name='What would you change? (optional)',exact=True)
 def editor(p):
  p.get_by_role('button',name='Edit Recipe',exact=True).tap();assert p.locator('#editor .editor').is_visible()
@@ -21,10 +21,10 @@ def cancel_editor(p):
 def viewer(b,name,width,mode):
  c,p,errors,prefix=f.setup(b,name,width,'multiple');p.evaluate('tweakTest.setup()');p.evaluate('tweakTest.viewer(1)');p.evaluate('(m)=>tweakTest.mode(m)',mode)
  before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p)
- p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).tap();t.save(p,'Try more seasoning.')
+ p.get_by_role('button',name='Mark as Needs Adjusting',exact=True).tap();t.save(p,'Try more seasoning.')
  assert status(p).evaluate('(e)=>e.previousElementSibling.classList.contains("recipe-header")')
- assert not p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).count()
- head=status(p).locator('.recipe-tweaking-header');trash=head.get_by_role('button',name='Remove Needs Tweaking',exact=True)
+ assert not p.get_by_role('button',name='Mark as Needs Adjusting',exact=True).count()
+ head=status(p).locator('.recipe-tweaking-header');trash=head.get_by_role('button',name='Remove Needs Adjusting',exact=True)
  assert trash.inner_text()=='' and trash.locator('svg').count()==1
  geometry=trash.evaluate('(e)=>({right:e.getBoundingClientRect().right,header:e.parentElement.getBoundingClientRect().right})');assert abs(geometry['right']-geometry['header'])<1
  shape=trash.locator('svg').inner_html()
@@ -32,10 +32,10 @@ def viewer(b,name,width,mode):
  # Same shared heading, trash shape, and confirmation in the readonly popup.
  p.evaluate('tweakTest.closeViewer()');p.evaluate('promotionTest.groups()');t.icon(p,1).tap()
  d=t.dialog(p);assert d.locator('textarea,input').count()==0
- assert d.get_by_role('button',name='Remove Needs Tweaking',exact=True).locator('svg').inner_html()==shape
- d.get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();t.removal(p,False)
+ assert d.get_by_role('button',name='Remove Needs Adjusting',exact=True).locator('svg').inner_html()==shape
+ d.get_by_role('button',name='Remove Needs Adjusting',exact=True).tap();t.removal(p,False)
  assert d.is_visible() and d.get_by_text('Try more seasoning.',exact=True).count()==1
- d.get_by_role('button',name='Close Needs Tweaking',exact=True).tap();p.evaluate('tweakTest.viewer(1)')
+ d.get_by_role('button',name='Close Needs Adjusting',exact=True).tap();p.evaluate('tweakTest.viewer(1)')
  status(p).get_by_role('button',name='Edit note',exact=True).tap();t.save(p,'Try a different method.\n'*100)
  p.set_viewport_size({'width':640,'height':360});p.wait_for_timeout(100)
  assert status(p).locator('.recipe-tweaking-note').bounding_box()['height']<=70
@@ -43,10 +43,10 @@ def viewer(b,name,width,mode):
  p.set_viewport_size({'width':width,'height':800});p.wait_for_timeout(100)
  t.unchanged(p,before,schedule,groceries)
  # Cancelling does not close the recipe or alter its note; confirmation paints above it.
- status(p).get_by_role('button',name='Remove Needs Tweaking',exact=True).tap()
- assert p.get_by_role('dialog',name='Remove Needs Tweaking?',exact=True).evaluate('(e)=>Number(getComputedStyle(e).zIndex)>Number(getComputedStyle(document.querySelector("#recipeViewer")).zIndex)')
+ status(p).get_by_role('button',name='Remove Needs Adjusting',exact=True).tap()
+ assert p.get_by_role('dialog',name='Remove Needs Adjusting?',exact=True).evaluate('(e)=>Number(getComputedStyle(e).zIndex)>Number(getComputedStyle(document.querySelector("#recipeViewer")).zIndex)')
  t.removal(p,False);assert t.meal(p,1)['needsTweaking']
- status(p).get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();t.removal(p,True)
+ status(p).get_by_role('button',name='Remove Needs Adjusting',exact=True).tap();t.removal(p,True)
  assert not status(p).count();t.unchanged(p,before,schedule,groceries)
  t.check(c,p,errors,prefix);print('PASS',name,width,mode,'compact read popup/top note, shared trash style/placement, pencil edit, long-note landscape, confirmation paint/cancel/remove; unchanged schedule/groceries/progress',flush=True)
 
@@ -64,10 +64,10 @@ def recipe_editor(b,name,width,copies=False):
  editor(p);note_control(p).fill('Edit Recipe note.');assert p.evaluate('tweakRefine.dirty()');save_editor(p)
  assert t.meal(p,1)['needsTweakingNote']=='Edit Recipe note.';t.unchanged(p,before,schedule,groceries)
  # Trash and checkbox removals share the exact same confirmation, and remain staged.
- editor(p);p.locator('#editorNeedsTweaking').get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();t.removal(p,False)
+ editor(p);p.locator('#editorNeedsTweaking').get_by_role('button',name='Remove Needs Adjusting',exact=True).tap();t.removal(p,False)
  assert mark_control(p).is_checked() and note_control(p).input_value()=='Edit Recipe note.'
  mark_control(p).uncheck();t.removal(p,False);assert mark_control(p).is_checked()
- p.locator('#editorNeedsTweaking').get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();t.removal(p,True)
+ p.locator('#editorNeedsTweaking').get_by_role('button',name='Remove Needs Adjusting',exact=True).tap();t.removal(p,True)
  assert not mark_control(p).is_checked() and t.meal(p,1)['needsTweaking'];cancel_editor(p)
  assert t.meal(p,1)['needsTweakingNote']=='Edit Recipe note.'
  editor(p);mark_control(p).uncheck();t.removal(p,True);save_editor(p)
