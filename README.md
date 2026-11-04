@@ -23,7 +23,7 @@ Tap the group's **+** to create an Idea and immediately open the existing recipe
 
 Needs Adjusting is only a status and optional note. Marking, editing or removing it never moves recipes, changes their rotation order, replaces scheduled meals, or records cooking dates. Flagged recipes cycle normally. Moving between Ideas and In Rotation remains a separate arrow action and preserves the warning.
 
-Unmarked recipes show a text-only **Mark as Needs Adjusting** action below instructions and regular notes. It opens the existing optional-note editor with Save/Cancel. Marked recipes show a compact note immediately below the title, with an amber circled exclamation heading, the app's trash icon at the top right, and a pencil **Edit note** action beneath the note. The bottom marking action is absent. Regular Notes remain separate.
+Unmarked recipes show a small, lightly outlined **Needs Adjusting** button below instructions and regular notes. It opens the existing optional-note editor with Save/Cancel. Marked recipes show a compact note immediately below the title, with an amber circled exclamation heading, the app's trash icon at the top right, and a pencil **Edit note** action beneath the note. The bottom marking action is absent. Regular Notes remain separate.
 
 Warning icons beside recipe names in Meal Groups, My Rotation and Choose Meal/search open a compact read-only pop-up with the same heading, trash and pencil styling. The pop-up shows the recipe name and any saved note, with X reserved for dismissal. **Edit note** switches to the existing editor. Empty notes need no placeholder text. The dialog remains above the recipe viewer, and taps do not trigger recipe-row actions.
 

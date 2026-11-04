@@ -890,7 +890,7 @@ body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
 button.needs-tweaking-icon{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;width:28px;height:28px;min-width:28px;min-height:28px;padding:4px;margin:-2px 0;border:0;background:transparent;color:#b07808;line-height:1;cursor:pointer;touch-action:manipulation;flex:0 0 auto;}
 .needs-tweaking-icon svg,.recipe-needs-tweaking svg{width:19px;height:19px;flex:none;fill:#fff3c4;stroke:#b07808;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
 .needs-tweaking-icon:focus-visible{outline:2px solid #b07808;outline-offset:1px;border-radius:50%;}
-#recipeViewer .recipe-needs-tweaking{display:flex;align-items:center;gap:6px;min-height:44px;margin:10px 0 0;padding:4px 0;border:0;background:transparent;color:#65717e;font:inherit;font-size:14px;text-align:left;cursor:pointer;}
+#recipeViewer .recipe-needs-tweaking{display:flex;align-items:center;width:fit-content;max-width:100%;min-height:44px;margin:16px 0 0;padding:8px 10px;border:1px solid #ccc;border-radius:9px;background:#fff;color:#65717e;font:inherit;font-size:14px;text-align:left;cursor:pointer;}
 .recipe-tweaking-name-ending{display:inline-flex;align-items:baseline;white-space:nowrap;}
 .recipe-name-with-tweak{display:inline-flex;align-items:baseline;gap:3px;min-width:0;max-width:100%;}
 #list.top-summary .top-meal-title-line>.recipe-name-with-tweak{flex:1 1 auto;}
@@ -910,6 +910,7 @@ button.recipe-tweaking-edit{display:inline-flex;align-items:center;gap:5px;}
 .recipe-tweaking-edit svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
 .editor-tweaking-note{display:block;width:100%;min-height:90px;resize:vertical;font:inherit;font-size:16px;margin:6px 0;border:1px solid #ccc;border-radius:8px;padding:10px;}
 #recipeViewer .recipe-original{display:inline-block;margin:30px 0 10px;color:#315ba8;}
+#recipeViewer .recipe-needs-tweaking + .recipe-original{margin-top:8px;}
 
 
 /* Compact Weekday Setup; controls keep their normal typography and touch size. */
@@ -2200,7 +2201,7 @@ function renderRecipeViewer(){
  if(linked.length){section('Linked recipes');for(const child of linked){const link=document.createElement('button');link.type='button';link.className='recipe-linked-link';link.textContent=child.name;link.onclick=()=>openLinkedRecipeTab(child);destination.append(link)}}
  if(meal.recipeImportReferences?.length){const review=document.createElement('button');review.type='button';review.className='recipe-linked-link';review.textContent='Review related recipe references ('+meal.recipeImportReferences.length+')';review.onclick=()=>{if(v.linkEdit){recipeLinkMessage(v,'Save or cancel ingredient links before reviewing related recipes.');return}openRecipeImportReview([meal],false)};destination.append(review)}
  if(meal.notes){section('Notes');const p=document.createElement('div');p.className='recipe-viewer-notes';p.textContent=normalizeRecipeText(meal.notes);destination.append(p)}
- if(meal.needsTweaking!==true){const tweaking=recipeTweakingAction('Mark as Needs Adjusting',()=>openNeedsTweaking(meal));tweaking.classList.add('recipe-needs-tweaking');destination.append(tweaking)}
+ if(meal.needsTweaking!==true){const tweaking=recipeTweakingAction('Needs Adjusting',()=>openNeedsTweaking(meal));tweaking.classList.add('recipe-needs-tweaking');destination.append(tweaking)}
  const original=recipeOriginalUrl(meal);if(original){const link=document.createElement('a');link.className='recipe-original';link.href=original;link.target='_blank';link.rel='noopener noreferrer';link.textContent='View Original Recipe';destination.append(link)}
  if(v.advanceSpace&&recipeViewingMode()==='split')recipeAdvanceSpacer(v,instructionsPane);
  if(v.linkIngredientTailSpace){const tail=document.createElement('div');tail.className='recipe-link-ingredient-tail';tail.setAttribute('aria-hidden','true');tail.style.height=v.linkIngredientTailSpace+'px';ingredientsPane.append(tail)}

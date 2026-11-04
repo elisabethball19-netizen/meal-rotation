@@ -21,9 +21,9 @@ def cancel_editor(p):
 def viewer(b,name,width,mode):
  c,p,errors,prefix=f.setup(b,name,width,'multiple');p.evaluate('tweakTest.setup()');p.evaluate('tweakTest.viewer(1)');p.evaluate('(m)=>tweakTest.mode(m)',mode)
  before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p)
- p.get_by_role('button',name='Mark as Needs Adjusting',exact=True).tap();t.save(p,'Try more seasoning.')
+ p.get_by_role('button',name='Needs Adjusting',exact=True).tap();t.save(p,'Try more seasoning.')
  assert status(p).evaluate('(e)=>e.previousElementSibling.classList.contains("recipe-header")')
- assert not p.get_by_role('button',name='Mark as Needs Adjusting',exact=True).count()
+ assert not p.get_by_role('button',name='Needs Adjusting',exact=True).count()
  head=status(p).locator('.recipe-tweaking-header');trash=head.get_by_role('button',name='Remove Needs Adjusting',exact=True)
  assert trash.inner_text()=='' and trash.locator('svg').count()==1
  geometry=trash.evaluate('(e)=>({right:e.getBoundingClientRect().right,header:e.parentElement.getBoundingClientRect().right})');assert abs(geometry['right']-geometry['header'])<1
