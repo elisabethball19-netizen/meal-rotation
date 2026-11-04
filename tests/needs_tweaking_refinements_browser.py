@@ -1,126 +1,94 @@
-"""Needs Tweaking paint stacking, conditional viewer status, and staged recipe editing."""
+"""Read-only tracking UI and staged recipe editing, with no scheduling side effects."""
 import copy
 from playwright.sync_api import sync_playwright
 import needs_tweaking_browser as t
-from scheduled_linked_slots_browser import state,rows,compose
-from section_visibility_fixture import reveal_recipe
+from scheduled_linked_slots_browser import state,compose
 f=t.f
 f.EXTRA+='''window.tweakRefine={
- editor:()=>openViewedRecipeEditor(),dirty:()=>editorHasPendingChanges(),
- seed:()=>{const m=meals.find(m=>m.id===1);m.prep='15';m.cook='45';m.total='60';m.marinate='120';persist();renderList()},
+ seed:()=>{const m=meals.find(m=>m.id===1);m.prep='15';m.cook='45';m.total='60';m.marinate='120';m.linkGroup='';m.ingredientImportUrl='';persist();renderList()},
  copy:()=>{const m=meals.find(m=>m.id===1);m.linkGroup='same-source';meals.push({...m,id:30,cat:'Sides',rotation:true,ingredients:[...m.ingredients]});persist();renderList()},
- undo:()=>{if(history.length)restoreState(JSON.parse(history.pop()))},
- mode:()=>recipeViewingMode()
+ dirty:()=>editorHasPendingChanges(),history:()=>localStorage.getItem(ROTATION_BACK_KEY)
 };'''
-
-def header_status(p):return p.locator('#recipeViewer .recipe-tweaking-status')
-def mark(p,note=None):
- p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).tap();t.save(p,note)
-def editor(p):
- p.get_by_role('button',name='Edit Recipe',exact=True).tap();assert p.locator('#editor .editor').is_visible()
+def status(p):return p.locator('#recipeViewer .recipe-tweaking-status')
 def mark_control(p):return p.get_by_role('checkbox',name='Needs Tweaking',exact=True)
 def note_control(p):return p.get_by_role('textbox',name='What would you change? (optional)',exact=True)
+def editor(p):
+ p.get_by_role('button',name='Edit Recipe',exact=True).tap();assert p.locator('#editor .editor').is_visible()
 def save_editor(p):
- p.wait_for_timeout(850);p.locator('#save').tap();p.wait_for_timeout(80)
- assert not p.locator('#editor .editor').count()
+ p.wait_for_timeout(850);p.locator('#save').tap();p.wait_for_timeout(80);assert not p.locator('#editor .editor').count()
 def cancel_editor(p):
- p.wait_for_timeout(850);p.locator('#cancel').tap();p.wait_for_timeout(80)
- assert not p.locator('#editor .editor').count()
+ p.wait_for_timeout(850);p.locator('#cancel').tap();p.wait_for_timeout(80);assert not p.locator('#editor .editor').count()
 def viewer(b,name,width,mode):
  c,p,errors,prefix=f.setup(b,name,width,'multiple');p.evaluate('tweakTest.setup()');p.evaluate('tweakTest.viewer(1)');p.evaluate('(m)=>tweakTest.mode(m)',mode)
- old=copy.deepcopy(state(p));before=t.meal(p,1)
- action=p.get_by_role('button',name='Mark as Needs Tweaking',exact=True)
- assert action.count()==1 and action.locator('svg').count()==0 and not header_status(p).count()
- action.tap();d=t.dialog(p);assert d.is_visible()
- assert p.evaluate('document.querySelector("#recipeViewer").inert')
- d.get_by_role('textbox').fill('Discard this note');d.get_by_role('button',name='Cancel Needs Tweaking',exact=True).tap()
- assert state(p)==old and not p.evaluate('document.querySelector("#recipeViewer").inert')
- mark(p)
- status=header_status(p);assert status.count()==1 and not status.locator('.recipe-tweaking-note').count()
+ before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p)
+ p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).tap();t.save(p,'Try more seasoning.')
+ assert status(p).evaluate('(e)=>e.previousElementSibling.classList.contains("recipe-header")')
  assert not p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).count()
- assert status.evaluate('(e)=>e.previousElementSibling.classList.contains("recipe-header")&&e.compareDocumentPosition(document.querySelector(".recipe-panes"))&Node.DOCUMENT_POSITION_FOLLOWING')
- assert p.locator('#recipeViewer .recipe-tweaking-heading svg').count()==1
- assert not t.meal(p,1)['rotation'] and t.meal(p,1)['notes']==before['notes'] and t.meal(p,1)['lastCooked']==before['lastCooked']
- status.get_by_role('button',name='Edit Note',exact=True).tap();assert t.dialog(p).get_by_role('button',name='Remove Needs Tweaking',exact=True).count()==1
- note='Try more seasoning.\nUse a different cooking method.'
- t.save(p,note);assert header_status(p).locator('.recipe-tweaking-note').inner_text()==note
- assert not p.locator('#recipeViewer .recipe-viewer-notes').inner_text()==note
- # A long note stays compact, before independently scrollable cooking panels.
- header_status(p).get_by_role('button',name='Edit Note',exact=True).tap();t.save(p,'Try seasoning.\n'*100)
- p.set_viewport_size({'width':640,'height':360});p.wait_for_timeout(120)
- assert p.locator('#recipeViewer .recipe-tweaking-note').bounding_box()['height']<=70
+ head=status(p).locator('.recipe-tweaking-header');trash=head.get_by_role('button',name='Remove Needs Tweaking',exact=True)
+ assert trash.inner_text()=='' and trash.locator('svg').count()==1
+ geometry=trash.evaluate('(e)=>({right:e.getBoundingClientRect().right,header:e.parentElement.getBoundingClientRect().right})');assert abs(geometry['right']-geometry['header'])<1
+ shape=trash.locator('svg').inner_html()
+ assert status(p).get_by_role('button',name='Edit note',exact=True).locator('svg').count()==1
+ # Same shared heading, trash shape, and confirmation in the readonly popup.
+ p.evaluate('tweakTest.closeViewer()');p.evaluate('promotionTest.groups()');t.icon(p,1).tap()
+ d=t.dialog(p);assert d.locator('textarea,input').count()==0
+ assert d.get_by_role('button',name='Remove Needs Tweaking',exact=True).locator('svg').inner_html()==shape
+ d.get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();t.removal(p,False)
+ assert d.is_visible() and d.get_by_text('Try more seasoning.',exact=True).count()==1
+ d.get_by_role('button',name='Close Needs Tweaking',exact=True).tap();p.evaluate('tweakTest.viewer(1)')
+ status(p).get_by_role('button',name='Edit note',exact=True).tap();t.save(p,'Try a different method.\n'*100)
+ p.set_viewport_size({'width':640,'height':360});p.wait_for_timeout(100)
+ assert status(p).locator('.recipe-tweaking-note').bounding_box()['height']<=70
  if mode=='split':assert p.locator('#recipeViewer .recipe-panes').bounding_box()['height']>40
  p.set_viewport_size({'width':width,'height':800});p.wait_for_timeout(100)
- p.evaluate('tweakTest.closeViewer()');p.evaluate('promotionTest.promote(1)');assert t.meal(p,1)['needsTweaking'] and t.meal(p,1)['rotation']
- p.evaluate('tweakTest.viewer(1)');schedule=compose(p)
- header_status(p).get_by_role('button',name='Remove Needs Tweaking',exact=True).tap()
- assert 'needsTweaking' not in t.meal(p,1) and 'needsTweakingNote' not in t.meal(p,1)
- assert t.meal(p,1)['rotation'] and compose(p)==schedule
- assert not header_status(p).count() and p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).count()==1
- assert p.locator('#recipeViewer .recipe-needs-tweaking svg').count()==0
- t.check(c,p,errors,prefix);print('PASS',name,width,mode,'visible modal above viewer, unmarked text only, cancel/blank mark, top note/edit/remove, long-note landscape bounds, promotion and unchanged content/schedule',flush=True)
+ t.unchanged(p,before,schedule,groceries)
+ # Cancelling does not close the recipe or alter its note; confirmation paints above it.
+ status(p).get_by_role('button',name='Remove Needs Tweaking',exact=True).tap()
+ assert p.get_by_role('dialog',name='Remove Needs Tweaking?',exact=True).evaluate('(e)=>Number(getComputedStyle(e).zIndex)>Number(getComputedStyle(document.querySelector("#recipeViewer")).zIndex)')
+ t.removal(p,False);assert t.meal(p,1)['needsTweaking']
+ status(p).get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();t.removal(p,True)
+ assert not status(p).count();t.unchanged(p,before,schedule,groceries)
+ t.check(c,p,errors,prefix);print('PASS',name,width,mode,'compact read popup/top note, shared trash style/placement, pencil edit, long-note landscape, confirmation paint/cancel/remove; unchanged schedule/groceries/progress',flush=True)
 
 def recipe_editor(b,name,width,copies=False):
  c,p,errors,prefix=f.setup(b,name,width,'multiple');p.evaluate('tweakTest.setup()');p.evaluate('tweakRefine.seed()')
- if copies:
-  p.evaluate('tweakRefine.copy()');p.evaluate("promotionTest.manual('Sunday','Weekend',1)");p.evaluate("promotionTest.plan('lunch')");p.evaluate("promotionTest.manual('Friday','Weekend',1)");p.evaluate("promotionTest.plan('original')")
- p.evaluate('tweakTest.viewer(1)');before=copy.deepcopy(state(p));grocery=f.sources(p)
- editor(p);assert not mark_control(p).is_checked() and not note_control(p).is_visible()
- mark_control(p).check();note_control(p).fill('My draft only');assert p.evaluate('tweakRefine.dirty()')
- assert not p.locator('#rotation').is_checked() and 'needsTweaking' not in t.meal(p,1)
+ if copies:p.evaluate('tweakRefine.copy()')
+ p.evaluate('tweakTest.viewer(1)');before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p);history=p.evaluate('tweakRefine.history()')
+ editor(p);assert not mark_control(p).is_checked();assert p.locator('#rotation').is_checked()
+ mark_control(p).check();note_control(p).fill('Discard draft');assert p.locator('#rotation').is_checked()
  cancel_editor(p);assert state(p)['meals']==before['meals']
- # Optional blank note marks and uses the original outgoing schedule/grocery snapshot.
- editor(p);mark_control(p).check();save_editor(p)
- assert t.meal(p,1)['needsTweaking'] and t.meal(p,1)['needsTweakingNote']=='' and not t.meal(p,1)['rotation']
- assert not any(r['id']==1 for r in rows(p)) and f.pick(p,'Saturday')['id']!=1
- assert f.pick(p,'Sunday')['id']!=1 if copies else f.pick(p,'Sunday')['id']==2
- assert header_status(p).count()==1
- for old in before['meals']:
-  now=t.meal(p,old['id'])
-  for key in ['name','notes','ingredients','instructions','labels','linkedMealIds','lastCooked','prep','cook','total','marinate','ingredientStepLinks']:
-   if key in old:assert now.get(key)==old[key],(key,old['id'],old.get(key),now.get(key))
+ editor(p);mark_control(p).check();assert p.locator('#rotation').is_checked();save_editor(p)
+ assert t.meal(p,1)['needsTweaking'] and t.meal(p,1)['rotation'] and t.meal(p,1)['needsTweakingNote']==''
+ t.unchanged(p,before,schedule,groceries);assert p.evaluate('tweakRefine.history()')==history
  if copies:assert not t.meal(p,30).get('needsTweaking') and t.meal(p,30)['rotation']
- for key,value in grocery.items():
-  if value['mealId'] not in [1,20]:assert f.sources(p).get(key)==value
- assert not any(v['checked'] for key,v in f.sources(p).items() if key not in grocery)
- # Promote and edit only the note: no new demotion or grocery reset.
- p.evaluate('tweakTest.closeViewer()');p.evaluate('promotionTest.promote(1)');p.evaluate('tweakTest.viewer(1)')
- schedule=compose(p);checked=f.sources(p)
- editor(p);assert mark_control(p).is_checked();note_control(p).fill('More seasoning from Edit Recipe.');assert p.evaluate('tweakRefine.dirty()');save_editor(p)
- assert t.meal(p,1)['rotation'] and compose(p)==schedule and f.sources(p)==checked
- assert header_status(p).locator('.recipe-tweaking-note').inner_text()=='More seasoning from Edit Recipe.'
- # Explicit Remove is staged. Cancel restores it; Save clears only tracking fields.
- editor(p);p.locator('#editor').get_by_role('button',name='Remove Needs Tweaking',exact=True).tap()
+ editor(p);note_control(p).fill('Edit Recipe note.');assert p.evaluate('tweakRefine.dirty()');save_editor(p)
+ assert t.meal(p,1)['needsTweakingNote']=='Edit Recipe note.';t.unchanged(p,before,schedule,groceries)
+ # Trash and checkbox removals share the exact same confirmation, and remain staged.
+ editor(p);p.locator('#editorNeedsTweaking').get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();t.removal(p,False)
+ assert mark_control(p).is_checked() and note_control(p).input_value()=='Edit Recipe note.'
+ mark_control(p).uncheck();t.removal(p,False);assert mark_control(p).is_checked()
+ p.locator('#editorNeedsTweaking').get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();t.removal(p,True)
  assert not mark_control(p).is_checked() and t.meal(p,1)['needsTweaking'];cancel_editor(p)
- assert t.meal(p,1)['needsTweaking']
- editor(p);p.locator('#editor').get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();save_editor(p)
+ assert t.meal(p,1)['needsTweakingNote']=='Edit Recipe note.'
+ editor(p);mark_control(p).uncheck();t.removal(p,True);save_editor(p)
  assert 'needsTweaking' not in t.meal(p,1) and 'needsTweakingNote' not in t.meal(p,1)
- assert t.meal(p,1)['rotation'] and compose(p)==schedule and f.sources(p)==checked
- # Checkbox unmarking has the same semantics; blank notes remain optional.
- editor(p);mark_control(p).check();save_editor(p);editor(p);mark_control(p).uncheck();save_editor(p)
- assert 'needsTweaking' not in t.meal(p,1) and 'needsTweakingNote' not in t.meal(p,1)
- t.check(c,p,errors,prefix);print('PASS',name,width,'shared copies' if copies else 'recipe editor','mark/blank note, staged cancel/remove/checkbox clear, note-only edit preserves rotation/groceries, source fields and linked copies preserved; returns to viewer',flush=True)
+ t.unchanged(p,before,schedule,groceries);assert p.evaluate('tweakRefine.history()')==history
+ t.check(c,p,errors,prefix);print('PASS',name,width,'copies' if copies else 'editor','mark without changing rotation, optional/edit note, shared confirm for trash/uncheck, cancel/staged save, exact data/schedule/grocery/progress/history preservation',flush=True)
 
-def undo_and_failed_save(b,name):
- c,p,errors,prefix=f.setup(b,name,360,'multiple');p.evaluate('tweakTest.setup()');p.evaluate('tweakTest.viewer(1)')
- before=copy.deepcopy(state(p));schedule=compose(p);editor(p);mark_control(p).check();save_editor(p)
- p.evaluate('tweakTest.closeViewer()');p.get_by_role('button',name='Undo',exact=True).tap()
- assert not t.meal(p,1).get('needsTweaking') and t.meal(p,1)['rotation'] and compose(p)==schedule
- t.check(c,p,errors,prefix)
- c,p,errors,prefix=f.setup(b,name,360,'multiple');p.evaluate('tweakTest.setup()');p.evaluate('tweakTest.viewer(1)');editor(p)
- mark_control(p).check();note_control(p).fill('Keep this draft for retry.')
+def outside_editor_icon(b,name):
+ c,p,errors,prefix=f.setup(b,name,360,'multiple');p.evaluate('tweakTest.setup()');p.evaluate('tweakRefine.seed()');p.evaluate('tweakTest.flag(1)');p.evaluate('promotionTest.groups()')
  before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p)
- storage='testStorage' if prefix else 'localStorage'
- # Existing editor's primary-write rollback must also protect the new fields.
- p.evaluate('''()=>{const store=STORAGE,original=store.setItem.bind(store);window.restoreTweakWrite=()=>{store.setItem=original};store.setItem=(key,value)=>{if(key==='mealRotationDataV1')throw Error('Injected quota failure');original(key,value)}}'''.replace('STORAGE',storage))
- p.wait_for_timeout(850);p.locator('#save').tap()
- message=p.get_by_role('alertdialog').filter(has_text='Recipe could not be saved.')
- assert message.is_visible();message.get_by_role('button',name='OK',exact=True).tap()
- assert state(p)['meals']==before['meals'] and compose(p)==schedule and f.sources(p)==groceries
- assert mark_control(p).is_checked() and note_control(p).input_value()=='Keep this draft for retry.'
- p.evaluate('restoreTweakWrite()');cancel_editor(p)
- assert not t.meal(p,1).get('needsTweaking')
- t.check(c,p,errors,prefix);print('PASS',name,'single Undo restores marking/schedule; failed primary write preserves recipes/schedule/groceries and retryable editor draft',flush=True)
+ p.evaluate('promotionTest.editor(2)');t.icon(p,1).tap()
+ d=t.dialog(p);assert d.locator('textarea').count()==0 and not p.locator('#editor .editor').count()
+ d.get_by_role('button',name='Edit note',exact=True).tap();t.save(p,'Edited after closing another editor.')
+ assert t.meal(p,1)['needsTweakingNote']=='Edited after closing another editor.'
+ t.unchanged(p,before,schedule,groceries)
+ # A replayed stale warning must not re-open marking after an editor saved removal.
+ p.evaluate('promotionTest.editor(1)');mark_control(p).uncheck();t.removal(p,True)
+ t.icon(p,1).tap();question=p.get_by_text('Save meal changes before closing?',exact=True).locator('..');question.get_by_role('button',name='Yes',exact=True).tap();p.wait_for_timeout(80)
+ assert 'needsTweaking' not in t.meal(p,1) and not t.dialog(p).count()
+ t.unchanged(p,before,schedule,groceries)
+ t.check(c,p,errors,prefix);print('PASS',name,'warning taps resolve current records after editor rollback and never re-mark a cleared recipe after an outside-save replay',flush=True)
 
 if __name__=='__main__':
  with sync_playwright() as pw:
@@ -129,6 +97,5 @@ if __name__=='__main__':
    for width in [320,360]:
     for mode in ['full','split']:viewer(b,name,width,mode)
     recipe_editor(b,name,width)
-   recipe_editor(b,name,360,True)
-   undo_and_failed_save(b,name)
+   recipe_editor(b,name,360,True);outside_editor_icon(b,name)
   b.close()
