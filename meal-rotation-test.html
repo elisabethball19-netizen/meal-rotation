@@ -1315,8 +1315,8 @@ function cleanInstructionBlock(block){
  return {...block,text,type:heading?'section':block.type};
 }
 const RECIPE_VIEW_PREFS_KEY='mealRotationRecipeViewPrefsV1';
-let recipeViewPrefs={mode:'full',ratio:.4,landscapeRatio:.5,syncIngredients:false,autoCompleteIngredients:false,keepScreenAwake:true,autoOpenLinkedRecipes:false};
-try{const p=JSON.parse(testStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null');if(p&&['full','split'].includes(p.mode)&&Number.isFinite(p.ratio))recipeViewPrefs={mode:p.mode,ratio:Math.max(.1,Math.min(.9,p.ratio)),landscapeRatio:Number.isFinite(p.landscapeRatio)?Math.max(.1,Math.min(.9,p.landscapeRatio)):.5,syncIngredients:p.syncIngredients===true,autoCompleteIngredients:p.autoCompleteIngredients===true,keepScreenAwake:p.keepScreenAwake!==false,autoOpenLinkedRecipes:p.autoOpenLinkedRecipes===true}}catch(e){}
+let recipeViewPrefs={mode:'full',ratio:.4,landscapeRatio:.5,syncIngredients:false,autoCompleteIngredients:false,keepScreenAwake:true,autoOpenLinkedRecipes:false,autoRotateRecipeView:false};
+try{const p=JSON.parse(testStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null');if(p&&['full','split'].includes(p.mode)&&Number.isFinite(p.ratio))recipeViewPrefs={mode:p.mode,ratio:Math.max(.1,Math.min(.9,p.ratio)),landscapeRatio:Number.isFinite(p.landscapeRatio)?Math.max(.1,Math.min(.9,p.landscapeRatio)):.5,syncIngredients:p.syncIngredients===true,autoCompleteIngredients:p.autoCompleteIngredients===true,keepScreenAwake:p.keepScreenAwake!==false,autoOpenLinkedRecipes:p.autoOpenLinkedRecipes===true,autoRotateRecipeView:p.autoRotateRecipeView===true}}catch(e){}
 function saveRecipeViewPrefs(){try{testStorage.setItem(RECIPE_VIEW_PREFS_KEY,JSON.stringify(recipeViewPrefs))}catch(e){/* Keep viewing available when preferences cannot be saved. */}}
 // Recipe associations use existing content tokens, never schedule positions or progress state.
 function syncIngredientHeading(text){
@@ -1530,6 +1530,35 @@ function configureRecipeSplit(v,divider,panes){
 }
 
 let recipeViewer=null,recipeViewerHistoryClosing=false;
+// Optional browser-mediated free rotation. No fullscreen or sensor permissions.
+// Serialize requests so a late result from a closed viewer cannot lock the app
+// or undo a newer viewer's orientation lease.
+let recipeOrientationDesired=null,recipeOrientationGeneration=0,recipeOrientationOwned=null,recipeOrientationPending=null,recipeOrientationQueue=Promise.resolve();
+function unlockRecipeOrientation(lease){
+ if(!lease)return;try{lease.api.unlock()}catch(e){/* Unsupported/restricted browsers keep their normal behavior. */}
+ if(recipeOrientationOwned===lease)recipeOrientationOwned=null;
+}
+function syncRecipeAutoRotation(retry=false){
+ const view=recipeViewer&&recipeViewPrefs.autoRotateRecipeView===true&&!recipePageLeaving&&document.visibilityState==='visible'?recipeViewer:null;
+ if(view===recipeOrientationDesired&&!retry)return;
+ recipeOrientationDesired=view;const generation=++recipeOrientationGeneration;
+ for(const lease of new Set([recipeOrientationOwned,recipeOrientationPending]))unlockRecipeOrientation(lease);
+ if(!view)return;
+ recipeOrientationQueue=recipeOrientationQueue.catch(()=>{}).then(async()=>{
+  if(generation!==recipeOrientationGeneration||recipeOrientationDesired!==view||recipeViewer!==view)return;
+  let lease=null;
+  try{
+   const api=window.screen?.orientation;if(typeof api?.lock!=='function'||typeof api?.unlock!=='function')return;
+   lease={view,api};recipeOrientationPending=lease;
+   await api.lock('any');
+   if(generation===recipeOrientationGeneration&&recipeOrientationDesired===view&&recipeViewer===view)recipeOrientationOwned=lease;
+   else unlockRecipeOrientation(lease);
+  }catch(e){/* System rotation lock, fullscreen restrictions and missing support are nonfatal. */}
+  finally{if(recipeOrientationPending===lease)recipeOrientationPending=null}
+ }).catch(()=>{});
+}
+document.addEventListener('fullscreenchange',()=>syncRecipeAutoRotation(true));
+
 // Keep content identity separate from schedule identity. A viewer deck owns its
 // temporary (unscheduled) states; persisted progress still uses the existing keys.
 function recipeViewingMode(){return recipeViewer?.activeTab?.mode||recipeViewPrefs.mode}
@@ -1787,7 +1816,7 @@ function openRecipeViewer(meal,context=null,pushHistory=true,savedTabs=null){
  cover.addEventListener('click',e=>{if(recipeViewer?.suppressLinkGestureClick){recipeViewer.suppressLinkGestureClick=false;e.preventDefault();e.stopImmediatePropagation()}},{capture:true});
  cover.addEventListener('keydown',()=>{if(recipeViewer)recipeViewer.suppressLinkGestureClick=false},{capture:true});
  if(pushHistory)window.history.pushState({...window.history.state,mealRotationRecipeViewer:{mealId:String(meal.id),context}},'');
- renderRecipeViewer();close.focus();cover.addEventListener('keydown',e=>{
+ renderRecipeViewer();syncRecipeAutoRotation();close.focus();cover.addEventListener('keydown',e=>{
   if(e.key==='Escape'){e.preventDefault();if(recipeViewer?.linkEdit&&cookingSettings.hidden){finishRecipeLinkEdit(false);return}if(!cookingSettings.hidden){cookingSettings.hidden=true;settings.setAttribute('aria-expanded','false');settings.focus({preventScroll:true})}else closeRecipeViewer()}
   if(e.key==='Tab'){const buttons=[...cover.querySelectorAll('button:not([disabled]):not([hidden]),a[href],input:not([disabled]),select:not([disabled]),summary')].filter(e=>e.getClientRects().length);const first=buttons[0],last=buttons[buttons.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}
  });
@@ -1796,6 +1825,7 @@ function openRecipeViewer(meal,context=null,pushHistory=true,savedTabs=null){
 }
 function finishRecipeViewerClose(){
  const view=recipeViewer;if(!view)return;recipeViewer=null;view.importController?.abort();view.resizeObserver?.disconnect();view.tabResizeObserver?.disconnect();view.tabDragCleanup?.();view.dividerGestureCleanup?.();view.syncCleanup?.();view.guidedCleanup?.();view.scaleCleanup?.();clearRecipeLinkGestures(view);cancelRecipeAdvance(view);
+ syncRecipeAutoRotation();
  if(typeof releaseRecipeWakeLock==='function')releaseRecipeWakeLock(view);
  view.cover.remove();document.body.style.overflow=view.overflow;
  for(const [e,was] of view.inert)if(e.isConnected)e.inert=was;
@@ -2499,13 +2529,14 @@ function releaseRecipeWakeLock(view){
  if(lock&&!lock.released)Promise.resolve(lock.release()).catch(()=>{});
 }
 document.addEventListener('visibilitychange',()=>{
+ syncRecipeAutoRotation();
  const view=recipeViewer;if(!view)return;
  if(document.visibilityState==='visible'){view.wakeRetries=0;acquireRecipeWakeLock()}else releaseRecipeWakeLock(view);
 });
 
 window.addEventListener('beforeunload',()=>{recipePageLeaving=true});
-window.addEventListener('pagehide',()=>{recipePageLeaving=true;if(recipeViewer)releaseRecipeWakeLock(recipeViewer)});
-window.addEventListener('pageshow',()=>{recipePageLeaving=false;requestRecipeImportResume();if(recipeViewer){recipeViewer.wakeRetries=0;acquireRecipeWakeLock()}});
+window.addEventListener('pagehide',()=>{recipePageLeaving=true;syncRecipeAutoRotation();if(recipeViewer)releaseRecipeWakeLock(recipeViewer)});
+window.addEventListener('pageshow',()=>{recipePageLeaving=false;syncRecipeAutoRotation(true);requestRecipeImportResume();if(recipeViewer){recipeViewer.wakeRetries=0;acquireRecipeWakeLock()}});
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
 const previousMarinateVisibility=testStorage.getItem('mealRotationShowMarinateV1')==='true';
 let timeDisplayPrefs={top:{cooking:false,marinate:previousMarinateVisibility},category:{cooking:false,marinate:previousMarinateVisibility},all:{cooking:false,marinate:false}};
@@ -3941,12 +3972,13 @@ let lowerOpenGroups=new Set();
 let activeTabMenuId=null;
 function captureSettingsDraft(){
  saveActiveMealPlan();
- return JSON.stringify({weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,weekdayColors,pinnedCats,expandedCats,autoPinTopCategories,applyPinsToAllTabs,timeDisplayPrefs,mealTextSize,showLastCooked,manualRecipeOrdering,showMealPlanTabs,mealPlans,activePlanId,startWeekday,masterOpenMode,masterPinsOverride,autoOpenLinkedRecipes:recipeViewPrefs.autoOpenLinkedRecipes===true});
+ return JSON.stringify({weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,weekdayColors,pinnedCats,expandedCats,autoPinTopCategories,applyPinsToAllTabs,timeDisplayPrefs,mealTextSize,showLastCooked,manualRecipeOrdering,showMealPlanTabs,mealPlans,activePlanId,startWeekday,masterOpenMode,masterPinsOverride,autoOpenLinkedRecipes:recipeViewPrefs.autoOpenLinkedRecipes===true,autoRotateRecipeView:recipeViewPrefs.autoRotateRecipeView===true});
 }
 function restoreSettingsDraft(json){
  if(!json)return;
  const state=JSON.parse(json);
  if(typeof state.autoOpenLinkedRecipes==='boolean'){recipeViewPrefs.autoOpenLinkedRecipes=state.autoOpenLinkedRecipes;saveRecipeViewPrefs()}
+ if(typeof state.autoRotateRecipeView==='boolean'){recipeViewPrefs.autoRotateRecipeView=state.autoRotateRecipeView;saveRecipeViewPrefs();syncRecipeAutoRotation()}
  if(['normal','large','extra'].includes(state.mealTextSize)){mealTextSize=state.mealTextSize;testStorage.setItem(mealTextSizeKey,mealTextSize);applyMealTextSize()}
  weekdayCategories=JSON.parse(JSON.stringify(state.weekdayCategories));weekdayMealOverrides={...state.weekdayMealOverrides};weekdayRecipeFilters=JSON.parse(JSON.stringify(state.weekdayRecipeFilters||{}));
  weekdayColors={...state.weekdayColors};pinnedCats=[...state.pinnedCats];expandedCats=[...state.expandedCats];
@@ -4435,6 +4467,10 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
 }
 ;let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24">'+appIconSvg.settings+'</svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
 const displayGroup=makeSettingsGroup('display','Display');populateTimeSettings(displayGroup.content);populateCookedDateSetting(displayGroup.content);
+ const autoRotateOption=document.createElement('label');autoRotateOption.className='settings-display-option';
+ const autoRotateCheck=document.createElement('input');autoRotateCheck.type='checkbox';autoRotateCheck.id='autoRotateRecipeView';autoRotateCheck.checked=recipeViewPrefs.autoRotateRecipeView===true;
+ autoRotateCheck.onchange=()=>{recipeViewPrefs.autoRotateRecipeView=autoRotateCheck.checked;saveRecipeViewPrefs();syncRecipeAutoRotation()};
+ autoRotateOption.append(autoRotateCheck,document.createTextNode('Auto-rotate recipe view'));displayGroup.content.append(autoRotateOption);
  const manualOrderOption=document.createElement('label');manualOrderOption.className='settings-display-option';
  const manualOrderCheck=document.createElement('input');manualOrderCheck.type='checkbox';manualOrderCheck.checked=manualRecipeOrdering;
  manualOrderCheck.onchange=()=>{manualRecipeOrdering=manualOrderCheck.checked;saveManualRecipeOrdering();renderList()};
