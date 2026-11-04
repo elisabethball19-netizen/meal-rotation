@@ -25,7 +25,11 @@ def check(c,p,errors,prefix):
  assert p.evaluate('document.documentElement.scrollWidth<=innerWidth')
  if prefix:assert p.evaluate("localStorage.getItem('mealRotationDataV1')")=='WORKING SENTINEL'
  c.close()
-def dialog(p):return p.locator('#needsTweakingDialog')
+def dialog(p):
+ d=p.locator('#needsTweakingDialog')
+ if d.count() and p.locator('#recipeViewer').count():
+  assert p.evaluate('Number(getComputedStyle(document.querySelector("#needsTweakingDialog")).zIndex)>Number(getComputedStyle(document.querySelector("#recipeViewer")).zIndex)'), 'Dialog must be painted above the recipe viewer'
+ return d
 def save(p,note=None):
  d=dialog(p)
  if note is not None:d.get_by_role('textbox',name='What would you change? (optional)',exact=True).fill(note)
@@ -38,22 +42,22 @@ def scheduled(b,name,width):
  c,p,errors,prefix=f.setup(b,name,width,'multiple');p.evaluate('tweakTest.setup()')
  before=copy.deepcopy(state(p));before_groceries=f.sources(p);original=meal(p,1);p.evaluate('tweakTest.viewer(1)')
  pane=p.locator('#recipeViewer .recipe-instructions-pane')
- assert pane.locator('.recipe-needs-tweaking').count()==1
+ assert pane.locator('.recipe-needs-tweaking').count()==1 and pane.locator('.recipe-needs-tweaking svg').count()==0
  assert pane.locator('.recipe-needs-tweaking').evaluate('(e)=>e.previousElementSibling.classList.contains("recipe-viewer-notes")')
- p.get_by_role('button',name='Needs Tweaking',exact=True).tap();d=dialog(p)
+ p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).tap();d=dialog(p)
  assert d.is_visible() and d.get_by_role('textbox').input_value()==''
  d.get_by_role('textbox').fill('Less salt next time. Try a longer rest.')
  d.get_by_role('button',name='Cancel Needs Tweaking',exact=True).tap()
  assert state(p)==before
  # Save with the note blank: scheduled recipe demotes, linked definition remains intact.
- p.get_by_role('button',name='Needs Tweaking',exact=True).tap();save(p)
+ p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).tap();save(p)
  current=meal(p,1);assert current['needsTweaking'] is True and current['needsTweakingNote']=='' and not current['rotation']
  assert {k:v for k,v in original.items() if k not in ['rotation','rotationPromotionPriority']}=={k:v for k,v in current.items() if k not in ['rotation','rotationPromotionPriority','needsTweaking','needsTweakingNote']}
  assert all(r['id']!=1 for r in rows(p))
  assert f.pick(p,'Saturday')['id']!=1 and f.pick(p,'Sunday')['id']==2
  # No stale context can recreate a removed scheduled session while viewer stays open.
  assert p.locator('#recipeViewer').is_visible() and p.evaluate('tweakTest.context()') is None
- assert p.locator('#recipeViewer .recipe-needs-tweaking').count()==1
+ assert p.locator('#recipeViewer .recipe-needs-tweaking').count()==0 and p.locator('#recipeViewer .recipe-tweaking-status').count()==1
  unchanged={k:v for k,v in before_groceries.items() if v['mealId'] not in [1,20]}
  for key,value in unchanged.items():
   assert f.sources(p).get(key)==value,(key,value,f.sources(p).get(key))
@@ -88,7 +92,7 @@ def scheduled(b,name,width):
  # Full backups preserve fields; restoring also works without new schema requirements.
  stored=p.evaluate('tweakTest.backup()');p.reload();assert meal(p,1)['needsTweakingNote']=='Try more lemon.'
  p.evaluate('promotionTest.groups()');reveal_recipe(p,1);icon(p,1).tap()
- original_membership=meal(p,1)['rotation'];dialog(p).get_by_role('button',name='Clear Needs Tweaking',exact=True).tap()
+ original_membership=meal(p,1)['rotation'];dialog(p).get_by_role('button',name='Remove Needs Tweaking',exact=True).tap()
  assert 'needsTweaking' not in meal(p,1) and 'needsTweakingNote' not in meal(p,1)
  assert meal(p,1)['rotation']==original_membership
  assert not icon(p,1).count()
@@ -100,7 +104,7 @@ def scheduled(b,name,width):
 def edge_cases(b,name,width):
  c,p,errors,prefix=f.setup(b,name,width,'linked-slot');p.evaluate('tweakTest.setup()');p.evaluate('tweakTest.attachProgress()')
  original=meal(p,20);old=copy.deepcopy(state(p));p.evaluate('tweakTest.viewer(1)');p.locator('#recipeViewer .recipe-linked-link').filter(has_text='Current side').tap()
- p.get_by_role('button',name='Needs Tweaking',exact=True).tap();save(p,'Improve this linked side.')
+ p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).tap();save(p,'Improve this linked side.')
  assert meal(p,20)['linkedMealIds']==original['linkedMealIds']
  assert meal(p,20)['ingredientStepLinks']==original['ingredientStepLinks']
  assert meal(p,1)['linkedMealIds']==[20]
@@ -111,10 +115,10 @@ def edge_cases(b,name,width):
   if session['context']['mealId'] not in ['20'] and not(session['context']['day']=='Saturday' and session['context']['cat']=='Sides'):
    assert now['sessions']['occurrences'].get(key)==session
  p.evaluate('tweakTest.closeViewer()');p.evaluate('promotionTest.groups()');reveal_recipe(p,20);icon(p,20).tap()
- dialog(p).get_by_role('button',name='Clear Needs Tweaking',exact=True).tap();assert not meal(p,20)['rotation']
+ dialog(p).get_by_role('button',name='Remove Needs Tweaking',exact=True).tap();assert not meal(p,20)['rotation']
  # New status on an unscheduled Ideas recipe is supported, with Full View too.
  p.evaluate('tweakTest.viewer(6)');p.evaluate('tweakTest.mode("full")')
- p.get_by_role('button',name='Needs Tweaking',exact=True).tap();save(p,'Improve the sear.')
+ p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).tap();save(p,'Improve the sear.')
  assert meal(p,6)['needsTweaking'] and not meal(p,6)['rotation']
  p.evaluate('tweakTest.closeViewer()');p.reload()
  assert meal(p,6)['needsTweakingNote']=='Improve the sear.'
@@ -126,7 +130,7 @@ def repeated_and_cycle_back(b,name):
  p.evaluate("promotionTest.manual('Sunday','Weekend',1)")
  p.evaluate("promotionTest.plan('lunch')");p.evaluate("promotionTest.manual('Friday','Weekend',1)");p.evaluate("promotionTest.plan('original')")
  assert len([r for r in rows(p) if r['id']==1])==3
- p.evaluate('tweakTest.viewer(1)');p.get_by_role('button',name='Needs Tweaking',exact=True).tap();save(p,'Keep this note across weeks.')
+ p.evaluate('tweakTest.viewer(1)');p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).tap();save(p,'Keep this note across weeks.')
  assert not any(r['id']==1 for r in rows(p))
  p.evaluate('tweakTest.closeViewer()');p.evaluate('promotionTest.promote(1)')
  assert meal(p,1)['needsTweakingNote']=='Keep this note across weeks.'
@@ -136,12 +140,12 @@ def repeated_and_cycle_back(b,name):
  p.evaluate('slotTest.back()');assert meal(p,1)['needsTweakingNote']=='Updated after cycling.'
  # Clearing after a cycle must not be undone by Cycle Back either.
  p.evaluate('promotionTest.full()');p.evaluate('tweakTest.direct(1)')
- dialog(p).get_by_role('button',name='Clear Needs Tweaking',exact=True).tap()
+ dialog(p).get_by_role('button',name='Remove Needs Tweaking',exact=True).tap()
  p.evaluate('slotTest.back()');assert 'needsTweaking' not in meal(p,1) and 'needsTweakingNote' not in meal(p,1)
  # A manually scheduled Ideas recipe must be removed using the same replacement logic.
  p.evaluate("promotionTest.manual('Wednesday','Mains',6)")
  assert any(r['id']==6 and r['day']=='Wednesday' for r in rows(p)) and not meal(p,6)['rotation']
- p.evaluate("tweakTest.viewer(6,'Wednesday')");p.get_by_role('button',name='Needs Tweaking',exact=True).tap();save(p)
+ p.evaluate("tweakTest.viewer(6,'Wednesday')");p.get_by_role('button',name='Mark as Needs Tweaking',exact=True).tap();save(p)
  assert not any(r['id']==6 for r in rows(p)) and f.pick(p,'Wednesday','Mains')['id'] in [10,11,12]
  check(c,p,errors,prefix);print('PASS',name,'repeated occurrences across tabs, promotion/cycling, post-cycle edit/clear retained by Cycle Back, scheduled Ideas override',flush=True)
 
