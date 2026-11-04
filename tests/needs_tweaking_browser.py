@@ -66,7 +66,7 @@ def unchanged(p,before,schedule,groceries,skip=1):
 def scheduled(b,name,width):
  c,p,errors,prefix=f.setup(b,name,width,'multiple');p.evaluate('tweakTest.setup()');p.evaluate('tweakTest.viewer(1)')
  before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p);storage=p.evaluate('tweakTest.backup()')
- action=p.get_by_role('button',name='Mark as Needs Adjusting',exact=True)
+ action=p.get_by_role('button',name='Needs Adjusting',exact=True)
  assert action.count()==1 and action.locator('svg').count()==0
  action.tap();dialog(p).get_by_role('textbox').fill('Discard draft');dialog(p).get_by_role('button',name='Cancel Needs Adjusting',exact=True).tap()
  assert state(p)==before
@@ -113,7 +113,7 @@ def scheduled(b,name,width):
  p.evaluate('(s)=>tweakTest.restore(s)',saved);p.reload();assert meal(p,1)['needsTweakingNote']=='Read and edit from a card.'
  p.evaluate('tweakTest.viewer(1)');p.locator('#recipeViewer .recipe-tweaking-status').get_by_role('button',name='Remove Needs Adjusting',exact=True).tap();removal(p,True)
  assert meal(p,1)['rotation'] and 'needsTweaking' not in meal(p,1)
- assert p.get_by_role('button',name='Mark as Needs Adjusting',exact=True).count()==1
+ assert p.get_by_role('button',name='Needs Adjusting',exact=True).count()==1
  unchanged(p,before,schedule,groceries)
  check(c,p,errors,prefix);print('PASS',name,width,'status-only mark/edit/cancel/confirmed remove; read-only card popup; viewer/cards/chooser; exact schedule/grocery/progress/scale/date/order/history preservation; reload/backup',flush=True)
 
@@ -149,7 +149,7 @@ def scheduled_variants(b,name):
   else:
    target=20;p.evaluate('tweakTest.attachProgress()');p.evaluate('tweakTest.viewer(1)');p.locator('#recipeViewer .recipe-linked-link').filter(has_text='Current side').tap()
   before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p)
-  p.get_by_role('button',name='Mark as Needs Adjusting',exact=True).tap();save(p,'Status only.')
+  p.get_by_role('button',name='Needs Adjusting',exact=True).tap();save(p,'Status only.')
   assert meal(p,target)['needsTweaking'];unchanged(p,before,schedule,groceries,skip=target)
   p.locator('#recipeViewer .recipe-tweaking-status').get_by_role('button',name='Remove Needs Adjusting',exact=True).tap();removal(p,True)
   assert 'needsTweaking' not in meal(p,target);unchanged(p,before,schedule,groceries,skip=target)
