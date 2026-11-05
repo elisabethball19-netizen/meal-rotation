@@ -11,6 +11,13 @@ f.EXTRA+='''window.prepTest={
  back:rotateAllBack,cycle:()=>moveDisplayedMealsToBottom(null,false,false),
  backup:()=>slotBackup.capture(),restore:storage=>{slotBackup.restore(slotBackup.normalize({version:2,...JSON.parse(storage.mealRotationDataV1),storage}));backupRestoreReloadPending=true}
 };'''
+f.EXTRA+="""prepTest.boundary=(start,day)=>{prepTest.seed();startWeekday=day;for(const plan of mealPlans){const entries=getDisplayedWeekdayMealsForPlan(plan),calendar={version:2,weekStart:start,occurrences:{},assignedOn:{},assignedAt:{},slots:{}};for(const entry of entries){const key=rotationOccurrenceKey({...entry,planId:plan.id}),date=cookingLocalDate(cookingDateInWeek(entry.day,parseCookingLocalDate(start)));calendar.occurrences[key]=date;calendar.assignedOn[key]=start;calendar.assignedAt[key]=start+'T08:00:00.000Z';calendar.slots[rotationCalendarSlot(entry)]=date}plan.rotationCalendar=calendar}persist();saveActiveMealPlan()};"""
+def boundaries(b,name):
+ c,p,errors,_=f.setup(b,name,360,'multiple')
+ for start,day,expected in [('2026-12-29','Tuesday','2027-01-02'),('2026-12-27','Sunday','2026-12-26'),('2027-01-04','Monday','2027-01-09')]:
+  p.evaluate('([s,d])=>prepTest.boundary(s,d)',[start,day]);p.evaluate('prepTest.overview()');row=next(x for x in p.evaluate('prepTest.rows()') if x['description']=='Marinate pork');assert row['due']==expected,(start,day,row)
+  if expected<start:assert p.locator('.make-ahead-outside').get_by_role('checkbox',name="Marinate pork · for Sunday's Spaghetti",exact=True).count()==1
+ assert not errors,errors;print('PASS',name,'Tuesday/Sunday/Monday start, month/year boundary and pre-week reminders',flush=True);c.close()
 def run(b,name,width):
  c,p,errors,prefix=f.setup(b,name,width,'multiple');p.clock.install(time=datetime(2026,11,3,8,tzinfo=timezone.utc));p.evaluate('prepTest.seed()');p.evaluate('promotionTest.check()');p.evaluate('prepTest.overview()')
  rows=p.evaluate('prepTest.rows()');by={r['description']:r for r in rows}
@@ -49,6 +56,6 @@ if __name__=='__main__':
  with sync_playwright() as pw:
   b=pw.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
   for name in ['index.html','meal-rotation-test.html']:
-   editor(b,name)
+   boundaries(b,name);editor(b,name)
    for width in [320,360]:run(b,name,width)
   b.close()

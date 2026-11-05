@@ -19,6 +19,18 @@ Tap the group's **+** to create an Idea and immediately open the existing recipe
 
 `tests/add_recipe_ideas_browser.py` checks both apps at 320px/360px, collapsed bottom-of-page groups and long lists, focus/scrolling, keyboard-sized viewports, native disabled-control taps and detached-handler reentry, Save/Cancel/outside close, reload, and preservation of existing recipes, schedules, groceries, progress, scaling and unrelated section preferences.
 
+## Make ahead, Skip This Week, and favorites
+
+Use **Make ahead (optional)** in Edit Recipe to add explicit preparation tasks with same-day, one-day, two-day, or custom lead times. Existing prep/marinate fields are unchanged; instructions are not scanned for reminders. Weekly Overview shows tasks on their actual due dates and keeps checked tasks visible. Tasks outside the displayed week appear separately with dates. Completion belongs to one dated scheduled occurrence, including its meal-plan tab and linked parent. The small calendar icon in My Rotation opens its tasks.
+
+**Skip This Week** in a scheduled meal's options replaces just its independent group slot without recording cooking, moving its queue position, or advancing the week. Other days/tabs and retained grocery quantities remain intact. Existing linked-recipe priority is respected. Undo restores the skipped occurrence, its reminder checks, cooking progress, scaling and groceries. A linked-only attachment or one-time meal without an assigned group cannot be skipped independently; the app explains this and leaves it unchanged. No alternative also leaves the meal unchanged.
+
+Tap a recipe's **heart** in the viewer, My Rotation, Meal Groups or Weekly Overview to toggle its favorite status. The grouped Choose Meal dialog has a compact **Favorites only** filter. Favorites stay in their existing groups. Normal cycling and Skip use deterministic weighted credits, targeting two appearances for a favorite per one for each regular recipe, subject to existing eligibility, retained slots, duplicate avoidance and linked-priority rules. A pool of only two recipes alternates to avoid immediate repeats; with no favorites the existing rotation is unchanged. Display sorting/manual recipe ordering is unchanged.
+
+Recipe tasks/favorites and plan-level occurrence checks/weighted credits use optional fields in existing saved records and complete backups. Older records/backups need no migration. Cycle Back restores weighted scheduling history while retaining later explicit task/favorite edits. No working-app data is reset or rewritten on update.
+
+Focused isolated-browser tests: `make_ahead_reminders_browser.py`, `skip_this_week_browser.py`, `favorites_weighted_browser.py`, `prep_skip_favorites_integration_browser.py`, and `personal_recipe_icons_browser.py`. Tests cover both storage namespaces, narrow touch viewports, real calendar offsets, reminders before the week, duplicate occurrences, linked replacements, checked grocery contributions, Undo/Cycle Back, 200 weighted cycles, no-favorite parity, reloads and complete backups. Physical Android behavior still needs a device check.
+
 ## Needs Adjusting
 
 Needs Adjusting is only a status and optional note. Marking, editing or removing it never moves recipes, changes their rotation order, replaces scheduled meals, or records cooking dates. Flagged recipes cycle normally. Moving between Ideas and In Rotation remains a separate arrow action and preserves the warning.
