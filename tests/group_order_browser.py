@@ -24,7 +24,7 @@ def run(browser,filename,width):
  def button(name):return page.get_by_role('button',name=name,exact=True)
  def touch(kind,x=0,y=0):cdp.send('Input.dispatchTouchEvent',{'type':kind,'touchPoints':[] if kind in ['touchEnd','touchCancel'] else [{'x':x,'y':y,'id':0}]})
  def press(name,body=False):
-  item=card(name);item.scroll_into_view_if_needed();target=item.locator('.master-category-group-label').first if body else item.locator('.master-category-title strong');target.scroll_into_view_if_needed();b=target.bounding_box();x=b['x']+min(30,b['width']/2);y=b['y']+min(12,b['height']/2);touch('touchStart',x,y);page.wait_for_timeout(620);return x,y
+  item=card(name);item.scroll_into_view_if_needed();target=item.locator('.master-category-meals') if body else item.locator('.master-category-title strong');target.scroll_into_view_if_needed();b=target.bounding_box();x=b['x']+(2 if body else min(30,b['width']/2));y=b['y']+(5 if body else min(12,b['height']/2));touch('touchStart',x,y);page.wait_for_timeout(620);return x,y
  def drag(name,down=True,cancel=False,body=False,wait=2400):
   schedule=page.evaluate('groupTest.schedule()');groceries=page.evaluate('groupTest.groceries()');old=state();before=saved();x,y=press(name,body);assert page.locator('.master-group-drag-ghost').count()==1,'long press must start drag'
   assert state()['expanded']==old['expanded'];assert all(h<100 for h in page.locator('.master-category-card').evaluate_all('(els)=>els.map(e=>e.getBoundingClientRect().height)'))
@@ -49,11 +49,13 @@ def run(browser,filename,width):
  svg=card('Monday group').locator('.master-category-title svg');svg.scroll_into_view_if_needed();b=svg.bounding_box();touch('touchStart',b['x']+9,b['y']+9);page.wait_for_timeout(620);assert not page.locator('.master-group-drag-ghost').count();touch('touchCancel')
  button('Add meal to Monday group').tap();assert page.locator('#name').is_visible();page.locator('#name').fill('Added through existing control');page.locator('#save').click();page.wait_for_timeout(100)
  assert any(m['name']=='Added through existing control' for m in state()['meals'])
- # Recipe controls inside cards keep their own long press and independent preview progress.
+ # Recipe long presses now enter multi-select; they must not drag the parent or open a viewer.
+ section=card('Monday group').get_by_role('button',name='In Rotation',exact=False)
+ if section.get_attribute('aria-expanded')=='false':section.tap()
  name=card('Monday group').get_by_role('button',name='Recipe 3',exact=True);name.scroll_into_view_if_needed();b=name.bounding_box();before_recipe=state()['sessions'];touch('touchStart',b['x']+20,b['y']+10);page.wait_for_timeout(620);touch('touchEnd');page.wait_for_timeout(80)
- assert page.locator('#recipeViewer').is_visible() and not page.locator('.master-group-drag-ghost').count()
- page.locator('.recipe-viewer-steps .cooking-item').first.tap();assert state()['sessions']==before_recipe
- button('Close recipe').tap();page.wait_for_selector('#recipeViewer',state='detached')
+ assert page.locator('#recipeBulkToolbar').is_visible() and not page.locator('#recipeViewer').count() and not page.locator('.master-group-drag-ghost').count()
+ assert state()['sessions']==before_recipe
+ button('Exit selection mode').tap()
  # Preserve multiple expanded states and collapse visually only while dragging.
  page.evaluate('groupTest.expand(["Monday group","Friday group","Group 05"])');expanded=state()['expanded'];base=saved()
  before_hold=saved();before_expanded=state()['expanded'];press('Monday group');touch('touchEnd');page.wait_for_timeout(80);assert order()==initial and saved()==before_hold and state()['expanded']==before_expanded

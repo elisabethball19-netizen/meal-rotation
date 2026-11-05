@@ -318,3 +318,14 @@ Added recipes appear in the existing tab deck without switching away from the ac
 No recipe definitions, scheduled meals, grocery selections, navigation settings or storage keys are changed by opening tabs. Timer records remain version 1 with optional completion/handled-alert fields, and complete backups retain them. Existing backups and preferences remain compatible.
 
 `tests/timer_completion_updates_browser.py` verifies compact controls on both timer surfaces, two-icon replacement, automatic completion on different pages/tabs, bounded source duration, acknowledgment, hidden/suspended/blocked audio, quiet reload/backup restoration, transient-dialog focus isolation, notifications and global volume/preview. Alert API checks are mocked, not physical Android audio tests. `tests/open_recipes_viewer_browser.py` verifies exact day/plan origin, individual/all/search opening, linked settings, duplicate avoidance, legacy parent contexts, editor return, preview isolation, long mobile lists, and unchanged schedules/groceries/progress/timer state in Full/Split View and portrait/landscape.
+
+
+## Meal Groups multi-select
+
+Long-press a recipe to select it, then tap other recipes or checkboxes across groups. Expand/collapse groups and sections without losing selections. The bottom toolbar offers Move, one shared Edit dialog, Delete, selection scopes, and Exit. Selection options explicitly name the last-used section/group, all expanded sections, or all recipes across groups; adding a scope preserves existing selections.
+
+Bulk fields default to Unchanged. Labels can be added or removed independently; favorites and Needs Adjusting use the existing recipe fields. Marking Needs Adjusting preserves individual notes. Explicit removal clears the warning and note after the existing confirmation. Cancel and Exit do not edit recipes.
+
+Bulk group moves retain currently planned meals as temporary substitutions without changing weekday assignments. Bulk promotion changes rotation membership without automatically replacing this week's meals. Moving scheduled recipes to Ideas or deleting them uses existing affected-occurrence replacement rules and preserves unchanged groceries and cooking progress. Deletion removes incoming references, keeps unselected linked recipes, and prunes deleted records from Cycle Back history. An independently scheduled linked side keeps its progress, scaling, reminders and groceries when its parent is deleted. A timer stops only when its owning recipe is deleted.
+
+All changes are staged and validated, then committed with the existing complete-backup atomic writer and rollback. A shared-copy collision or linked arrangement that would unexpectedly alter another scheduled meal is rejected as a whole. Existing storage keys and test-app isolation are retained; no migration is required. See [bulk-operation test results](tests/meal_groups_bulk_test_report.md).
