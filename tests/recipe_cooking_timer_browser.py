@@ -58,12 +58,12 @@ def run(b,name,width):
  first=timer(p);assert first['recipeId']=='1' and first['stepToken']==step(p,0).get_attribute('data-cooking-token')
  assert 599000<=p.evaluate('timerTest.remaining()')<=600000
  assert step(p,0).get_attribute('aria-pressed')=='false' and strip(p).count()==1
- assert '10:00 remaining' in strip(p).inner_text()
+ assert '10:00' in strip(p).inner_text()
  # Completion and long press remain independent of the timer icon.
  step(p,0).tap();assert step(p,0).get_attribute('aria-pressed')=='true'
  assert icon(p).is_visible() and timer(p)['id']==first['id']
  step(p,0).tap();assert step(p,0).get_attribute('aria-pressed')=='false'
- p.clock.fast_forward(32000);assert '9:28 remaining' in strip(p).inner_text()
+ p.clock.fast_forward(32000);assert '09:28' in strip(p).inner_text()
  p.get_by_role('button',name='Pause timer',exact=True).tap();remaining=p.evaluate('timerTest.remaining()');p.clock.fast_forward(60000)
  assert p.evaluate('timerTest.remaining()')==remaining and timer(p)['status']=='paused'
  p.get_by_role('button',name='Resume timer',exact=True).tap();p.clock.fast_forward(10000);assert 557000<=p.evaluate('timerTest.remaining()')<=558000
@@ -74,13 +74,13 @@ def run(b,name,width):
  choice(p,'Replace current timer?','Keep current timer');assert timer(p)['id']==first['id']
  icon(p,1).tap();p.get_by_role('dialog',name='Choose cooking duration',exact=True).locator('.smallbtn').nth(1).tap()
  choice(p,'Replace current timer?','Replace timer');assert 299000<=p.evaluate('timerTest.remaining()')<=300000
- second=timer(p);p.get_by_role('button',name='Enable timer notifications',exact=True).tap();assert p.evaluate('alertCalls.permissions')==1
+ second=timer(p);p.get_by_role('button',name='Recipe settings',exact=True).tap();p.get_by_role('button',name='Enable timer notifications',exact=True).tap();assert p.evaluate('alertCalls.permissions')==1;p.get_by_role('button',name='Close settings',exact=True).tap()
  # Timer remains associated with its original recipe/instruction while switching linked tabs.
  p.get_by_role('button',name='Current side',exact=True).tap();assert timer(p)['id']==second['id'] and timer(p)['recipeName']=='Pernil'
- assert strip(p).locator('.recipe-timer-source').inner_text()=='Pernil · Step 2'
- p.clock.fast_forward(10000);assert '4:50 remaining' in strip(p).inner_text()
+ assert timer(p)['recipeId']=='1' and timer(p)['stepNumber']==2
+ p.clock.fast_forward(10000);assert '04:50' in strip(p).inner_text()
  p.evaluate('timerTest.close()');p.evaluate('timerTest.page()');p.clock.fast_forward(15000);p.evaluate('timerTest.viewer(20)')
- assert timer(p)['id']==second['id'] and '4:35 remaining' in strip(p).inner_text()
+ assert timer(p)['id']==second['id'] and '04:35' in strip(p).inner_text()
  p.reload();assert timer(p)['id']==second['id'] and timer(p)['status']=='running'
  p.evaluate('timerTest.viewer()');assert strip(p).count()==1
  p.get_by_role('button',name='Pause timer',exact=True).tap();paused=p.evaluate('timerTest.remaining()');p.reload();p.clock.fast_forward(30000)
@@ -88,18 +88,18 @@ def run(b,name,width):
  p.evaluate('timerTest.viewer()');p.get_by_role('button',name='Resume timer',exact=True).tap()
  # Deadline jumps model suspended callbacks: reconcile on focus and emit completion once.
  mock_alerts(p,'granted');p.evaluate('timerTest.expired()');p.evaluate("window.dispatchEvent(new Event('focus'))");p.wait_for_timeout(20)
- assert timer(p)['status']=='complete' and 'Timer finished' in strip(p).inner_text()
+ assert timer(p)['status']=='complete' and '00:00' in strip(p).inner_text()
  assert len(p.evaluate('alertCalls.notifications'))==1
  for _ in range(3):p.evaluate('timerTest.reconcile()')
  assert len(p.evaluate('alertCalls.notifications'))==1
- p.reload();p.evaluate('timerTest.viewer()');assert timer(p)['status']=='complete' and 'Timer finished' in strip(p).inner_text()
- p.get_by_role('button',name='Dismiss finished timer',exact=True).tap();assert timer(p) is None and not strip(p).count()
+ p.reload();p.evaluate('timerTest.viewer()');assert timer(p)['status']=='complete' and '00:00' in strip(p).inner_text()
+ p.get_by_role('button',name='Delete timer',exact=True).tap();assert timer(p) is None and not strip(p).count()
  # Sound on an unlocked audio context, no permission requests until explicitly enabled.
  mock_alerts(p,'denied');icon(p,2).tap();p.evaluate('timerTest.close()');p.evaluate('timerTest.page()');p.clock.fast_forward(2100)
  assert timer(p)['status']=='complete' and p.evaluate('alertCalls.tones')==1 and p.evaluate('alertCalls.permissions')==0 and not p.evaluate('alertCalls.notifications')
  p.evaluate('timerTest.reconcile()');assert p.evaluate('alertCalls.tones')==1
  p.evaluate('timerTest.viewer()')
- p.get_by_role('button',name='Dismiss finished timer',exact=True).tap()
+ p.get_by_role('button',name='Delete timer',exact=True).tap()
  # Final comparison excludes only progress deliberately toggled off again (stored empty session may exist).
  after=state(p)
  for key in ['meals','scales','prefs']:assert after[key]==before[key],(key,before[key],after[key])
@@ -118,21 +118,21 @@ def recovery(b,name):
  icon(p,1).tap();assert p.get_by_role('dialog',name='Choose cooking duration',exact=True).is_visible()
  p.go_back();p.wait_for_timeout(50);assert not p.locator('.recipe-timer-dialog').count() and not p.locator('#recipeViewer').count() and timer(p)['id']==original['id']
  p.evaluate('timerTest.viewer()')
- p.get_by_role('button',name='Cancel timer',exact=True).tap();p.evaluate('storage=>timerTest.restore(storage)',backup);p.reload();p.evaluate('timerTest.viewer()')
+ p.get_by_role('button',name='Delete timer',exact=True).tap();p.evaluate('storage=>timerTest.restore(storage)',backup);p.reload();p.evaluate('timerTest.viewer()')
  assert timer(p)['id']==original['id'] and strip(p).count()==1
  # Expiration while absent is reconciled from persisted deadline during reload.
  p.evaluate('timerTest.expired()');p.reload();assert timer(p)['status']=='complete'
- p.evaluate('timerTest.viewer()');assert 'Timer finished' in strip(p).inner_text()
+ p.evaluate('timerTest.viewer()');assert '00:00' in strip(p).inner_text()
  # Completed alarm is replaced only by an explicit choice, never silently dismissed.
  icon(p).tap();choice(p,'Replace current timer?','Replace timer');assert timer(p)['status']=='running' and timer(p)['id']!=original['id'] and not p.get_by_role('dialog',name='Replace current timer?',exact=True).count()
  # Notification APIs are optional and storage failures must not interrupt a live timer.
- p.get_by_role('button',name='Cancel timer',exact=True).tap()
+ p.get_by_role('button',name='Delete timer',exact=True).tap()
  p.evaluate("()=>{Object.defineProperty(window,'Notification',{configurable:true,value:undefined});}")
  # Delete rather than leave an undefined Notification property for feature detection.
  p.evaluate("delete window.Notification")
  p.evaluate("()=>{const set=Storage.prototype.setItem;window.timerNativeSet=set;Storage.prototype.setItem=function(key,value){if(key.endsWith('mealRotationCookingTimerV1'))throw Error('quota');return set.call(this,key,value)}}")
  icon(p,2).tap();p.clock.fast_forward(2100);assert timer(p)['status']=='complete' and not p.get_by_role('button',name='Enable timer notifications',exact=True).count()
- p.get_by_role('button',name='Dismiss finished timer',exact=True).tap();assert timer(p) is None
+ p.get_by_role('button',name='Delete timer',exact=True).tap();assert timer(p) is None
  p.evaluate('()=>{Storage.prototype.setItem=window.timerNativeSet}')
  assert p.evaluate('timerTest.parseInvalid("{broken")') is None
  assert p.evaluate('timerTest.parseInvalid(JSON.stringify({version:1,status:"running",deadline:"bad"}))') is None
@@ -154,7 +154,7 @@ def layout(b,name,width,mode,landscape):
   p.locator('#recipeViewer').evaluate('(e)=>e.scrollTop=900');p.wait_for_timeout(80)
   assert strip(p).bounding_box()['y']>=0 and strip(p).bounding_box()['y']<p.evaluate('innerHeight')
  if name.startswith('meal-') and width==360:p.screenshot(path='/tmp/cooking-timer-'+mode+('-landscape' if landscape else '-portrait')+'.png')
- p.get_by_role('button',name='Cancel timer',exact=True).tap();assert timer(p) is None and not strip(p).count()
+ p.get_by_role('button',name='Delete timer',exact=True).tap();assert timer(p) is None and not strip(p).count()
  assert not errors,errors
  print('PASS',name,width,mode,'landscape' if landscape else 'portrait','sticky countdown, usable independent panels, no overlap/overflow, cancel',flush=True);c.close()
 if __name__=='__main__':
