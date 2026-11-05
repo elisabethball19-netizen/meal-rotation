@@ -1138,7 +1138,7 @@ document.getElementById('test-reset').addEventListener('click',()=>{
 function createMealPersistence(provider){
  const JOURNAL_KEY='mealRotationRecoveryJournalV1';
  let base,readError=null,recovery=false,strict=false,suspended=false,recoveryActions=null,startupValidator=null;
- let original=new Map(),pending=new Map(),failures=new Map(),warning=null,retrying=false,journal=null,journalRaw=null,journalCleanupPending=false;
+ let original=new Map(),pending=new Map(),failures=new Map(),warning=null,retrying=false,journal=null,journalRaw=null,journalCleanupPending=false,journalReplacementVerified=false;
  const owned=key=>typeof key==='string'&&key.startsWith('mealRotation')&&!key.startsWith('mealRotationTestSandboxV1:')&&!key.startsWith('mealRotationTESTONLY__')&&key!==JOURNAL_KEY;
  const copy=value=>JSON.parse(JSON.stringify(value));
  function readRaw(){
@@ -1146,7 +1146,14 @@ function createMealPersistence(provider){
   try{for(let i=0;i<base.length;i++){const key=base.key(i);if(!owned(key))continue;try{const value=base.getItem(key);if(value!==null)result.set(key,value)}catch(error){unreadable.push(key);firstError||=error}}}catch(error){unreadable.push('*');firstError||=error}
   if(firstError){const error=Error(firstError.message||'Saved data could not be read');error.readableRecords=result;error.unreadableKeys=unreadable;throw error}return result;
  }
- try{base=provider();original=readRaw();journalRaw=base.getItem(JOURNAL_KEY);if(journalRaw!==null){journal=JSON.parse(journalRaw);if(journal?.version!==1||!journal.originalStorage||Array.isArray(journal.originalStorage)||typeof journal.originalStorage!=='object'||Object.values(journal.originalStorage).some(v=>typeof v!=='string'))throw Error('Unreadable recovery journal')}}catch(e){if(e.readableRecords)original=e.readableRecords;readError=e;recovery=true}
+ function parseJournal(raw){const value=JSON.parse(raw);if(value?.version!==1||!value.originalStorage||Array.isArray(value.originalStorage)||typeof value.originalStorage!=='object'||Object.values(value.originalStorage).some(v=>typeof v!=='string'))throw Error('Unreadable recovery journal');return value}
+ function matchesRecords(actual,expected){return !!expected&&typeof expected==='object'&&!Array.isArray(expected)&&actual.size===Object.keys(expected).length&&Object.entries(expected).every(([key,value])=>typeof value==='string'&&actual.get(key)===value)}
+ try{base=provider()}catch(e){readError=e;recovery=true}
+ if(base){
+  try{original=readRaw()}catch(e){if(e.readableRecords)original=e.readableRecords;readError=e;recovery=true}
+  // Read the journal independently so denied app-record reads do not hide earlier recovery data.
+  try{journalRaw=base.getItem(JOURNAL_KEY);if(journalRaw!==null)journal=parseJournal(journalRaw)}catch(e){readError||=e;recovery=true}
+ }
  const button=(label,action)=>{const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=label;b.style.minHeight='44px';b.onclick=action;return b};
  function download(data,name){try{const a=document.createElement('a'),url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return true}catch(e){const message='The recovery export could not be downloaded. Keep this page open and try again.';if(recovery){const status=document.getElementById('mealRecoveryStatus');if(status)status.textContent=message}else notify(message);return false}}
  function capture(){try{return readRaw()}catch(e){readError=e;recovery=true;showRecovery();return e.readableRecords||new Map()}}
@@ -1180,7 +1187,19 @@ function createMealPersistence(provider){
   get length(){return keys().length},key(index){return keys()[index]??null}
  };
  function keys(){if(recovery)return [];const result=new Set();try{for(let i=0;i<base.length;i++){const key=base.key(i);if(owned(key))result.add(key)}}catch(e){readError=e;recovery=true;showRecovery();return []}for(const [key,value]of pending)if(owned(key)){if(value===null)result.delete(key);else result.add(key)}return [...result]}
- function inspect(check){startupValidator=check;if(recovery)return;try{check(Object.fromEntries(original))}catch(e){readError=e;recovery=true}}
+ function inspect(check){startupValidator=check;if(recovery)return;try{
+  check(Object.fromEntries(original));
+  // Verify the whole replacement before any migration, normalization, or automatic app write.
+  if(journalRaw!==null){
+   if(journal.replacementCommitted!==true){
+    if(!matchesRecords(original,journal.replacement))throw Error('Recovery replacement is incomplete. Original records and earlier recovery information remain available for export or another restore.');
+    // Durable proof permits a later startup after normalization or cleanup was interrupted.
+    const verified={...journal,replacementCommitted:true},encoded=JSON.stringify(verified);
+    base.setItem(JOURNAL_KEY,encoded);if(base.getItem(JOURNAL_KEY)!==encoded)throw Error('Recovery completion could not be secured. Original recovery information is retained.');journal=verified;journalRaw=encoded;
+   }
+   journalReplacementVerified=true;
+  }
+ }catch(e){readError=e;recovery=true}}
  function transaction(action){
   if(recovery)throw Error('Saved data is unreadable. Use the recovery interface first.');
   if(pending.size)throw Error('There are unsaved changes. Use Retry Save before this operation.');
@@ -1214,9 +1233,14 @@ function createMealPersistence(provider){
  function replace(data){
   startupValidator(data);
   if(hasDrafts())throw Error('An unsaved editor is still open. Export its draft and explicitly cancel it before replacing saved data.');
-  const before=capture();
-  // This durable, namespace-local journal survives a failed replacement/reload.
-  const nextJournal={version:1,previousJournalRaw:journal?undefined:journalRaw,createdAt:new Date().toISOString(),originalStorage:journal?.originalStorage||Object.fromEntries(before),beforeReplacement:Object.fromEntries(before),replacement:data,pendingWrites:Object.fromEntries(pending),failedTransactions:[...failures.values()].map(f=>copy(f.record)),editorDrafts:editorDrafts()};
+  let before,priorJournalRaw;
+  // Export may use a partial snapshot; replacement and rollback must never do so.
+  try{before=readRaw();priorJournalRaw=base.getItem(JOURNAL_KEY)}catch(error){readError=error;recovery=true;showRecovery();throw Error('Original saved data could not be completely read. No replacement was attempted. '+error.message)}
+  let priorJournal=null;if(priorJournalRaw!==null)try{priorJournal=parseJournal(priorJournalRaw)}catch(_){}
+  // Keep earlier attempts flat and intact, including pending writes, proposals, and drafts.
+  const previousAttempts=Array.isArray(priorJournal?.previousAttempts)?[...priorJournal.previousAttempts]:[];
+  if(priorJournal){const previous={...priorJournal};if(Array.isArray(previous.previousAttempts))delete previous.previousAttempts;previousAttempts.push(previous)}
+  const nextJournal={version:1,replacementCommitted:false,previousJournalRaw:priorJournal?undefined:priorJournalRaw,previousAttempts,createdAt:new Date().toISOString(),originalStorage:priorJournal?.originalStorage||Object.fromEntries(before),beforeReplacement:Object.fromEntries(before),replacement:data,pendingWrites:Object.fromEntries(pending),failedTransactions:[...failures.values()].map(f=>copy(f.record)),editorDrafts:editorDrafts()};
   const encoded=JSON.stringify(nextJournal);base.setItem(JOURNAL_KEY,encoded);if(base.getItem(JOURNAL_KEY)!==encoded)throw Error('The original data could not be secured for recovery. No replacement was attempted.');journal=nextJournal;journalRaw=encoded;
   try{
    for(const [key,value]of Object.entries(data).sort(([a],[b])=>(a==='mealRotationDataV1')-(b==='mealRotationDataV1')))base.setItem(key,value);
@@ -1226,7 +1250,8 @@ function createMealPersistence(provider){
   reload();
  }
  function finishStartup(){
-  if(!journalRaw)return;
+  if(!journalRaw||recovery)return;
+  if(!journalReplacementVerified){failStartup(Error('Recovery replacement has not been verified. Original recovery information is retained.'));return}
   try{startupValidator(Object.fromEntries(readRaw()))}catch(error){failStartup(error);return}
   try{base.removeItem(JOURNAL_KEY);journal=null;journalRaw=null;journalCleanupPending=false}
   catch(e){journalCleanupPending=true;notify('The original recovery snapshot is still retained. Retry Save to finish recovery cleanup, or export it before closing this page.')}
@@ -6476,6 +6501,11 @@ function applyEditorRecipeMutation(edit,transaction){
  transaction.promotionMealId=primary?.cat?edit.sourceId:null;if(transaction.promotion?.day)transaction.allowedDays.push({planId:activePlanId,day:transaction.promotion.day});
 }
 
+function recipeBulkOperationId(ids,patch,options){
+ // Only an identical requested mutation may resolve its failed bulk operation.
+ const ordered=value=>Array.isArray(value)?value.map(ordered):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,ordered(value[key])])):value;
+ return 'bulk:'+JSON.stringify(ordered({type:options.dependentRole?'dependent-role':'bulk-edit',targets:[...ids].map(String).sort(),patch,dependentRole:options.dependentRole||null}));
+}
 function applyRecipeBulk(ids,patch,options={}){
  validateRecipeBulkChange(ids,patch,!!options.dependentRole);if(recipeBulkBusy)throw Error('A bulk update is already in progress.');if(groceryCheckStorageInvalid||cookingStorageInvalid||scaleStorageInvalid)throw Error('Saved recipe progress or groceries could not be read. Export a backup before making bulk changes.');
  const beforeStorage=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(beforeStorage);const before=JSON.parse(captureState()),memory={id,meals,mealPlans,weekdayMealOverrides,cookingSessions,occurrenceScales,groceryOccurrenceChecks,recipeLabelCatalog,excluded:masterGroceryExcludedMealKeys,linked:new Set(previouslyActiveLinkedIds),recipeStates:new Map(cookingRecipeStates),signature:cookingScheduleSignature};
@@ -6495,7 +6525,7 @@ function applyRecipeBulk(ids,patch,options={}){
   freezeRecipeBulkSchedule(schedules);if(!departing.size)preserveBulkEmptySlots(schedules);if(departing.size)detachRecipeOccurrences(departing,schedules,grocery,true);else{saveWeekdayMealOverrides();reconcileRotatedGroceryChecks(grocery,[])}
   if(removed.size){if(cookingTimer&&removed.has(String(cookingTimer.recipeId))){const owner=memory.meals.find(m=>String(m.id)===String(cookingTimer.recipeId)),peer=owner?.linkGroup&&meals.find(m=>memory.meals.some(old=>String(old.id)===String(m.id)&&old.linkGroup===owner.linkGroup));if(peer)testStorage.setItem(COOKING_TIMER_KEY,JSON.stringify({...cookingTimer,recipeId:String(peer.id),recipeName:peer.name,context:null}));else testStorage.removeItem(COOKING_TIMER_KEY)}reparentDeletedBulkChildren(removed,schedules,raw);pruneBulkRecipeReferences(meals,mealPlans,removed);weekdayMealOverrides={...mealPlans.find(p=>p.id===activePlanId).weekdayMealOverrides};const selections=JSON.parse(testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');before.bulkRecipeUndoSelections={};for(const id of removed){if(Object.hasOwn(selections,id))before.bulkRecipeUndoSelections[id]=selections[id];delete selections[id]}testStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selections));const history=pruneBulkRotationHistory(testStorage.getItem(ROTATION_BACK_KEY),removed);if(history)testStorage.setItem(ROTATION_BACK_KEY,history);for(const plan of mealPlans){const key='mealRotationLastTopMealIdsV1:'+plan.id,raw=testStorage.getItem(key);if(raw)testStorage.setItem(key,JSON.stringify(JSON.parse(raw).filter(id=>!removed.has(String(id)))))}before.bulkRecipeUndoExclusions=[...masterGroceryExcludedMealKeys].filter(key=>removed.has(String(key).slice(String(key).lastIndexOf('::')+2)));masterGroceryExcludedMealKeys=new Set([...masterGroceryExcludedMealKeys].filter(key=>!removed.has(String(key).slice(String(key).lastIndexOf('::')+2))));saveMasterGroceryMealExclusions();resetCookingContexts(c=>removed.has(String(c.mealId))||removed.has(String(c.parentId)));clearOccurrenceScales(c=>removed.has(String(c.mealId))||removed.has(String(c.parentId)))}
   for(const plan of mealPlans){const prior=memory.mealPlans.find(p=>p.id===plan.id);for(const [key,choice]of Object.entries(plan.cycleSlotChoices||{})){const old=prior?.cycleSlotChoices?.[key];if(old&&String(old.mealId)===String(choice.mealId)){if(Object.hasOwn(old,'retain'))choice.retain=old.retain;else delete choice.retain}}}
-  if(transaction.promotion&&transaction.promotionMealId){const promoted=meals.find(m=>String(m.id)===transaction.promotionMealId);if(promoted)finishRecipePromotion(promoted,transaction.promotion)}reconcileActiveLinkedMeals();validateBulkScheduleResult(schedules,departing,transaction.allowedDays);reconcileRotatedGroceryChecks(grocery,[]);persist();saveActiveMealPlan();const proposed=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(proposed);bulkRecipeStorageDraft=null;recipeBulkBackupAPI.restore(proposed,{id:options.editor?'recipe:'+options.editor.sourceId:'bulk:'+JSON.stringify(ids),kind:options.editor?'recipe-edit':'bulk-edit',ownerId:options.editor?'recipe:'+options.editor.sourceId:null,retry:()=>applyRecipeBulk([...ids],JSON.parse(JSON.stringify(patch)),JSON.parse(JSON.stringify(options)))});
+  if(transaction.promotion&&transaction.promotionMealId){const promoted=meals.find(m=>String(m.id)===transaction.promotionMealId);if(promoted)finishRecipePromotion(promoted,transaction.promotion)}reconcileActiveLinkedMeals();validateBulkScheduleResult(schedules,departing,transaction.allowedDays);reconcileRotatedGroceryChecks(grocery,[]);persist();saveActiveMealPlan();const proposed=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(proposed);bulkRecipeStorageDraft=null;recipeBulkBackupAPI.restore(proposed,{id:options.editor?'recipe:'+options.editor.sourceId:recipeBulkOperationId(ids,patch,options),kind:options.editor?'recipe-edit':'bulk-edit',ownerId:options.editor?'recipe:'+options.editor.sourceId:null,retry:()=>applyRecipeBulk([...ids],JSON.parse(JSON.stringify(patch)),JSON.parse(JSON.stringify(options)))});
   const keys=[...new Set([...Object.keys(raw.sessions.occurrences).filter(k=>!cookingSessions.occurrences[k]),...Object.keys(raw.scales.occurrences).filter(k=>!occurrenceScales.occurrences[k])])];if(keys.length)before.skippedCookingState={keys,sessions:raw.sessions.occurrences,scales:raw.scales.occurrences};before.bulkRecipeUndoNewSelections=meals.filter(m=>!memory.meals.some(old=>String(old.id)===String(m.id))).map(m=>String(m.id));snapshot(JSON.stringify(before));result=true;
  }catch(error){bulkRecipeStorageDraft=null;id=memory.id;meals=memory.meals;mealPlans=memory.mealPlans;weekdayMealOverrides=memory.weekdayMealOverrides;cookingSessions=memory.cookingSessions;occurrenceScales=memory.occurrenceScales;groceryOccurrenceChecks=memory.groceryOccurrenceChecks;recipeLabelCatalog=memory.recipeLabelCatalog;masterGroceryExcludedMealKeys=memory.excluded;previouslyActiveLinkedIds=memory.linked;cookingRecipeStates.clear();for(const [key,value]of memory.recipeStates)cookingRecipeStates.set(key,value);cookingScheduleSignature=memory.signature;throw error}
  finally{bulkRecipeStorageDraft=null;recipeBulkBusy=false}
