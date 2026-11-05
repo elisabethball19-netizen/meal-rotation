@@ -1,5 +1,7 @@
 # Timer completion and recipe-opening validation
 
+This report records the preceding timer/viewer release. See [the latest checklist/favorites/six-second verification](timer_favorites_checklist_test_report.md) for the current interface and alarm limit.
+
 Implemented against main `e8ad49fa27b9c85e931b84147aab208e478bef2b`, in both regular and isolated apps. Browser tests use separate synthetic origins and test storage; no working-app data was opened or changed.
 
 ## Implementation
