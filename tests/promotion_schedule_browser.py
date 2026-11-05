@@ -67,7 +67,7 @@ def run(browser,filename,width,mode,tabs=True):
  ctx,p,errors,prefix=setup(browser,filename,width,mode,tabs);before=state(p);schedule=compose(p);old=sources(p);saved=p.evaluate('slotTest.storage()');p.evaluate('promotionTest.groups()')
  original_order=p.evaluate("promotionTest.order('Weekend')")
  promote_ui(p);now=state(p);new=sources(p)
- day='Sunday' if mode in ['first-manual','legacy-manual','filtered'] else 'Saturday'
+ day='Sunday' if mode in ['first-manual','legacy-manual'] else 'Saturday'
  if mode in ['all-manual','no-days','already-scheduled','linked-slot']:assert compose(p)==schedule,(mode,rows(p),schedule)
  else:assert pick(p,day)['id']==5,(mode,rows(p))
  for r in rows(p):

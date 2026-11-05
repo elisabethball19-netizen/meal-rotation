@@ -56,11 +56,11 @@ def choose_bulk_value(p,d,label,value):
 def edit(b,name,w):
  c,p,errors,prefix=setup(b,name,w);p.evaluate('bulkTest.select([1,2,5])');before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p)
  p.get_by_role('button',name='Edit selected recipes',exact=True).tap();d=p.get_by_role('dialog',name='Edit 3 recipes',exact=True);assert d.get_by_role('button',name='Apply to selected recipes',exact=True).is_disabled()
- d.get_by_role('combobox',name='Family Favorites',exact=True).select_option('true');d.get_by_role('combobox',name='Needs Adjusting',exact=True).select_option('true');d.get_by_text('Add labels',exact=True).tap();d.get_by_role('checkbox',name='Spicy',exact=True).check();d.get_by_role('textbox',name='New label (optional)',exact=True).fill('New Label');d.get_by_role('button',name='Apply to selected recipes',exact=True).tap()
- after=state(p);stable(before,after,('favorite','needsTweaking','labels'))
+ d.get_by_role('combobox',name='Family Favorites',exact=True).select_option('true');d.get_by_role('combobox',name='Needs Adjusting',exact=True).select_option('true');assert not d.get_by_text('Add labels',exact=True).count() and not d.get_by_role('textbox',name='New label (optional)',exact=True).count();d.get_by_role('button',name='Apply to selected recipes',exact=True).tap()
+ after=state(p);stable(before,after,('favorite','needsTweaking'))
  for m in after['meals']:
   old=next(x for x in before['meals'] if x['id']==m['id'])
-  if m['id'] in [1,2,5]:assert m['favorite'] and m['needsTweaking'] and {'Spicy','New Label',*old['labels']}.issubset(m['labels'])
+  if m['id'] in [1,2,5]:assert m['favorite'] and m['needsTweaking'] and m['labels']==old['labels']
   else:assert m==old
  assert compose(p)==schedule and f.sources(p)==groceries and after['sessions']==before['sessions'] and after['scales']==before['scales']
  # Successful edits exit selection; start a new selection before testing Cancel.
@@ -71,7 +71,7 @@ def edit(b,name,w):
  d.get_by_role('button',name='Apply to selected recipes',exact=True).tap();p.get_by_role('dialog',name='Remove Needs Adjusting?',exact=True).get_by_role('button',name='Confirm removal',exact=True).tap();assert all(not m.get('needsTweaking') and 'needsTweakingNote' not in m for m in state(p)['meals'] if m['id'] in [1,2,5])
  p.evaluate('bulkTest.apply([1,2],{favorite:false,removeLabels:["Spicy"]})');assert all('Spicy' not in m['labels'] and not m.get('favorite') for m in state(p)['meals'] if m['id'] in [1,2]);assert compose(p)==schedule
  backup=p.evaluate('bulkTest.snapshot()');expected=copy.deepcopy(state(p));p.reload();assert state(p)==expected;p.evaluate('bulkTest.apply([1],{favorite:true})');p.evaluate('b=>bulkTest.restore(b)',backup);p.reload();assert state(p)==expected and not errors,errors
- print('PASS',name,w,'one bulk dialog, explicit-only mixed changes, additive/removal labels, favorites, preserved individual notes, confirmed status/note removal, Cancel/reload/backup and unchanged progress/groceries/schedule',flush=True);c.close()
+ print('PASS',name,w,'one bulk dialog, explicit-only mixed changes, retained legacy labels with no label controls, favorites, preserved individual notes, confirmed status/note removal, Cancel/reload/backup and unchanged progress/groceries/schedule',flush=True);c.close()
 
 def data_operations(b,name):
  for operation in ['group','promote','demote','delete','linked-delete','shared-delete','failure','collision']:

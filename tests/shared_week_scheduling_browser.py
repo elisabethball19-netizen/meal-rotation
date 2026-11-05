@@ -98,9 +98,9 @@ def constrained_filters(b,name):
   c,p,e,pr=setup(b,name);p.evaluate('sharedTest.reset()');p.evaluate('sharedTest.constrained()');assign(p,'Thursday');assert pick(p,'Thursday')['id']==1
   if manual:p.evaluate("promotionTest.manual('Thursday','Weekend',1)")
   p.evaluate("sharedTest.filters('Friday','Weekend',['Pork'])");assign(p,'Friday')
-  assert pick(p,'Friday')['id']==1 and pick(p,'Thursday')['id']==(1 if manual else 2),(manual,f.rows(p))
+  assert pick(p,'Friday')['id']==2 and pick(p,'Thursday')['id']==1,(manual,f.rows(p))
   saved=compose(p);p.reload();assert compose(p)==saved;check(c,p,e,pr)
- print('PASS',name,'overlapping filters reallocate only when necessary; manual choices never moved; repeats only when protection prevents a distinct assignment',flush=True)
+ print('PASS',name,'legacy label filters are inert; scheduled/manual choices remain stable; distinct candidates used',flush=True)
 
 def allocation_graphs(b,name):
  rng=random.Random(19);inputs=[];expected=[]
@@ -109,7 +109,7 @@ def allocation_graphs(b,name):
   for i,day in enumerate(days):
    eligible=[m for m in library if rng.random()<.55] or [rng.choice(library)];label='slot'+str(i)
    for meal in eligible:meal['labels'].append(label)
-   plan=plans[i%2];plan['weekdayCategories'][day]=['G'];plan.setdefault('weekdayRecipeFilters',{})[day+'::G']=[label];possibles.append([m['id'] for m in eligible])
+   plan=plans[i%2];plan['weekdayCategories'][day]=['G'];plan.setdefault('weekdayRecipeFilters',{})[day+'::G']=[label];possibles.append([m['id'] for m in library])
    if rng.random()<.7:
     id=rng.choice(eligible)['id'];plan['weekdayMealOverrides'][day+'::G']=str(id);manual=rng.random()<.25;plan['cycleSlotChoices'][day+'::G']={'mealId':str(id),'substitution':manual}
     if manual:fixed[day]=id
@@ -122,7 +122,7 @@ def allocation_graphs(b,name):
   assert len(result)==len(x['days'])
   for entry in result:assert entry['id'] in possible[x['days'].index(entry['day'])] and (entry['day'] not in fixed or entry['id']==fixed[entry['day']])
   assert len({entry['id'] for entry in result})==maximum,(x,result,maximum)
- check(c,p,e,pr);print('PASS',name,'300 deterministic allocation graphs: maximum distinct eligible recipes across tabs, arbitrary overlapping filters and protected manual choices',flush=True)
+ check(c,p,e,pr);print('PASS',name,'300 deterministic allocation graphs: maximum distinct eligible recipes across tabs, inert legacy filters and protected manual choices',flush=True)
 
 if __name__=='__main__':
  with sync_playwright() as pw:

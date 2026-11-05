@@ -7,7 +7,7 @@ from scheduled_linked_slots_browser import state,compose
 f.EXTRA+='''window.favoriteDisplayTest={
  seed:()=>{for(const m of meals)delete m.favorite;meals.find(m=>m.id===1).favorite=true;meals.find(m=>m.id===20).favorite=true;meals.find(m=>m.id===1).linkedMealIds=[20];persist()},
  long:()=>{meals.find(m=>m.id===1).name='Very long family-favorite garlic chicken recipe with roasted vegetables and jasmine rice';persist();renderList()},
- viewer:id=>openRecipeViewer(meals.find(m=>m.id===id)),
+ weekly:()=>{showTop=true;allMealsActive=true;groceryTabActive=false;renderList()},viewer:id=>openRecipeViewer(meals.find(m=>m.id===id)),
  backup:()=>slotBackup.capture(),restore:storage=>{slotBackup.restore(slotBackup.normalize({version:2,...JSON.parse(storage.mealRotationDataV1),storage}));backupRestoreReloadPending=true}
 };'''
 def row(p,id):return p.locator('.master-category-meal[data-meal-id="'+str(id)+'"]')
@@ -16,6 +16,9 @@ def run(b,name,width):
  c,p,errors,prefix=f.setup(b,name,width,'linked-slot');p.evaluate('favoriteDisplayTest.seed()');p.evaluate('promotionTest.groups()');reveal_recipe(p,20);before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p)
  assert not p.locator('#list .recipe-favorite-toggle[aria-pressed="false"]').count();assert row(p,1).locator('.recipe-favorite-toggle').count()==1;assert row(p,1).locator('.recipe-favorite-toggle').get_attribute('aria-pressed')=='true';assert row(p,1).locator('.recipe-favorite-toggle svg').evaluate('(e)=>getComputedStyle(e).fill')!='none'
  assert not row(p,20).locator('.recipe-favorite-toggle').count() and not p.locator('.top-inline-linked .recipe-favorite-toggle').count()
+ # My Rotation and Weekly Overview also hide regular/linked hearts without changing favorite data.
+ p.evaluate('promotionTest.my()');assert not p.locator('#list .recipe-favorite-toggle[aria-pressed="false"]').count();assert p.locator('#list [data-meal-id="1"] .recipe-favorite-toggle').count()==1;assert not p.locator('#list [data-meal-id="20"] .recipe-favorite-toggle,.top-inline-linked .recipe-favorite-toggle').count()
+ p.evaluate('favoriteDisplayTest.weekly()');assert not p.locator('#list .recipe-favorite-toggle[aria-pressed="false"]').count();assert p.locator('#list [data-meal-id="1"] .recipe-favorite-toggle').count()==1;assert not p.locator('#list [data-meal-id="20"] .recipe-favorite-toggle').count();assert next(m for m in state(p)['meals'] if m['id']==20)['favorite'];p.evaluate('promotionTest.groups()');reveal_recipe(p,20)
  # Favorites toggle in the existing popup without dismissing it or changing other data.
  row(p,1).locator('.master-category-meal-name').first.tap();d=menu(p);heart=d.locator('.recipe-favorite-toggle');heart.tap();assert d.is_visible() and heart.get_attribute('aria-pressed')=='false' and not row(p,1).locator('.recipe-favorite-toggle').count();heart.tap();assert d.is_visible() and heart.get_attribute('aria-pressed')=='true' and row(p,1).locator('.recipe-favorite-toggle').count()==1;d.get_by_role('button',name='Close meal options',exact=True).tap()
  # The linked name opens its own popup; its favorite remains available only there/viewer.
