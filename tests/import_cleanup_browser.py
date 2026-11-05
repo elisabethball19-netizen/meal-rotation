@@ -91,9 +91,9 @@ def run(browser,filename):
     assert page.evaluate('importTest.match({sourceId:"bread-id"}).id')==2
     assert page.evaluate('(uuid)=>importTest.match({url:"https://recipesage.com/app/recipes/"+uuid},[{id:9,name:"Source recipe",recipeSageId:uuid,url:"https://original.test/recipe"}]).id',SAGE)==9
     original=state();assert original['meals'][0]['instructions']==DIRTY,'opening app must not rewrite existing recipes'
-    # Existing-recipe review is accessible from Recipe settings, and Cancel saves nothing.
+    # The retained import-review flow still supports Cancel; its old Recipe Settings button was removed.
     page.evaluate('importTest.open()');page.locator('.recipe-viewer-steps .cooking-item').first.click();progress=state()['sessions']
-    page.get_by_role('button',name='Recipe settings',exact=True).click();page.get_by_role('button',name='Review instruction cleanup / related recipes',exact=True).click()
+    page.evaluate('importTest.review()')
     dialog=page.locator('#recipeImportReview');assert dialog.is_visible()
     assert dialog.locator('input:checked').count()==0
     assert 'Create an account' not in dialog.get_by_role('textbox').input_value()
