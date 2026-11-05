@@ -29,9 +29,9 @@ def choose(p,id=2,day='Monday',decision=None):
 
 def run(browser,filename,width,tabs):
  ctx,p,errors,prefix=fixture.setup(browser,filename,width,linked=True,duplicate=True,multi=True);p.set_default_timeout(8000);p.evaluate('occasionalTest.prepare',tabs);p.evaluate('slotTest.seed()');base=state(p);scheduled=compose(p);before=source_states(p);saved=p.evaluate('slotTest.storage()')
- # Both empty heading and message, and the full blank area, offer exactly the two actions.
+ # Existing planning actions remain available alongside the Stage 1 empty-day action.
  for target in [h(p),p.locator('[data-weekday=Monday]+.empty-weekday-meal')]:
-  target.tap();d=p.get_by_role('dialog',name="Plan Monday's meal",exact=True);assert d.get_by_role('button').all_text_contents()[1:]==['Choose a meal','Choose meal groups'];d.get_by_role('button',name='Close',exact=True).tap();assert p.evaluate('slotTest.storage()')==saved
+  target.tap();d=p.get_by_role('dialog',name="Plan Monday's meal",exact=True);assert d.get_by_role('button').all_text_contents()[1:]==['Choose a meal','Choose meal groups','Leave Entire Day Empty This Week'];d.get_by_role('button',name='Close',exact=True).tap();assert p.evaluate('slotTest.storage()')==saved
  d=plan(p,'Wednesday');d.get_by_role('button',name='Close',exact=True).tap()
  choose(p);assert {r['id'] for r in meal(p)}=={2,12}
  assert state(p)['plans'][0]['weekdayCategories']==base['plans'][0]['weekdayCategories'];assert definitions(state(p))==definitions(base)
@@ -42,7 +42,7 @@ def run(browser,filename,width,tabs):
  # Background and heading open planning, but the recipe name opens its normal options.
  wrap=p.locator('[data-weekday=Monday]+.top-recipe-wrap');r=wrap.bounding_box();wrap.tap(position={'x':r['width']-3,'y':r['height']-3});d=p.get_by_role('dialog',name="Plan Monday's meal",exact=True);d.get_by_role('button',name='Close',exact=True).tap()
  p.locator('[data-weekday=Monday]+.top-recipe-wrap .mealname').tap();menu=p.get_by_role('dialog',name='Meal options for Monday',exact=True)
- assert menu.get_by_role('button').all_text_contents()[1:]==['Open recipe','Change meal','Edit meal','Edit grocery list','Edit last cooked date']
+ assert menu.get_by_role('button').all_text_contents()[2:]==['Open recipe','Change meal','Skip This Meal','Leave Empty This Week','Edit meal','Edit grocery list']
  menu.get_by_role('button',name='Change meal',exact=True).tap();c=p.get_by_role('dialog',name="Choose Monday's meal",exact=True);assert c.get_by_role('button',name='Remove one-time meal',exact=True).is_visible();c.get_by_role('button',name='Cancel',exact=True).tap()
  # Regular assigned day retains direct heading/group behavior and compact chooser styling.
  h(p,'Tuesday').tap();p.get_by_role('dialog',name="Choose Tuesday's meal groups",exact=True).get_by_role('button',name='Close',exact=True).tap()
@@ -159,3 +159,4 @@ if __name__=='__main__':
      for choice in ['yes','no','cancel']:duplicates(b,filename,width,choice,origin)
    cancel_settings(b,filename)
   b.close()
+

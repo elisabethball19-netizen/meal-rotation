@@ -59,6 +59,7 @@ def empties(browser,name):
   assert any(x['planId']=='original' and x['day']=='Tuesday' and x['cat']=='Sides' for x in rows(p)),rows(p)
   assert all(x in rows(p) for x in old if x['planId']!='original')
   assert definitions(p)==before and plan(p)['weekdayCategories']==assign
+  p.evaluate('weekTest.my()');assert p.locator('.weekday-heading[data-weekday=Tuesday]').evaluate('(el)=>el.nextElementSibling.textContent.includes("Rice · Empty this week")')
   p.reload();assert definitions(p)==before and 'Tuesday::Rice' in plan(p)['weekSchedule']['slots']
   backup=p.evaluate('weekTest.storage()');p.evaluate('weekTest.resume()');p.evaluate('weekTest.restore',backup);p.reload()
   assert definitions(p)==before and not any(x['planId']=='original' and x['cat']=='Rice' for x in rows(p))
@@ -73,6 +74,7 @@ def empties(browser,name):
   c,p,errors,_=setup(browser,name,multi=True)
   before=definitions(p);old=rows(p);p.evaluate('weekTest.empty(null,"Tuesday",true)')
   assert not any(x['planId']=='original' and x['day']=='Tuesday' for x in rows(p))
+  p.evaluate('weekTest.my()');assert p.locator('.empty-weekday-meal').filter(has_text='Empty this week').count()==len(plan(p)['weekSchedule']['slots'])
   p.evaluate('weekTest.my();weekTest.move()');dialog=p.get_by_role('heading',name='Select meals to rotate out').locator('..');assert dialog.get_by_role('checkbox').count()>=2
   dialog.get_by_role('button',name='Cancel',exact=True).click()
   p.evaluate('all=>weekTest.rotate(null,all)',all_tabs)
@@ -129,7 +131,7 @@ def ui_and_reorder(browser,name,width):
  handles.first.focus();p.keyboard.press('ArrowDown');assert p.evaluate('weekTest.keys()')==list(reversed(original))
  p.reload();p.evaluate('weekTest.my()');assert p.evaluate('weekTest.keys()')==list(reversed(original))
  # Actual long-press pointer drag back to the original order.
- wraps=p.locator('.top-recipe-wrap[data-weekday=Tuesday]');first=wraps.first;last=wraps.last;handle=first.locator('.week-reorder-handle').bounding_box();target=last.bounding_box()
+ wraps=p.locator('.top-recipe-wrap[data-schedule-day=Tuesday]');first=wraps.first;last=wraps.last;handle=first.locator('.week-reorder-handle').bounding_box();target=last.bounding_box()
  p.mouse.move(handle['x']+handle['width']/2,handle['y']+handle['height']/2);p.mouse.down();p.wait_for_timeout(500)
  p.mouse.move(target['x']+target['width']/2,target['y']+target['height']-2,steps=8);p.mouse.up()
  assert p.evaluate('weekTest.keys()')==original,(p.evaluate('weekTest.keys()'),original)
@@ -142,6 +144,8 @@ def ui_and_reorder(browser,name,width):
  assert p.evaluate('weekTest.keys()')==list(reversed(original)) and not p.locator('#name').count()
  p.evaluate('weekTest.order',original);cdp.detach()
  backup=p.evaluate('weekTest.storage()');p.evaluate('weekTest.restore',backup);p.reload();assert p.evaluate('weekTest.keys()')==original
+ p.evaluate('keys=>{weekTest.my();weekTest.order(keys)}',list(reversed(original)));p.evaluate('weekTest.rotate()');assert not plan(p)['weekSchedule']['order']
+ p.evaluate('weekTest.back()');assert p.evaluate('weekTest.keys()')==list(reversed(original)) and definitions(p)==before
  p.evaluate('weekTest.my()');p.locator('.weekday-heading[data-weekday=Tuesday]').click();p.get_by_role('button',name='Leave Entire Day Empty This Week',exact=True).click()
  assert not any(x['planId']=='original' and x['day']=='Tuesday' for x in rows(p))
  assert_clean(errors);c.close();print('PASS',name,width,'real empty/Change Meal/one-time/day controls; escaped text; keyboard and long-press reorder; reload and backup retain display-only order',flush=True)

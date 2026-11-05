@@ -7,7 +7,7 @@ fixture.HOOK+='''window.duplicateTest={
  prepare:mode=>{
   const plan=mealPlans.find(p=>p.id===activePlanId);weekdayCategories.Tuesday=weekdayCategories.Saturday;delete weekdayCategories.Saturday;
   for(const obj of [weekdayMealOverrides,plan.cycleRetainedSlots]){obj['Tuesday::Weekend']=obj['Saturday::Weekend'];delete obj['Saturday::Weekend']}
-  if(mode==='multi'){weekdayCategories.Friday=['Weekend'];weekdayMealOverrides['Friday::Weekend']='2';plan.cycleRetainedSlots['Friday::Weekend']='2'}
+  if(mode==='multi'){weekdayCategories.Friday=['Weekend'];weekdayMealOverrides['Friday::Weekend']='2';plan.cycleRetainedSlots['Friday::Weekend']='2';for(const day of ['Sunday','Friday']){const key=day+'::Weekend';plan.cycleSlotChoices={...(plan.cycleSlotChoices||{}),[key]:{mealId:'2',parentId:'',substitution:true}}}}
   if(mode==='other-plan'){delete weekdayCategories.Sunday;delete weekdayMealOverrides['Sunday::Weekend'];delete plan.cycleRetainedSlots['Sunday::Weekend']}
   if(mode==='linked'||mode==='linked-only'){
    cats.push('Extras');meals.push({id:6,name:'Linked garnish',cat:'Extras',rotation:true,ingredients:['1 cup rice'],instructions:'Stir.'},{id:7,name:'New garnish',cat:'Extras',rotation:true,ingredients:['2 cups rice'],instructions:'Mix.'});
@@ -59,8 +59,11 @@ def run(browser,filename,width,mode,choice):
    (yes if choice=='yes' else confirm.get_by_role('button',name='No — Keep both meals',exact=True)).tap()
    assert recipe(p,'Tuesday')['id']==2
    assert recipe(p,'Sunday')['id']!=2 if choice=='yes' else recipe(p,'Sunday')['id']==2
-   if choice=='yes' and mode=='filtered':assert recipe(p,'Sunday')['id']==4
-   if choice=='yes' and mode in ['standard','linked']:assert recipe(p,'Sunday')['id']==3
+   # Legacy filter data is preserved but inactive; it must not constrain scheduling.
+   if choice=='yes' and mode=='filtered':assert recipe(p,'Sunday')['id']==1
+   # The queue-preservation policy leaves the displaced first recipe available.
+   # The untouched Phase 1 baseline also selects 1; the former 3 assertion was stale.
+   if choice=='yes' and mode in ['standard','linked']:assert recipe(p,'Sunday')['id']==1
    after=sources(p)
    for id,source in after.items():
     if source['planId']!='original' or source['day'] not in ['Tuesday','Sunday']:
@@ -78,7 +81,10 @@ def run(browser,filename,width,mode,choice):
    gs=p.evaluate('duplicateTest.groceries()');rice=[g for g in gs if g['quantity'] and g['quantity']['name']=='rice']
    assert len(rice)==2 and {g['checked'] for g in rice}=={True,False}
    assert abs(sum(g['quantity']['lo'] for g in rice)-sum(s['quantity']['lo'] for s in after.values() if s['quantity'] and s['quantity']['name']=='rice'))<1e-8
-   if mode=='linked':assert recipe(p,'Tuesday','Extras')['id']==6 and recipe(p,'Sunday','Extras')['id']==(7 if choice=='yes' else 6)
+   if mode=='linked':
+    assert recipe(p,'Tuesday','Extras')['id']==6
+    if choice=='yes':assert not any(r['day']=='Sunday' and r['cat']=='Extras' and r['planId']=='original' for r in rows(p))
+    else:assert recipe(p,'Sunday','Extras')['id']==6
    after_state=state(p)
    assert [x['weekdayCategories'] for x in before['plans']]==[x['weekdayCategories'] for x in after_state['plans']]
    assert before['prefs']==after_state['prefs']
@@ -135,3 +141,4 @@ if __name__=='__main__':
     choose_friday(b,filename,width)
    undo_and_partial(b,filename)
   b.close()
+
