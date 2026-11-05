@@ -44,7 +44,7 @@ def run(browser,filename,width):
  touch('touchEnd');page.wait_for_timeout(250);assert page.evaluate('scrollY')>20 and order()==initial and state()['custom'] is None
  # Existing chevron/title taps, edit pencil and add buttons stay independent.
  card('Monday group').locator('.master-category-title').tap();page.wait_for_timeout(300);assert 'Monday group' in state()['expanded']
- button('Edit Monday group (reorder, rename, delete)').tap();assert page.get_by_role('dialog',name='Edit meal group').is_visible();assert button('Move group later').is_enabled();button('Cancel category editing').tap()
+ button('Edit Monday group (reorder, rename, delete)').tap();assert page.get_by_role('dialog',name='Edit meal group').is_visible();assert button('Move group later').is_enabled();button('Cancel group editing').tap()
  # The chevron stays an expansion control, and the add icon still opens the real editor.
  svg=card('Monday group').locator('.master-category-title svg');svg.scroll_into_view_if_needed();b=svg.bounding_box();touch('touchStart',b['x']+9,b['y']+9);page.wait_for_timeout(620);assert not page.locator('.master-group-drag-ghost').count();touch('touchCancel')
  button('Add meal to Monday group').tap();assert page.locator('#name').is_visible();page.locator('#name').fill('Added through existing control');page.locator('#save').click();page.wait_for_timeout(100)
@@ -73,10 +73,10 @@ def run(browser,filename,width):
  page.evaluate('groupTest.assign()');assert order()==custom and state()['cats']==CATS
  page.evaluate('groupTest.add()');assert order()==custom+['Brand New Group']
  # Rename through the real editor keeps its saved position.
- target='Friday group';at=order().index(target);button('Edit '+target+' (reorder, rename, delete)').tap();button('Rename category').tap();field=page.get_by_role('textbox');field.fill('Friday Renamed');button('Save').tap();page.wait_for_timeout(100);assert order()[at]=='Friday Renamed' and target not in order()
+ target='Friday group';at=order().index(target);button('Edit '+target+' (reorder, rename, delete)').tap();button('Rename group').tap();field=page.get_by_role('textbox');field.fill('Friday Renamed');button('Save').tap();page.wait_for_timeout(100);assert order()[at]=='Friday Renamed' and target not in order()
  page.evaluate('groupTest.remove("Group 20")');assert 'Group 20' not in order() and 'Group 20' not in state()['custom']
  # Existing ordering arrows operate the same display-only custom order, including assigned groups.
- before=order();button('Edit Monday group (reorder, rename, delete)').tap();button('Move group later').tap();button('Cancel category editing').tap();assert order().index('Monday group')==before.index('Monday group')+1
+ before=order();button('Edit Monday group (reorder, rename, delete)').tap();button('Move group later').tap();button('Cancel group editing').tap();assert order().index('Monday group')==before.index('Monday group')+1
  # Import adds a predictable trailing group without overwriting the saved order.
  before=order();r={'name':'Imported test recipe','identifier':'new-source','recipeIngredient':['1 cup oats'],'recipeInstructions':'Cook oats.','recipeCategory':['Imported group']};page.evaluate('(r)=>groupTest.import(r)',r)
  page.locator('#recipeImportDialog').get_by_role('checkbox',name='Imported group').check();page.locator('#recipeImportDialog').get_by_role('button',name='Import recipes',exact=True).click();button('OK').tap();page.evaluate('groupTest.open()');assert order()==before+['Imported group']

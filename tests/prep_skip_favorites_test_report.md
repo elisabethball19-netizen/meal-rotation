@@ -1,5 +1,7 @@
 # Make ahead / Skip This Week / favorites validation
 
+This records the original feature release. See [Today’s To-Do and compact-editor verification](today_editor_test_report.md) for the current reminder displays and editor layout.
+
 Tested with Chromium touch emulation on isolated origins and synthetic saved app records, for both `index.html` and `meal-rotation-test.html`. Working-app browser data was never opened, reset, or changed. Test-app checks also verify the regular storage sentinel remains untouched.
 
 ## Focused suites — passed

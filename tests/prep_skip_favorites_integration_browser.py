@@ -22,7 +22,7 @@ f.EXTRA+='''window.integratedTest={
 };'''
 def run(b,name,width):
  c,p,errors,prefix=f.setup(b,name,width,'linked-slot');p.clock.install(time=datetime(2026,11,3,8,tzinfo=timezone.utc));p.evaluate('integratedTest.seed()');p.evaluate('promotionTest.check()');before=copy.deepcopy(state(p));schedule=compose(p);sources=f.sources(p)
- p.evaluate('promotionTest.my()');p.get_by_role('button',name='Make ahead: Pernil',exact=True).tap();dialog=p.get_by_role('dialog',name='Make ahead: Pernil',exact=True);assert '1 day before' in dialog.inner_text() or '2026-11-06' in dialog.inner_text();dialog.get_by_role('checkbox').check();dialog.get_by_role('button',name='Close make ahead',exact=True).tap()
+ p.evaluate('prepTest.overview()');p.get_by_role('checkbox',name="Thaw Pernil · for Saturday's Pernil",exact=True).check();p.evaluate('promotionTest.my()');assert not p.get_by_role('button',name='Make ahead: Pernil',exact=True).count()
  assert next(x for x in p.evaluate('integratedTest.rows()') if x['id']==1)['complete']
  p.evaluate('integratedTest.skip()');after=state(p);now=compose(p);assert next(x for x in now if x[:3]==('original','Saturday','Weekend'))[3]==3
  assert next(x for x in now if x[:3]==('original','Saturday','Sides'))[3]==21,'New linked side must replace unprotected scheduled side'

@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from editor_sections_fixture import open_editor_section
 
 ROOT = Path(__file__).resolve().parents[1]
 HOOK = """window.linkTest={open:(day='Monday')=>openRecipeViewer(meals[0],cookingContext('original',day,'Chicken',meals[0])),state:()=>({links:validRecipeIngredientLinks(meals[0]),matches:[...recipeIngredientMatches(meals[0])],sessions:cookingSessions,edit:recipeViewer?.linkEdit?{step:recipeViewer.linkEdit.step,selected:[...recipeViewer.linkEdit.selected]}:null,prefs:recipeViewPrefs}),render:renderRecipeViewer,followFirst:()=>recipeViewer.syncToInstruction?.(cookingItemTokens(meals[0]).steps[0].token)};"""
@@ -75,7 +76,7 @@ def run(browser, filename, mode):
         assert ing(1).evaluate('(e)=>e.classList.contains("recipe-sync-relevant")') or ing(2).evaluate('(e)=>e.classList.contains("recipe-sync-relevant")')
     # Edit Recipe consumes exactly the same saved override.
     page.get_by_role('button',name='Edit Recipe',exact=True).click()
-    page.locator('#recipeIngredientLinks summary').click()
+    open_editor_section(page,'recipe');page.locator('#recipeIngredientLinks summary').click()
     assert page.get_by_label('Ingredient matching',exact=True).input_value()=='manual'
     assert page.locator('.recipe-link-choices input').evaluate_all('(els)=>els.slice(0,3).map(e=>e.checked)')==[False,True,True]
     page.locator('#cancel').click();page.wait_for_timeout(100)
