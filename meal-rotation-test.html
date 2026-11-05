@@ -1343,6 +1343,7 @@ function validateBackupCore(d){
  if('mealPlans'in d){const plans=d.mealPlans;if(!object(plans)||!Array.isArray(plans.plans)||!plans.plans.length||plans.plans.some(p=>!object(p)||typeof p.id!=='string'||!p.id||typeof p.name!=='string'||!object(p.weekdayCategories)||('weekdayMealOverrides'in p&&!object(p.weekdayMealOverrides))||('weekdayRecipeFilters'in p&&!object(p.weekdayRecipeFilters))||('pinnedCats'in p&&!Array.isArray(p.pinnedCats)))||new Set(plans.plans.map(p=>p.id)).size!==plans.plans.length||('activeId'in plans&&!plans.plans.some(p=>p.id===plans.activeId)))throw new Error('Invalid meal plans');}
  if(d.mealPlans)for(const plan of d.mealPlans.plans)if('sideGroupPairs'in plan&&(!object(plan.sideGroupPairs)||Object.entries(plan.sideGroupPairs).some(([day,pairs])=>!weekdays.includes(day)||!object(pairs)||Object.values(pairs).some(id=>typeof id!=='string'||!id))))throw Error('Invalid side-group pairing');
  if(d.mealPlans)for(const plan of d.mealPlans.plans)if('dependentSideState'in plan&&(!object(plan.dependentSideState)||Object.entries(plan.dependentSideState).some(([key,value])=>{let parts;try{parts=JSON.parse(key)}catch(e){return true}return !Array.isArray(parts)||parts.length!==2||!weekdays.includes(parts[0])||typeof parts[1]!=='string'||!object(value)||typeof value.mainId!=='string'||typeof value.mealId!=='string'||typeof value.automatic!=='boolean'})))throw Error('Invalid dependent side state');
+ if(d.mealPlans)for(const plan of d.mealPlans.plans)if('weekSchedule'in plan)validateWeekSchedule(plan.weekSchedule);
  if(d.mealPlans)for(const plan of d.mealPlans.plans)if('occasionalMeals'in plan&&(!object(plan.occasionalMeals)||Object.entries(plan.occasionalMeals).some(([day,id])=>!weekdays.includes(day)||!['string','number'].includes(typeof id)||!String(id).trim())))throw Error('Invalid one-time meals');
  for(const key of ['weekdayCategories','weekdayMealOverrides','weekdayColors','categoryColors','timeDisplayPrefs'])if(key in d&&!object(d[key]))throw new Error('Invalid '+key);
  for(const key of ['pinnedCats','expandedCats'])if(key in d&&(!Array.isArray(d[key])||d[key].some(x=>typeof x!=='string')))throw new Error('Invalid '+key);
@@ -3429,20 +3430,20 @@ function coordinateDependentSides(restore=false){
  try{
   for(const plan of mealPlans){
    if(!plan.sideGroupPairs)continue;if(plan.id===activePlanId)plan.weekdayMealOverrides={...weekdayMealOverrides};
-   let entries=getDisplayedWeekdayMealsForPlan(plan);rememberDependentSideState(plan,entries);
+   let entries=getDisplayedWeekdayMealsForPlan(plan,null,null,null,true);rememberDependentSideState(plan,entries);
    for(const day of weekdays){const raw=plan.weekdayCategories?.[day];for(const cat of Array.isArray(raw)?raw:[raw]){
     if(!cat)continue;const parent=pairedMainGroup(plan,day,cat);if(!parent)continue;const stateKey=dependentSideKey(day,cat),old=plan.dependentSideState[stateKey],main=entries.find(item=>item.day===day&&item.cat===parent),mainId=main?String(main.meal.id):'';
     if(!restore&&old.mainId!==mainId){
      const outgoing=meals.find(meal=>String(meal.id)===String(old.mealId));if(old.automatic&&outgoing)advanceDependentSource(plan,outgoing);
      const key=weekdaySlotKey(day,cat),prior=plan.cycleSlotChoices?.[key]||{};plan.weekdayMealOverrides={...(plan.weekdayMealOverrides||{})};plan.cycleRetainedSlots={...(plan.cycleRetainedSlots||{})};delete plan.weekdayMealOverrides[key];delete plan.cycleRetainedSlots[key];if((Array.isArray(raw)?raw:[raw])[0]===cat)delete plan.weekdayMealOverrides[day];
      plan.cycleSlotChoices={...(plan.cycleSlotChoices||{}),[key]:{parentId:'',blockedParents:[],avoidMealId:outgoing?String(outgoing.id):String(prior.avoidMealId||''),previousGroupId:outgoing?groupIdentity(outgoing.cat):prior.previousGroupId}};
-     if(plan.id===activePlanId)weekdayMealOverrides={...plan.weekdayMealOverrides};entries=getDisplayedWeekdayMealsForPlan(plan);const selected=entries.find(item=>item.day===day&&item.cat===cat);
+     if(plan.id===activePlanId)weekdayMealOverrides={...plan.weekdayMealOverrides};entries=getDisplayedWeekdayMealsForPlan(plan,null,null,null,true);const selected=entries.find(item=>item.day===day&&item.cat===cat);
      if(selected){plan.weekdayMealOverrides[key]=String(selected.meal.id);plan.cycleRetainedSlots[key]=String(selected.meal.id);plan.cycleSlotChoices[key]={...plan.cycleSlotChoices[key],mealId:String(selected.meal.id),parentId:String(selected.linkedTo??'')};resolveRotatedMealSlots(plan,[selected],entries.filter(item=>item.day!==day||item.cat!==cat))}
      else plan.cycleSlotChoices[key]={...plan.cycleSlotChoices[key],empty:true,sideUnavailable:true};
      if(plan.id===activePlanId)weekdayMealOverrides={...plan.weekdayMealOverrides};changed=true;
     }
    }}
-   entries=getDisplayedWeekdayMealsForPlan(plan);rememberDependentSideState(plan,entries,true);
+   entries=getDisplayedWeekdayMealsForPlan(plan,null,null,null,true);rememberDependentSideState(plan,entries,true);
   }
   return changed;
  }finally{coordinatingDependentSides=false}
@@ -5164,7 +5165,7 @@ function openWeekdayCard(day){
  const shade=document.createElement('div');shade.style.cssText='position:fixed;inset:0;background:#0008;z-index:13000;display:grid;place-items:center;padding:18px';
  const panel=document.createElement('div');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Plan '+day+"'s meal");panel.style.cssText='background:#fff;color:#242424;border-radius:14px;padding:18px;width:min(420px,100%);max-height:80vh;overflow-y:auto';
  appendRotationCloseHeader(panel,'Plan '+day+"'s meal",()=>shade.remove());
- for(const [label,action] of [['Choose a meal',()=>{const current=getDisplayedWeekdayMeals().find(item=>item.day===day&&item.occasional&&!item.linkedTo);openWeekdayMealChooser(day,null,current?.meal,true)}],['Choose meal groups',()=>openDayCategoryPicker(day)]]){const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=label;button.style.cssText='display:block;width:100%;min-height:44px;padding:12px 14px;margin-top:10px;text-align:left';button.onclick=()=>{shade.remove();action()};panel.append(button)}
+ for(const [label,action] of [['Choose a meal',()=>{const current=getDisplayedWeekdayMeals().find(item=>item.day===day&&item.occasional&&!item.linkedTo);openWeekdayMealChooser(day,null,current?.meal,true)}],['Choose meal groups',()=>openDayCategoryPicker(day)],['Leave Entire Day Empty This Week',()=>leaveWeekEmpty(day,null,true)]]){const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=label;button.style.cssText='display:block;width:100%;min-height:44px;padding:12px 14px;margin-top:10px;text-align:left';button.onclick=()=>{shade.remove();action()};panel.append(button)}
  shade.append(panel);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();shade.remove()}};document.body.append(shade);
 }
 function removeOccasionalMeal(day){
@@ -5178,6 +5179,8 @@ function openDayCategoryPicker(day){
  const heading=document.createElement('h3');heading.textContent='Choose '+day+"'s meal groups";heading.id='weekdayGroupPickerTitle';heading.style.cssText='margin:0;min-width:0;flex:1;overflow-wrap:anywhere';
  const header=document.createElement('div');header.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-shrink:0';
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close');close.style.cssText+=';width:44px;height:44px;min-width:44px;min-height:44px;flex:0 0 44px';close.onclick=()=>shade.remove();header.append(heading,close);panel.append(header);
+ const emptyDay=document.createElement('button');emptyDay.type='button';emptyDay.className='smallbtn';emptyDay.style.minHeight='44px';emptyDay.textContent='Leave Entire Day Empty This Week';emptyDay.onclick=()=>{shade.remove();leaveWeekEmpty(day,null,true)};panel.append(emptyDay);
+ if(Object.keys(weekSchedule(mealPlans.find(p=>p.id===activePlanId)).slots).some(key=>key.startsWith(day+'::'))){const resume=document.createElement('button');resume.type='button';resume.className='smallbtn';resume.textContent='Resume planned meals';resume.style.minHeight='44px';resume.onclick=()=>{shade.remove();resumeWeekSlot(day,null,true)};panel.append(resume)}
  const body=document.createElement('div');body.className='weekday-group-picker-body';body.style.cssText='overflow-y:auto;min-height:0;flex:1;overscroll-behavior:contain';panel.append(body);
  const assigned=getDayCategories(day);
  for(const cat of getCategoryButtonOrder()){const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;padding:4px;min-height:36px';const cb=document.createElement('input');cb.type='checkbox';cb.value=cat;cb.checked=assigned.includes(cat);cb.style.width='20px';cb.style.height='20px';label.append(cb,document.createTextNode(cat));body.append(label)}
@@ -5610,7 +5613,7 @@ function allocateScheduledWeek(library,categories,plans,days,reservedPlanId=null
 function stabilizeAutomaticWeekSlots(){
  if(restoringRotationCalendars)return false;
  const before=JSON.stringify(mealPlans),schedules=new Map();
- for(const plan of mealPlans){const current=plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan;schedules.set(plan.id,getDisplayedWeekdayMealsForPlan(current))}
+ for(const plan of mealPlans){const current=plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan;schedules.set(plan.id,getDisplayedWeekdayMealsForPlan(current,null,null,null,true))}
  for(const plan of mealPlans){
   rememberDependentSideState(plan,schedules.get(plan.id)||[]);plan.weekdayMealOverrides={...(plan.weekdayMealOverrides||{})};plan.cycleRetainedSlots={...(plan.cycleRetainedSlots||{})};plan.cycleSlotChoices={...(plan.cycleSlotChoices||{})};
   for(const item of schedules.get(plan.id)||[]){
@@ -5621,7 +5624,105 @@ function stabilizeAutomaticWeekSlots(){
  }
  weekdayMealOverrides={...(mealPlans.find(plan=>plan.id===activePlanId)?.weekdayMealOverrides||{})};return before!==JSON.stringify(mealPlans);
 }
-function getDisplayedWeekdayMealsForPlan(plan, priorUsedByGroup=null, savedSchedule=null, reservedByGroup=null){
+// Current-week presentation is separate from the permanent recipe queues.
+// Optional plan fields travel through existing snapshots, backups and recovery.
+function validateWeekSchedule(value){
+ const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+ if(!object(value)||value.version!==1||!object(value.slots)||!object(value.order))throw Error('Invalid temporary week schedule');
+ const validKey=key=>typeof key==='string'&&['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].some(day=>key.startsWith(day+'::')&&key.length>day.length+2);
+ for(const [key,item] of Object.entries(value.slots)){
+  if(!validKey(key)||!object(item)||!['empty','once'].includes(item.kind))throw Error('Invalid temporary meal slot');
+  if(item.kind==='once'&&(!object(item.meal)||typeof item.meal.id!=='string'||!item.meal.id.startsWith('once-')||typeof item.meal.name!=='string'||!item.meal.name.trim()||!Array.isArray(item.meal.ingredients)||item.meal.ingredients.some(line=>typeof line!=='string')||item.meal.temporaryMeal!==true))throw Error('Invalid temporary meal');
+ }
+ const ids=Object.values(value.slots).filter(item=>item.kind==='once').map(item=>item.meal.id);if(new Set(ids).size!==ids.length)throw Error('Duplicate temporary meal IDs');
+ for(const [day,order] of Object.entries(value.order))if(!validKey(day+'::order')||!Array.isArray(order)||order.some(id=>typeof id!=='string')||new Set(order).size!==order.length)throw Error('Invalid weekday display order');
+}
+function weekSchedule(plan){return plan.weekSchedule||{version:1,slots:{},order:{}}}
+function editableWeekSchedule(plan){return plan.weekSchedule||(plan.weekSchedule={version:1,slots:{},order:{}})}
+function temporarySlotKey(day,cat){return weekdaySlotKey(day,cat||'@day')}
+function scheduleDisplayKey(entry){return JSON.stringify([entry.cat,String(entry.meal.id),String(entry.linkedTo??'')])}
+function applyWeekSchedule(plan,entries,days){
+ if(!plan.weekSchedule)return entries;
+ const state=weekSchedule(plan),hidden=new Set(entries.filter(entry=>state.slots[temporarySlotKey(entry.day,entry.cat)]).map(entry=>entry.day+'|'+String(entry.meal.id)));
+ const result=entries.filter(entry=>!state.slots[temporarySlotKey(entry.day,entry.cat)]&&!(entry.linkedTo!=null&&hidden.has(entry.day+'|'+String(entry.linkedTo))&&!rotationGroupScheduled(plan,entry.day,entry.cat))&&!state.slots[temporarySlotKey(entry.day,null)]);
+ for(const [key,item] of Object.entries(state.slots))if(item.kind==='once'){
+  const split=key.indexOf('::'),day=key.slice(0,split),cat=key.slice(split+2);
+  result.push({day,cat,meal:item.meal,scheduleOnly:true,temporary:true});
+ }
+ return result.sort((a,b)=>{
+  if(a.day!==b.day)return days.indexOf(a.day)-days.indexOf(b.day);
+  const order=state.order[a.day]||[],rank=entry=>{const i=order.indexOf(scheduleDisplayKey(entry));return i<0?order.length:i};return rank(a)-rank(b);
+ });
+}
+function emptyWeekEntries(plan){
+ return Object.entries(weekSchedule(plan).slots).filter(([,item])=>item.kind==='empty').map(([key])=>{
+  const split=key.indexOf('::'),day=key.slice(0,split),cat=key.slice(split+2);
+  return {day,cat,scheduleOnly:true,emptyWeek:true,meal:{id:'empty:'+plan.id+':'+key,name:'Empty this week'+(cat==='@day'?'':' · '+cat),cat,ingredients:[]}};
+ });
+}
+function queueWeekEntries(plan){return getDisplayedWeekdayMealsForPlan(plan,null,null,null,true)}
+function rotationWeekEntries(plan,saved=null){return getDisplayedWeekdayMealsForPlan(plan,null,saved).concat(emptyWeekEntries(plan))}
+function rotationAdvancesRecipe(item,plan,entries=[]){
+ return !item.scheduleOnly&&!manualWeekdayMealChoice(plan,item.day,item.cat,item.meal.id)&&!entries.some(parent=>parent.day===item.day&&String(parent.meal.id)===String(item.linkedTo)&&manualWeekdayMealChoice(plan,parent.day,parent.cat,parent.meal.id));
+}
+function clearTemporarySlot(plan,day,cat){if(plan.weekSchedule)delete plan.weekSchedule.slots[temporarySlotKey(day,cat)]}
+function changeTemporaryWeek(update){
+ if(groceryCheckStorageInvalid||mealPersistence.paused){showAppMessage('Saved data is unavailable. No meal was changed.');return false}
+ saveActiveMealPlan();const before=captureGroceryCheckStates();snapshot();
+ // Pin the underlying planner before hiding anything. Temporary IDs never enter
+ // its overrides, reservations, linked activation, or Favorites score ledger.
+ stabilizeAutomaticWeekSlots();update(mealPlans.find(plan=>plan.id===activePlanId));
+ saveActiveMealPlan();reconcileRotatedGroceryChecks(before,[]);persist();renderList();return true;
+}
+function leaveWeekEmpty(day,cat=null,wholeDay=false){
+ return changeTemporaryWeek(plan=>{
+  const state=editableWeekSchedule(plan);
+  if(wholeDay){
+   const entries=getDisplayedWeekdayMealsForPlan(plan,null,null,null,true).filter(entry=>entry.day===day),raw=plan.weekdayCategories?.[day],groups=(Array.isArray(raw)?raw:[raw]).filter(group=>cats.includes(group));
+   const keys=new Set([...groups.map(group=>temporarySlotKey(day,group)),...entries.map(entry=>temporarySlotKey(day,entry.cat)),...Object.keys(state.slots).filter(key=>key.startsWith(day+'::'))]);
+   if(!keys.size)keys.add(temporarySlotKey(day,null));for(const key of keys)state.slots[key]={kind:'empty'};
+  }else state.slots[temporarySlotKey(day,cat)]={kind:'empty'};
+ });
+}
+function resumeWeekSlot(day,cat=null,wholeDay=false){return changeTemporaryWeek(plan=>{for(const key of Object.keys(weekSchedule(plan).slots))if(wholeDay?key.startsWith(day+'::'):key===temporarySlotKey(day,cat))delete plan.weekSchedule.slots[key]})}
+function saveOneTimeMeal(day,cat,name,ingredients=[],existingId=null){
+ const clean=String(name||'').trim();if(!clean)return false;
+ return changeTemporaryWeek(plan=>{editableWeekSchedule(plan).slots[temporarySlotKey(day,cat)]={kind:'once',meal:{id:existingId||'once-'+(crypto.randomUUID?.()||Date.now()+'-'+Math.random().toString(36).slice(2)),name:clean,cat:cat||'@day',rotation:false,temporaryMeal:true,ingredients:ingredients.map(line=>String(line).trim()).filter(Boolean)}}});
+}
+function openOneTimeMealEditor(day,cat,current=null){
+ const shade=document.createElement('div');shade.className='recipe-timer-dialog';
+ const box=document.createElement('div');box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label',current?'Edit one-time meal':'Add One-Time Meal');
+ const title=document.createElement('strong');title.textContent=current?'Edit one-time meal':'Add One-Time Meal';
+ const name=document.createElement('input');name.type='text';name.setAttribute('aria-label','One-time meal name');name.placeholder='Potluck';name.value=current?.name||'';name.style.minHeight='44px';
+ const groceries=document.createElement('textarea');groceries.setAttribute('aria-label','Optional grocery items with quantities');groceries.placeholder='Optional groceries, one per line: 2 bags salad';groceries.value=(current?.ingredients||[]).join('\n');groceries.rows=5;
+ const note=document.createElement('p');note.textContent='For this scheduled week only. This does not create a recipe or change rotation order.';note.style.fontSize='14px';
+ const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save one-time meal');setIconButton(cancel,'cancel','Cancel');
+ const owner='one-time:'+activePlanId+':'+temporarySlotKey(day,cat),planId=activePlanId;
+ const close=()=>{mealPersistence.cancelOwner(owner);shade.remove()};cancel.onclick=close;
+ save.onclick=()=>{if(activePlanId!==planId)return;if(!name.value.trim()){name.focus();return}if(saveOneTimeMeal(day,cat,name.value,groceries.value.split('\n'),current?.id)){shade.remove()}};
+ shade.dataset.recoveryDraft='one-time-meal';shade.mealRecoveryDraft={ownerId:owner,kind:'one-time-meal',capture:()=>({planId,day,cat,name:name.value,ingredients:groceries.value.split('\n')}),dirty:()=>name.value!==(current?.name||'')||groceries.value!==(current?.ingredients||[]).join('\n'),discard:()=>shade.remove()};
+ actions.append(save,cancel);box.append(title,name,groceries,note,actions);shade.append(box);shade.addEventListener('keydown',e=>{if(e.key==='Escape')close()});shade.onclick=e=>{if(e.target===shade)close()};document.body.append(shade);name.focus();
+}
+function openWeekEmptyActions(day,cat){
+ const shade=document.createElement('div');shade.className='recipe-timer-dialog';const box=document.createElement('div');box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','Empty meal options');appendRotationCloseHeader(box,day+' · Empty this week',()=>shade.remove());
+ for(const [label,fn] of [['Change meal',()=>openWeekdayMealChooser(day,cat==='@day'?null:cat,null,cat==='@day')],['Resume planned meal',()=>resumeWeekSlot(day,cat)],['Leave Entire Day Empty This Week',()=>leaveWeekEmpty(day,null,true)]]){const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=label;b.onclick=()=>{shade.remove();fn()};box.append(b)}shade.append(box);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.onkeydown=e=>{if(e.key==='Escape')shade.remove()};document.body.append(shade);
+}
+
+function reorderableWeekEntries(){const entries=getDisplayedWeekdayMeals();return entries.filter(entry=>!(entry.linkedTo!=null&&!rotationGroupScheduled(mealPlans.find(p=>p.id===activePlanId),entry.day,entry.cat)&&entries.some(parent=>parent.day===entry.day&&String(parent.meal.id)===String(entry.linkedTo))))}
+function setWeekDisplayOrder(day,keys){return changeTemporaryWeek(plan=>{editableWeekSchedule(plan).order[day]=keys})}
+// A dedicated handle preserves the existing name long-press and swipe gestures.
+function appendWeekReorderHandle(row,day,entry){
+ const handle=document.createElement('button');handle.type='button';handle.className='week-reorder-handle';handle.setAttribute('aria-label','Reorder '+entry.meal.name+' within '+day);handle.title='Hold and drag to reorder; use arrow keys to move';handle.textContent='⠿';handle.style.cssText='border:0;background:transparent;color:#74808d;min-width:44px;min-height:44px;touch-action:none;cursor:grab';row.append(handle);
+ let timer=null,dragging=false,start=null,ordered=null;const originalKey=scheduleDisplayKey(entry);
+ const rows=()=>[...row.parentElement.parentElement.querySelectorAll('.top-recipe-wrap[data-weekday]')].filter(wrap=>wrap.dataset.weekday===day);
+ const finish=save=>{clearTimeout(timer);timer=null;if(!dragging)return;dragging=false;row.style.opacity='';for(const wrap of rows())wrap.style.outline='';if(save&&ordered)setWeekDisplayOrder(day,ordered);else renderList();ordered=null};
+ handle.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.stopPropagation();start={x:e.clientX,y:e.clientY};handle.setPointerCapture(e.pointerId);timer=setTimeout(()=>{dragging=true;row.style.opacity='.55';ordered=rows().map(wrap=>wrap.dataset.displayKey)},450)});
+ handle.addEventListener('pointermove',e=>{if(!start)return;if(!dragging){if(Math.hypot(e.clientX-start.x,e.clientY-start.y)>10)clearTimeout(timer);return}e.preventDefault();const wrap=rows().find(w=>w.dataset.displayKey===originalKey),target=rows().find(w=>{const rect=w.getBoundingClientRect();return e.clientY>=rect.top&&e.clientY<=rect.bottom});if(!wrap||!target||wrap===target)return;const rect=target.getBoundingClientRect(),keys=rows().map(w=>w.dataset.displayKey).filter(key=>key!==originalKey),index=keys.indexOf(target.dataset.displayKey)+(e.clientY>rect.top+rect.height/2?1:0);keys.splice(index,0,originalKey);ordered=keys;for(const item of rows())item.style.outline=item===target?'2px solid #8397b5':''});
+ handle.addEventListener('pointerup',()=>{start=null;finish(true)});handle.addEventListener('pointercancel',()=>{start=null;finish(false)});handle.addEventListener('lostpointercapture',()=>{start=null;finish(false)});handle.onclick=e=>{e.preventDefault();e.stopPropagation()};
+ handle.addEventListener('keydown',e=>{if(!['ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();const entries=reorderableWeekEntries().filter(item=>item.day===day),keys=entries.map(scheduleDisplayKey),from=keys.indexOf(originalKey),to=from+(e.key==='ArrowUp'?-1:1);if(from<0||to<0||to>=keys.length)return;[keys[from],keys[to]]=[keys[to],keys[from]];setWeekDisplayOrder(day,keys);const wrap=[...document.querySelectorAll('.top-recipe-wrap')].find(w=>w.dataset.displayKey===originalKey);wrap?.querySelector('.week-reorder-handle')?.focus({preventScroll:true})});
+}
+
+function getDisplayedWeekdayMealsForPlan(plan, priorUsedByGroup=null, savedSchedule=null, reservedByGroup=null, ignoreTemporary=false){
  const library=savedSchedule?savedSchedule.meals:meals,categories=savedSchedule?savedSchedule.cats:cats,plans=savedSchedule?savedSchedule.mealPlans:mealPlans,tabsVisible=savedSchedule?savedSchedule.showMealPlanTabs:showMealPlanTabs;
  const start=savedSchedule?weekdays.indexOf(savedSchedule.startWeekday):0;
  const days=savedSchedule?weekdays.slice(start<0?0:start).concat(weekdays.slice(0,start<0?0:start)):orderedDays();
@@ -5662,23 +5763,23 @@ function getDisplayedWeekdayMealsForPlan(plan, priorUsedByGroup=null, savedSched
    }
   }
  }
- return result;
+ return ignoreTemporary?result:applyWeekSchedule(plan,result,days);
 }
 // Keep linked side dishes in rotation and immediately ahead of their group's queue.
 // Only newly activated links are promoted; ordinary renders never reorder them.
 let previouslyActiveLinkedIds=new Set();
 function reconcileActiveLinkedMeals(){
- const activeLinks=new Set();
+ const activeLinks=new Set(),automaticLinks=new Set();
  for(const plan of mealPlans){
-  const entries=getDisplayedWeekdayMealsForPlan(plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan);
+  const entries=getDisplayedWeekdayMealsForPlan(plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan,null,null,null,true);
   for(const entry of entries){
-   if(entry.linkedTo!=null&&!entry.occasional&&String(plan.occasionalMeals?.[entry.day])!==String(entry.linkedTo))activeLinks.add(String(entry.meal.id));
+   if(entry.linkedTo!=null&&!entry.occasional&&String(plan.occasionalMeals?.[entry.day])!==String(entry.linkedTo)){activeLinks.add(String(entry.meal.id));if(rotationAdvancesRecipe(entry,plan,entries))automaticLinks.add(String(entry.meal.id))}
   }
  }
  let changed=false;
  for(const targetId of activeLinks){
   const target=meals.find(m=>String(m.id)===targetId);
-  if(!target)continue;
+  if(!target||!automaticLinks.has(targetId))continue;
   const newlyActivated=!previouslyActiveLinkedIds.has(targetId);
   if(!target.rotation){target.rotation=true;changed=true}
   if(newlyActivated){
@@ -5729,6 +5830,13 @@ function resetGroceriesForNewTopMeals(previousIdsOverride=null){
 // Category renames/deletions also update meal plans not currently selected.
 function updateOtherMealPlansForCategory(category,replacement=null){
  saveActiveMealPlan();
+ // Temporary slots and display keys follow an explicit group rename/removal.
+ for(const plan of mealPlans)if(plan.weekSchedule){
+  for(const day of weekdays){const old=temporarySlotKey(day,category),next=temporarySlotKey(day,replacement),item=plan.weekSchedule.slots[old];if(item){if(replacement&&!plan.weekSchedule.slots[next]){plan.weekSchedule.slots[next]=item;if(item.meal)item.meal.cat=replacement}delete plan.weekSchedule.slots[old]}
+   const order=plan.weekSchedule.order[day];if(order)plan.weekSchedule.order[day]=[...new Set(order.flatMap(key=>{try{const parts=JSON.parse(key);if(parts[0]!==category)return [key];if(!replacement)return [];parts[0]=replacement;return [JSON.stringify(parts)]}catch(e){return [key]}}))];
+  }
+ }
+
  for(const plan of mealPlans){
   if(plan.id===activePlanId)continue;
   const assignments=plan.weekdayCategories||{};
@@ -5755,7 +5863,7 @@ function preserveOtherMealPlanChoices(day,category,capturedSchedules=null){
  for(const plan of mealPlans){
   rememberDependentSideState(plan,schedules.get(plan.id)||[]);plan.weekdayMealOverrides={...(plan.weekdayMealOverrides||{})};plan.cycleRetainedSlots={...(plan.cycleRetainedSlots||{})};plan.cycleSlotChoices={...(plan.cycleSlotChoices||{})};
   for(const item of schedules.get(plan.id)||[]){
-   if(!rotationSelectable(item,plan)||(plan.id===activePlanId&&item.day===day&&item.cat===category))continue;
+   if(item.scheduleOnly||!rotationSelectable(item,plan)||(plan.id===activePlanId&&item.day===day&&item.cat===category))continue;
    const key=weekdaySlotKey(item.day,item.cat),id=String(item.meal.id),old=plan.cycleSlotChoices[key],manual=manualWeekdayMealChoice(plan,item.day,item.cat,id);
    plan.weekdayMealOverrides[key]=id;plan.cycleRetainedSlots[key]=id;
    plan.cycleSlotChoices[key]={...(old&&String(old.mealId)===id?old:{}),...(manual?{substitution:true,retain:true}:{}),...(day!=null?{retain:true}:{}),mealId:id,parentId:String(item.linkedTo??'')};
@@ -5806,7 +5914,7 @@ function promoteMealToRotation(meal){
  finishRecipePromotion(meal,before);persist();renderList();
 }
 // Section moves reuse occurrence-aware scheduling and groceries without cooking events.
-function prepareRecipeDemotion(){saveActiveMealPlan();return {schedules:new Map(mealPlans.map(p=>[p.id,getDisplayedWeekdayMealsForPlan(p)])),grocery:captureGroceryCheckStates()}}
+function prepareRecipeDemotion(){saveActiveMealPlan();return {schedules:new Map(mealPlans.map(p=>[p.id,queueWeekEntries(p)])),grocery:captureGroceryCheckStates()}}
 function demoteMealToIdeas(meal,updateRecipe=null,prepared=null){
  if(!meal.rotation&&!updateRecipe)return;
  if(groceryCheckStorageInvalid){showAppMessage('Saved grocery check states could not be read. Export a backup before repairing this browser data.');return}
@@ -5861,13 +5969,13 @@ function readPreviousRotation(){
  try{const value=JSON.parse(testStorage.getItem(ROTATION_BACK_KEY)||'null');return value&&Array.isArray(value.meals)&&Array.isArray(value.mealPlans)?value:null}catch(e){return null}
 }
 function rotationGroupScheduled(plan,day,cat){const raw=plan?.weekdayCategories?.[day];return (Array.isArray(raw)?raw:[raw]).includes(cat)}
-function rotationSelectable(item,plan){if(item.occasional)return false;return item.scheduledSlot===true||rotationGroupScheduled(plan,item.day,item.cat)||(item.linkedTo==null&&!item.parentId)}
+function rotationSelectable(item,plan){if(item.scheduleOnly)return true;if(item.occasional)return false;return item.scheduledSlot===true||rotationGroupScheduled(plan,item.day,item.cat)||(item.linkedTo==null&&!item.parentId)}
 function cycleAffectedEntries(entries,selected,plan){
  const keys=new Set(selected.map(rotationOccurrenceKey));
- return entries.filter(item=>keys.has(rotationOccurrenceKey(item))||selected.some(owner=>owner.day===item.day&&pairedMainGroup(plan,item.day,item.cat)===owner.cat)||(!rotationGroupScheduled(plan,item.day,item.cat)&&item.linkedTo!=null&&selected.some(owner=>owner.day===item.day&&String(owner.meal?.id??owner.mealId)===String(item.linkedTo))));
+ return entries.filter(item=>keys.has(rotationOccurrenceKey(item))||selected.some(owner=>!owner.scheduleOnly&&owner.day===item.day&&pairedMainGroup(plan,item.day,item.cat)===owner.cat)||(!rotationGroupScheduled(plan,item.day,item.cat)&&item.linkedTo!=null&&selected.some(owner=>owner.day===item.day&&String(owner.meal?.id??owner.mealId)===String(item.linkedTo))));
 }
 function previousRotationSlots(previous){
- const entries=Array.isArray(previous.rotationOccurrences)?previous.rotationOccurrences.map(item=>({...item,meal:previous.meals.find(m=>String(m.id)===String(item.mealId))})).filter(item=>item.meal):previous.mealPlans.flatMap(plan=>getDisplayedWeekdayMealsForPlan(plan,null,previous).map(item=>({...item,planId:plan.id,planName:plan.name})));
+ const entries=Array.isArray(previous.rotationOccurrences)?previous.rotationOccurrences.map(item=>({...item,meal:previous.meals.find(m=>String(m.id)===String(item.mealId))||(item.scheduleOnly?rotationWeekEntries(previous.mealPlans.find(p=>p.id===item.planId),previous).find(entry=>entry.day===item.day&&entry.cat===item.cat)?.meal:null)})).filter(item=>item.meal):previous.mealPlans.flatMap(plan=>rotationWeekEntries(plan,previous).map(item=>({...item,planId:plan.id,planName:plan.name})));
  return entries.filter(item=>rotationSelectable(item,previous.mealPlans.find(p=>p.id===item.planId)));
 }
 function rotationOccurrenceKey(item){return cookingOccurrenceKey({planId:String(item.planId),day:item.day,mealId:String(item.meal?.id??item.mealId),parentId:String(item.parentId??item.linkedTo??'')})}
@@ -5876,6 +5984,7 @@ function rotationSlotKey(item){return item.planId+'||'+weekdaySlotKey(item.day,i
 function restorableRotationSlots(previous){
  return previousRotationSlots(previous).filter(item=>{
   const plan=mealPlans.find(p=>p.id===item.planId),meal=meals.find(m=>String(m.id)===String(item.meal.id));
+  if(item.scheduleOnly)return !!plan&&!!weekSchedule(previous.mealPlans.find(p=>p.id===item.planId)).slots[temporarySlotKey(item.day,item.cat)]&&(item.cat==='@day'||cats.includes(item.cat));
   if(!plan||!meal||!rotationGroupScheduled(plan,item.day,item.cat))return false;
   const old=previous.mealPlans.find(p=>p.id===item.planId),substitution=manualWeekdayMealChoice(old,item.day,item.cat,item.meal.id),dependent=!!pairedMainGroup(old,item.day,item.cat);
   return substitution||meal.rotation&&(meal.cat===item.cat||dependent);
@@ -5892,10 +6001,12 @@ function rotateSelectedBack(selected,restoreAll=false){
  const groceryBefore=captureGroceryCheckStates();
  if(restoreAll)clearCookingForCycleBack(previous);else clearCookingForSlots(desired);
  snapshot();
- for(const plan of mealPlans){const overrides={...(plan.weekdayMealOverrides||{})},pins={...(plan.cycleRetainedSlots||{})},choices={...(plan.cycleSlotChoices||{})};for(const item of retained.get(plan.id)||[]){const key=weekdaySlotKey(item.day,item.cat);overrides[key]=String(item.meal.id);pins[key]=String(item.meal.id);const old=choices[key],valid=old&&String(old.mealId)===String(item.meal.id),manual=manualWeekdayMealChoice(plan,item.day,item.cat,item.meal.id);choices[key]={...(valid?old:{}),...(manual?{substitution:true}:{}),mealId:String(item.meal.id),parentId:String(item.linkedTo??''),retain:manual||desired.some(x=>x.planId===plan.id&&x.day===item.day)||!!(valid&&old.retain),blockedParents:valid?old.blockedParents||[]:[]}}plan.weekdayMealOverrides=overrides;plan.cycleRetainedSlots=pins;plan.cycleSlotChoices=choices;}
+ for(const plan of mealPlans){const overrides={...(plan.weekdayMealOverrides||{})},pins={...(plan.cycleRetainedSlots||{})},choices={...(plan.cycleSlotChoices||{})};for(const item of retained.get(plan.id)||[]){if(item.scheduleOnly)continue;const key=weekdaySlotKey(item.day,item.cat);overrides[key]=String(item.meal.id);pins[key]=String(item.meal.id);const old=choices[key],valid=old&&String(old.mealId)===String(item.meal.id),manual=manualWeekdayMealChoice(plan,item.day,item.cat,item.meal.id);choices[key]={...(valid?old:{}),...(manual?{substitution:true}:{}),mealId:String(item.meal.id),parentId:String(item.linkedTo??''),retain:manual||desired.some(x=>x.planId===plan.id&&x.day===item.day)||!!(valid&&old.retain),blockedParents:valid?old.blockedParents||[]:[]}}plan.weekdayMealOverrides=overrides;plan.cycleRetainedSlots=pins;plan.cycleSlotChoices=choices;}
  // Keep unselected meals and current edits intact; restore only selected slots.
  for(const item of desired){
   const plan=mealPlans.find(p=>p.id===item.planId);
+  if(item.scheduleOnly){const old=previous.mealPlans.find(p=>p.id===item.planId),key=temporarySlotKey(item.day,item.cat);editableWeekSchedule(plan).slots[key]=JSON.parse(JSON.stringify(old.weekSchedule.slots[key]));continue}
+  clearTemporarySlot(plan,item.day,item.cat);
   const priorPlan=previous.mealPlans.find(p=>p.id===item.planId),dependent=!!pairedMainGroup(priorPlan,item.day,item.cat),substitution=priorPlan?.cycleSlotChoices?.[weekdaySlotKey(item.day,item.cat)]?.substitution===true||!!(dependent&&plan&&!pairedMainGroup(plan,item.day,item.cat)&&item.meal.cat!==item.cat);
   if(!plan||!meals.some(m=>String(m.id)===String(item.meal.id)&&(substitution||(m.rotation&&(m.cat===item.cat||dependent)))))continue;
   const overrides={...(plan.weekdayMealOverrides||{})};
@@ -5907,8 +6018,8 @@ function rotateSelectedBack(selected,restoreAll=false){
   plan.weekdayMealOverrides=overrides;
  }
  // Restore linked children's positions from the saved pre-cycle order.
- const restoringIds=new Set(desired.filter(item=>item.meal.cat===item.cat||!previous.mealPlans.find(plan=>plan.id===item.planId)?.cycleSlotChoices?.[weekdaySlotKey(item.day,item.cat)]?.substitution).map(item=>String(item.meal.id)));
- for(const item of desired)for(const linkedId of (Array.isArray(item.meal.linkedMealIds)?item.meal.linkedMealIds:[]))restoringIds.add(String(linkedId));
+ const restoringIds=new Set(desired.filter(item=>rotationAdvancesRecipe(item,previous.mealPlans.find(plan=>plan.id===item.planId),rotationWeekEntries(previous.mealPlans.find(plan=>plan.id===item.planId),previous))).map(item=>String(item.meal.id)));
+ for(const item of desired.filter(item=>rotationAdvancesRecipe(item,previous.mealPlans.find(plan=>plan.id===item.planId))))for(const linkedId of (Array.isArray(item.meal.linkedMealIds)?item.meal.linkedMealIds:[]))restoringIds.add(String(linkedId));
  for(const item of desired){const meal=meals.find(m=>String(m.id)===String(item.meal.id)),prior=previous.meals.find(m=>String(m.id)===String(item.meal.id));if(meal?.rotation&&meal.rotationPromotionPriority==null&&Number.isFinite(prior?.rotationPromotionPriority))meal.rotationPromotionPriority=prior.rotationPromotionPriority;}
  for(const cat of new Set(previous.meals.filter(m=>restoringIds.has(String(m.id))).map(m=>m.cat))){
   const priorOrder=previous.meals.filter(m=>m.cat===cat&&m.rotation).map(m=>String(m.id));
@@ -5924,7 +6035,7 @@ function rotateSelectedBack(selected,restoreAll=false){
  const restoredEntries=previous.mealPlans.flatMap(plan=>cycleAffectedEntries(getDisplayedWeekdayMealsForPlan(plan,null,previous).map(item=>({...item,planId:plan.id})),desired.filter(item=>item.planId===plan.id),plan));
  applyRestoredCookedDates(meals,restoredRotationCookedDates(previous,new Set(restoredEntries.map(rotationOccurrenceKey))));
  restoreRotationCalendarSlots(previous,desired);restoreFavoriteRotationTurns(previous,desired);
- previouslyActiveLinkedIds=new Set();
+ if(desired.some(item=>rotationAdvancesRecipe(item,previous.mealPlans.find(p=>p.id===item.planId))))previouslyActiveLinkedIds=new Set();
  const activePlan=mealPlans.find(p=>p.id===activePlanId);
  weekdayMealOverrides={...(activePlan?.weekdayMealOverrides||{})};saveWeekdayMealOverrides();
  try{testStorage.removeItem(ROTATION_BACK_KEY)}catch(e){}
@@ -5939,6 +6050,7 @@ function openRotateBackChooser(){
  const choices=restorableRotationSlots(previous).filter(item=>{
   const plan=mealPlans.find(p=>p.id===item.planId);if(!plan)return false;
   const now=(currentPlans.get(item.planId)||[]).find(x=>x.day===item.day&&x.cat===item.cat);
+  if(item.scheduleOnly){const old=previous.mealPlans.find(p=>p.id===item.planId),key=temporarySlotKey(item.day,item.cat);return JSON.stringify(weekSchedule(plan).slots[key]??null)!==JSON.stringify(weekSchedule(old).slots[key]??null)}
   return now&&String(now.meal.id)!==String(item.meal.id);
  });
  if(!choices.length){appDialog('Meals already match the previous rotation.','','alert');return;}
@@ -5996,7 +6108,7 @@ function resolveRotatedMealSlots(plan, selected, retained){
 function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=false,retainedSlots=null,beforeState=null){
  if(groceryCheckStorageInvalid){showAppMessage('Saved grocery check states could not be read. Export a backup before repairing this browser data.');return;}
  saveActiveMealPlan();
- const prior=new Map(mealPlans.map(plan=>[plan.id,getDisplayedWeekdayMealsForPlan(plan)]));
+ const prior=new Map(mealPlans.map(plan=>[plan.id,rotationWeekEntries(plan)]));
  const scope=allTabs?mealPlans:mealPlans.filter(plan=>plan.id===activePlanId);
  // Explicit cycling advances manual substitutions too. Unchecked slots and
  // automatic queue changes retain their existing manual-choice protections.
@@ -6007,7 +6119,7 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
    if(rotationSelectable(item,plan)&&(!selectedSlots||selectedSlots.has(key)))selected.push({...item,planId:plan.id});
   }
  }
- for(const plan of scope){const entries=prior.get(plan.id)||[],owners=selected.filter(item=>item.planId===plan.id);for(const item of entries)if(rotationSelectable(item,plan)&&owners.some(owner=>owner.day===item.day&&pairedMainGroup(plan,item.day,item.cat)===owner.cat)&&!selected.some(other=>rotationOccurrenceKey(other)===rotationOccurrenceKey({...item,planId:plan.id})))selected.push({...item,planId:plan.id});}
+ for(const plan of scope){const entries=prior.get(plan.id)||[],owners=selected.filter(item=>item.planId===plan.id);for(const item of entries)if(rotationSelectable(item,plan)&&owners.some(owner=>!owner.scheduleOnly&&owner.day===item.day&&pairedMainGroup(plan,item.day,item.cat)===owner.cat)&&!selected.some(other=>rotationOccurrenceKey(other)===rotationOccurrenceKey({...item,planId:plan.id})))selected.push({...item,planId:plan.id});}
  if(!selected.length)return;
  const rotationNow=new Date(),calendars=new Map();
  for(const plan of scope)if(selected.some(item=>item.planId===plan.id)){
@@ -6018,26 +6130,26 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  const affected=[];const rotationOccurrences=[];
  for(const plan of mealPlans)for(const item of prior.get(plan.id)||[]){
   const occurrence={...item,planId:plan.id,planName:plan.name};
-  rotationOccurrences.push({planId:plan.id,planName:plan.name,day:item.day,cat:item.cat,mealId:String(item.meal.id),parentId:String(item.linkedTo??''),scheduledSlot:rotationGroupScheduled(plan,item.day,item.cat),...(item.occasional?{occasional:true}:{})});
+  rotationOccurrences.push({planId:plan.id,planName:plan.name,day:item.day,cat:item.cat,mealId:String(item.meal.id),parentId:String(item.linkedTo??''),scheduledSlot:rotationGroupScheduled(plan,item.day,item.cat),...(item.occasional?{occasional:true}:{}),...(item.scheduleOnly?{scheduleOnly:true}:{})});
   if(cycleAffectedEntries([occurrence],selected.filter(x=>x.planId===plan.id),plan).length)affected.push({...occurrence,exact:true});
  }
  // Capture the exact state before this rotation, including cross-tab meal overrides.
  // A manual move stages its destination first; keep its true pre-change Undo/Cycle Back state.
  const undoBefore=beforeState||JSON.parse(captureState()),{lastRotationBefore:oldRotationHistory,...rotationBefore}=undoBefore;
- const rotationRecord={...rotationBefore,cycledAt:rotationNow.toISOString(),rotationOccurrences:beforeState?beforeState.mealPlans.flatMap(plan=>getDisplayedWeekdayMealsForPlan(plan,null,beforeState).map(item=>({planId:plan.id,planName:plan.name,day:item.day,cat:item.cat,mealId:String(item.meal.id),parentId:String(item.linkedTo??''),scheduledSlot:rotationGroupScheduled(plan,item.day,item.cat),...(item.occasional?{occasional:true}:{})}))):rotationOccurrences,cookingCycledContexts:affected.map(x=>({planId:x.planId,day:x.day,cat:x.cat,mealId:String(x.meal.id),parentId:String(x.linkedTo??''),exact:true}))};
+ const rotationRecord={...rotationBefore,cycledAt:rotationNow.toISOString(),rotationOccurrences:beforeState?beforeState.mealPlans.flatMap(plan=>rotationWeekEntries(plan,beforeState).map(item=>({planId:plan.id,planName:plan.name,day:item.day,cat:item.cat,mealId:String(item.meal.id),parentId:String(item.linkedTo??''),scheduledSlot:rotationGroupScheduled(plan,item.day,item.cat),...(item.occasional?{occasional:true}:{}),...(item.scheduleOnly?{scheduleOnly:true}:{})}))):rotationOccurrences,cookingCycledContexts:affected.map(x=>({planId:x.planId,day:x.day,cat:x.cat,mealId:String(x.meal.id),parentId:String(x.linkedTo??''),exact:true}))};
  const linkedIds=new Set();
- for(const item of selected){const {meal,cat}=item,plan=mealPlans.find(p=>p.id===item.planId);if(dependentSideAutomatic(plan,item,prior.get(plan.id)||[])){linkedIds.add(String(meal.id));continue}
+ for(const item of selected){const {meal,cat}=item,plan=mealPlans.find(p=>p.id===item.planId);if(!rotationAdvancesRecipe(item,plan,prior.get(plan.id)||[]))continue;if(dependentSideAutomatic(plan,item,prior.get(plan.id)||[])){linkedIds.add(String(meal.id));continue}
   if(meal.cat!==cat)continue;
   linkedIds.add(String(meal.id));
   if(meal.linkGroup)meals.filter(m=>m.linkGroup===meal.linkGroup).forEach(m=>linkedIds.add(String(m.id)));
  }
- for(const item of affected)if(item.meal.cat===item.cat)linkedIds.add(String(item.meal.id));
+ for(const item of affected)if(item.meal.cat===item.cat&&rotationAdvancesRecipe(item,mealPlans.find(p=>p.id===item.planId),prior.get(item.planId)||[]))linkedIds.add(String(item.meal.id));
  const groceryBefore=captureGroceryCheckStates();
  const beforeIds=new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)));
  snapshot(JSON.stringify(undoBefore));
- rotationRecord.favoriteRotationTurns=[];for(const item of selected){const plan=mealPlans.find(p=>p.id===item.planId),source=dependentSideAutomatic(plan,item,prior.get(plan.id)||[])?item.meal.cat:item.cat,signature=plan&&advanceFavoriteRotation(plan,source,item.meal);if(signature)rotationRecord.favoriteRotationTurns.push({planId:plan.id,day:item.day,cat:source,slotCat:item.cat,mealId:String(item.meal.id),labels:[],signature})}
- const cookedResult=markCooked?recordRotatedMealsCooked(affected,calendars,rotationNow):{updates:[],skipped:[]};rotationRecord.cookedDateUpdates=cookedResult.updates;
- for(const meal of meals)delete meal.rotationPromotionPriority;
+ rotationRecord.favoriteRotationTurns=[];for(const item of selected.filter(item=>rotationAdvancesRecipe(item,mealPlans.find(p=>p.id===item.planId),prior.get(item.planId)||[]))){const plan=mealPlans.find(p=>p.id===item.planId),source=dependentSideAutomatic(plan,item,prior.get(plan.id)||[])?item.meal.cat:item.cat,signature=plan&&advanceFavoriteRotation(plan,source,item.meal);if(signature)rotationRecord.favoriteRotationTurns.push({planId:plan.id,day:item.day,cat:source,slotCat:item.cat,mealId:String(item.meal.id),labels:[],signature})}
+ const cookedResult=markCooked?recordRotatedMealsCooked(affected.filter(item=>!item.scheduleOnly),calendars,rotationNow):{updates:[],skipped:[]};rotationRecord.cookedDateUpdates=cookedResult.updates;
+ for(const meal of meals)if(linkedIds.has(String(meal.id)))delete meal.rotationPromotionPriority;
  const byCategory={};
  for(const m of meals){
   if(m.rotation&&linkedIds.has(String(m.id))){
@@ -6058,7 +6170,7 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
   const entries=prior.get(plan.id)||[],planSelected=selected.filter(item=>item.planId===plan.id);
   for(const [key,choice]of Object.entries(choices))if((selectedSlots===null&&scope.includes(plan))||planSelected.some(item=>key.startsWith(item.day+'::'))){delete choice.excludedMealIds;delete choice.empty;}
   for(const item of entries){
-   if(!rotationSelectable(item,plan))continue;
+   if(!rotationSelectable(item,plan)||item.scheduleOnly)continue;
    const {day,cat,meal}=item,key=weekdaySlotKey(day,cat),scopedKey=(allTabs?plan.id+'||':'')+key;
    const raw=plan.weekdayCategories?.[day],categories=Array.isArray(raw)?raw:[raw];
    if(categories[0]===cat)delete overrides[day];
@@ -6077,12 +6189,14 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
   if(Object.keys(pins).length||plan.cycleRetainedSlots)plan.cycleRetainedSlots=pins;
   plan.cycleSlotChoices=choices;
  }
- for(const plan of scope){const entries=prior.get(plan.id)||[];rememberDependentSideState(plan,entries);for(const day of weekdays){const raw=plan.weekdayCategories?.[day];for(const cat of Array.isArray(raw)?raw:[raw]){if(!cat)continue;const parent=pairedMainGroup(plan,day,cat);if(!parent)continue;const owner=selected.some(item=>item.planId===plan.id&&item.day===day&&item.cat===parent),side=selected.some(item=>item.planId===plan.id&&item.day===day&&item.cat===cat);if(!owner&&!side)continue;const key=dependentSideKey(day,cat),old=plan.dependentSideState[key];plan.dependentSideState[key]={...old,...(owner?{mainId:'__rotating__'}:{}),mealId:'',automatic:false};if(owner&&!entries.some(item=>item.day===day&&item.cat===cat)){delete plan.cycleSlotChoices?.[weekdaySlotKey(day,cat)];delete plan.weekdayMealOverrides?.[weekdaySlotKey(day,cat)];delete plan.cycleRetainedSlots?.[weekdaySlotKey(day,cat)]}}}}
+ for(const item of selected.filter(item=>item.scheduleOnly)){const plan=mealPlans.find(p=>p.id===item.planId);clearTemporarySlot(plan,item.day,item.cat)}
+ for(const plan of scope)if(plan.weekSchedule&&selectedSlots===null){for(const day of new Set(selected.filter(item=>item.planId===plan.id).map(item=>item.day)))delete plan.weekSchedule.order[day]}
+ for(const plan of scope){const entries=prior.get(plan.id)||[];rememberDependentSideState(plan,entries);for(const day of weekdays){const raw=plan.weekdayCategories?.[day];for(const cat of Array.isArray(raw)?raw:[raw]){if(!cat)continue;const parent=pairedMainGroup(plan,day,cat);if(!parent)continue;const owner=selected.some(item=>!item.scheduleOnly&&item.planId===plan.id&&item.day===day&&item.cat===parent),side=selected.some(item=>!item.scheduleOnly&&item.planId===plan.id&&item.day===day&&item.cat===cat);if(!owner&&!side)continue;const key=dependentSideKey(day,cat),old=plan.dependentSideState[key];plan.dependentSideState[key]={...old,...(owner?{mainId:'__rotating__'}:{}),mealId:'',automatic:false};if(owner&&!entries.some(item=>item.day===day&&item.cat===cat)){delete plan.cycleSlotChoices?.[weekdaySlotKey(day,cat)];delete plan.weekdayMealOverrides?.[weekdaySlotKey(day,cat)];delete plan.cycleRetainedSlots?.[weekdaySlotKey(day,cat)]}}}}
  const resolvingActive=mealPlans.find(plan=>plan.id===activePlanId);weekdayMealOverrides={...(resolvingActive?.weekdayMealOverrides||{})};
  // Resolve selected slots through the existing linked-priority planner. Retained
  // parents are suppressed only in explicitly rotated groups; new mains may link in.
  for(const plan of mealPlans){
-  const planSelected=selected.filter(item=>item.planId===plan.id);
+  const planSelected=selected.filter(item=>item.planId===plan.id&&!item.scheduleOnly);
   if(!planSelected.length)continue;
   plan.cycleRetainedSlots={...(plan.cycleRetainedSlots||{})};
   const retained=(prior.get(plan.id)||[]).filter(item=>!affected.some(outgoing=>outgoing.planId===plan.id&&rotationOccurrenceKey(outgoing)===rotationOccurrenceKey({...item,planId:plan.id})));
@@ -6285,7 +6399,7 @@ function openRotateOptions(allTabs=false){
  overlay.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();overlay.remove()}});document.body.append(overlay);
 }
 function openMoveMealChooser(allTabs=false,markCooked=false){
- const shown=(allTabs?(saveActiveMealPlan(),mealPlans.flatMap(plan=>getDisplayedWeekdayMealsForPlan(plan).map(x=>({...x,planId:plan.id,planName:plan.name})))):getDisplayedWeekdayMeals()).filter(item=>rotationSelectable(item,mealPlans.find(plan=>plan.id===(item.planId??activePlanId))));
+ const shown=(allTabs?(saveActiveMealPlan(),mealPlans.flatMap(plan=>rotationWeekEntries(plan).map(x=>({...x,planId:plan.id,planName:plan.name})))):rotationWeekEntries({...mealPlans.find(p=>p.id===activePlanId),weekdayCategories,weekdayMealOverrides})).filter(item=>rotationSelectable(item,mealPlans.find(plan=>plan.id===(item.planId??activePlanId))));
  if(!shown.length)return;const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10002;display:flex;align-items:center;justify-content:center;padding:16px';const box=document.createElement('div');box.style.cssText='background:white;color:#222;border-radius:14px;padding:18px 18px 12px;max-width:520px;width:100%;max-height:82vh;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr) auto;gap:10px 8px;box-shadow:0 8px 30px #0004';const title=document.createElement('h3');title.textContent='Select meals to rotate out';title.style.cssText='margin:0;min-width:0;align-self:center;overflow-wrap:break-word;grid-column:1;grid-row:1';const hint=document.createElement('p');hint.textContent='Select the meals you want to advance. Unselected meals will stay where they are.';hint.style.cssText='font-size:14px;color:#666;margin:0 0 10px';const list=document.createElement('div');list.style.cssText='overflow-y:auto;min-height:0;grid-column:1/-1;grid-row:2';const boxes=[];shown.forEach(({day,cat,meal,planId,planName})=>{const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid #eee;font-size:16px';const cb=document.createElement('input');cb.type='checkbox';cb.checked=true;cb.setAttribute('aria-label',(allTabs?planName+' · ':'')+day+' · '+cat+' — '+meal.name);cb.style.cssText='width:20px;height:20px;flex:0 0 20px';boxes.push({day,cat,planId,cb});const text=document.createElement('span');text.textContent=meal.name;const tint=colorForDay(day);label.style.background=tint;label.style.borderRadius='8px';label.style.padding='10px 8px';label.style.marginBottom='5px';label.append(cb,text);list.append(label)});const selectRow=document.createElement('div');selectRow.style.cssText='display:flex;align-items:center;gap:4px;grid-column:2;grid-row:1;align-self:start';const selectAll=document.createElement('button');selectAll.type='button';selectAll.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m7 12 3 3 7-7"/></svg>';selectAll.title='Select all';selectAll.setAttribute('aria-label','Select all');selectAll.style.cssText='border:0;background:transparent;color:#555;padding:5px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center';selectAll.onclick=()=>boxes.forEach(x=>x.cb.checked=true);const selectNone=document.createElement('button');selectNone.type='button';selectNone.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8"/></svg>';selectNone.title='Deselect all';selectNone.setAttribute('aria-label','Deselect all');selectNone.style.cssText='border:0;background:transparent;color:#555;padding:5px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center';selectNone.onclick=()=>boxes.forEach(x=>x.cb.checked=false);selectRow.append(selectAll,selectNone);const actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:14px;grid-column:1/-1;grid-row:3';const apply=document.createElement('button');apply.type='button';apply.textContent='Move selected';apply.style.cssText='flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:#e8eefb;color:#222';apply.onclick=()=>{const slots=new Set(boxes.filter(x=>x.cb.checked).map(x=>(allTabs?x.planId+'||':'')+weekdaySlotKey(x.day,x.cat)));overlay.remove();if(slots.size)moveDisplayedMealsToBottom(slots,allTabs,markCooked,new Set(boxes.filter(x=>!x.cb.checked).map(x=>(allTabs?x.planId+'||':'')+weekdaySlotKey(x.day,x.cat))))};const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.style.cssText='flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:white;color:#222';cancel.onclick=()=>overlay.remove();setIconButton(apply,'save','Move selected');setIconButton(cancel,'cancel','Cancel');apply.style.minWidth=cancel.style.minWidth='44px';apply.style.minHeight=cancel.style.minHeight='44px';actions.append(apply,cancel);box.append(title,selectRow,list,actions);overlay.append(box);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay)}
 // Swipe right opens a choice rather than deleting the meal immediately.
 function openMealSwipeMenu(meal){
@@ -6315,7 +6429,7 @@ function openMealSwipeMenu(meal){
  shade.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();shade.remove()}});
  document.body.append(shade);
 }
-function bindMealSwipe(row,m){let startX=0,startY=0,tracking=false,swipedAt=0,touchStart=null;function finish(dx,dy,e){if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.2)return false;swipedAt=Date.now();if(e&&e.cancelable)e.preventDefault();if(e)e.stopPropagation();if(dx<0){openEditor(m.id)}else{openMealSwipeMenu(m)}return true}row.addEventListener('touchstart',e=>{touchStart=null;if(recipeBulkMode||e.target.closest('.move,.check,.recipe-section-move,.needs-tweaking-icon,.recipe-list-timer,.recipe-personal-icon'))return;const t=e.touches[0];if(t)touchStart={x:t.clientX,y:t.clientY}},{passive:true});row.addEventListener('touchend',e=>{if(!touchStart)return;const t=e.changedTouches[0],start=touchStart;touchStart=null;if(t)finish(t.clientX-start.x,t.clientY-start.y,e)},{passive:false});row.addEventListener('touchcancel',()=>{touchStart=null});row.addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse')return;if(recipeBulkMode||e.button!==0||e.target.closest('.move,.check,.recipe-section-move,.needs-tweaking-icon,.recipe-list-timer,.recipe-personal-icon'))return;startX=e.clientX;startY=e.clientY;tracking=true});row.addEventListener('pointerup',e=>{if(!tracking)return;tracking=false;finish(e.clientX-startX,e.clientY-startY,e)},{passive:false});row.addEventListener('pointercancel',()=>{tracking=false});row.addEventListener('click',e=>{if(Date.now()-swipedAt<700){e.preventDefault();e.stopPropagation();swipedAt=0}},true)}
+function bindMealSwipe(row,m){let startX=0,startY=0,tracking=false,swipedAt=0,touchStart=null;function finish(dx,dy,e){if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.2)return false;swipedAt=Date.now();if(e&&e.cancelable)e.preventDefault();if(e)e.stopPropagation();if(dx<0){openEditor(m.id)}else{openMealSwipeMenu(m)}return true}row.addEventListener('touchstart',e=>{touchStart=null;if(recipeBulkMode||e.target.closest('.move,.check,.recipe-section-move,.needs-tweaking-icon,.recipe-list-timer,.recipe-personal-icon,.week-reorder-handle'))return;const t=e.touches[0];if(t)touchStart={x:t.clientX,y:t.clientY}},{passive:true});row.addEventListener('touchend',e=>{if(!touchStart)return;const t=e.changedTouches[0],start=touchStart;touchStart=null;if(t)finish(t.clientX-start.x,t.clientY-start.y,e)},{passive:false});row.addEventListener('touchcancel',()=>{touchStart=null});row.addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse')return;if(recipeBulkMode||e.button!==0||e.target.closest('.move,.check,.recipe-section-move,.needs-tweaking-icon,.recipe-list-timer,.recipe-personal-icon,.week-reorder-handle'))return;startX=e.clientX;startY=e.clientY;tracking=true});row.addEventListener('pointerup',e=>{if(!tracking)return;tracking=false;finish(e.clientX-startX,e.clientY-startY,e)},{passive:false});row.addEventListener('pointercancel',()=>{tracking=false});row.addEventListener('click',e=>{if(Date.now()-swipedAt<700){e.preventDefault();e.stopPropagation();swipedAt=0}},true)}
 // My Rotation uses the single Settings button in the main toolbar.
 // Keep these callers as no-ops so other view toolbars remain unchanged.
 function appendMealPlanSettingsGear(topControls){}
@@ -6466,10 +6580,10 @@ function pruneBulkRecipeReferences(records,plans,ids){
 function pruneBulkRotationHistory(raw,ids){if(!raw)return raw;const prior=JSON.parse(raw);if(!prior||!Array.isArray(prior.meals)||!Array.isArray(prior.mealPlans))throw Error('Saved rotation history could not be checked. Export a backup before deleting recipes.');prior.meals=prior.meals.filter(m=>!ids.has(String(m.id)));pruneBulkRecipeReferences(prior.meals,prior.mealPlans,ids);for(const key of ['rotationOccurrences','cookingCycledContexts','cookedDateUpdates','favoriteRotationTurns'])if(Array.isArray(prior[key]))prior[key]=prior[key].filter(item=>!ids.has(String(item.mealId))&&!ids.has(String(item.parentId)));if(prior.lastRotationBefore)prior.lastRotationBefore=pruneBulkRotationHistory(prior.lastRotationBefore,ids);return JSON.stringify(prior)}
 function restoreBulkRecipeSelections(saved){const current=JSON.parse(testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');for(const [id,value]of Object.entries(saved))current[id]=value;testStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(current))}
 function preserveBulkEmptySlots(schedules){
- for(const plan of mealPlans){const before=schedules.get(plan.id)||[],current=getDisplayedWeekdayMealsForPlan(plan);for(const entry of current)if(rotationGroupScheduled(plan,entry.day,entry.cat)&&!before.some(old=>old.day===entry.day&&old.cat===entry.cat)){const key=weekdaySlotKey(entry.day,entry.cat);plan.cycleSlotChoices[key]={...plan.cycleSlotChoices[key],empty:true}}}
+ for(const plan of mealPlans){const before=schedules.get(plan.id)||[],current=queueWeekEntries(plan);for(const entry of current)if(rotationGroupScheduled(plan,entry.day,entry.cat)&&!before.some(old=>old.day===entry.day&&old.cat===entry.cat)){const key=weekdaySlotKey(entry.day,entry.cat);plan.cycleSlotChoices[key]={...plan.cycleSlotChoices[key],empty:true}}}
 }
 function reparentDeletedBulkChildren(ids,schedules,raw){
- let changed=false;for(const plan of mealPlans){const current=getDisplayedWeekdayMealsForPlan(plan);for(const old of schedules.get(plan.id)||[]){if(!rotationGroupScheduled(plan,old.day,old.cat)||!ids.has(String(old.linkedTo))||ids.has(String(old.meal.id)))continue;const found=current.find(e=>e.day===old.day&&e.cat===old.cat&&String(e.meal.id)===String(old.meal.id));if(!found)continue;
+ let changed=false;for(const plan of mealPlans){const current=queueWeekEntries(plan);for(const old of schedules.get(plan.id)||[]){if(!rotationGroupScheduled(plan,old.day,old.cat)||!ids.has(String(old.linkedTo))||ids.has(String(old.meal.id)))continue;const found=current.find(e=>e.day===old.day&&e.cat===old.cat&&String(e.meal.id)===String(old.meal.id));if(!found)continue;
   const key=weekdaySlotKey(old.day,old.cat),choice=plan.cycleSlotChoices[key];if(choice)choice.parentId='';const previous=rotationOccurrenceKey({...old,planId:plan.id}),context=cookingContext(plan.id,old.day,old.cat,found.meal),next=cookingOccurrenceKey(context);
   for(const [target,prior]of [[cookingSessions.occurrences,raw.sessions.occurrences],[occurrenceScales.occurrences,raw.scales.occurrences]]){if(prior[previous]){if(target[next]&&next!==previous)throw Error('A linked side has separate saved progress that cannot be safely merged. No recipes were deleted.');target[next]={...JSON.parse(JSON.stringify(prior[previous])),context:{...context}}}delete target[previous]}
   for(const field of ['occurrences','assignedOn','assignedAt'])if(plan.rotationCalendar?.[field]&&Object.hasOwn(plan.rotationCalendar[field],previous)){plan.rotationCalendar[field][next]=plan.rotationCalendar[field][previous];delete plan.rotationCalendar[field][previous]}
@@ -6479,7 +6593,7 @@ function reparentDeletedBulkChildren(ids,schedules,raw){
 }
 function validateBulkScheduleResult(schedules,departing,allowedDays=[]){
  const affected=new Set(allowedDays.map(item=>JSON.stringify([item.planId,item.day])));for(const [planId,entries]of schedules)for(const entry of entries)if(departing.has(String(entry.meal.id)))affected.add(JSON.stringify([planId,entry.day]));
- for(const plan of mealPlans){const before=schedules.get(plan.id)||[],current=getDisplayedWeekdayMealsForPlan(plan);if(current.some(e=>departing.has(String(e.meal.id))))throw Error('A linked relationship would keep a selected recipe scheduled. Adjust its destination or linked meal before retrying.');
+ for(const plan of mealPlans){const before=schedules.get(plan.id)||[],current=queueWeekEntries(plan);if(current.some(e=>departing.has(String(e.meal.id))))throw Error('A linked relationship would keep a selected recipe scheduled. Adjust its destination or linked meal before retrying.');
   const stable=entry=>JSON.stringify([entry.day,String(entry.meal.id),String(entry.linkedTo||'')]);const old=before.filter(e=>!affected.has(JSON.stringify([plan.id,e.day]))).map(stable).sort(),next=current.filter(e=>!affected.has(JSON.stringify([plan.id,e.day]))).map(stable).sort();if(JSON.stringify(old)!==JSON.stringify(next))throw Error('This change would alter another scheduled or linked meal. Choose a different destination or change that meal explicitly first.');
  }
 }
@@ -6512,7 +6626,7 @@ function applyRecipeBulk(ids,patch,options={}){
  const raw=JSON.parse(JSON.stringify({sessions:cookingSessions,scales:occurrenceScales}));const selected=new Set(ids),removed=new Set(patch.delete?ids:[]),transaction={selected,removed,allowedDays:[],promotion:null,promotionMealId:null};let result=false;recipeBulkBusy=true;
  try{
   bulkRecipeStorageDraft=new Map(Array.from({length:mealBulkStorageBase.length},(_,i)=>{const key=mealBulkStorageBase.key(i);return [key,mealBulkStorageBase.getItem(key)]}));meals=JSON.parse(JSON.stringify(meals));mealPlans=JSON.parse(JSON.stringify(mealPlans));weekdayMealOverrides={...weekdayMealOverrides};cookingSessions=JSON.parse(JSON.stringify(cookingSessions));occurrenceScales=JSON.parse(JSON.stringify(occurrenceScales));groceryOccurrenceChecks=JSON.parse(JSON.stringify(groceryOccurrenceChecks));recipeLabelCatalog=[...recipeLabelCatalog];masterGroceryExcludedMealKeys=new Set(masterGroceryExcludedMealKeys);
-  saveActiveMealPlan();const schedules=new Map(mealPlans.map(p=>[p.id,getDisplayedWeekdayMealsForPlan(p)])),grocery=captureGroceryCheckStates();preserveOtherMealPlanChoices(null,null,schedules);
+  saveActiveMealPlan();const schedules=new Map(mealPlans.map(p=>[p.id,queueWeekEntries(p)])),grocery=captureGroceryCheckStates();preserveOtherMealPlanChoices(null,null,schedules);
   const departing=new Set();transaction.departing=departing;transaction.schedules=schedules;
   const sharedIds=new Set(selectedSharedRecipeIds(ids));for(const meal of meals){if(selected.has(String(meal.id))){if(patch.category)meal.cat=patch.category;if(patch.rotation!==undefined){if(!patch.rotation&&meal.rotation)departing.add(String(meal.id));meal.rotation=patch.rotation;if(!meal.rotation)delete meal.rotationPromotionPriority}}if(!sharedIds.has(String(meal.id)))continue;if(patch.favorite!==undefined){if(patch.favorite)meal.favorite=true;else delete meal.favorite}if(patch.adjusting!==undefined){if(patch.adjusting)meal.needsTweaking=true;else{delete meal.needsTweaking;delete meal.needsTweakingNote}}if(patch.addLabels?.length||patch.removeLabels?.length){const remove=new Set((patch.removeLabels||[]).map(labelKey));meal.labels=(Array.isArray(meal.labels)?[...meal.labels]:[]).filter(label=>!remove.has(labelKey(label)));for(const label of patch.addLabels||[])if(!meal.labels.some(old=>labelKey(old)===labelKey(label)))meal.labels.push(label)}}
   if(options.editor)applyEditorRecipeMutation(options.editor,transaction);if(options.dependentRole)applyDependentRoleMutation(options.dependentRole,transaction);
@@ -6843,6 +6957,7 @@ for(const day of orderedDays()){
  else if(getDayCategories(day).length&&!displayedTop.some(item=>item.day===day))
   displayedTop.push({day,cat:null,meal:null,needsRotation:true});
 }
+for(const entry of emptyWeekEntries(mealPlans.find(p=>p.id===activePlanId))){for(let i=displayedTop.length-1;i>=0;i--)if(displayedTop[i].day===entry.day&&!displayedTop[i].meal)displayedTop.splice(i,1);displayedTop.push({...entry,meal:null,temporaryEmpty:true})}
 const dayOrder=orderedDays();displayedTop.sort((a,b)=>dayOrder.indexOf(a.day)-dayOrder.indexOf(b.day));
 // Linked recipes without a manually assigned second group appear beneath
 // their parent recipe, rather than occupying an additional weekday slot.
@@ -6861,7 +6976,7 @@ const mealSlotsByDay={};
 for(const item of displayedTop)mealSlotsByDay[item.day]=(mealSlotsByDay[item.day]||0)+1;
 let previousRenderedDay=null;
 const renderedSlotsByDay={};
-displayedTop.forEach(({day,cat:c,meal:top,needsRotation,linkedTo})=>{
+displayedTop.forEach(({day,cat:c,meal:top,needsRotation,linkedTo,temporaryEmpty})=>{
   if(day!==previousRenderedDay){
     const dayHeading=document.createElement('button');dayHeading.type='button';dayHeading.className='section weekday-heading';dayHeading.dataset.weekday=day;dayHeading.textContent=day;
     dayHeading.style.cursor='pointer';dayHeading.title='Choose meal group for '+day;
@@ -6874,10 +6989,11 @@ displayedTop.forEach(({day,cat:c,meal:top,needsRotation,linkedTo})=>{
   }
 if(!top){
  const blank=document.createElement('div');blank.className='empty-weekday-meal';
+ if(temporaryEmpty){blank.textContent=(c==='@day'?'':c+' · ')+'Empty this week';blank.setAttribute('role','button');blank.tabIndex=0;blank.style.cssText='background:'+colorForDay(day)+';padding:10px 14px;min-height:44px;color:#777;cursor:pointer';blank.onclick=()=>openWeekEmptyActions(day,c);blank.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openWeekEmptyActions(day,c)}};list.append(blank);return}
  blank.textContent=needsRotation?'Move a meal into rotation to display it here.':(meals.length===0?'Tap to choose a meal group':'No meal planned');blank.style.cursor='pointer';blank.onclick=()=>!getDayCategories(day).length?openWeekdayCard(day):(needsRotation?openDayGroupForRotation(day):openDayCategoryPicker(day));blank.style.cssText='background:'+colorForDay(day)+';padding:10px 14px 14px;color:#777;border-radius:0 0 8px 8px;font-size:16px';
  list.append(blank);return;
 }
-let row=document.createElement('div');row.className='meal';if(mealSlotsByDay[day]>1)row.classList.add('multi-category-meal');row.dataset.mealId=String(top.id);bindMealSwipe(row,top);let body=document.createElement('div');body.className='mealbody';let name=document.createElement('button');name.className='mealname';name.textContent=top.name;name.style.userSelect='none';name.style.webkitUserSelect='none';name.style.webkitTouchCallout='none';name.style.touchAction='pan-y';name.addEventListener('selectstart',e=>e.preventDefault());// Tap for meal options; hold for the saved recipe link.
+let row=document.createElement('div');row.className='meal';if(mealSlotsByDay[day]>1)row.classList.add('multi-category-meal');row.dataset.mealId=String(top.id);if(!top.temporaryMeal)bindMealSwipe(row,top);let body=document.createElement('div');body.className='mealbody';let name=document.createElement('button');name.className='mealname';name.textContent=top.name;name.style.userSelect='none';name.style.webkitUserSelect='none';name.style.webkitTouchCallout='none';name.style.touchAction='pan-y';name.addEventListener('selectstart',e=>e.preventDefault());// Tap for meal options; hold for the saved recipe link.
 let mealHoldTimer=null,mealHeld=false,mealPressActive=false;
 const clearMealHold=()=>{clearTimeout(mealHoldTimer);mealHoldTimer=null};
 const openMealRecipe=()=>openSavedMealRecipe(top,cookingContext(activePlanId,day,c,top,linkedTo));
@@ -6889,7 +7005,7 @@ name.addEventListener('pointerdown',e=>{
 });
 name.addEventListener('pointerup',e=>{
   clearMealHold();const held=mealPressActive&&mealHeld;mealPressActive=false;
-  if(held){e.preventDefault();openMealRecipe()}
+  if(held&&!top.temporaryMeal){e.preventDefault();openMealRecipe()}
 });
 ['pointerleave','pointercancel'].forEach(ev=>name.addEventListener(ev,()=>{clearMealHold();mealPressActive=false}));
 name.addEventListener('click',e=>{if(mealHeld){e.preventDefault();e.stopImmediatePropagation();mealHeld=false}},true);
@@ -6918,7 +7034,7 @@ if(inlineLinked.length){
  });
  body.append(linkedInfo);
 }
-appendMealTimes(body,top);for(const side of getDayCategories(day)){const plan=mealPlans.find(p=>p.id===activePlanId);if(pairedMainGroup(plan,day,side)===c&&!getDisplayedWeekdayMeals().some(entry=>entry.day===day&&entry.cat===side)){const message=document.createElement('button');message.type='button';message.className='times';message.textContent=side+': no matching side in rotation';message.setAttribute('aria-label','Choose '+day+"'s "+side+' meal');message.style.cssText='display:block;border:0;background:transparent;padding:4px 0;min-height:44px;text-align:left;color:var(--muted,#777);font:inherit;font-size:12px;text-decoration:underline;text-underline-offset:2px';message.onclick=e=>{e.preventDefault();e.stopPropagation();openWeekdayMealChooser(day,side,null)};body.append(message)}}row.append(body);const wrap=document.createElement('div');wrap.className='top-recipe-wrap';wrap.style.background=colorForDay(day);renderedSlotsByDay[day]=(renderedSlotsByDay[day]||0)+1;wrap.style.borderRadius=renderedSlotsByDay[day]===mealSlotsByDay[day]?'0 0 8px 8px':'0';wrap.append(row);if(!getDayCategories(day).length){wrap.style.cursor='pointer';wrap.onclick=e=>{if(!e.defaultPrevented&&!e.target.closest('button,input,select,a'))openWeekdayCard(day)}}list.append(wrap)});return}if(!showTop){renderMasterCategories(list);return}if(!active)return;const featuredColorById=new Map();for(const entry of getDisplayedWeekdayMealsForPlan(masterDisplayPlan())){if(!featuredColorById.has(String(entry.meal.id)))featuredColorById.set(String(entry.meal.id),colorForDay(entry.day))} [['IN ROTATION',true],['IDEAS',false]].forEach(([title,rot])=>{let h=document.createElement('div');h.className='section';h.textContent=title;list.append(h);masterRecipeOrder(active).filter(m=>m.rotation===rot).forEach(m=>{let row=document.createElement('div');row.className='meal';row.dataset.mealId=String(m.id);if(featuredColorById.has(String(m.id))){row.style.backgroundColor=featuredColorById.get(String(m.id));row.style.borderRadius='8px';row.classList.add('featured-top-meal')}bindMealSwipe(row,m);if(rot&&manualRecipeOrdering){let up=document.createElement('button');up.className='move';up.textContent='↑';up.title='Tap: move to top; long press: move up one';up.setAttribute('aria-label','Move '+(m.name||'meal')+' up');function bindMoveArrow(btn,dir){let holdTimer=null,held=false;btn.addEventListener('pointerdown',()=>{held=false;holdTimer=setTimeout(()=>{held=true;const group=meals.filter(x=>x.cat===m.cat&&x.rotation);const pos=group.findIndex(x=>x.id===m.id),target=pos+dir;if(pos<0||target<0||target>=group.length)return;snapshot();const other=group[target],a=meals.indexOf(m),b=meals.indexOf(other);if(a>=0&&b>=0){meals[a]=other;meals[b]=m;clearOverridesForCat(m.cat);persist();renderList()}},500)});['pointerup','pointerleave','pointercancel'].forEach(ev=>btn.addEventListener(ev,()=>clearTimeout(holdTimer)));btn.onclick=()=>{if(held){held=false;return}moveMasterCategoryMeal(m,dir,false)}}bindMoveArrow(up,-1);row.append(up);let down=document.createElement('button');down.className='move';down.textContent='↓';down.title='Tap: move to bottom; long press: move down one';down.setAttribute('aria-label','Move '+(m.name||'meal')+' down');bindMoveArrow(down,1);row.append(down)}else if(!rot){let cb=document.createElement('input');cb.type='checkbox';cb.className='check';cb.setAttribute('aria-label','Add to rotation');cb.onchange=()=>{if(cb.checked)promoteMealToRotation(m)};row.append(cb)}let body=document.createElement('div');body.className='mealbody';let name=document.createElement('button');name.className='mealname';name.textContent=m.name;name.style.userSelect='none';name.style.webkitUserSelect='none';name.style.webkitTouchCallout='none';name.style.touchAction='pan-y';name.addEventListener('selectstart',e=>e.preventDefault());name.onclick=e=>{if(m.url){e.preventDefault();window.open(m.url,'_blank','noopener')}};bindRenameLongPress(name,m);name.oncontextmenu=e=>e.preventDefault();body.append(name);bindRecipeTimerName(name,m);appendNeedsTweakingIndicator(body,m);appendMealTimes(body,m);row.append(body);if(m.linkGroup&&meals.filter(x=>x.linkGroup===m.linkGroup).length>1){const dot=document.createElement('span');dot.className='linked-meal-dot';dot.textContent='•';dot.title='Shared across groups';dot.setAttribute('aria-label','Shared across groups');dot.style.cssText='margin-left:auto;padding:0 9px;font-size:23px;color:#6a7484;flex:0 0 auto';row.append(dot)}list.append(row)})});let add=document.createElement('button');add.className='smallbtn add-meal-floating';add.textContent='+';add.title='Add meal';add.setAttribute('aria-label','Add meal');add.onclick=()=>{snapshot();let m={id:id++,cat:active,name:'',rotation:false,prep:'',cook:'',total:'',url:''};meals.push(m);openEditor(m.id)};document.body.append(add)}function openLinkedMealEditorInline(meal,navigationOrigin=null){openEditor(meal.id,false,navigationOrigin)}
+appendMealTimes(body,top);for(const side of getDayCategories(day)){const plan=mealPlans.find(p=>p.id===activePlanId);if(!weekSchedule(plan).slots[temporarySlotKey(day,side)]&&pairedMainGroup(plan,day,side)===c&&!getDisplayedWeekdayMeals().some(entry=>entry.day===day&&entry.cat===side)){const message=document.createElement('button');message.type='button';message.className='times';message.textContent=side+': no matching side in rotation';message.setAttribute('aria-label','Choose '+day+"'s "+side+' meal');message.style.cssText='display:block;border:0;background:transparent;padding:4px 0;min-height:44px;text-align:left;color:var(--muted,#777);font:inherit;font-size:12px;text-decoration:underline;text-underline-offset:2px';message.onclick=e=>{e.preventDefault();e.stopPropagation();openWeekdayMealChooser(day,side,null)};body.append(message)}}row.append(body);const wrap=document.createElement('div');wrap.className='top-recipe-wrap';wrap.style.background=colorForDay(day);renderedSlotsByDay[day]=(renderedSlotsByDay[day]||0)+1;wrap.style.borderRadius=renderedSlotsByDay[day]===mealSlotsByDay[day]?'0 0 8px 8px':'0';wrap.dataset.weekday=day;wrap.dataset.displayKey=scheduleDisplayKey({cat:c,meal:top,linkedTo});if(mealSlotsByDay[day]>1)appendWeekReorderHandle(row,day,{cat:c,meal:top,linkedTo});wrap.append(row);if(!getDayCategories(day).length){wrap.style.cursor='pointer';wrap.onclick=e=>{if(!e.defaultPrevented&&!e.target.closest('button,input,select,a'))openWeekdayCard(day)}}list.append(wrap)});return}if(!showTop){renderMasterCategories(list);return}if(!active)return;const featuredColorById=new Map();for(const entry of getDisplayedWeekdayMealsForPlan(masterDisplayPlan())){if(!featuredColorById.has(String(entry.meal.id)))featuredColorById.set(String(entry.meal.id),colorForDay(entry.day))} [['IN ROTATION',true],['IDEAS',false]].forEach(([title,rot])=>{let h=document.createElement('div');h.className='section';h.textContent=title;list.append(h);masterRecipeOrder(active).filter(m=>m.rotation===rot).forEach(m=>{let row=document.createElement('div');row.className='meal';row.dataset.mealId=String(m.id);if(featuredColorById.has(String(m.id))){row.style.backgroundColor=featuredColorById.get(String(m.id));row.style.borderRadius='8px';row.classList.add('featured-top-meal')}bindMealSwipe(row,m);if(rot&&manualRecipeOrdering){let up=document.createElement('button');up.className='move';up.textContent='↑';up.title='Tap: move to top; long press: move up one';up.setAttribute('aria-label','Move '+(m.name||'meal')+' up');function bindMoveArrow(btn,dir){let holdTimer=null,held=false;btn.addEventListener('pointerdown',()=>{held=false;holdTimer=setTimeout(()=>{held=true;const group=meals.filter(x=>x.cat===m.cat&&x.rotation);const pos=group.findIndex(x=>x.id===m.id),target=pos+dir;if(pos<0||target<0||target>=group.length)return;snapshot();const other=group[target],a=meals.indexOf(m),b=meals.indexOf(other);if(a>=0&&b>=0){meals[a]=other;meals[b]=m;clearOverridesForCat(m.cat);persist();renderList()}},500)});['pointerup','pointerleave','pointercancel'].forEach(ev=>btn.addEventListener(ev,()=>clearTimeout(holdTimer)));btn.onclick=()=>{if(held){held=false;return}moveMasterCategoryMeal(m,dir,false)}}bindMoveArrow(up,-1);row.append(up);let down=document.createElement('button');down.className='move';down.textContent='↓';down.title='Tap: move to bottom; long press: move down one';down.setAttribute('aria-label','Move '+(m.name||'meal')+' down');bindMoveArrow(down,1);row.append(down)}else if(!rot){let cb=document.createElement('input');cb.type='checkbox';cb.className='check';cb.setAttribute('aria-label','Add to rotation');cb.onchange=()=>{if(cb.checked)promoteMealToRotation(m)};row.append(cb)}let body=document.createElement('div');body.className='mealbody';let name=document.createElement('button');name.className='mealname';name.textContent=m.name;name.style.userSelect='none';name.style.webkitUserSelect='none';name.style.webkitTouchCallout='none';name.style.touchAction='pan-y';name.addEventListener('selectstart',e=>e.preventDefault());name.onclick=e=>{if(m.url){e.preventDefault();window.open(m.url,'_blank','noopener')}};bindRenameLongPress(name,m);name.oncontextmenu=e=>e.preventDefault();body.append(name);bindRecipeTimerName(name,m);appendNeedsTweakingIndicator(body,m);appendMealTimes(body,m);row.append(body);if(m.linkGroup&&meals.filter(x=>x.linkGroup===m.linkGroup).length>1){const dot=document.createElement('span');dot.className='linked-meal-dot';dot.textContent='•';dot.title='Shared across groups';dot.setAttribute('aria-label','Shared across groups');dot.style.cssText='margin-left:auto;padding:0 9px;font-size:23px;color:#6a7484;flex:0 0 auto';row.append(dot)}list.append(row)})});let add=document.createElement('button');add.className='smallbtn add-meal-floating';add.textContent='+';add.title='Add meal';add.setAttribute('aria-label','Add meal');add.onclick=()=>{snapshot();let m={id:id++,cat:active,name:'',rotation:false,prep:'',cook:'',total:'',url:''};meals.push(m);openEditor(m.id)};document.body.append(add)}function openLinkedMealEditorInline(meal,navigationOrigin=null){openEditor(meal.id,false,navigationOrigin)}
 // Undo restores only the removed occurrence and its linked cooking contexts.
 // Progress made on retained meals after Skip must remain untouched.
 function captureSkippedCookingState(plan,entry){
@@ -6965,6 +7081,10 @@ async function skipScheduledMeal(day,category,meal){
 }
 
 function openTopMealActionMenu(day,category,meal,fromLinkedGroup=false,cookingOverride=null,navigationOrigin=null){
+  if(meal.temporaryMeal){
+   const shade=document.createElement('div');shade.className='recipe-timer-dialog';const box=document.createElement('div');box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','One-time meal options');appendRotationCloseHeader(box,meal.name,()=>shade.remove());
+   for(const [label,fn] of [['Change meal',()=>openWeekdayMealChooser(day,category,meal)],['Edit one-time meal',()=>openOneTimeMealEditor(day,category,meal)],['Leave Empty This Week',()=>leaveWeekEmpty(day,category)],['Resume planned meal',()=>resumeWeekSlot(day,category)]]){const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=label;b.onclick=()=>{shade.remove();fn()};box.append(b)}shade.append(box);document.body.append(shade);return;
+  }
   navigationOrigin=navigationOrigin||captureMealEditorOrigin();
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10002;display:flex;align-items:center;justify-content:center;padding:18px';
@@ -6985,7 +7105,8 @@ function openTopMealActionMenu(day,category,meal,fromLinkedGroup=false,cookingOv
   actions.style.cssText='display:flex;flex-direction:column;gap:12px';
   const options=[['Open recipe',()=>openSavedMealRecipe(meal,cookingOverride||currentRecipeContext(day,category,meal),navigationOrigin)]];
   if(day)options.push(['Change meal',()=>{const occasional=!getDayCategories(day).length||String(mealPlans.find(plan=>plan.id===activePlanId)?.occasionalMeals?.[day])===String(meal.id),current=occasional?getDisplayedWeekdayMeals().find(item=>item.day===day&&item.occasional&&!item.linkedTo)?.meal:meal;openWeekdayMealChooser(day,category,current||meal,occasional)}]);
-  if(day)options.push(['Skip This Week',()=>skipScheduledMeal(day,category,meal)]);
+  if(day)options.push(['Skip This Meal',()=>skipScheduledMeal(day,category,meal)]);
+  if(day)options.push(['Leave Empty This Week',()=>leaveWeekEmpty(day,category)]);
   options.push(['Edit meal',()=>fromLinkedGroup?openLinkedMealEditorInline(meal,navigationOrigin):openEditor(meal.id,false,navigationOrigin)],['Edit grocery list',()=>openTopIngredientChooser(meal)]);
   options.forEach(([label,action])=>{
     const button=document.createElement('button');
@@ -7016,6 +7137,7 @@ function confirmDuplicateMealChoice(meal,occurrences){return new Promise(resolve
 function applyManualWeekdayMeal(day,category,meal,replacing=null,occasional=false){
  const groceryBefore=captureGroceryCheckStates(),beforeIds=new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)));
  saveActiveMealPlan();const beforeState=JSON.parse(captureState()),plan=mealPlans.find(plan=>plan.id===activePlanId);
+ clearTemporarySlot(plan,day,category);
  const prior=getDisplayedWeekdayMealsForPlan(plan),moving=replacing?cycleAffectedEntries(prior.map(item=>({...item,planId:plan.id})),[{...replacing,planId:plan.id}],plan):[];
  const rotateSource=replacing&&rotationGroupScheduled(plan,replacing.day,replacing.cat);
  if(!rotateSource)snapshot();preserveOtherMealPlanChoices(day,category);
@@ -7045,7 +7167,6 @@ function applyManualWeekdayMeal(day,category,meal,replacing=null,occasional=fals
 }
 
 function openWeekdayMealChooser(day,category,currentMeal,occasional=false){
- const options=meals.filter(meal=>cats.includes(meal.cat));if(!options.length)return;
  const assigned=getDayCategories(day),order=[...assigned,...masterOrderedGroups(masterDisplayOrder()).filter(cat=>!assigned.includes(cat))];
  const expanded=new Set(assigned);let pendingMeal=currentMeal,highlights,favoritesOnly=false;
  const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px';
@@ -7103,7 +7224,8 @@ function openWeekdayMealChooser(day,category,currentMeal,occasional=false){
    applyManualWeekdayMeal(day,category,pendingMeal,decision.replace,occasional);close();
   }finally{save.disabled=false}
  };
- const cancel=document.createElement('button');cancel.type='button';setIconButton(cancel,'cancel','Cancel');cancel.onclick=close;actions.append(save);if(occasional&&currentMeal){const remove=document.createElement('button');remove.type='button';setIconButton(remove,'delete','Remove one-time meal');remove.onclick=async()=>{if(await appDialog('Remove '+(currentMeal.name||'this meal')+' from '+day+'?',null,'yesno')){removeOccasionalMeal(day);close()}};actions.append(remove)}actions.append(cancel);box.append(header,search,list,actions);overlay.append(box);
+ const once=document.createElement('button');once.type='button';once.className='smallbtn';once.textContent='Add One-Time Meal';once.style.minHeight='44px';once.onclick=()=>{close();openOneTimeMealEditor(day,category,currentMeal?.temporaryMeal?currentMeal:null)};
+ const cancel=document.createElement('button');cancel.type='button';setIconButton(cancel,'cancel','Cancel');cancel.onclick=close;actions.append(save);if(occasional&&currentMeal){const remove=document.createElement('button');remove.type='button';setIconButton(remove,'delete','Remove one-time meal');remove.onclick=async()=>{if(await appDialog('Remove '+(currentMeal.name||'this meal')+' from '+day+'?',null,'yesno')){removeOccasionalMeal(day);close()}};actions.append(remove)}actions.append(cancel);box.append(header,search,once,list,actions);overlay.append(box);
  overlay.addEventListener('click',event=>{if(event.target===overlay)close()});overlay.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();close()}});document.body.append(overlay);window.visualViewport?.addEventListener('resize',fit);window.visualViewport?.addEventListener('scroll',fit);fit();renderChoices();
 }
 
@@ -7176,6 +7298,7 @@ function mealLinkedCopies(meal){
   (meal.importSourceId&&m.importSourceId===meal.importSourceId));
 }
 function grocerySelectionsForMeal(meal,selections){
+ if(meal.temporaryMeal)return meal.ingredients||[];
  const merged=new Map();
  for(const copy of mealLinkedCopies(meal)){
   const entries=selections&&selections[String(copy.id)];
@@ -7184,6 +7307,7 @@ function grocerySelectionsForMeal(meal,selections){
  return [...merged.values()];
 }
 function openTopIngredientChooser(meal){
+ if(meal.temporaryMeal){const entry=getDisplayedWeekdayMeals().find(item=>String(item.meal.id)===String(meal.id));if(entry)openOneTimeMealEditor(entry.day,entry.cat,meal);return}
   meal={...meal,ingredients:Array.isArray(meal.ingredients)?[...meal.ingredients]:[]};
   const groceryBefore=captureGroceryCheckStates();
   let selectedByMeal={};try{selectedByMeal=JSON.parse(testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
@@ -8506,3 +8630,4 @@ try{rotationCalendarTrackingReady=true;render();window.history.replaceState({...
   schedule();
 })();
 </script><script src="./pwa.js" defer></script></body></html>
+
