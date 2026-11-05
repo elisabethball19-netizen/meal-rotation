@@ -50,6 +50,9 @@ def interaction(b,name,w):
  if prefix:assert p.evaluate("localStorage.getItem('mealRotationDataV1')")=='WORKING SENTINEL'
  print('PASS',name,w,'long press/no recipe action, checkbox and row taps, scroll/expansion/cross-group/scoped selections, toolbar/nav geometry, exit and normal tap, no recipe/schedule edits',flush=True);c.close()
 
+def choose_bulk_value(p,d,label,value):
+ d.get_by_role('button',name=label,exact=True).tap();picker=p.get_by_role('dialog',name=label,exact=True);picker.get_by_role('radio',name=value,exact=True).check();picker.get_by_role('button',name='Confirm '+label.lower(),exact=True).tap()
+
 def edit(b,name,w):
  c,p,errors,prefix=setup(b,name,w);p.evaluate('bulkTest.select([1,2,5])');before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p)
  p.get_by_role('button',name='Edit selected recipes',exact=True).tap();d=p.get_by_role('dialog',name='Edit 3 recipes',exact=True);assert d.get_by_role('button',name='Apply to selected recipes',exact=True).is_disabled()
@@ -60,8 +63,10 @@ def edit(b,name,w):
   if m['id'] in [1,2,5]:assert m['favorite'] and m['needsTweaking'] and {'Spicy','New Label',*old['labels']}.issubset(m['labels'])
   else:assert m==old
  assert compose(p)==schedule and f.sources(p)==groceries and after['sessions']==before['sessions'] and after['scales']==before['scales']
+ # Successful edits exit selection; start a new selection before testing Cancel.
+ assert not p.locator('#recipeBulkToolbar,.recipe-bulk-check').count();p.evaluate('bulkTest.select([1,2,5])')
  # Cancel a mixed edit; removal requires one explicit note-removal confirmation.
- p.get_by_role('button',name='Edit selected recipes',exact=True).tap();d=p.get_by_role('dialog',name='Edit 3 recipes',exact=True);d.get_by_role('combobox',name='Meal group',exact=True).select_option('Mains');d.get_by_role('button',name='Cancel bulk edit',exact=True).tap();assert state(p)==after
+ p.get_by_role('button',name='Edit selected recipes',exact=True).tap();d=p.get_by_role('dialog',name='Edit 3 recipes',exact=True);choose_bulk_value(p,d,'Meal group','Mains');d.get_by_role('button',name='Cancel bulk edit',exact=True).tap();assert state(p)==after
  p.get_by_role('button',name='Edit selected recipes',exact=True).tap();d=p.get_by_role('dialog',name='Edit 3 recipes',exact=True);d.get_by_role('combobox',name='Needs Adjusting',exact=True).select_option('false');d.get_by_role('button',name='Apply to selected recipes',exact=True).tap();confirm=p.get_by_role('dialog',name='Remove Needs Adjusting?',exact=True);confirm.get_by_role('button',name='Cancel removal',exact=True).tap();assert state(p)==after
  d.get_by_role('button',name='Apply to selected recipes',exact=True).tap();p.get_by_role('dialog',name='Remove Needs Adjusting?',exact=True).get_by_role('button',name='Confirm removal',exact=True).tap();assert all(not m.get('needsTweaking') and 'needsTweakingNote' not in m for m in state(p)['meals'] if m['id'] in [1,2,5])
  p.evaluate('bulkTest.apply([1,2],{favorite:false,removeLabels:["Spicy"]})');assert all('Spicy' not in m['labels'] and not m.get('favorite') for m in state(p)['meals'] if m['id'] in [1,2]);assert compose(p)==schedule
@@ -82,8 +87,8 @@ def data_operations(b,name):
   elif operation=='demote':
    p.evaluate('bulkTest.apply([1,2],{rotation:false})');after=state(p);stable(before,after,('rotation','rotationPromotionPriority'));assert not any(x[3] in [1,2] for x in compose(p));assert all(m['rotation'] is False for m in after['meals'] if m['id'] in [1,2]);assert all(m.get('lastCooked')==next(x for x in before['meals'] if x['id']==m['id']).get('lastCooked') for m in after['meals'])
   elif operation in ['delete','linked-delete','shared-delete']:
-   deleted=[1] if operation=='shared-delete' else [1,5];p.evaluate('ids=>bulkTest.select(ids)',deleted);p.get_by_role('button',name='Delete selected recipes',exact=True).tap();d=p.get_by_role('dialog',name='Delete '+str(len(deleted))+' selected recipe'+('?' if len(deleted)==1 else 's?'),exact=True);assert d.locator('button').count()==2;d.get_by_role('button',name='Cancel removal',exact=True).tap();assert p.evaluate('bulkTest.snapshot()')==storage
-   p.get_by_role('button',name='Delete selected recipes',exact=True).tap();p.get_by_role('dialog',name='Delete '+str(len(deleted))+' selected recipe'+('?' if len(deleted)==1 else 's?'),exact=True).get_by_role('button',name='Confirm removal',exact=True).tap();after=state(p);assert {m['id'] for m in after['meals']}=={m['id'] for m in before['meals']}-set(deleted);assert not any(x[3] in deleted for x in compose(p));assert all(not (set(map(str,deleted))&{str(x) for x in m.get('linkedMealIds',[])}) for m in after['meals']);assert all(m['id'] in {x['id'] for x in after['meals']} for m in p.evaluate('JSON.parse(bulkTest.history()).meals'))
+   deleted=[1] if operation=='shared-delete' else [1,5];p.evaluate('ids=>bulkTest.select(ids)',deleted);p.get_by_role('button',name='Delete selected recipes',exact=True).tap();d=p.get_by_role('dialog',name='Delete '+str(len(deleted))+' recipe'+('' if len(deleted)==1 else 's')+' from all groups?',exact=True);assert d.locator('button').count()==2;d.get_by_role('button',name='Cancel removal',exact=True).tap();assert p.evaluate('bulkTest.snapshot()')==storage
+   p.get_by_role('button',name='Delete selected recipes',exact=True).tap();p.get_by_role('dialog',name='Delete '+str(len(deleted))+' recipe'+('' if len(deleted)==1 else 's')+' from all groups?',exact=True).get_by_role('button',name='Confirm removal',exact=True).tap();deleted=[1,5] if operation=='shared-delete' else deleted;after=state(p);assert {m['id'] for m in after['meals']}=={m['id'] for m in before['meals']}-set(deleted);assert not any(x[3] in deleted for x in compose(p));assert all(not (set(map(str,deleted))&{str(x) for x in m.get('linkedMealIds',[])}) for m in after['meals']);assert all(m['id'] in {x['id'] for x in after['meals']} for m in p.evaluate('JSON.parse(bulkTest.history()).meals'))
   elif operation in ['failure','collision']:
    if operation=='failure':p.evaluate('bulkTest.fail()')
    try:p.evaluate('bulkTest.apply([1,5],'+('{category:"Mains"}' if operation=='collision' else '{favorite:true,category:"Mains"}')+')');raise AssertionError('Expected operation rejection')
