@@ -37,16 +37,16 @@ def run(b,name,width):
  panel=settings(p);slider=panel.get_by_role('slider',name='Timer alarm volume',exact=True)
  assert slider.count()==1 and slider.input_value()=='80' and p.evaluate('alarmTest.volume()')==.8
  assert panel.get_by_role('checkbox',name='Sync Ingredients',exact=True).count()==1
- panel.get_by_role('button',name='Test sound',exact=True).tap();assert sound(p)['kind']=='test' and sound(p)['loop']
+ panel.get_by_role('button',name='Test alarm sound',exact=True).tap();assert sound(p)['kind']=='test' and sound(p)['loop']
  assert p.evaluate('alertCalls.levels.at(-1)')==.8
  shape=p.evaluate('alarmTest.waveform()');assert shape['peak']>.25 and shape['peak']<=.4 and not shape['last'] and all(shape['pulses']),shape
  p.clock.fast_forward(1000);assert sound(p)['kind']=='test'
  volume(p,25);assert p.evaluate('alertCalls.levels.at(-1)')==.25
  panel.get_by_role('button',name='Stop test sound',exact=True).tap();assert sound(p) is None and p.evaluate('alertCalls.stops')==1
- panel.get_by_role('button',name='Test sound',exact=True).tap();p.clock.fast_forward(3100);assert sound(p) is None and p.evaluate('alertCalls.stops')==2
- panel.get_by_role('button',name='Test sound',exact=True).tap();close_settings(p);assert sound(p) is None
+ panel.get_by_role('button',name='Test alarm sound',exact=True).tap();p.clock.fast_forward(3100);assert sound(p) is None and p.evaluate('alertCalls.stops')==2
+ panel.get_by_role('button',name='Test alarm sound',exact=True).tap();close_settings(p);assert sound(p) is None
  # Timer completion takes over a preview; its expired preview timeout cannot stop the alarm.
- t.icon(p,2).tap();panel=settings(p);panel.get_by_role('button',name='Test sound',exact=True).tap();assert sound(p)['kind']=='test'
+ t.icon(p,2).tap();panel=settings(p);panel.get_by_role('button',name='Test alarm sound',exact=True).tap();assert sound(p)['kind']=='test'
  p.clock.fast_forward(2100);assert sound(p)['kind']=='alarm' and p.evaluate('alertCalls.tones-alertCalls.stops')==1
  p.clock.fast_forward(4000);assert sound(p)['kind']=='alarm' and p.evaluate('alertCalls.tones-alertCalls.stops')==1
  close_settings(p);p.get_by_role('button',name='Dismiss finished timer',exact=True).tap();assert sound(p) is None
@@ -60,7 +60,7 @@ def run(b,name,width):
  p.clock.fast_forward(20000)
  for _ in range(5):p.evaluate('timerTest.reconcile()')
  assert p.evaluate('alertCalls.tones')==1 and sound(p)['kind']=='alarm' and len(p.evaluate('alertCalls.notifications'))==1
- panel=settings(p);assert panel.get_by_role('button',name='Test sound',exact=True).is_disabled()
+ panel=settings(p);assert panel.get_by_role('button',name='Test alarm sound',exact=True).is_disabled()
  volume(p,0);assert p.evaluate('alertCalls.levels.at(-1)')==0 and sound(p)['kind']=='alarm'
  volume(p,100);assert p.evaluate('alertCalls.levels.at(-1)')==1
  close_settings(p);p.evaluate('alarmTest.blocked()');p.evaluate("window.dispatchEvent(new Event('focus'))");assert sound(p)['kind']=='alarm'
@@ -106,7 +106,7 @@ def layout(b,name,width,mode,landscape):
  if landscape:p.set_viewport_size({'width':740,'height':360})
  section=p.locator('.recipe-tweaking-status');section.get_by_role('button',name='Collapse Needs Adjusting note',exact=True).tap();panel=settings(p)
  assert panel.get_by_role('slider',name='Timer alarm volume',exact=True).count()==1
- preview=panel.get_by_role('button',name='Test sound',exact=True);preview.scroll_into_view_if_needed();assert preview.is_visible()
+ preview=panel.get_by_role('button',name='Test alarm sound',exact=True);preview.scroll_into_view_if_needed();assert preview.is_visible()
  close_settings(p);section.get_by_role('button',name='Expand Needs Adjusting note',exact=True).tap()
  assert section.locator('.recipe-tweaking-note').is_visible()
  assert p.evaluate('document.documentElement.scrollWidth<=innerWidth')
