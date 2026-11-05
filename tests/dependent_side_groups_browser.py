@@ -112,4 +112,8 @@ def run_all():
    for w in [320,360]:manual_and_ui(b,name,w)
   b.close()
 
-if __name__=='__main__':run_all()
+# Direct-source-group scenarios above document the superseded v93 behavior.
+# Keep their fixture helpers for the current Serve with integration suite.
+if __name__=='__main__':
+ from serve_with_browser import run_all as run_serve_with
+ run_serve_with()
