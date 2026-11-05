@@ -1117,8 +1117,289 @@ body.recipe-bulk-select{--recipe-bulk-space:96px;}body.recipe-bulk-select .unifi
 
 .recipe-bulk-choice-list{overflow:auto;min-height:0;max-height:48dvh;}.recipe-bulk-choice{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 2px;margin:0;font-size:15px;border-bottom:1px solid #e5e8eb;overflow-wrap:anywhere;}.recipe-bulk-choice input{flex:none;margin:0;}.recipe-bulk-value,.recipe-bulk-new-group{width:100%;min-height:44px;padding:8px;border:1px solid #cfd5dd;border-radius:7px;background:#fff;color:inherit;font:inherit;text-align:left;overflow-wrap:anywhere;}.recipe-bulk-error{color:#a33;font-size:13px;margin:0;}.recipe-bulk-impact:empty{display:none;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
-const mealBulkStorageBase=window.localStorage;
-(()=>{let bulkRecipeStorageDraft=null;const localStorage=bulkRecipeStorageBridge(mealBulkStorageBase);let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];let rotationCalendarTrackingReady=false,restoringRotationCalendars=false;try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
+/* Shared inline in both apps: recovery must run before migrations or autosave. */
+function createMealPersistence(provider){
+ const JOURNAL_KEY='mealRotationRecoveryJournalV1';
+ let base,readError=null,recovery=false,strict=false,suspended=false,recoveryActions=null,startupValidator=null;
+ let original=new Map(),pending=new Map(),failures=new Map(),warning=null,retrying=false,journal=null,journalRaw=null,journalCleanupPending=false,journalReplacementVerified=false;
+ const owned=key=>typeof key==='string'&&key.startsWith('mealRotation')&&!key.startsWith('mealRotationTestSandboxV1:')&&!key.startsWith('mealRotationTESTONLY__')&&key!==JOURNAL_KEY;
+ const copy=value=>JSON.parse(JSON.stringify(value));
+ function readRaw(){
+  const result=new Map(),unreadable=[];let firstError=null;
+  try{for(let i=0;i<base.length;i++){const key=base.key(i);if(!owned(key))continue;try{const value=base.getItem(key);if(value!==null)result.set(key,value)}catch(error){unreadable.push(key);firstError||=error}}}catch(error){unreadable.push('*');firstError||=error}
+  if(firstError){const error=Error(firstError.message||'Saved data could not be read');error.readableRecords=result;error.unreadableKeys=unreadable;throw error}return result;
+ }
+ function parseJournal(raw){const value=JSON.parse(raw);if(value?.version!==1||!value.originalStorage||Array.isArray(value.originalStorage)||typeof value.originalStorage!=='object'||Object.values(value.originalStorage).some(v=>typeof v!=='string'))throw Error('Unreadable recovery journal');return value}
+ function matchesRecords(actual,expected){return !!expected&&typeof expected==='object'&&!Array.isArray(expected)&&actual.size===Object.keys(expected).length&&Object.entries(expected).every(([key,value])=>typeof value==='string'&&actual.get(key)===value)}
+ try{base=provider()}catch(e){readError=e;recovery=true}
+ if(base){
+  try{original=readRaw()}catch(e){if(e.readableRecords)original=e.readableRecords;readError=e;recovery=true}
+  // Read the journal independently so denied app-record reads do not hide earlier recovery data.
+  try{journalRaw=base.getItem(JOURNAL_KEY);if(journalRaw!==null)journal=parseJournal(journalRaw)}catch(e){readError||=e;recovery=true}
+ }
+ const button=(label,action)=>{const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=label;b.style.minHeight='44px';b.onclick=action;return b};
+ function download(data,name){try{const a=document.createElement('a'),url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return true}catch(e){const message='The recovery export could not be downloaded. Keep this page open and try again.';if(recovery){const status=document.getElementById('mealRecoveryStatus');if(status)status.textContent=message}else notify(message);return false}}
+ function capture(){try{return readRaw()}catch(e){readError=e;recovery=true;showRecovery();return e.readableRecords||new Map()}}
+ function controls(root){return [...root.querySelectorAll('input,textarea,select')].map(el=>({id:el.id,name:el.name,label:el.getAttribute('aria-label')||el.closest('label')?.textContent||'',type:el.type,value:el.type==='file'?'':el.value,checked:el.checked,selected:el.multiple?[...el.selectedOptions].map(o=>o.value):undefined,files:el.type==='file'?[...el.files].map(f=>({name:f.name,type:f.type,size:f.size})):undefined}))}
+ function editorDrafts(){return [...document.querySelectorAll('#editor .editor,[data-recipe-edit-draft],[data-recovery-draft],[role="dialog"]:not(#mealDataRecovery)')].map((root,index)=>{const provider=root.mealRecoveryDraft;try{return {ownerId:provider?.ownerId||root.id||'dialog-'+index,kind:provider?.kind||'form',data:provider?.capture?copy(provider.capture()):null,controls:controls(root)}}catch(e){return {ownerId:provider?.ownerId||root.id||'dialog-'+index,controls:controls(root),captureError:String(e.message||e)}}})}
+ function liveEditor(ownerId){return [...document.querySelectorAll('#editor .editor')].map(el=>el.mealRecoveryDraft).find(p=>p?.ownerId===ownerId)}
+ function hasDrafts(){return [...document.querySelectorAll('#editor .editor,[data-recipe-edit-draft],[data-recovery-draft]')].some(root=>root.mealRecoveryDraft?.dirty?root.mealRecoveryDraft.dirty():true)}
+ function exportRecovery(){
+  const drafts=editorDrafts(),incomplete=drafts.some(d=>d.captureError);
+  const data={format:'meal-rotation-recovery-v2',exportedAt:new Date().toISOString(),readError:readError?String(readError.message||readError):null,unreadableKeys:readError?.unreadableKeys||[],storage:Object.fromEntries(capture()),originalStorage:journal?.originalStorage||Object.fromEntries(original),unsaved:Object.fromEntries(pending),failedTransactions:[...failures.values()].map(f=>copy(f.record)),editorDrafts:drafts,recoveryJournal:journal||journalRaw,notes:'storage contains readable persisted records; originalStorage contains the pre-recovery journal snapshot or last known saved snapshot; failedTransactions also retain their own pre-operation baseStorage; unsaved contains pending writes/removals (null means remove); failedTransactions contains rolled-back proposals; editorDrafts contains current raw text, selections and supported draft metadata. Files themselves are not embedded.'};
+  if(download(data,'meal-rotation-recovery.json')&&incomplete){const message='Some draft metadata could not be exported. Raw form controls were included, but keep this page open; the export may be incomplete.';if(recovery)document.getElementById('mealRecoveryStatus').textContent=message;else notify(message)}
+ }
+ function unresolved(){return pending.size>0||failures.size>0||journalCleanupPending}
+ function notify(message='Changes have not been saved to this browser. Keep this page open. Retry Save or export persisted records, pending writes, failed proposals, and current editor text for recovery.'){
+  if(recovery||suspended)return;
+  if(!warning){warning=document.createElement('section');warning.id='mealSaveWarning';warning.setAttribute('role','alert');warning.style.cssText='position:sticky;top:0;z-index:40000;background:#fff3d6;color:#422d00;border:1px solid #c69b44;border-radius:10px;padding:12px;margin:0 0 12px;';const text=document.createElement('p');text.style.margin='0 0 8px';const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;flex-wrap:wrap';actions.append(button('Retry Save',retry),button('Export Data for Recovery',exportRecovery));warning.append(text,actions);document.body.prepend(warning)}
+  warning.firstElementChild.textContent=message;
+ }
+ function clearWarning(){if(!unresolved()){warning?.remove();warning=null}}
+ function write(key,value){
+  if(recovery||suspended)return;
+  key=String(key);value=value===null?null:String(value);
+  if(strict){try{if(value===null)base.removeItem(key);else base.setItem(key,value);if(value===null)original.delete(key);else original.set(key,value)}catch(e){notify('The change was not saved. Existing saved data is being preserved. Retry the save or export your data.');throw e}return}
+  const deferred=pending.size>0;pending.set(key,value);
+  if(deferred){notify();return}
+  try{if(value===null)base.removeItem(key);else base.setItem(key,value);pending.delete(key);if(value===null)original.delete(key);else original.set(key,value);clearWarning()}catch(e){notify()}
+ }
+ const storage={
+  getItem(key){if(recovery)return null;key=String(key);if(pending.has(key))return pending.get(key);try{return base.getItem(key)}catch(e){readError=e;recovery=true;showRecovery();return null}},
+  setItem(key,value){write(key,String(value))},removeItem(key){write(key,null)},
+  get length(){return keys().length},key(index){return keys()[index]??null}
+ };
+ function keys(){if(recovery)return [];const result=new Set();try{for(let i=0;i<base.length;i++){const key=base.key(i);if(owned(key))result.add(key)}}catch(e){readError=e;recovery=true;showRecovery();return []}for(const [key,value]of pending)if(owned(key)){if(value===null)result.delete(key);else result.add(key)}return [...result]}
+ function inspect(check){startupValidator=check;if(recovery)return;try{
+  check(Object.fromEntries(original));
+  // Verify the whole replacement before any migration, normalization, or automatic app write.
+  if(journalRaw!==null){
+   if(journal.replacementCommitted!==true){
+    if(!matchesRecords(original,journal.replacement))throw Error('Recovery replacement is incomplete. Original records and earlier recovery information remain available for export or another restore.');
+    // Durable proof permits a later startup after normalization or cleanup was interrupted.
+    const verified={...journal,replacementCommitted:true},encoded=JSON.stringify(verified);
+    base.setItem(JOURNAL_KEY,encoded);if(base.getItem(JOURNAL_KEY)!==encoded)throw Error('Recovery completion could not be secured. Original recovery information is retained.');journal=verified;journalRaw=encoded;
+   }
+   journalReplacementVerified=true;
+  }
+ }catch(e){readError=e;recovery=true}}
+ function transaction(action){
+  if(recovery)throw Error('Saved data is unreadable. Use the recovery interface first.');
+  if(pending.size)throw Error('There are unsaved changes. Use Retry Save before this operation.');
+  const before=capture(),wasStrict=strict;if(recovery)throw Error('Saved data became unreadable. Use recovery before making further changes.');strict=true;
+  try{const result=action();clearWarning();return result}
+  catch(e){const after=capture();original=new Map(before);pending=new Map();for(const key of new Set([...before.keys(),...after.keys()]))if((before.get(key)??null)!==(after.get(key)??null))pending.set(key,before.get(key)??null);notify('The change was not saved. Your previous data has been kept where possible. Retry saving before closing this page.');throw e}
+  finally{strict=wasStrict}
+ }
+ function offerRetry(action,details){
+  const id=details.id,prior=failures.get(id),proposal=copy(details.proposal),record={id,kind:details.kind,ownerId:details.ownerId||null,status:'failed',baseStorage:Object.fromEntries(original),proposals:[...(prior?.record.proposals||[]),{createdAt:new Date().toISOString(),storage:proposal,editorDrafts:editorDrafts()}]};
+  failures.set(id,{record,action});notify();
+ }
+ function resolve(id){failures.delete(id);clearWarning()}
+ function cancelOwner(ownerId){for(const [id,failure]of failures)if(failure.record.ownerId===ownerId)failures.delete(id);clearWarning()}
+ function matchesBase(record){const current=capture();return ['mealRotationDataV1','mealRotationPlansV1','mealRotationSelectedIngredientsV1'].every(key=>(current.get(key)??null)===(record.baseStorage[key]??null))}
+ async function retry(){
+  if(retrying)return;retrying=true;
+  try{
+   if(pending.size){const writes=[...pending].sort(([a],[b])=>(a==='mealRotationDataV1')-(b==='mealRotationDataV1'));for(const [key,value]of writes){if(value===null)base.removeItem(key);else base.setItem(key,value);if(base.getItem(key)!==value)throw Error('Storage did not retain the saved value.')}for(const [key,value]of pending)if(value===null)original.delete(key);else original.set(key,value);pending.clear()}
+   for(const [id,failure]of [...failures].sort((a,b)=>Number(!!liveEditor(b[1].record.ownerId))-Number(!!liveEditor(a[1].record.ownerId)))){
+    if(failures.get(id)!==failure)continue;
+    if(failure.record.ownerId){const editor=liveEditor(failure.record.ownerId);if(!editor)throw Error('The failed editor is no longer open. Export its proposal for recovery, or repeat the original action.');if(document.querySelector('[role="dialog"]:not(#recipeViewer),[role="alertdialog"]'))throw Error('Finish or cancel the open dialog before retrying the editor save.');await editor.save();}
+    else{if(hasDrafts())throw Error('Save or explicitly cancel the open editor before retrying this operation.');if(!matchesBase(failure.record))throw Error('Data changed after this failed operation. Its proposal has been kept for export; repeat the original action against the current data.');await failure.action();}
+   }
+   if(journalCleanupPending){base.removeItem(JOURNAL_KEY);journal=null;journalRaw=null;journalCleanupPending=false}
+   clearWarning();
+  }catch(e){notify('Changes are still not saved. '+(e.message||'Storage is unavailable.')+' Keep this page open, retry, or export your data.')}
+  finally{retrying=false}
+ }
+ function reload(){if(hasDrafts())throw Error('Unsaved editor changes are still open. Save or cancel them before reloading.');suspended=true;window.dispatchEvent(new Event('mealRotationBeforeStorageReset'));location.reload()}
+ function replace(data){
+  startupValidator(data);
+  if(hasDrafts())throw Error('An unsaved editor is still open. Export its draft and explicitly cancel it before replacing saved data.');
+  let before,priorJournalRaw;
+  // Export may use a partial snapshot; replacement and rollback must never do so.
+  try{before=readRaw();priorJournalRaw=base.getItem(JOURNAL_KEY)}catch(error){readError=error;recovery=true;showRecovery();throw Error('Original saved data could not be completely read. No replacement was attempted. '+error.message)}
+  let priorJournal=null;if(priorJournalRaw!==null)try{priorJournal=parseJournal(priorJournalRaw)}catch(_){}
+  // Keep earlier attempts flat and intact, including pending writes, proposals, and drafts.
+  const previousAttempts=Array.isArray(priorJournal?.previousAttempts)?[...priorJournal.previousAttempts]:[];
+  if(priorJournal){const previous={...priorJournal};if(Array.isArray(previous.previousAttempts))delete previous.previousAttempts;previousAttempts.push(previous)}
+  const nextJournal={version:1,replacementCommitted:false,previousJournalRaw:priorJournal?undefined:priorJournalRaw,previousAttempts,createdAt:new Date().toISOString(),originalStorage:priorJournal?.originalStorage||Object.fromEntries(before),beforeReplacement:Object.fromEntries(before),replacement:data,pendingWrites:Object.fromEntries(pending),failedTransactions:[...failures.values()].map(f=>copy(f.record)),editorDrafts:editorDrafts()};
+  const encoded=JSON.stringify(nextJournal);base.setItem(JOURNAL_KEY,encoded);if(base.getItem(JOURNAL_KEY)!==encoded)throw Error('The original data could not be secured for recovery. No replacement was attempted.');journal=nextJournal;journalRaw=encoded;
+  try{
+   for(const [key,value]of Object.entries(data).sort(([a],[b])=>(a==='mealRotationDataV1')-(b==='mealRotationDataV1')))base.setItem(key,value);
+   for(const key of before.keys())if(!Object.hasOwn(data,key))base.removeItem(key);
+   const actual=Object.fromEntries(readRaw());if(Object.keys(actual).length!==Object.keys(data).length||Object.entries(data).some(([key,value])=>actual[key]!==value))throw Error('Replacement could not be verified.');startupValidator(actual);
+  }catch(e){let failed=false;for(const key of new Set([...before.keys(),...Object.keys(data)]))try{if(before.has(key))base.setItem(key,before.get(key));else base.removeItem(key)}catch(_){failed=true}throw Error('Recovery could not be saved. '+(failed?'Storage prevented complete rollback. The original snapshot is retained in the recovery journal.':'Original records were restored; the recovery journal is retained. Please retry.'))}
+  reload();
+ }
+ function finishStartup(){
+  if(!journalRaw||recovery)return;
+  if(!journalReplacementVerified){failStartup(Error('Recovery replacement has not been verified. Original recovery information is retained.'));return}
+  try{startupValidator(Object.fromEntries(readRaw()))}catch(error){failStartup(error);return}
+  try{base.removeItem(JOURNAL_KEY);journal=null;journalRaw=null;journalCleanupPending=false}
+  catch(e){journalCleanupPending=true;notify('The original recovery snapshot is still retained. Retry Save to finish recovery cleanup, or export it before closing this page.')}
+ }
+ function failStartup(error){readError=error;recovery=true;showRecovery()}
+ function showRecovery(actions=recoveryActions){
+  if(actions)recoveryActions=actions;if(!recovery||!recoveryActions)return;
+  let cover=document.getElementById('mealDataRecovery');if(cover)return;
+  cover=document.createElement('section');cover.id='mealDataRecovery';cover.setAttribute('role','alertdialog');cover.setAttribute('aria-modal','true');cover.setAttribute('aria-labelledby','mealRecoveryTitle');cover.style.cssText='position:fixed;inset:0;z-index:50000;background:#fff;color:#242424;overflow:auto;padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start';
+  const panel=document.createElement('div');panel.style.cssText='width:100%;max-width:520px;margin-block:auto;flex-shrink:0';const title=document.createElement('h1');title.id='mealRecoveryTitle';title.textContent='Saved data needs recovery';title.style.fontSize='24px';const detail=document.createElement('p');detail.textContent='Meal Rotation could not read its saved data. Automatic saving is paused to protect recoverable information. Export your data before restoring a backup or starting fresh.';const status=document.createElement('p');status.id='mealRecoveryStatus';status.setAttribute('role','status');status.style.overflowWrap='anywhere';status.textContent=readError?.message||'';
+  const controls=document.createElement('div');controls.style.cssText='display:flex;gap:10px;flex-wrap:wrap';
+  const restore=button('Restore Backup',()=>{const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=async()=>{const file=input.files?.[0];if(!file)return;try{const backup=JSON.parse(await file.text()),data=recoveryActions.normalize(backup);recoveryActions.validateCore(backup);recoveryActions.validate(data);replace(data)}catch(e){status.textContent='Backup was not restored: '+e.message}};input.click()});
+  const fresh=button('Start Fresh',()=>{if(panel.querySelector('[data-start-fresh-confirm]'))return;const confirmation=document.createElement('div');confirmation.dataset.startFreshConfirm='true';const text=document.createElement('p');text.textContent='Starting fresh will delete this app’s saved recipes, plans, and settings in this browser. Export Data for Recovery first if you may need them.';confirmation.append(text,button('Confirm Start Fresh',()=>{try{replace({})}catch(e){status.textContent=e.message}}),button('Cancel Start Fresh',()=>confirmation.remove()));panel.append(confirmation)});
+  controls.append(restore,button('Export Data for Recovery',exportRecovery),fresh);
+  if(hasDrafts())controls.append(button('Cancel Open Drafts',()=>{
+   if(panel.querySelector('[data-cancel-drafts-confirm]'))return;
+   const confirmation=document.createElement('div');confirmation.dataset.cancelDraftsConfirm='true';const text=document.createElement('p');text.textContent='This discards unsaved editor text and selections. Export Data for Recovery first if you need to keep them. Saved records will not be replaced.';
+   confirmation.append(text,button('Confirm Cancel Drafts',()=>{for(const root of [...document.querySelectorAll('#editor .editor,[data-recipe-edit-draft],[data-recovery-draft]')]){if(!root.isConnected)continue;if(root.mealRecoveryDraft?.discard)root.mealRecoveryDraft.discard();else root.remove()}for(const dialog of [...document.querySelectorAll('[role="dialog"]:not(#recipeViewer)')])if(dialog!==cover&&!cover.contains(dialog))dialog.remove();confirmation.remove();for(const el of document.body.children)if(el!==cover)el.inert=true;status.textContent='Open drafts were explicitly cancelled. Original saved records remain protected.'}),button('Keep Open Drafts',()=>confirmation.remove()));panel.append(confirmation);
+  }));panel.append(title,detail,status,controls);cover.append(panel);document.body.append(cover);for(const el of document.body.children)if(el!==cover)el.inert=true;restore.focus();
+ }
+ window.addEventListener('beforeunload',event=>{if(unresolved()){event.preventDefault();event.returnValue=''}});
+ return {storage,inspect,transaction,offerRetry,resolve,cancelOwner,notify,showRecovery,finishStartup,failStartup,reload,editorDrafts,get recovery(){return recovery},get unsaved(){return unresolved()},get paused(){return suspended||recovery}};
+}
+
+const mealPersistence=createMealPersistence(()=>window.localStorage);
+const mealBulkStorageBase=mealPersistence.storage;
+(()=>{
+mealPersistence.inspect(validateStartupStorage);
+function startupCore(core){return core&&Array.isArray(core.cats)&&!core.cats.length&&Array.isArray(core.meals)&&!core.meals.length?{...core,cats:['__empty_library__']}:core}
+function validateStartupStorage(data){validateSavedRecords(data,false)}
+// Startup and every replacement share this registry; unknown extension values remain opaque.
+function validateSavedRecords(data,requireCore=false){
+ const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v),strings=v=>Array.isArray(v)&&v.every(x=>typeof x==='string'),id=v=>typeof v==='string'||Number.isSafeInteger(v),days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+ const parsed={};
+ const objectKeys=['mealRotationWeekdayCategoriesV1','mealRotationWeekdayMealOverridesV1','mealRotationWeekdayRecipeFiltersV1','mealRotationSelectedIngredientsV1','mealRotationTopCountsV1','mealRotationGroupIdentitiesV1','mealRotationWeekdayColorsV1','mealRotationCategoryColorsV1','mealRotationFractionMigrationBackupV2'];
+ const nullableObjects=['mealRotationTimeVisibilityV1','mealRotationRecipeViewPrefsV1','mealRotationMakeAheadDisplayV1','mealRotationEditorSectionsV1','mealRotationGroupSectionExpansionV1'];
+ const arrayKeys=['mealRotationCheckedIngredientsV1','mealRotationPinnedCategoriesV1','mealRotationExpandedCategoriesV1','mealRotationRecipeLabelCatalogV1','mealRotationGroupDisplayOrderV1','mealRotationMasterGroceryExcludedPlansV1','mealRotationMasterGroceryExcludedMealsV1'];
+ const otherKeys=['mealRotationDataV1','mealRotationPlansV1','mealRotationCookingSessionsV1','mealRotationOccurrenceScalesV1','mealRotationGroceryOccurrenceChecksV1','mealRotationCookingTimerV1','mealRotationLastRotationBeforeV1'];
+ for(const [key,value]of Object.entries(data)){
+  if(typeof value!=='string')throw Error('Invalid saved value: '+key);
+  const structured=objectKeys.includes(key)||nullableObjects.includes(key)||arrayKeys.includes(key)||otherKeys.includes(key)||key.startsWith('mealRotationLastTopMealIdsV1:');
+  if(!structured)continue;
+  try{parsed[key]=JSON.parse(value)}catch(e){throw Error('Unreadable saved JSON: '+key)}
+  const v=parsed[key];if(objectKeys.includes(key)&&!object(v)||nullableObjects.includes(key)&&v!==null&&!object(v)||arrayKeys.includes(key)&&!(key==='mealRotationMasterGroceryExcludedPlansV1'||key==='mealRotationMasterGroceryExcludedMealsV1'?Array.isArray(v)&&v.every(id):strings(v))||key.startsWith('mealRotationLastTopMealIdsV1:')&&(!Array.isArray(v)||v.some(x=>!id(x))))throw Error('Invalid saved record type: '+key);
+ }
+ if(requireCore&&!Object.hasOwn(data,'mealRotationDataV1'))throw Error('Missing recipe collection');
+ if(Object.hasOwn(data,'mealRotationDataV1'))validateBackupCore(startupCore(parsed.mealRotationDataV1));
+ if(Object.hasOwn(data,'mealRotationPlansV1'))validateBackupCore({...startupCore(parsed.mealRotationDataV1),mealPlans:parsed.mealRotationPlansV1});
+ const assignments=[parsed.mealRotationWeekdayCategoriesV1,...(parsed.mealRotationPlansV1?.plans||[]).map(p=>p.weekdayCategories)].filter(Boolean);for(const map of assignments)if(Object.values(map).some(v=>typeof v!=='string'&&!strings(v)))throw Error('Invalid weekday assignments');
+ const selected=parsed.mealRotationSelectedIngredientsV1;if(selected&&Object.values(selected).some(v=>!strings(v)))throw Error('Invalid grocery selections');
+ const identities=parsed.mealRotationGroupIdentitiesV1;if(identities&&(Object.values(identities).some(v=>typeof v!=='string'||!v)||new Set(Object.values(identities)).size!==Object.values(identities).length))throw Error('Invalid group identities');
+ for(const key of ['mealRotationWeekdayColorsV1','mealRotationCategoryColorsV1'])if(parsed[key]&&Object.values(parsed[key]).some(v=>typeof v!=='string'||!/^#[0-9a-fA-F]{6}$/.test(v)))throw Error('Invalid saved colors: '+key);
+ for(const key of ['mealRotationWeekdayMealOverridesV1'])if(parsed[key]&&Object.values(parsed[key]).some(v=>!id(v)))throw Error('Invalid saved meal choice');
+ if(parsed.mealRotationWeekdayRecipeFiltersV1&&Object.values(parsed.mealRotationWeekdayRecipeFiltersV1).some(v=>!strings(v)))throw Error('Invalid legacy weekday filters');
+ if(parsed.mealRotationTopCountsV1&&Object.values(parsed.mealRotationTopCountsV1).some(v=>!['number','string'].includes(typeof v)||!Number.isFinite(Number(v))))throw Error('Invalid group counts');
+ if(parsed.mealRotationGroupDisplayOrderV1&&new Set(parsed.mealRotationGroupDisplayOrderV1).size!==parsed.mealRotationGroupDisplayOrderV1.length)throw Error('Invalid meal-group display order');
+ for(const [key,fields]of [['mealRotationMakeAheadDisplayV1',['showMakeAheadReminders','showCompletedToday']],['mealRotationEditorSectionsV1',['ingredients','instructions']]])if(parsed[key]&&fields.some(field=>field in parsed[key]&&typeof parsed[key][field]!=='boolean'))throw Error('Invalid display preferences: '+key);
+ const times=parsed.mealRotationTimeVisibilityV1;if(times&&['top','category','all'].some(view=>view in times&&(!object(times[view])||['cooking','marinate'].some(field=>field in times[view]&&typeof times[view][field]!=='boolean'))))throw Error('Invalid time display preferences');
+ const expansion=parsed.mealRotationGroupSectionExpansionV1;if(expansion&&(expansion.version!==1||!object(expansion.groups)||Object.values(expansion.groups).some(v=>!object(v)||['rotation','ideas'].some(k=>k in v&&typeof v[k]!=='boolean'))))throw Error('Invalid group section expansion');
+ const prefs=parsed.mealRotationRecipeViewPrefsV1;if(prefs){if('mode'in prefs&&!['full','split'].includes(prefs.mode))throw Error('Invalid recipe view mode');for(const k of ['ratio','landscapeRatio','timerAlarmVolume'])if(k in prefs&&!Number.isFinite(prefs[k]))throw Error('Invalid recipe view preference');for(const k of ['syncIngredients','autoCompleteIngredients','keepScreenAwake','autoOpenLinkedRecipes'])if(k in prefs&&typeof prefs[k]!=='boolean')throw Error('Invalid recipe view preference')}
+ const fractions=parsed.mealRotationFractionMigrationBackupV2;if(fractions&&Object.values(fractions).some(v=>v!==null&&typeof v!=='string'))throw Error('Invalid fraction migration backup');
+ if(Object.hasOwn(data,'mealRotationCookingSessionsV1'))validateCookingSessions(parsed.mealRotationCookingSessionsV1);
+ if(Object.hasOwn(data,'mealRotationOccurrenceScalesV1'))validateOccurrenceScales(parsed.mealRotationOccurrenceScalesV1);
+ if(Object.hasOwn(data,'mealRotationGroceryOccurrenceChecksV1'))validateGroceryOccurrenceChecks(parsed.mealRotationGroceryOccurrenceChecksV1);
+ const timer=parsed.mealRotationCookingTimerV1;if(timer!==undefined&&timer!==null){if(!object(timer)||timer.version!==1||!['running','paused','complete'].includes(timer.status)||['id','recipeId','recipeName','stepToken','stepText'].some(k=>typeof timer[k]!=='string')||timer.status==='running'&&!Number.isFinite(timer.deadline)||timer.status==='paused'&&(!Number.isFinite(timer.remaining)||timer.remaining<=0))throw Error('Invalid cooking timer')}
+ const history=parsed.mealRotationLastRotationBeforeV1;if(history!==undefined&&history!==null){if(!object(history)||!Array.isArray(history.meals)||!Array.isArray(history.mealPlans))throw Error('Invalid rotation history');validateBackupCore(startupCore({...history,mealPlans:{plans:history.mealPlans,...(typeof history.activePlanId==='string'?{activeId:history.activePlanId}:{})}}))}
+ return parsed;
+}
+let bulkRecipeStorageDraft=null;const localStorage=bulkRecipeStorageBridge(mealBulkStorageBase);let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];let rotationCalendarTrackingReady=false,restoringRotationCalendars=false;try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
+// Version 2 backups capture every app-owned persistent key, including grocery selections.
+// Preserve the original fields for compatibility with older backup readers.
+function captureBackupStorage(){
+ const data={};
+ for(let i=0;i<localStorage.length;i++){
+  const key=localStorage.key(i);
+  if(key&&key.startsWith('mealRotation')&&!key.startsWith('mealRotationTestSandboxV1:')&&!key.startsWith('mealRotationTESTONLY__'))data[key]=localStorage.getItem(key);
+ }
+ return data;
+}
+// Validate the complete backup before changing any saved data.
+function validateBackupCore(d){
+ const weekdays=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+ const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+ if(!object(d)||!Array.isArray(d.cats)||!d.cats.length||d.cats.some(c=>typeof c!=='string'||!c.trim())||new Set(d.cats).size!==d.cats.length)throw new Error('Invalid groups');
+ if(!Array.isArray(d.meals))throw new Error('Invalid recipes: recipe list is missing');const invalidRecipe=d.meals.find(m=>!object(m)||!Number.isSafeInteger(Number(m.id))||Number(m.id)<1||typeof m.name!=='string'||typeof m.cat!=='string'||!d.cats.includes(m.cat)||('ingredients'in m&&!Array.isArray(m.ingredients))||('labels'in m&&(!Array.isArray(m.labels)||m.labels.some(x=>typeof x!=='string'))));if(invalidRecipe!==undefined)throw new Error('Invalid recipes: '+(object(invalidRecipe)?String(invalidRecipe.name||'unnamed recipe')+' (ID '+String(invalidRecipe.id??'missing')+')':'invalid recipe entry'));
+ for(const m of d.meals){if('serveWith'in m&&(!Array.isArray(m.serveWith)||m.serveWith.some(v=>typeof v!=='string'||!v.trim())))throw Error('Invalid Serve with preferences');if('preferredSideGroupIds'in m&&(!Array.isArray(m.preferredSideGroupIds)||m.preferredSideGroupIds.some(id=>typeof id!=='string'||!id)))throw Error('Invalid preferred side groups');if('instructions'in m&&m.instructions!=null&&typeof m.instructions!=='string'&&(!Array.isArray(m.instructions)||m.instructions.some(b=>typeof b!=='string'&&(!b||typeof b!=='object'||!['step','section'].includes(b.type)||typeof b.text!=='string'))))throw Error('Invalid recipe instructions');if('notes'in m&&typeof m.notes!=='string')throw Error('Invalid recipe notes');}
+ if(new Set(d.meals.map(m=>String(m.id))).size!==d.meals.length)throw new Error('Duplicate recipe IDs');
+ if('active'in d&&typeof d.active!=='string')throw new Error('Invalid active group');
+ if('mealPlans'in d){const plans=d.mealPlans;if(!object(plans)||!Array.isArray(plans.plans)||!plans.plans.length||plans.plans.some(p=>!object(p)||typeof p.id!=='string'||!p.id||typeof p.name!=='string'||!object(p.weekdayCategories)||('weekdayMealOverrides'in p&&!object(p.weekdayMealOverrides))||('weekdayRecipeFilters'in p&&!object(p.weekdayRecipeFilters))||('pinnedCats'in p&&!Array.isArray(p.pinnedCats)))||new Set(plans.plans.map(p=>p.id)).size!==plans.plans.length||('activeId'in plans&&!plans.plans.some(p=>p.id===plans.activeId)))throw new Error('Invalid meal plans');}
+ if(d.mealPlans)for(const plan of d.mealPlans.plans)if('sideGroupPairs'in plan&&(!object(plan.sideGroupPairs)||Object.entries(plan.sideGroupPairs).some(([day,pairs])=>!weekdays.includes(day)||!object(pairs)||Object.values(pairs).some(id=>typeof id!=='string'||!id))))throw Error('Invalid side-group pairing');
+ if(d.mealPlans)for(const plan of d.mealPlans.plans)if('dependentSideState'in plan&&(!object(plan.dependentSideState)||Object.entries(plan.dependentSideState).some(([key,value])=>{let parts;try{parts=JSON.parse(key)}catch(e){return true}return !Array.isArray(parts)||parts.length!==2||!weekdays.includes(parts[0])||typeof parts[1]!=='string'||!object(value)||typeof value.mainId!=='string'||typeof value.mealId!=='string'||typeof value.automatic!=='boolean'})))throw Error('Invalid dependent side state');
+ if(d.mealPlans)for(const plan of d.mealPlans.plans)if('occasionalMeals'in plan&&(!object(plan.occasionalMeals)||Object.entries(plan.occasionalMeals).some(([day,id])=>!weekdays.includes(day)||!['string','number'].includes(typeof id)||!String(id).trim())))throw Error('Invalid one-time meals');
+ for(const key of ['weekdayCategories','weekdayMealOverrides','weekdayColors','categoryColors','timeDisplayPrefs'])if(key in d&&!object(d[key]))throw new Error('Invalid '+key);
+ for(const key of ['pinnedCats','expandedCats'])if(key in d&&(!Array.isArray(d[key])||d[key].some(x=>typeof x!=='string')))throw new Error('Invalid '+key);
+}
+function validateBackupStorage(data){
+ if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Invalid backup storage');
+ if(Object.keys(data).some(key=>!key.startsWith('mealRotation')||key==='mealRotationRecoveryJournalV1'))throw Error('Invalid backup storage key');
+ validateSavedRecords(data,true);
+}
+function normalizeImportedBackup(d){
+ // Test-only records can be present in older exports. Never import them as app data.
+ const cleaned={};
+ for(const [key,value] of Object.entries(d.storage||{})){
+  if(key.startsWith('mealRotationTestSandboxV1:')||key.startsWith('mealRotationTESTONLY__'))continue;
+  cleaned[key]=value;
+ }
+ // The top-level recipe collection is authoritative for this backup format.
+ cleaned.mealRotationDataV1=JSON.stringify({cats:d.cats,active:d.active,meals:d.meals});
+ if(d.mealPlans)cleaned.mealRotationPlansV1=JSON.stringify(d.mealPlans);
+ if(d.weekdayCategories)cleaned.mealRotationWeekdayCategoriesV1=JSON.stringify(d.weekdayCategories);
+ if(d.weekdayMealOverrides)cleaned.mealRotationWeekdayMealOverridesV1=JSON.stringify(d.weekdayMealOverrides);
+ if(d.weekdayColors)cleaned.mealRotationWeekdayColorsV1=JSON.stringify(d.weekdayColors);
+ if(d.categoryColors)cleaned.mealRotationCategoryColorsV1=JSON.stringify(d.categoryColors);
+ if(d.pinnedCats)cleaned.mealRotationPinnedCategoriesV1=JSON.stringify(d.pinnedCats);
+ if(d.expandedCats)cleaned.mealRotationExpandedCategoriesV1=JSON.stringify(d.expandedCats);
+ if(typeof d.showMealPlanTabs==='boolean')cleaned.mealRotationShowPlanTabsV1=String(d.showMealPlanTabs);
+ return cleaned;
+}
+function restoreBackupStorage(data,operation=null){
+ validateBackupStorage(data);
+ const descriptor=operation||{id:'backup-restore',kind:'backup-restore',ownerId:null};
+ try{const result=mealPersistence.transaction(()=>restoreBackupStorageWrites(data));mealPersistence.resolve(descriptor.id);return result}
+ catch(error){mealPersistence.offerRetry(operation?.retry||(()=>{restoreBackupStorage(data);mealPersistence.reload()}),{...descriptor,proposal:data});throw error}
+}
+function restoreBackupStorageWrites(data){
+ if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('Invalid backup storage');
+ const entries=Object.entries(data);
+ if(!entries.length||entries.some(([key,value])=>!key.startsWith('mealRotation')||typeof value!=='string'))throw new Error('Invalid backup storage');
+ validateBackupStorage(data);
+ // Never delete the existing records before the replacement has been written.
+ // A persistent storage failure may prevent rollback, so preserve the original
+ // recipe data until every other replacement has succeeded.
+ const before=captureBackupStorage();
+ const primary='mealRotationDataV1';
+ const changed=[];
+ try{
+  for(const [key,value] of entries){
+   if(key===primary||before[key]===value)continue;
+   localStorage.setItem(key,value);
+   changed.push(key);
+  }
+  // Commit the main recipe record last, after all other writes succeed.
+  if(before[primary]!==data[primary]){
+   localStorage.setItem(primary,data[primary]);
+   changed.push(primary);
+  }
+  // Remove obsolete keys only after all replacement writes succeed.
+  for(const key of Object.keys(before))if(!(key in data)){
+   localStorage.removeItem(key);
+   changed.push(key);
+  }
+ }catch(error){
+  const rollbackFailures=[];
+  for(const key of changed.reverse()){
+   try{
+    if(Object.prototype.hasOwnProperty.call(before,key))localStorage.setItem(key,before[key]);
+    else localStorage.removeItem(key);
+   }catch(e){rollbackFailures.push(key)}
+  }
+  if(rollbackFailures.length)throw new Error('Restore failed; some settings could not be rolled back ('+rollbackFailures.join(', ')+'). Your original backup file is unchanged. '+error.message);
+  throw error;
+ }
+}
+
 // Recipe content remains on existing meal records; cooking progress is separate.
 const COOKING_SESSIONS_KEY='mealRotationCookingSessionsV1';
 let cookingSessions={version:1,occurrences:{}},cookingStorageInvalid=false;
@@ -1172,7 +1453,7 @@ const OCCURRENCE_SCALES_KEY='mealRotationOccurrenceScalesV1',RECIPE_SCALES=[.5,1
 let occurrenceScales={version:1,occurrences:{}},scaleStorageInvalid=false;
 function validateOccurrenceScales(value){
  if(!value||value.version!==1||!value.occurrences||typeof value.occurrences!=='object'||Array.isArray(value.occurrences))throw Error('Invalid recipe scaling');
- for(const [key,entry] of Object.entries(value.occurrences))if(!entry||!RECIPE_SCALES.includes(entry.multiplier)||!entry.context||!['planId','day','cat','mealId','parentId'].every(k=>typeof entry.context[k]==='string')||key!==cookingOccurrenceKey(entry.context))throw Error('Invalid recipe scale occurrence');
+ for(const [key,entry] of Object.entries(value.occurrences))if(!entry||![.5,1,1.5,2,3].includes(entry.multiplier)||!entry.context||!['planId','day','cat','mealId','parentId'].every(k=>typeof entry.context[k]==='string')||key!==cookingOccurrenceKey(entry.context))throw Error('Invalid recipe scale occurrence');
 }
 try{const raw=localStorage.getItem(OCCURRENCE_SCALES_KEY);if(raw){const parsed=JSON.parse(raw);validateOccurrenceScales(parsed);occurrenceScales=parsed}}catch(e){scaleStorageInvalid=true}
 function writeOccurrenceScales(next){
@@ -1513,6 +1794,7 @@ function installRecipeIngredientLinkEditor(meal){
  const root=$('recipeIngredientLinks');if(!root)return;
  let draft=validRecipeIngredientLinks(meal),selected='';
  const draftMeal=()=>({...meal,ingredients:$('ingredients').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),instructions:$('recipeInstructions').value===instructionEditorText(meal.instructions)?meal.instructions:$('recipeInstructions').value});
+ root.captureRecoveryDraft=()=>({links:JSON.parse(JSON.stringify(draft)),selectedStep:selected});
  root.getLinks=next=>validRecipeIngredientLinks(next||draftMeal(),draft);
  root.hasChanges=()=>JSON.stringify(root.getLinks())!==JSON.stringify(validRecipeIngredientLinks(meal));
  const render=()=>{
@@ -2122,6 +2404,7 @@ function openRecipeViewer(meal,context=null,pushHistory=true,savedTabs=null,navi
  const content=document.createElement('article');inner.append(content);
  const inert=[...document.body.children].map(e=>[e,e.inert]);for(const [e] of inert)e.inert=true;
  recipeViewer={navigationOrigin:origin,scheduleOrigin:savedTabs?.scheduleOrigin||recipeScheduleOrigin(meal,context),mealId:String(meal.id),context,cover,content,close,reset,mode,settings,sync,cookingSettings,autoComplete,keepScreenAwake,inert,returnFocus,scroll,overflow,wake:null,wakeRequest:0,importController:null,previewProgress:{ingredients:[],steps:[]}};
+ cover.dataset.recoveryDraft='recipe-viewer';cover.mealRecoveryDraft={ownerId:'viewer:'+meal.id,kind:'recipe-viewer',capture:()=>{const view=recipeViewer;if(!view||view.cover!==cover)return null;return {recipeId:view.mealId,context:view.context,previewProgress:view.previewProgress,previewScale:view.previewScale,ingredientLinkDraft:view.linkEdit?{...view.linkEdit,selected:[...view.linkEdit.selected]}:null}},dirty:()=>recipeViewer?.cover===cover&&!!recipeViewer.linkEdit,discard:()=>{if(recipeViewer?.cover===cover&&recipeViewer.linkEdit)finishRecipeLinkEdit(false)}};
  installRecipeViewerTabs(recipeViewer,meal,context,savedTabs);context=recipeViewer.anchorTab.context;
  document.body.append(cover);document.body.style.overflow='hidden';
  cover.addEventListener('pointerdown',()=>{recipeViewer&& (recipeViewer.suppressLinkGestureClick=false)},{capture:true});
@@ -2165,7 +2448,7 @@ window.addEventListener('popstate',e=>{
 function restoreRecipeViewerHistory(saved){
  if(!saved)return;const meal=meals.find(m=>String(m.id)===String(saved.mealId));if(meal){openRecipeViewer(meal,saved.context||null,false);recipeViewer.cover.scrollTop=saved.scrollTop||0}
 }
-function resumeRecipeViewer(){restoreRecipeViewerHistory(window.history.state?.mealRotationRecipeViewer)}
+function resumeRecipeViewer(){try{restoreRecipeViewerHistory(window.history.state?.mealRotationRecipeViewer);mealPersistence.finishStartup()}catch(error){mealPersistence.failStartup(error)}}
 function recipeGuidanceEnabled(){return recipeViewingMode()==='split'&&recipeViewPrefs.syncIngredients===true}
 function cancelRecipeAdvance(view=recipeViewer){if(!view)return;clearTimeout(view.advanceTimer);view.advanceTimer=null}
 function configureGuidedCooking(view,ingredientsPane,instructionsPane){
@@ -3669,7 +3952,7 @@ function rememberCurrentView(){
 }
 // Rendered-page identity is also used to close Settings on navigation.
 let lastRenderedPageKey=null;
-const $=x=>document.getElementById(x);let backupRestoreReloadPending=false;window.addEventListener('mealRotationBeforeStorageReset',()=>{backupRestoreReloadPending=true});function persist(){if(backupRestoreReloadPending)return;if(hasDependentSideSlots()&&!coordinatingDependentSides&&!restoringRotationCalendars){const before=captureGroceryCheckStates();if(coordinateDependentSides())reconcileRotatedGroceryChecks(before,[]);saveActiveMealPlan()}reconcileRotationCalendars();reconcileAllCookingData();try{localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}}window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function captureState(){return JSON.stringify({groupIdentities:localStorage.getItem(GROUP_IDENTITIES_KEY),lastRotationBefore:localStorage.getItem('mealRotationLastRotationBeforeV1'),cats,active,meals,masterGroupOrder,groceryOccurrenceChecks,checkedIngredients:[...checkedIngredients],weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,pinnedCats,expandedCats,startWeekday,topCounts,categoryColors,weekdayColors,autoPinTopCategories,applyPinsToAllTabs,masterOpenMode,masterPinsOverride,mealPlans,activePlanId,showMealPlanTabs})}
+const $=x=>document.getElementById(x);let backupRestoreReloadPending=false;window.addEventListener('mealRotationBeforeStorageReset',()=>{backupRestoreReloadPending=true});function persist(){if(backupRestoreReloadPending||mealPersistence.paused)return;if(hasDependentSideSlots()&&!coordinatingDependentSides&&!restoringRotationCalendars){const before=captureGroceryCheckStates();if(coordinateDependentSides())reconcileRotatedGroceryChecks(before,[]);saveActiveMealPlan()}reconcileRotationCalendars();reconcileAllCookingData();try{localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}}window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function captureState(){return JSON.stringify({groupIdentities:localStorage.getItem(GROUP_IDENTITIES_KEY),lastRotationBefore:localStorage.getItem('mealRotationLastRotationBeforeV1'),cats,active,meals,masterGroupOrder,groceryOccurrenceChecks,checkedIngredients:[...checkedIngredients],weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,pinnedCats,expandedCats,startWeekday,topCounts,categoryColors,weekdayColors,autoPinTopCategories,applyPinsToAllTabs,masterOpenMode,masterPinsOverride,mealPlans,activePlanId,showMealPlanTabs})}
 function snapshot(state=captureState()){if(history[history.length-1]!==state){history.push(state);if(history.length>100)history.shift()}redoHistory=[];groceryUndo=null}
 function restoreState(state){const wasRestoring=restoringRotationCalendars;restoringRotationCalendars=true;try{if(Object.hasOwn(state,'groupIdentities')){if(state.groupIdentities===null)localStorage.removeItem(GROUP_IDENTITIES_KEY);else localStorage.setItem(GROUP_IDENTITIES_KEY,state.groupIdentities)}if(Object.prototype.hasOwnProperty.call(state,'lastRotationBefore')){try{if(state.lastRotationBefore===null)localStorage.removeItem('mealRotationLastRotationBeforeV1');else if(typeof state.lastRotationBefore==='string')localStorage.setItem('mealRotationLastRotationBeforeV1',state.lastRotationBefore)}catch(e){}}if(!restoreMasterGroupOrder(state.masterGroupOrder))return;cats=state.cats;active=state.active;meals=state.meals;if(Array.isArray(state.mealPlans)&&state.mealPlans.length){mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId||mealPlans[0].id;showMealPlanTabs=!!state.showMealPlanTabs;autoPinTopCategories=true;}else saveActiveMealPlan();checkedIngredients=new Set(state.checkedIngredients||[]);groceryOccurrenceChecks=state.groceryOccurrenceChecks?JSON.parse(JSON.stringify(state.groceryOccurrenceChecks)):{version:1,checks:{}};groceryCheckStorageInvalid=false;saveGroceryOccurrenceChecks();if(state.weekdayCategories)weekdayCategories=state.weekdayCategories;if(state.weekdayMealOverrides)weekdayMealOverrides=state.weekdayMealOverrides;if(state.weekdayRecipeFilters){weekdayRecipeFilters=state.weekdayRecipeFilters;saveWeekdayRecipeFilters();}if(state.pinnedCats)pinnedCats=state.pinnedCats;if(state.expandedCats)expandedCats=state.expandedCats;if(typeof state.autoPinTopCategories==='boolean')autoPinTopCategories=true;if(typeof state.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=state.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;if(typeof state.masterPinsOverride==='boolean')masterPinsOverride=state.masterPinsOverride;saveMasterOpeningPrefs();if(state.startWeekday)startWeekday=state.startWeekday;if(state.topCounts)topCounts=state.topCounts;categoryColors=state.categoryColors&&typeof state.categoryColors==='object'?{...state.categoryColors}:{};saveCategoryColors();weekdayColors=state.weekdayColors&&typeof state.weekdayColors==='object'?{...state.weekdayColors}:deriveWeekdayColors(categoryColors);saveWeekdayColors();id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;if(state.skippedCookingState)restoreSkippedCookingState(state.skippedCookingState);if(state.bulkRecipeUndoLabels){recipeLabelCatalog=[...state.bulkRecipeUndoLabels];saveRecipeLabelCatalog()}if(state.bulkRecipeUndoSelections)restoreBulkRecipeSelections(state.bulkRecipeUndoSelections);if(state.bulkRecipeUndoNewSelections?.length){const values=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');for(const key of state.bulkRecipeUndoNewSelections)if(!meals.some(m=>String(m.id)===key))delete values[key];localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(values))}if(state.bulkRecipeUndoExclusions){for(const key of state.bulkRecipeUndoExclusions)masterGroceryExcludedMealKeys.add(key);saveMasterGroceryMealExclusions()}persist();try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));saveWeekdayCategories();saveWeekdayMealOverrides();saveTopCounts();localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));localStorage.setItem('mealRotationStartWeekdayV1',startWeekday);localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}catch(e){}resetGroceriesForNewTopMeals(new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id))));render()}finally{restoringRotationCalendars=wasRestoring}}
 function time(v){v=Number(v);if(!Number.isFinite(v)||v<0)return '—';if(v<60)return v+'m';let h=Math.floor(v/60),m=v%60;return h+'h'+(m?' '+m+'m':'')}
@@ -4003,6 +4286,7 @@ function openMealSearch(saved=null){
 }
 
 function recipeImportNotice(message,reviewMeals=[]){
+ if(mealPersistence.unsaved)message='Changes are only in memory and have not been saved. Use Retry Save before closing this page. '+message;
  const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:16500;display:flex;align-items:center;justify-content:center;padding:18px';
  const panel=document.createElement('div');panel.setAttribute('role','alertdialog');panel.setAttribute('aria-modal','true');panel.style.cssText='width:100%;max-width:450px;padding:22px;background:white;color:#242424;border-radius:14px;box-shadow:0 12px 35px #0003';
  const msg=document.createElement('p');msg.textContent=message;msg.style.cssText='font-size:17px;margin:0 0 22px';
@@ -4456,7 +4740,7 @@ function buildRecipeSageRefresh(backup){
    // One synchronous, atomic localStorage write; no reconciliation of unrelated data.
    try{localStorage.setItem('mealRotationDataV1',encoded)}catch(e){throw Error('Refresh could not be saved. No recipes changed. Your safety backup was kept.')}
    for(const {meal,replacement} of plan.rows){Object.assign(meal,replacement);cookingRecipeStates.set(String(meal.id),JSON.stringify({id:meal.id,ingredients:meal.ingredients,instructions:meal.instructions,ingredientStepLinks:meal.ingredientStepLinks}))}
-   result.textContent=plan.rows.length+' recipes refreshed. '+plan.skipped.length+' skipped.';
+   result.textContent=mealPersistence.unsaved?'Refresh is only in memory and has not been saved. Use Retry Save before closing this page.':plan.rows.length+' recipes refreshed. '+plan.skipped.length+' skipped.';
   }catch(e){result.textContent=e.message||'Refresh stopped. No recipes changed.'}finally{apply.disabled=!items;choose.disabled=false}
  };
  return box;
@@ -5013,109 +5297,8 @@ sizeSelect.value=mealTextSize;
 sizeSelect.onchange=()=>{mealTextSize=sizeSelect.value;localStorage.setItem(mealTextSizeKey,mealTextSize);applyMealTextSize()};
 sizeWrap.append(sizeLabel,sizeSelect);displayGroup.content.prepend(sizeWrap);
 panel.append(displayGroup.details);
-// Version 2 backups capture every app-owned persistent key, including grocery selections.
-// Preserve the original fields for compatibility with older backup readers.
-function captureBackupStorage(){
- const data={};
- for(let i=0;i<localStorage.length;i++){
-  const key=localStorage.key(i);
-  if(key&&key.startsWith('mealRotation')&&!key.startsWith('mealRotationTestSandboxV1:')&&!key.startsWith('mealRotationTESTONLY__'))data[key]=localStorage.getItem(key);
- }
- return data;
-}
-// Validate the complete backup before changing any saved data.
-function validateBackupCore(d){
- const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
- if(!object(d)||!Array.isArray(d.cats)||!d.cats.length||d.cats.some(c=>typeof c!=='string'||!c.trim())||new Set(d.cats).size!==d.cats.length)throw new Error('Invalid groups');
- if(!Array.isArray(d.meals))throw new Error('Invalid recipes: recipe list is missing');const invalidRecipe=d.meals.find(m=>!object(m)||!Number.isSafeInteger(Number(m.id))||Number(m.id)<1||typeof m.name!=='string'||typeof m.cat!=='string'||!d.cats.includes(m.cat)||('ingredients'in m&&!Array.isArray(m.ingredients))||('labels'in m&&(!Array.isArray(m.labels)||m.labels.some(x=>typeof x!=='string'))));if(invalidRecipe!==undefined)throw new Error('Invalid recipes: '+(object(invalidRecipe)?String(invalidRecipe.name||'unnamed recipe')+' (ID '+String(invalidRecipe.id??'missing')+')':'invalid recipe entry'));
- for(const m of d.meals){if('serveWith'in m&&(!Array.isArray(m.serveWith)||m.serveWith.some(v=>typeof v!=='string'||!v.trim())))throw Error('Invalid Serve with preferences');if('preferredSideGroupIds'in m&&(!Array.isArray(m.preferredSideGroupIds)||m.preferredSideGroupIds.some(id=>typeof id!=='string'||!id)))throw Error('Invalid preferred side groups');if('instructions'in m&&m.instructions!=null&&typeof m.instructions!=='string'&&(!Array.isArray(m.instructions)||m.instructions.some(b=>typeof b!=='string'&&(!b||typeof b!=='object'||!['step','section'].includes(b.type)||typeof b.text!=='string'))))throw Error('Invalid recipe instructions');if('notes'in m&&typeof m.notes!=='string')throw Error('Invalid recipe notes');}
- if(new Set(d.meals.map(m=>String(m.id))).size!==d.meals.length)throw new Error('Duplicate recipe IDs');
- if('active'in d&&typeof d.active!=='string')throw new Error('Invalid active group');
- if('mealPlans'in d){const plans=d.mealPlans;if(!object(plans)||!Array.isArray(plans.plans)||!plans.plans.length||plans.plans.some(p=>!object(p)||typeof p.id!=='string'||!p.id||typeof p.name!=='string'||!object(p.weekdayCategories)||('weekdayMealOverrides'in p&&!object(p.weekdayMealOverrides))||('weekdayRecipeFilters'in p&&!object(p.weekdayRecipeFilters))||('pinnedCats'in p&&!Array.isArray(p.pinnedCats)))||new Set(plans.plans.map(p=>p.id)).size!==plans.plans.length||('activeId'in plans&&!plans.plans.some(p=>p.id===plans.activeId)))throw new Error('Invalid meal plans');}
- if(d.mealPlans)for(const plan of d.mealPlans.plans)if('sideGroupPairs'in plan&&(!object(plan.sideGroupPairs)||Object.entries(plan.sideGroupPairs).some(([day,pairs])=>!weekdays.includes(day)||!object(pairs)||Object.values(pairs).some(id=>typeof id!=='string'||!id))))throw Error('Invalid side-group pairing');
- if(d.mealPlans)for(const plan of d.mealPlans.plans)if('dependentSideState'in plan&&(!object(plan.dependentSideState)||Object.entries(plan.dependentSideState).some(([key,value])=>{let parts;try{parts=JSON.parse(key)}catch(e){return true}return !Array.isArray(parts)||parts.length!==2||!weekdays.includes(parts[0])||typeof parts[1]!=='string'||!object(value)||typeof value.mainId!=='string'||typeof value.mealId!=='string'||typeof value.automatic!=='boolean'})))throw Error('Invalid dependent side state');
- if(d.mealPlans)for(const plan of d.mealPlans.plans)if('occasionalMeals'in plan&&(!object(plan.occasionalMeals)||Object.entries(plan.occasionalMeals).some(([day,id])=>!weekdays.includes(day)||!['string','number'].includes(typeof id)||!String(id).trim())))throw Error('Invalid one-time meals');
- for(const key of ['weekdayCategories','weekdayMealOverrides','weekdayColors','categoryColors','timeDisplayPrefs'])if(key in d&&!object(d[key]))throw new Error('Invalid '+key);
- for(const key of ['pinnedCats','expandedCats'])if(key in d&&(!Array.isArray(d[key])||d[key].some(x=>typeof x!=='string')))throw new Error('Invalid '+key);
-}
-function validateBackupStorage(data){
- if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('Invalid backup storage');
- const entries=Object.entries(data);
- if(!entries.length||entries.some(([key,value])=>!key.startsWith('mealRotation')||typeof value!=='string'))throw new Error('Invalid backup storage');
- const parsed={};
- for(const [key,value] of entries){
-  if(/^(\{|\[)/.test(value.trim())){try{parsed[key]=JSON.parse(value)}catch(e){throw new Error('Invalid saved JSON: '+key)}}
- }
- validateBackupCore(parsed.mealRotationDataV1);
- if(GROUP_IDENTITIES_KEY in data){const ids=parsed[GROUP_IDENTITIES_KEY];if(!ids||Array.isArray(ids)||typeof ids!=='object'||Object.values(ids).some(id=>typeof id!=='string'||!id)||new Set(Object.values(ids)).size!==Object.values(ids).length)throw Error('Invalid group identities');}
- if(MASTER_GROUP_ORDER_KEY in data&&!validMasterGroupOrder(parsed[MASTER_GROUP_ORDER_KEY]))throw Error('Invalid meal-group display order');
- if(OCCURRENCE_SCALES_KEY in data){let scales;try{scales=JSON.parse(data[OCCURRENCE_SCALES_KEY])}catch(e){throw Error('Invalid recipe scaling JSON')}validateOccurrenceScales(scales);}
- if(GROCERY_OCCURRENCE_CHECKS_KEY in data)validateGroceryOccurrenceChecks(parsed[GROCERY_OCCURRENCE_CHECKS_KEY]);
- if(COOKING_SESSIONS_KEY in data){let sessions;try{sessions=JSON.parse(data[COOKING_SESSIONS_KEY])}catch(e){throw Error('Invalid cooking progress JSON')}validateCookingSessions(sessions);}
- const arrayKeys=['mealRotationCheckedIngredientsV1','mealRotationPinnedCategoriesV1','mealRotationExpandedCategoriesV1','mealRotationRecipeLabelCatalogV1'];
- for(const key of arrayKeys)if(key in data&&!Array.isArray(parsed[key]))throw new Error('Invalid '+key);
- if('mealRotationPlansV1'in data){const plans=parsed.mealRotationPlansV1;validateBackupCore({...parsed.mealRotationDataV1,mealPlans:plans});}
-}
-function normalizeImportedBackup(d){
- // Test-only records can be present in older exports. Never import them as app data.
- const cleaned={};
- for(const [key,value] of Object.entries(d.storage||{})){
-  if(key.startsWith('mealRotationTestSandboxV1:')||key.startsWith('mealRotationTESTONLY__'))continue;
-  cleaned[key]=value;
- }
- // The top-level recipe collection is authoritative for this backup format.
- cleaned.mealRotationDataV1=JSON.stringify({cats:d.cats,active:d.active,meals:d.meals});
- if(d.mealPlans)cleaned.mealRotationPlansV1=JSON.stringify(d.mealPlans);
- if(d.weekdayCategories)cleaned.mealRotationWeekdayCategoriesV1=JSON.stringify(d.weekdayCategories);
- if(d.weekdayMealOverrides)cleaned.mealRotationWeekdayMealOverridesV1=JSON.stringify(d.weekdayMealOverrides);
- if(d.weekdayColors)cleaned.mealRotationWeekdayColorsV1=JSON.stringify(d.weekdayColors);
- if(d.categoryColors)cleaned.mealRotationCategoryColorsV1=JSON.stringify(d.categoryColors);
- if(d.pinnedCats)cleaned.mealRotationPinnedCategoriesV1=JSON.stringify(d.pinnedCats);
- if(d.expandedCats)cleaned.mealRotationExpandedCategoriesV1=JSON.stringify(d.expandedCats);
- if(typeof d.showMealPlanTabs==='boolean')cleaned.mealRotationShowPlanTabsV1=String(d.showMealPlanTabs);
- return cleaned;
-}
-function restoreBackupStorage(data){
- if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('Invalid backup storage');
- const entries=Object.entries(data);
- if(!entries.length||entries.some(([key,value])=>!key.startsWith('mealRotation')||typeof value!=='string'))throw new Error('Invalid backup storage');
- validateBackupStorage(data);
- // Never delete the existing records before the replacement has been written.
- // A persistent storage failure may prevent rollback, so preserve the original
- // recipe data until every other replacement has succeeded.
- const before=captureBackupStorage();
- const primary='mealRotationDataV1';
- const changed=[];
- try{
-  for(const [key,value] of entries){
-   if(key===primary||before[key]===value)continue;
-   localStorage.setItem(key,value);
-   changed.push(key);
-  }
-  // Commit the main recipe record last, after all other writes succeed.
-  if(before[primary]!==data[primary]){
-   localStorage.setItem(primary,data[primary]);
-   changed.push(primary);
-  }
-  // Remove obsolete keys only after all replacement writes succeed.
-  for(const key of Object.keys(before))if(!(key in data)){
-   localStorage.removeItem(key);
-   changed.push(key);
-  }
- }catch(error){
-  const rollbackFailures=[];
-  for(const key of changed.reverse()){
-   try{
-    if(Object.prototype.hasOwnProperty.call(before,key))localStorage.setItem(key,before[key]);
-    else localStorage.removeItem(key);
-   }catch(e){rollbackFailures.push(key)}
-  }
-  if(rollbackFailures.length)throw new Error('Restore failed; some settings could not be rolled back ('+rollbackFailures.join(', ')+'). Your original backup file is unchanged. '+error.message);
-  throw error;
- }
-}
 recipeBulkBackupAPI={capture:captureBackupStorage,validate:validateBackupStorage,restore:restoreBackupStorage};
-let exportBtn=document.createElement('button');exportBtn.textContent='Export backup';exportBtn.onclick=()=>{persist();saveActiveMealPlan();saveTimeDisplayPrefs();let blob=new Blob([JSON.stringify({version:2,cats,active,meals,weekdayCategories,weekdayMealOverrides,weekdayColors,categoryColors,timeDisplayPrefs,masterOpenMode,masterPinsOverride,autoPinTopCategories,applyPinsToAllTabs,pinnedCats,expandedCats,mealPlans:{plans:mealPlans,activeId:activePlanId},showMealPlanTabs,storage:captureBackupStorage()},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='meal-rotation-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};let restoreBtn=document.createElement('button');restoreBtn.textContent='Restore backup';restoreBtn.onclick=()=>{let input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=()=>{let file=input.files&&input.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let d=JSON.parse(reader.result);validateBackupCore(d);if(d.version>=2){if(!d.storage)throw new Error('Missing backup storage');restoreBackupStorage(normalizeImportedBackup(d));backupRestoreReloadPending=true;location.reload();return;}snapshot();if(!writeMasterGroupOrder(null,false))throw Error('Group order could not be reset');cats=d.cats;meals=d.meals;if(d.weekdayCategories&&typeof d.weekdayCategories==='object')weekdayCategories=d.weekdayCategories;if(typeof d.autoPinTopCategories==='boolean'){autoPinTopCategories=true;localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}if(typeof d.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=d.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(d.masterOpenMode))masterOpenMode=d.masterOpenMode;if(typeof d.masterPinsOverride==='boolean')masterPinsOverride=d.masterPinsOverride;saveMasterOpeningPrefs();if(Array.isArray(d.pinnedCats)){pinnedCats=d.pinnedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats))}if(Array.isArray(d.expandedCats)){expandedCats=d.expandedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}if(d.weekdayMealOverrides&&typeof d.weekdayMealOverrides==='object')weekdayMealOverrides=d.weekdayMealOverrides;if(d.mealPlans)restoreMealPlansFromBackup(d.mealPlans);if(typeof d.showMealPlanTabs==='boolean'){showMealPlanTabs=d.showMealPlanTabs;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))};saveWeekdayCategories();saveWeekdayMealOverrides();if(d.categoryColors&&typeof d.categoryColors==='object'&&!Array.isArray(d.categoryColors)){categoryColors=Object.fromEntries(Object.entries(d.categoryColors).filter(([c,color])=>typeof c==='string'&&/^#[0-9a-fA-F]{6}$/.test(color)));saveCategoryColors()}weekdayColors=d.weekdayColors&&typeof d.weekdayColors==='object'&&!Array.isArray(d.weekdayColors)?Object.fromEntries(Object.entries(d.weekdayColors).filter(([day,color])=>weekdays.includes(day)&&/^#[0-9a-fA-F]{6}$/.test(color))):deriveWeekdayColors(categoryColors);saveWeekdayColors();if(d.timeDisplayPrefs){setTimeDisplayPrefs(d.timeDisplayPrefs);saveTimeDisplayPrefs()}active=cats.includes(d.active)?d.active:(cats[0]||'Soup');id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;localStorage.removeItem(COOKING_SESSIONS_KEY);cookingSessions={version:1,occurrences:{}};cookingStorageInvalid=false;localStorage.removeItem(OCCURRENCE_SCALES_KEY);occurrenceScales={version:1,occurrences:{}};scaleStorageInvalid=false;persist();render();panel.classList.add('hidden');settings.setAttribute('aria-expanded','false')}catch(e){alert('Backup rejected or restore failed: '+e.message+'. No changes were made if validation failed.')}};reader.readAsText(file)};input.click()};let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=async()=>{await finishSettings('ask');render()};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipe files or Trello boards into Ideas';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=displayGroup;
+let exportBtn=document.createElement('button');exportBtn.textContent='Export backup';exportBtn.onclick=()=>{persist();saveActiveMealPlan();saveTimeDisplayPrefs();let blob=new Blob([JSON.stringify({version:2,cats,active,meals,weekdayCategories,weekdayMealOverrides,weekdayColors,categoryColors,timeDisplayPrefs,masterOpenMode,masterPinsOverride,autoPinTopCategories,applyPinsToAllTabs,pinnedCats,expandedCats,mealPlans:{plans:mealPlans,activeId:activePlanId},showMealPlanTabs,storage:captureBackupStorage()},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='meal-rotation-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};let restoreBtn=document.createElement('button');restoreBtn.textContent='Restore backup';restoreBtn.onclick=()=>{let input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=()=>{let file=input.files&&input.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let d=JSON.parse(reader.result);validateBackupCore(startupCore(d));if(d.version>=2){if(!d.storage)throw new Error('Missing backup storage');restoreBackupStorage(normalizeImportedBackup(d));backupRestoreReloadPending=true;location.reload();return;}snapshot();if(!writeMasterGroupOrder(null,false))throw Error('Group order could not be reset');cats=d.cats;meals=d.meals;if(d.weekdayCategories&&typeof d.weekdayCategories==='object')weekdayCategories=d.weekdayCategories;if(typeof d.autoPinTopCategories==='boolean'){autoPinTopCategories=true;localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}if(typeof d.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=d.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(d.masterOpenMode))masterOpenMode=d.masterOpenMode;if(typeof d.masterPinsOverride==='boolean')masterPinsOverride=d.masterPinsOverride;saveMasterOpeningPrefs();if(Array.isArray(d.pinnedCats)){pinnedCats=d.pinnedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats))}if(Array.isArray(d.expandedCats)){expandedCats=d.expandedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}if(d.weekdayMealOverrides&&typeof d.weekdayMealOverrides==='object')weekdayMealOverrides=d.weekdayMealOverrides;if(d.mealPlans)restoreMealPlansFromBackup(d.mealPlans);if(typeof d.showMealPlanTabs==='boolean'){showMealPlanTabs=d.showMealPlanTabs;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))};saveWeekdayCategories();saveWeekdayMealOverrides();if(d.categoryColors&&typeof d.categoryColors==='object'&&!Array.isArray(d.categoryColors)){categoryColors=Object.fromEntries(Object.entries(d.categoryColors).filter(([c,color])=>typeof c==='string'&&/^#[0-9a-fA-F]{6}$/.test(color)));saveCategoryColors()}weekdayColors=d.weekdayColors&&typeof d.weekdayColors==='object'&&!Array.isArray(d.weekdayColors)?Object.fromEntries(Object.entries(d.weekdayColors).filter(([day,color])=>weekdays.includes(day)&&/^#[0-9a-fA-F]{6}$/.test(color))):deriveWeekdayColors(categoryColors);saveWeekdayColors();if(d.timeDisplayPrefs){setTimeDisplayPrefs(d.timeDisplayPrefs);saveTimeDisplayPrefs()}active=cats.includes(d.active)?d.active:(cats[0]||'Soup');id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;localStorage.removeItem(COOKING_SESSIONS_KEY);cookingSessions={version:1,occurrences:{}};cookingStorageInvalid=false;localStorage.removeItem(OCCURRENCE_SCALES_KEY);occurrenceScales={version:1,occurrences:{}};scaleStorageInvalid=false;persist();render();panel.classList.add('hidden');settings.setAttribute('aria-expanded','false')}catch(e){alert('Backup rejected or restore failed: '+e.message+'. No changes were made if validation failed.')}};reader.readAsText(file)};input.click()};let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=async()=>{await finishSettings('ask');render()};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipe files or Trello boards into Ideas';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=displayGroup;
  const planOption=document.createElement('label');planOption.className='settings-display-option settings-display-option-with-help';
  const planCheck=document.createElement('input');planCheck.type='checkbox';planCheck.checked=showMealPlanTabs;
  planCheck.onchange=()=>{showMealPlanTabs=planCheck.checked;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs));renderList()};
@@ -5642,19 +5825,9 @@ function showNoPreviousRotation(){
 }
 const ROTATION_BACK_KEY='mealRotationLastRotationBeforeV1';
 function rotateAllBack(){
- let previous;
- try{previous=JSON.parse(localStorage.getItem(ROTATION_BACK_KEY)||'null')}catch(e){}
- if(!previous||!Array.isArray(previous.meals)||!Array.isArray(previous.mealPlans)){
-  showNoPreviousRotation();return;
- }
- const dates=restoredRotationCookedDates(previous);previous=JSON.parse(JSON.stringify(previous));applyRestoredCookedDates(previous.meals,dates);
- const currentGroupIds=readGroupIdentities(),priorGroupIds=previous.groupIdentities?JSON.parse(previous.groupIdentities):{};previous.groupIdentities=JSON.stringify(Object.fromEntries(previous.cats.filter(cat=>currentGroupIds[cat]||priorGroupIds[cat]).map(cat=>[cat,currentGroupIds[cat]||priorGroupIds[cat]])));for(const priorPlan of previous.mealPlans){const current=mealPlans.find(plan=>plan.id===priorPlan.id);if(current?.sideGroupPairs)priorPlan.sideGroupPairs=JSON.parse(JSON.stringify(current.sideGroupPairs));}
- // Cycle Back restores scheduling history, not later explicit recipe-tracking edits.
- for(const prior of previous.meals){const current=meals.find(m=>String(m.id)===String(prior.id));if(!current)continue;for(const key of ['needsTweaking','needsTweakingNote','favorite','makeAheadTasks','preferredSideGroupIds','serveWith']){if(Object.prototype.hasOwnProperty.call(current,key))prior[key]=current[key];else delete prior[key]}}
- clearCookingForCycleBack(previous);
- snapshot();
- try{localStorage.removeItem(ROTATION_BACK_KEY)}catch(e){}
- restoreState(previous);
+ const previous=readPreviousRotation();if(!previous){showNoPreviousRotation();return}
+ const slots=restorableRotationSlots(previous);if(!slots.length){showNoPreviousRotation();return}
+ rotateSelectedBack(slots.map(rotationSlotKey),true);
 }
 // Offer all/select choices; closing leaves the one-step rotation history intact.
 function openRotateBackOptions(){
@@ -5682,16 +5855,25 @@ function previousRotationSlots(previous){
 }
 function rotationOccurrenceKey(item){return cookingOccurrenceKey({planId:String(item.planId),day:item.day,mealId:String(item.meal?.id??item.mealId),parentId:String(item.parentId??item.linkedTo??'')})}
 function rotationSlotKey(item){return item.planId+'||'+weekdaySlotKey(item.day,item.cat)}
-function rotateSelectedBack(selected){
+// A history snapshot supplies scheduling choices, never recipe records.
+function restorableRotationSlots(previous){
+ return previousRotationSlots(previous).filter(item=>{
+  const plan=mealPlans.find(p=>p.id===item.planId),meal=meals.find(m=>String(m.id)===String(item.meal.id));
+  if(!plan||!meal||!rotationGroupScheduled(plan,item.day,item.cat))return false;
+  const old=previous.mealPlans.find(p=>p.id===item.planId),substitution=manualWeekdayMealChoice(old,item.day,item.cat,item.meal.id),dependent=!!pairedMainGroup(old,item.day,item.cat);
+  return substitution||meal.rotation&&(meal.cat===item.cat||dependent);
+ });
+}
+function rotateSelectedBack(selected,restoreAll=false){
  const previous=readPreviousRotation();if(!previous||!selected.length)return;
  saveActiveMealPlan();
  const beforeIds=new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)));
- const priorSlots=previousRotationSlots(previous),requested=priorSlots.filter(item=>selected.includes(rotationSlotKey(item))),desired=priorSlots.filter(item=>cycleAffectedEntries([item],requested.filter(owner=>owner.planId===item.planId),previous.mealPlans.find(plan=>plan.id===item.planId)).length);
+ const priorSlots=restorableRotationSlots(previous),requested=priorSlots.filter(item=>selected.includes(rotationSlotKey(item))),desired=priorSlots.filter(item=>cycleAffectedEntries([item],requested.filter(owner=>owner.planId===item.planId),previous.mealPlans.find(plan=>plan.id===item.planId)).length);
  if(!desired.length)return;
  const restoringSlots=new Set(desired.map(rotationSlotKey));
  const retained=new Map(mealPlans.map(plan=>[plan.id,getDisplayedWeekdayMealsForPlan(plan).filter(item=>rotationSelectable(item,plan)&&!restoringSlots.has(rotationSlotKey({...item,planId:plan.id})))]));
  const groceryBefore=captureGroceryCheckStates();
- clearCookingForSlots(desired);
+ if(restoreAll)clearCookingForCycleBack(previous);else clearCookingForSlots(desired);
  snapshot();
  for(const plan of mealPlans){const overrides={...(plan.weekdayMealOverrides||{})},pins={...(plan.cycleRetainedSlots||{})},choices={...(plan.cycleSlotChoices||{})};for(const item of retained.get(plan.id)||[]){const key=weekdaySlotKey(item.day,item.cat);overrides[key]=String(item.meal.id);pins[key]=String(item.meal.id);const old=choices[key],valid=old&&String(old.mealId)===String(item.meal.id),manual=manualWeekdayMealChoice(plan,item.day,item.cat,item.meal.id);choices[key]={...(valid?old:{}),...(manual?{substitution:true}:{}),mealId:String(item.meal.id),parentId:String(item.linkedTo??''),retain:manual||desired.some(x=>x.planId===plan.id&&x.day===item.day)||!!(valid&&old.retain),blockedParents:valid?old.blockedParents||[]:[]}}plan.weekdayMealOverrides=overrides;plan.cycleRetainedSlots=pins;plan.cycleSlotChoices=choices;}
  // Keep unselected meals and current edits intact; restore only selected slots.
@@ -5704,7 +5886,7 @@ function rotateSelectedBack(selected){
   if(groups[0]===item.cat)delete overrides[item.day];
   overrides[weekdaySlotKey(item.day,item.cat)]=String(item.meal.id);
   plan.cycleRetainedSlots={...(plan.cycleRetainedSlots||{}),[weekdaySlotKey(item.day,item.cat)]:String(item.meal.id)};
-  plan.cycleSlotChoices={...(plan.cycleSlotChoices||{}),[weekdaySlotKey(item.day,item.cat)]:{...(substitution?{substitution:true}:{}),mealId:String(item.meal.id),parentId:String(item.parentId??item.linkedTo??''),retain:true}};
+  plan.cycleSlotChoices={...(plan.cycleSlotChoices||{}),[weekdaySlotKey(item.day,item.cat)]:{...(substitution?{substitution:true}:{}),mealId:String(item.meal.id),parentId:(()=>{const parent=String(item.parentId??item.linkedTo??'');return meals.some(m=>String(m.id)===parent&&(m.linkedMealIds||[]).some(id=>String(id)===String(item.meal.id)))?parent:''})(),retain:true}};
   plan.weekdayMealOverrides=overrides;
  }
  // Restore linked children's positions from the saved pre-cycle order.
@@ -5730,13 +5912,14 @@ function rotateSelectedBack(selected){
  weekdayMealOverrides={...(activePlan?.weekdayMealOverrides||{})};saveWeekdayMealOverrides();
  try{localStorage.removeItem(ROTATION_BACK_KEY)}catch(e){}
  const groceryRestored=mealPlans.flatMap(plan=>cycleAffectedEntries((getDisplayedWeekdayMealsForPlan(plan)).map(item=>({...item,planId:plan.id})),desired.filter(item=>item.planId===plan.id),plan));
+ if(restoreAll){checkedIngredients=new Set(previous.checkedIngredients||[]);localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));}
  reconcileRotatedGroceryChecks(groceryBefore,groceryRestored,previous);
  resetGroceriesForNewTopMeals(beforeIds);topIngredientExpanded.clear();topIngredientManualHiddenOverride.clear();persist();renderTabs();renderList();
 }
 function openRotateBackChooser(){
  const previous=readPreviousRotation();if(!previous){showNoPreviousRotation();return;}
  const currentPlans=new Map(mealPlans.map(plan=>[plan.id,getDisplayedWeekdayMealsForPlan(plan)]));
- const choices=previousRotationSlots(previous).filter(item=>{
+ const choices=restorableRotationSlots(previous).filter(item=>{
   const plan=mealPlans.find(p=>p.id===item.planId);if(!plan)return false;
   const now=(currentPlans.get(item.planId)||[]).find(x=>x.day===item.day&&x.cat===item.cat);
   return now&&String(now.meal.id)!==String(item.meal.id);
@@ -6103,8 +6286,8 @@ function openMealSwipeMenu(meal){
  function option(label,action){const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=label;b.style.cssText='width:100%;min-height:48px;padding:10px 14px;text-align:center;font-size:16px';b.onclick=()=>{shade.remove();action()};buttons.append(b);return b}
  option('Delete',()=>{
   if(!meals.some(item=>item.id===meal.id))return;
-  snapshot();meals=meals.filter(item=>item.id!==meal.id);if(editId===meal.id)editId=null;
-  clearOverridesForCat(meal.cat);persist();render();
+  try{applyRecipeBulk([String(meal.id)],{delete:true});if(editId===meal.id)editId=null}
+  catch(error){showAppMessage('Recipe could not be deleted: '+error.message)}
  });
  const move=option(meal.rotation?'Remove from rotation':'Move to rotation',()=>{
   const current=meals.find(item=>item.id===meal.id);if(!current)return;
@@ -6301,6 +6484,11 @@ function applyEditorRecipeMutation(edit,transaction){
  transaction.promotionMealId=primary?.cat?edit.sourceId:null;if(transaction.promotion?.day)transaction.allowedDays.push({planId:activePlanId,day:transaction.promotion.day});
 }
 
+function recipeBulkOperationId(ids,patch,options){
+ // Only an identical requested mutation may resolve its failed bulk operation.
+ const ordered=value=>Array.isArray(value)?value.map(ordered):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,ordered(value[key])])):value;
+ return 'bulk:'+JSON.stringify(ordered({type:options.dependentRole?'dependent-role':'bulk-edit',targets:[...ids].map(String).sort(),patch,dependentRole:options.dependentRole||null}));
+}
 function applyRecipeBulk(ids,patch,options={}){
  validateRecipeBulkChange(ids,patch,!!options.dependentRole);if(recipeBulkBusy)throw Error('A bulk update is already in progress.');if(groceryCheckStorageInvalid||cookingStorageInvalid||scaleStorageInvalid)throw Error('Saved recipe progress or groceries could not be read. Export a backup before making bulk changes.');
  const beforeStorage=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(beforeStorage);const before=JSON.parse(captureState()),memory={id,meals,mealPlans,weekdayMealOverrides,cookingSessions,occurrenceScales,groceryOccurrenceChecks,recipeLabelCatalog,excluded:masterGroceryExcludedMealKeys,linked:new Set(previouslyActiveLinkedIds),recipeStates:new Map(cookingRecipeStates),signature:cookingScheduleSignature};
@@ -6320,11 +6508,11 @@ function applyRecipeBulk(ids,patch,options={}){
   freezeRecipeBulkSchedule(schedules);if(!departing.size)preserveBulkEmptySlots(schedules);if(departing.size)detachRecipeOccurrences(departing,schedules,grocery,true);else{saveWeekdayMealOverrides();reconcileRotatedGroceryChecks(grocery,[])}
   if(removed.size){if(cookingTimer&&removed.has(String(cookingTimer.recipeId))){const owner=memory.meals.find(m=>String(m.id)===String(cookingTimer.recipeId)),peer=owner?.linkGroup&&meals.find(m=>memory.meals.some(old=>String(old.id)===String(m.id)&&old.linkGroup===owner.linkGroup));if(peer)localStorage.setItem(COOKING_TIMER_KEY,JSON.stringify({...cookingTimer,recipeId:String(peer.id),recipeName:peer.name,context:null}));else localStorage.removeItem(COOKING_TIMER_KEY)}reparentDeletedBulkChildren(removed,schedules,raw);pruneBulkRecipeReferences(meals,mealPlans,removed);weekdayMealOverrides={...mealPlans.find(p=>p.id===activePlanId).weekdayMealOverrides};const selections=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');before.bulkRecipeUndoSelections={};for(const id of removed){if(Object.hasOwn(selections,id))before.bulkRecipeUndoSelections[id]=selections[id];delete selections[id]}localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selections));const history=pruneBulkRotationHistory(localStorage.getItem(ROTATION_BACK_KEY),removed);if(history)localStorage.setItem(ROTATION_BACK_KEY,history);for(const plan of mealPlans){const key='mealRotationLastTopMealIdsV1:'+plan.id,raw=localStorage.getItem(key);if(raw)localStorage.setItem(key,JSON.stringify(JSON.parse(raw).filter(id=>!removed.has(String(id)))))}before.bulkRecipeUndoExclusions=[...masterGroceryExcludedMealKeys].filter(key=>removed.has(String(key).slice(String(key).lastIndexOf('::')+2)));masterGroceryExcludedMealKeys=new Set([...masterGroceryExcludedMealKeys].filter(key=>!removed.has(String(key).slice(String(key).lastIndexOf('::')+2))));saveMasterGroceryMealExclusions();resetCookingContexts(c=>removed.has(String(c.mealId))||removed.has(String(c.parentId)));clearOccurrenceScales(c=>removed.has(String(c.mealId))||removed.has(String(c.parentId)))}
   for(const plan of mealPlans){const prior=memory.mealPlans.find(p=>p.id===plan.id);for(const [key,choice]of Object.entries(plan.cycleSlotChoices||{})){const old=prior?.cycleSlotChoices?.[key];if(old&&String(old.mealId)===String(choice.mealId)){if(Object.hasOwn(old,'retain'))choice.retain=old.retain;else delete choice.retain}}}
-  if(transaction.promotion&&transaction.promotionMealId){const promoted=meals.find(m=>String(m.id)===transaction.promotionMealId);if(promoted)finishRecipePromotion(promoted,transaction.promotion)}reconcileActiveLinkedMeals();validateBulkScheduleResult(schedules,departing,transaction.allowedDays);reconcileRotatedGroceryChecks(grocery,[]);persist();saveActiveMealPlan();const proposed=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(proposed);bulkRecipeStorageDraft=null;recipeBulkBackupAPI.restore(proposed);
+  if(transaction.promotion&&transaction.promotionMealId){const promoted=meals.find(m=>String(m.id)===transaction.promotionMealId);if(promoted)finishRecipePromotion(promoted,transaction.promotion)}reconcileActiveLinkedMeals();validateBulkScheduleResult(schedules,departing,transaction.allowedDays);reconcileRotatedGroceryChecks(grocery,[]);persist();saveActiveMealPlan();const proposed=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(proposed);bulkRecipeStorageDraft=null;recipeBulkBackupAPI.restore(proposed,{id:options.editor?'recipe:'+options.editor.sourceId:recipeBulkOperationId(ids,patch,options),kind:options.editor?'recipe-edit':'bulk-edit',ownerId:options.editor?'recipe:'+options.editor.sourceId:null,retry:()=>applyRecipeBulk([...ids],JSON.parse(JSON.stringify(patch)),JSON.parse(JSON.stringify(options)))});
   const keys=[...new Set([...Object.keys(raw.sessions.occurrences).filter(k=>!cookingSessions.occurrences[k]),...Object.keys(raw.scales.occurrences).filter(k=>!occurrenceScales.occurrences[k])])];if(keys.length)before.skippedCookingState={keys,sessions:raw.sessions.occurrences,scales:raw.scales.occurrences};before.bulkRecipeUndoNewSelections=meals.filter(m=>!memory.meals.some(old=>String(old.id)===String(m.id))).map(m=>String(m.id));snapshot(JSON.stringify(before));result=true;
  }catch(error){bulkRecipeStorageDraft=null;id=memory.id;meals=memory.meals;mealPlans=memory.mealPlans;weekdayMealOverrides=memory.weekdayMealOverrides;cookingSessions=memory.cookingSessions;occurrenceScales=memory.occurrenceScales;groceryOccurrenceChecks=memory.groceryOccurrenceChecks;recipeLabelCatalog=memory.recipeLabelCatalog;masterGroceryExcludedMealKeys=memory.excluded;previouslyActiveLinkedIds=memory.linked;cookingRecipeStates.clear();for(const [key,value]of memory.recipeStates)cookingRecipeStates.set(key,value);cookingScheduleSignature=memory.signature;throw error}
  finally{bulkRecipeStorageDraft=null;recipeBulkBusy=false}
- if(result){if(removed.size&&cookingTimer){const restored=readCookingTimer();if(restored?.id===cookingTimer.id){cookingTimer=restored;syncCookingTimer()}else if(removed.has(String(cookingTimer.recipeId)))cancelCookingTimer()}if(options.render!==false){if(recipeBulkMode)endRecipeBulk();else bulkRecipeRender()}}return result;
+ if(result){for(const removedId of removed)mealPersistence.cancelOwner('recipe:'+removedId);if(removed.size&&cookingTimer){const restored=readCookingTimer();if(restored?.id===cookingTimer.id){cookingTimer=restored;syncCookingTimer()}else if(removed.has(String(cookingTimer.recipeId)))cancelCookingTimer()}if(options.render!==false){if(recipeBulkMode)endRecipeBulk();else bulkRecipeRender()}}return result;
 }
 async function confirmDeleteRecipes(ids){
  const expanded=selectedSharedRecipeIds(ids),count=recipeIdentityCount(expanded);if(!expanded.length||!count)return null;
@@ -6702,7 +6890,7 @@ const inlineLinked=inlineLinkedByParent.get(day+'|'+String(top.id))||[];
 if(inlineLinked.length){
  const linkedInfo=document.createElement('div');
  linkedInfo.className='top-inline-linked';linkedInfo.style.cssText='font-size:13px;color:#637080;margin-top:1px;display:flex;flex-wrap:wrap;gap:2px 7px;align-items:center;line-height:1.2';
- 
+
  inlineLinked.forEach((target,index)=>{
   if(index){const sep=document.createElement('span');sep.textContent='·';linkedInfo.append(sep)}
   const link=document.createElement('button');link.type='button';link.textContent=target.name;
@@ -6992,6 +7180,7 @@ function openTopIngredientChooser(meal){
   const list=document.createElement('div');list.style.cssText='overflow-y:auto;min-height:0;flex:1 1 auto';
   const checks=[];const manualReselections=new Set();
   const renamedIngredients=[];
+  overlay.mealRecoveryDraft={ownerId:'grocery:'+key,kind:'ingredient-editor',capture:()=>({recipe:JSON.parse(JSON.stringify(meal)),selectedIngredients:checks.filter(x=>x.cb.checked).map(x=>x.line),pendingRecipeUrl,pendingIngredientImportUrl,pendingRecipeDetails,renamedIngredients:[...renamedIngredients]}),dirty:()=>true,discard:()=>overlay.remove()};
   // Keep checkbox changes made in this dialog when a row has to be rebuilt.
   function rememberCheckedIngredients(){selectedByMeal[key]=checks.filter(x=>x.cb.checked).map(x=>x.line)}
   async function editGroceryIngredient(index,line){
@@ -8115,7 +8304,15 @@ $('ingredientPhotoButton').onclick=()=>$('ingredientGalleryInput').click();
 $('ingredientCameraButton').onclick=()=>$('ingredientCameraInput').click();
 installRecipeIngredientLinkEditor(m);
 const savedEditorDraft={name:$('name').value,prep:$('prep').value,total:$('totaltime').value,marinate:$('marinate').value,ingredients:$('ingredients').value,instructions:$('recipeInstructions').value,notes:$('recipeNotes').value,url:$('url').value,serveWith:JSON.stringify(serveWithDraft),linked:JSON.stringify(linkedMealDraft),tasks:JSON.stringify($('recipeMakeAhead').readDraft()),adjusting:$('editNeedsTweaking').checked,adjustingNote:$('editNeedsTweakingNote').value};
+const persistenceEditor=document.querySelector('#editor .editor');
+const captureEditorRecoveryDraft=()=>({recipeId:String(m.id),rawControls:[...persistenceEditor.querySelectorAll('input:not([type=file]),textarea,select')].map(el=>({id:el.id,name:el.name,value:el.value,checked:el.checked})),originalRecipe:JSON.parse(JSON.stringify(m)),fields:Object.fromEntries(['name','prep','totaltime','marinate','ingredients','recipeInstructions','recipeNotes','url','editNeedsTweakingNote'].map(id=>[id,$(id)?.value??''])),rotation:$('rotation')?.checked,needsTweaking:$('editNeedsTweaking')?.checked,memberships:JSON.parse(JSON.stringify(editorMembershipDraft)),serveWith:[...serveWithDraft],linkedMealIds:[...linkedMealDraft],makeAheadTasks:$('recipeMakeAhead')?.readDraft?.()||[],ingredientStepLinks:$('recipeIngredientLinks')?.captureRecoveryDraft?.(),ingredientImportUrl,importedRecipeDetails:importedRecipeDetailsDraft});
+persistenceEditor.mealRecoveryDraft={ownerId:'recipe:'+m.id,kind:'recipe-editor',capture:captureEditorRecoveryDraft,dirty:editorHasPendingChanges,save:()=>$('save')?.onclick?.(),discard:()=>$('cancel')?.onclick?.()};
+// Use a current editor handler for Retry Save. A confirmation must not commit an older draft.
+let persistenceEditorSaving=false;
 $('save').onclick=async()=>{
+ if(persistenceEditorSaving)return;
+ persistenceEditorSaving=true;
+ try{
   // An uncategorized meal gets a choice before it is saved to Misc.
   if(!editorDraftCategories.length){
     const addCategory=await askAddMealCategory();
@@ -8128,6 +8325,7 @@ $('save').onclick=async()=>{
     if(!misc){misc='Misc';cats.push(misc)}
     const primary=editorMembershipDraft.find(d=>d.id===String(m.id));primary.cat=misc;editorDraftCategories=[misc];renderCategoryRows();
   }
+  const validatedDraftFingerprint=JSON.stringify(captureEditorRecoveryDraft());
   // Check all time inputs before mutating any stored meal data.
   const prepInput=parseDurationInput($('prep').value);
   const totalInput=parseDurationInput($('totaltime').value);
@@ -8158,12 +8356,15 @@ $('save').onclick=async()=>{
   if(nextNeedsTweaking){next.needsTweaking=true;next.needsTweakingNote=nextTweakingNote}else{delete next.needsTweaking;delete next.needsTweakingNote}
   const removed=editorMembershipDraft.filter(draft=>draft.id!==null&&!draft.cat).map(draft=>String(draft.id)),scheduled=mealPlans.flatMap(plan=>getDisplayedWeekdayMealsForPlan(plan)).some(entry=>removed.includes(String(entry.meal.id))),referenced=meals.some(record=>(record.linkedMealIds||[]).some(id=>removed.includes(String(id))));
   if(removed.length&&(scheduled||referenced)&&await appDialog('Remove from group?',null,'tracking-remove',[],'Only the removed group memberships will be removed. Their scheduled slots and references use the existing replacement and cleanup rules. The recipe stays in its other groups.')!==true)return;
+  if(!persistenceEditor.isConnected||editId!==m.id)return;
+  if(JSON.stringify(captureEditorRecoveryDraft())!==validatedDraftFingerprint){await showAppMessage('Your draft changed while confirmation was open. Your latest changes are still here; save again to validate them.');return}
   const fields=sharedRecipeChanges(m,next);for(const [field,key]of [['name','name'],['marinate','marinate'],['ingredients','ingredients'],['instructions','recipeInstructions'],['notes','recipeNotes'],['url','url']])if($(key).value===savedEditorDraft[field])delete fields[field];if($('prep').value===savedEditorDraft.prep&&$('totaltime').value===savedEditorDraft.total){delete fields.prep;delete fields.total;delete fields.cook}if(JSON.stringify(serveWithDraft)===savedEditorDraft.serveWith)delete fields.serveWith;if(JSON.stringify(linkedMealDraft)===savedEditorDraft.linked)delete fields.linkedMealIds;if(JSON.stringify(nextMakeAhead)===savedEditorDraft.tasks)delete fields.makeAheadTasks;if($('editNeedsTweaking').checked===savedEditorDraft.adjusting&&$('editNeedsTweakingNote').value===savedEditorDraft.adjustingNote){delete fields.needsTweaking;delete fields.needsTweakingNote}if(!$('recipeIngredientLinks').hasChanges()&&!fields.ingredients&&!fields.instructions)delete fields.ingredientStepLinks;
   try{applyRecipeBulk([String(m.id)],{}, {render:false,editor:{sourceId:String(m.id),memberships:editorMembershipDraft.map(draft=>({...draft})),fields,rotation:$('rotation').checked}})}catch(e){await showAppMessage('Recipe could not be saved: '+e.message+' Your draft is still open.');return}
   const saved=meals.find(record=>String(record.id)===String(m.id));if(newRecipeDraftId===m.id)newRecipeDraftId=null;editorCategoryBaseline=null;editorDraftCategories=null;editId=null;if(tutorialStage==='editing')setTutorialStage('3');restoreMealEditorScroll();if(saved&&importedRecipeDetailsDraft?.recipeImportReferences?.length)recipeImportNotice('Related recipe references were found. No new links have been selected.',[saved]);
 
+ }finally{persistenceEditorSaving=false}
 };
-$('cancel').onclick=()=>{rollbackEditorCategories();editId=null;if(tutorialStage==='editing')setTutorialStage('2');restoreMealEditorScroll()};$('delete').onclick=async()=>{const ids=await confirmDeleteRecipes([String(m.id)]);if(!ids)return;try{applyRecipeBulk(ids,{delete:true},{render:false})}catch(e){await showAppMessage('Recipe could not be deleted: '+e.message);return}if(newRecipeDraftId===m.id)newRecipeDraftId=null;editorCategoryBaseline=null;editorDraftCategories=null;editId=null;restoreMealEditorScroll()}}function placeEditorInline(){
+$('cancel').onclick=()=>{mealPersistence.cancelOwner('recipe:'+m.id);rollbackEditorCategories();editId=null;if(tutorialStage==='editing')setTutorialStage('2');restoreMealEditorScroll()};$('delete').onclick=async()=>{const ids=await confirmDeleteRecipes([String(m.id)]);if(!ids)return;try{applyRecipeBulk(ids,{delete:true},{render:false})}catch(e){await showAppMessage('Recipe could not be deleted: '+e.message);return}if(newRecipeDraftId===m.id)newRecipeDraftId=null;editorCategoryBaseline=null;editorDraftCategories=null;editId=null;restoreMealEditorScroll()}}function placeEditorInline(){
  const editor=$('editor'),row=mealEditorRow();
  if(row&&row.parentNode)row.insertAdjacentElement('afterend',editor);
  else if(editor.parentNode!==document.body)document.body.insertBefore(editor,$('list'));
@@ -8220,7 +8421,7 @@ function performOutsideAction(originalTarget){
 document.addEventListener('click',e=>{
  if(replayingOutsidePaneClick||!(e.target instanceof Element))return;
  // An existing modal (e.g. a recipe import or deletion confirmation) owns its taps.
- if(e.target.closest('[role="dialog"],[role="alertdialog"],#categoryDeleteDialog,#mealSwipeMenu'))return;
+ if(e.target.closest('[role="dialog"],[role="alertdialog"],#categoryDeleteDialog,#mealSwipeMenu,#mealSaveWarning,#mealDataRecovery'))return;
  const upper=document.getElementById('settingsPanel');
  const lower=document.getElementById('planSettingsPanel');
  const editor=document.querySelector('#editor .editor');
@@ -8251,14 +8452,16 @@ document.addEventListener('click',e=>{
     if(saveButton?.onclick)await saveButton.onclick();
     // Invalid inputs or cancelled linked-meal edits keep the editor open.
     if(editId===currentId)return;
-   }else{rollbackEditorCategories();editId=null;}
+   }else{mealPersistence.cancelOwner('recipe:'+editId);rollbackEditorCategories();editId=null;}
   }
   if(closeEditor&&editId===null&&mealEditorReturnView)restoreMealEditorScroll();else render();
   if(!suppressRecipeLink)performOutsideAction(clicked);
  })().catch(err=>{console.error('Could not complete outside action',err)});
 },true);
 
-rotationCalendarTrackingReady=true;render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');syncCookingTimer();syncMakeAheadLocalDay();resumeRecipeViewer();})();
+mealPersistence.showRecovery({normalize:normalizeImportedBackup,validate:validateBackupStorage,validateCore:d=>validateBackupCore(startupCore(d))});
+if(mealPersistence.recovery)return;
+try{rotationCalendarTrackingReady=true;render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');syncCookingTimer();syncMakeAheadLocalDay()}catch(error){mealPersistence.failStartup(error);return}resumeRecipeViewer();})();
 </script><script>
 /* Detect when each page-specific header actually reaches its sticky position.
    Page renders replace these elements, so re-evaluate after DOM changes. */
