@@ -21,7 +21,11 @@ Tap the group's **+** to create an Idea and immediately open the existing recipe
 
 ## Make ahead, Skip This Week, and favorites
 
-Use **Make ahead (optional)** in Edit Recipe to add explicit preparation tasks with same-day, one-day, two-day, or custom lead times. Existing prep/marinate fields are unchanged; instructions are not scanned for reminders. Weekly Overview shows tasks on their actual due dates and keeps checked tasks visible. Tasks outside the displayed week appear separately with dates. Completion belongs to one dated scheduled occurrence, including its meal-plan tab and linked parent. The small calendar icon in My Rotation opens its tasks.
+Use **Notes & Reminders → Make Ahead** in Edit Meal to add explicit preparation tasks with same-day, one-day, two-day, or custom lead times. Existing prep/marinate fields are unchanged; instructions are not scanned for reminders. Weekly Overview shows tasks on their actual due dates and keeps checked tasks visible. Tasks outside the displayed week appear separately with dates. Completion belongs to one dated scheduled occurrence, including its meal-plan tab and linked parent.
+
+My Rotation shows **Today's To-Do** beneath Cycle Meals/Cycle Back, using the device's local date and all meal plans even when tabs are hidden. Recipe-card calendar icons are removed. Incomplete tasks come first; the eye reveals/hides completed tasks, hidden by default. When all due tasks are complete and hidden, **All done!** remains with the eye. With no tasks due today the entire section disappears. A local-midnight timeout and foreground/focus checks update this section without rerendering cards or resetting an editor draft.
+
+**Settings → Display → Show Make Ahead Reminders** controls planning-view visibility globally (default on). It does not change definitions or occurrence completion; Make Ahead editing remains available when hidden. The optional `mealRotationMakeAheadDisplayV1` preference is included in existing complete backups. Older backups default to enabled reminders and hidden completed Today tasks.
 
 **Skip This Week** in a scheduled meal's options replaces just its independent group slot without recording cooking, moving its queue position, or advancing the week. Other days/tabs and retained grocery quantities remain intact. Existing linked-recipe priority is respected. Undo restores the skipped occurrence, its reminder checks, cooking progress, scaling and groceries. A linked-only attachment or one-time meal without an assigned group cannot be skipped independently; the app explains this and leaves it unchanged. No alternative also leaves the meal unchanged.
 
@@ -334,3 +338,10 @@ All changes are staged and validated, then committed with the existing complete-
 
 
 Latest verification for the six-second alarm, compact favorite visibility and Open Recipes checklist is recorded in [the focused test report](tests/timer_favorites_checklist_test_report.md).
+
+
+## Compact meal editor
+
+Meal name, Group and In rotation remain visible. Four independent sections start collapsed on every opening: Timing; Organization; Recipe; Notes & Reminders. They reuse the existing controls, IDs and save/cancel/delete handlers. Collapsing retains all draft values. Organization contains additional shared-group memberships, Labels and Linked meals; the primary Group reflects the recipe being edited, including shared copies. Recipe retains ingredient/instruction photo tools, Step links and Recipe URL. Notes & Reminders keeps Needs Adjusting, Make Ahead and Notes. Invalid time/reminder input reveals its containing section for correction.
+
+No recipe data or group keys were renamed. Visible group wording is consistent across the editor and related controls. See [Today's To-Do and editor verification](tests/today_editor_test_report.md) for isolated-data tests and physical-device checks.

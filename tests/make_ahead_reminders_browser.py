@@ -4,6 +4,7 @@ from datetime import datetime,timezone
 from playwright.sync_api import sync_playwright
 import promotion_schedule_browser as f
 from scheduled_linked_slots_browser import state,compose
+from editor_sections_fixture import open_editor_section
 f.EXTRA+='''window.prepTest={
  seed:()=>{const meal=meals.find(m=>m.id===2);meal.makeAheadTasks=[{id:'marinate',description:'Marinate pork',daysBefore:1},{id:'dough',description:'Prepare dough',daysBefore:2},{id:'same',description:'Chop herbs',daysBefore:0},{id:'early',description:'Order ingredients',daysBefore:7}];meal.marinate='120';startWeekday='Tuesday';localStorage.setItem('mealRotationStartWeekdayV1',startWeekday);for(const plan of mealPlans){const entries=getDisplayedWeekdayMealsForPlan(plan),calendar={version:2,weekStart:'2026-11-03',occurrences:{},assignedOn:{},assignedAt:{},slots:{}};for(const entry of entries){const key=rotationOccurrenceKey({...entry,planId:plan.id}),date=cookingLocalDate(cookingDateInWeek(entry.day,new Date(2026,10,3)));calendar.occurrences[key]=date;calendar.assignedOn[key]='2026-11-03';calendar.assignedAt[key]='2026-11-03T08:00:00.000Z';calendar.slots[rotationCalendarSlot(entry)]=date}plan.rotationCalendar=calendar}persist();saveActiveMealPlan();},
  overview:()=>{showTop=true;allMealsActive=true;groceryTabActive=false;render()},
@@ -44,12 +45,12 @@ def run(b,name,width):
  if prefix:assert p.evaluate("localStorage.getItem('mealRotationDataV1')")=='WORKING SENTINEL'
  print('PASS',name,width,'date offsets/multiple tasks/before-week placement, per-occurrence checks/reload/backup/Cycle Back/new rotations; unchanged recipe/grocery data on completion',flush=True);c.close()
 def editor(b,name):
- c,p,errors,_=f.setup(b,name,360,'multiple');p.evaluate('prepTest.seed()');before=copy.deepcopy(state(p));p.evaluate('promotionTest.editor(2)');p.wait_for_timeout(850)
+ c,p,errors,_=f.setup(b,name,360,'multiple');p.evaluate('prepTest.seed()');before=copy.deepcopy(state(p));p.evaluate('promotionTest.editor(2)');p.wait_for_timeout(850);open_editor_section(p,'notes')
  box=p.locator('#recipeMakeAhead');box.locator('summary').tap();assert box.get_by_role('textbox',name='Preparation task',exact=True).count()==4
  box.get_by_role('button',name='Add preparation task',exact=True).tap();box.get_by_role('textbox',name='Preparation task',exact=True).last.fill('Thaw chicken')
  box.get_by_role('combobox',name='Preparation timing',exact=True).last.select_option('custom');box.get_by_role('spinbutton',name='Days before',exact=True).last.fill('3')
  p.locator('#save').tap();after=state(p);m=next(m for m in after['meals'] if m['id']==2);assert m['makeAheadTasks'][-1]['daysBefore']==3 and m['marinate']=='120'
- p.evaluate('promotionTest.editor(2)');p.wait_for_timeout(850);p.locator('#recipeMakeAhead summary').tap();p.get_by_role('textbox',name='Preparation task',exact=True).last.fill('Discard change');p.locator('#cancel').tap();assert state(p)['meals']==after['meals']
+ p.evaluate('promotionTest.editor(2)');p.wait_for_timeout(850);open_editor_section(p,'notes');p.locator('#recipeMakeAhead summary').tap();p.get_by_role('textbox',name='Preparation task',exact=True).last.fill('Discard change');p.locator('#cancel').tap();assert state(p)['meals']==after['meals']
  assert not errors,errors
  print('PASS',name,'existing editor task add/custom timing/save/cancel and marinate preservation',flush=True);c.close()
 if __name__=='__main__':

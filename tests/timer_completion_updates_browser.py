@@ -3,6 +3,7 @@ import copy
 from playwright.sync_api import sync_playwright
 import recipe_cooking_timer_browser as t
 from scheduled_linked_slots_browser import state,compose
+from editor_sections_fixture import open_editor_section
 f=t.f
 f.EXTRA+='''window.completionTest={
  sound:()=>cookingTimerSound?{kind:cookingTimerSound.kind,stopAt:cookingTimerSound.stopAt}:null,
@@ -84,7 +85,7 @@ def every_page_and_edit_draft(b,name):
  for view in ['promotionTest.my()','promotionTest.groups()','completionTest.weekly()']:
   if not p.locator('#recipeViewer').count():p.evaluate('timerTest.viewer()')
   start(p);p.evaluate('timerTest.close()');p.evaluate(view);headings=p.locator('#list h2').all_text_contents();schedule=compose(p);p.clock.fast_forward(2100);p.wait_for_timeout(30);assert popup(p).is_visible() and 'Pernil' in popup(p).inner_text();ack(p);assert p.locator('#list h2').all_text_contents()==headings and compose(p)==schedule
- p.evaluate('timerTest.viewer()');start(p,0);p.get_by_role('button',name='Edit Recipe',exact=True).tap();p.wait_for_timeout(850);notes=p.locator('#recipeNotes');p.get_by_role('button',name='Show recipe notes',exact=True).tap();original=notes.input_value();notes.fill('Preserve this unsaved recipe draft.');p.evaluate('timerTest.expired()');p.evaluate('timerTest.reconcile()');p.wait_for_timeout(30);assert popup(p).is_visible();ack(p);assert notes.input_value()=='Preserve this unsaved recipe draft.';notes.fill(original);p.locator('#cancel').tap();assert p.locator('#recipeViewer').is_visible()
+ p.evaluate('timerTest.viewer()');start(p,0);p.get_by_role('button',name='Edit Recipe',exact=True).tap();p.wait_for_timeout(850);notes=p.locator('#recipeNotes');open_editor_section(p,'notes');p.get_by_role('button',name='Notes',exact=True).tap();original=notes.input_value();notes.fill('Preserve this unsaved recipe draft.');p.evaluate('timerTest.expired()');p.evaluate('timerTest.reconcile()');p.wait_for_timeout(30);assert popup(p).is_visible();ack(p);assert notes.input_value()=='Preserve this unsaved recipe draft.';notes.fill(original);p.locator('#cancel').tap();assert p.locator('#recipeViewer').is_visible()
  assert not errors,errors;print('PASS',name,'automatic completion on My Rotation/Meal Groups/Weekly Overview and over Edit Recipe preserves page, schedule and unsaved editor draft',flush=True);c.close()
 if __name__=='__main__':
  with sync_playwright() as pw:
