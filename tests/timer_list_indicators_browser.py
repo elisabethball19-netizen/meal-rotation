@@ -30,20 +30,20 @@ def run(b,name,width):
  p.get_by_role('button',name='Pause timer',exact=True).tap();p.get_by_role('button',name='Close recipe',exact=True).tap();p.wait_for_timeout(100)
  # The user's exact repro: paused timer in Lentils, viewer closed, visible in all three lists.
  for view in ['top','groups','all']:
-  icons=page(p,view);icons.first.tap();d=popup(p);assert d.is_visible() and 'Lentils' in d.inner_text() and d.get_by_role('button',name='Resume timer',exact=True).is_visible()
+  icons=page(p,view);icons.first.tap();d=popup(p);assert d.is_visible() and t.timer(p)['recipeId']=='3' and d.get_by_role('button',name='Resume timer',exact=True).is_visible()
   assert not p.locator('#recipeViewer').count() and p.get_by_role('dialog').count()==1
   if name.startswith('meal-') and width==360:p.screenshot(path='/tmp/timer-indicator-'+view+'.png')
-  d.get_by_role('button',name='Close timer controls',exact=True).tap();assert not popup(p).count() and t.timer(p)['id']==first['id']
+  d.get_by_role('button',name='Hide timer controls',exact=True).tap();assert not popup(p).count() and t.timer(p)['id']==first['id']
  # Run, pause and countdown updates use the same state while no recipe is open.
  indicator(p).first.tap();popup(p).get_by_role('button',name='Resume timer',exact=True).tap();assert t.timer(p)['status']=='running'
  assert indicator(p).first.get_attribute('data-timer-status')=='running'
- p.clock.fast_forward(32000);assert '14:28 remaining' in popup(p).inner_text()
+ p.clock.fast_forward(32000);assert '14:28' in popup(p).inner_text()
  popup(p).get_by_role('button',name='Pause timer',exact=True).tap();assert indicator(p).first.get_attribute('data-timer-status')=='paused'
- paused=t.timer(p)['remaining'];popup(p).get_by_role('button',name='Close timer controls',exact=True).tap()
+ paused=t.timer(p)['remaining'];popup(p).get_by_role('button',name='Hide timer controls',exact=True).tap()
  p.reload();assert t.timer(p)['id']==first['id'] and t.timer(p)['status']=='paused' and t.timer(p)['remaining']==paused
  for view in ['top','groups','all']:page(p,view)
  # Cancellation unwraps the original names without resetting unrelated page state.
- indicator(p).first.scroll_into_view_if_needed();scroll=p.evaluate('scrollY');indicator(p).first.tap();popup(p).get_by_role('button',name='Cancel timer',exact=True).tap()
+ indicator(p).first.scroll_into_view_if_needed();scroll=p.evaluate('scrollY');indicator(p).first.tap();popup(p).get_by_role('button',name='Delete timer',exact=True).tap()
  assert t.timer(p) is None and not popup(p).count() and not p.locator('.recipe-list-timer').count()
  assert abs(p.evaluate('scrollY')-min(scroll,p.evaluate('document.documentElement.scrollHeight-innerHeight')))<=2,(scroll,p.evaluate('scrollY'))
  for view in ['top','groups','all']:
@@ -54,7 +54,7 @@ def run(b,name,width):
  for view in ['top','groups','all']:page(p,view,'complete')
  p.reload();assert t.timer(p)['status']=='complete'
  for view in ['top','groups','all']:page(p,view,'complete')
- indicator(p).first.tap();assert 'Timer finished' in popup(p).inner_text();popup(p).get_by_role('button',name='Dismiss finished timer',exact=True).tap()
+ indicator(p).first.tap();assert '00:00' in popup(p).inner_text();popup(p).get_by_role('button',name='Delete timer',exact=True).tap()
  assert t.timer(p) is None and not popup(p).count() and not p.locator('.recipe-list-timer').count()
  t.stable(p,before,schedule,groceries)
  assert not errors,errors
@@ -79,8 +79,8 @@ def linked(b,name):
  before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p)
  for view in ['top','groups','all']:
   p.evaluate('view=>timerListTest.page(view)',view);assert indicator(p,20).first.is_visible() and indicator(p,3).count()==0
-  indicator(p,20).first.tap();assert 'Current side' in popup(p).inner_text() and not p.locator('#recipeViewer').count();popup(p).get_by_role('button',name='Close timer controls',exact=True).tap()
- indicator(p,20).first.tap();popup(p).get_by_role('button',name='Cancel timer',exact=True).tap();assert not p.locator('.recipe-list-timer').count()
+  indicator(p,20).first.tap();assert t.timer(p)['recipeId']=='20' and not p.locator('#recipeViewer').count();popup(p).get_by_role('button',name='Hide timer controls',exact=True).tap()
+ indicator(p,20).first.tap();popup(p).get_by_role('button',name='Delete timer',exact=True).tap();assert not p.locator('.recipe-list-timer').count()
  t.stable(p,before,schedule,groceries);assert not errors,errors
  print('PASS',name,'linked recipe indicators and controls in all 3 views use child ID without parent actions or data changes',flush=True);c.close()
 

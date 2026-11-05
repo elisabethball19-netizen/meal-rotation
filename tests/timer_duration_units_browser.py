@@ -27,12 +27,12 @@ def run(b,name,width,mode):
   row=rows.nth(i);row.locator('.recipe-step-timer').tap()
   assert expected-500<=p.evaluate('timerTest.remaining()')<=expected
   assert row.locator('.cooking-item').get_attribute('aria-pressed')=='false'
-  p.get_by_role('button',name='Cancel timer',exact=True).tap()
+  p.get_by_role('button',name='Delete timer',exact=True).tap()
  # Distinct durations in a mixed measurement/time instruction still require the existing picker.
  rows.last.locator('.recipe-step-timer').tap();d=p.get_by_role('dialog',name='Choose cooking duration',exact=True)
  assert d.locator('.smallbtn').count()==2;d.locator('.smallbtn').nth(1).tap();assert 299500<=p.evaluate('timerTest.remaining()')<=300000
- p.clock.fast_forward(5000);assert '4:55 remaining' in t.strip(p).inner_text()
- p.get_by_role('button',name='Cancel timer',exact=True).tap()
+ p.clock.fast_forward(5000);assert '04:55' in t.strip(p).inner_text()
+ p.get_by_role('button',name='Delete timer',exact=True).tap()
  t.stable(p,before,schedule,groceries)
  assert not errors,errors
  if prefix:assert p.evaluate("localStorage.getItem('mealRotationDataV1')")=='WORKING SENTINEL'

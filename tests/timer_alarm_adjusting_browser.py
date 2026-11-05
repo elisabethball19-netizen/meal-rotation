@@ -49,7 +49,7 @@ def run(b,name,width):
  t.icon(p,2).tap();panel=settings(p);panel.get_by_role('button',name='Test alarm sound',exact=True).tap();assert sound(p)['kind']=='test'
  p.clock.fast_forward(2100);assert sound(p)['kind']=='alarm' and p.evaluate('alertCalls.tones-alertCalls.stops')==1
  p.clock.fast_forward(4000);assert sound(p)['kind']=='alarm' and p.evaluate('alertCalls.tones-alertCalls.stops')==1
- close_settings(p);p.get_by_role('button',name='Dismiss finished timer',exact=True).tap();assert sound(p) is None
+ close_settings(p);p.get_by_role('button',name='Delete timer',exact=True).tap();assert sound(p) is None
  # Volume is shared by other recipes and survives reload.
  p.evaluate('timerTest.close()');p.evaluate('timerTest.viewer(20)');assert settings(p).get_by_role('slider').input_value()=='25'
  volume(p,60);close_settings(p);p.evaluate('timerTest.close()');p.evaluate('timerTest.viewer()');assert settings(p).get_by_role('slider').input_value()=='60';close_settings(p)
@@ -66,7 +66,7 @@ def run(b,name,width):
  close_settings(p);p.evaluate('alarmTest.blocked()');p.evaluate("window.dispatchEvent(new Event('focus'))");assert sound(p)['kind']=='alarm'
  p.evaluate('alarmTest.unblock()');p.evaluate("window.dispatchEvent(new Event('focus'))");assert p.evaluate('alertCalls.tones')==1
  p.evaluate('timerTest.close()');assert sound(p)['kind']=='alarm';p.evaluate('timerTest.page()');p.evaluate('timerTest.viewer(20)')
- p.get_by_role('button',name='Dismiss finished timer',exact=True).tap();assert sound(p) is None and p.evaluate('alertCalls.stops')==1 and t.timer(p) is None
+ p.get_by_role('button',name='Delete timer',exact=True).tap();assert sound(p) is None and p.evaluate('alertCalls.stops')==1 and t.timer(p) is None
  p.clock.fast_forward(10000);p.evaluate('timerTest.reconcile()');assert p.evaluate('alertCalls.tones')==1
  # Existing warning is never removed by collapsing it; expansion persists across rerenders.
  p.evaluate('timerTest.close()');p.evaluate('timerTest.viewer()');section=p.locator('.recipe-tweaking-status');note=section.locator('.recipe-tweaking-note');saved=next(m for m in state(p)['meals'] if m['id']==1)['needsTweakingNote']
