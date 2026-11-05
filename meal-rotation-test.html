@@ -1847,7 +1847,8 @@ let cookingTimer=null,cookingTimerInterval=null,cookingTimerAudio=null,cookingTi
 function recipeCookingDurations(text){
  const source=String(text||'').replace(/\u00a0/g,' '),found=[];
  const numbers='(?:\\d+(?:\\s+\\d+\\/\\d+|[.,]\\d+|[½¼¾])?|\\d+\\/\\d+|[½¼¾]|one and a half|(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:[ -](?:one|two|three|four|five|six|seven|eight|nine))?|half(?: an?)?|quarter(?: of an?)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen)';
- const pattern=new RegExp('(?:(?<![\\w./:])|(?<=[hms])(?=\\d))('+numbers+')(?:\\s*(?:–|—|-|to)\\s*('+numbers+'))?\\s*-?\\s*(hours?|hrs?|h|minutes?|mins?|min|m|seconds?|secs?|sec|s)(?![a-z])','gi');
+ // Written numbers need a boundary before the unit: 'as' is not 'a' + 's'.
+ const pattern=new RegExp('(?:(?<![\\w./:])|(?<=[hms])(?=\\d))('+numbers+')(?:\\s*(?:–|—|-|to)\\s*('+numbers+'))?\\s*-?\\s*(?<![a-z])(hours?|hrs?|h|minutes?|mins?|min|m|seconds?|secs?|sec|s)(?![a-z])','gi');
  const words={a:1,an:1,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90,'one and a half':1.5};
  const value=raw=>{let s=raw.toLowerCase().trim();if(s.startsWith('half'))return .5;if(s.startsWith('quarter'))return .25;if(s in words)return words[s];const compound=s.split(/[ -]/);if(compound.length===2&&compound.every(w=>w in words))return words[compound[0]]+words[compound[1]];let extra=0;s=s.replace(/[½¼¾]/,c=>{extra={'½':.5,'¼':.25,'¾':.75}[c];return ''});const f=s.match(/^(?:(\d+)\s+)?(\d+)\/(\d+)$/);return (f?Number(f[1]||0)+Number(f[2])/Number(f[3]):Number(s.replace(',','.')))+extra};
  for(const match of source.matchAll(pattern)){
