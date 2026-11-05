@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright
 import promotion_schedule_browser as f
 from scheduled_linked_slots_browser import state,compose
 f.EXTRA+='''window.timerTest={
- resetAudio:()=>{cookingTimerAudio=null},durations:recipeCookingDurations,state:()=>cookingTimer,remaining:cookingTimerRemaining,
+ resetAudio:()=>{stopCookingTimerSound();cookingTimerAudio=null},durations:recipeCookingDurations,state:()=>cookingTimer,remaining:cookingTimerRemaining,
  viewer:(id=1)=>{const m=meals.find(m=>m.id===id);openRecipeViewer(m,cookingContext('original','Saturday',m.cat,m))},
  close:()=>{finishRecipeViewerClose();window.history.replaceState({},'')},
  setup:()=>{const m=meals.find(m=>m.id===1);m.instructions=['Simmer for 10–15 minutes.','Bake for 1 hour and 30 minutes, then rest for 5 minutes.','Heat to 350°F and add 2 cups rice.','Wait 2 seconds.','Rest 5 min.'];m.linkedMealIds=[20];meals.find(m=>m.id===20).instructions=['Cook 30 seconds.'];persist();},
@@ -39,10 +39,10 @@ def stable(p,before,schedule,groceries):
 
 def mock_alerts(p,permission='default'):
  p.evaluate('''permission=>{
- window.alertCalls={permissions:0,notifications:[],tones:0};timerTest.resetAudio();
+ window.alertCalls={permissions:0,notifications:[],tones:0,stops:0,loops:[],levels:[]};timerTest.resetAudio();
  class Alerts{static permission=permission;static requestPermission(){alertCalls.permissions++;Alerts.permission='granted';return Promise.resolve('granted')}constructor(title,options){alertCalls.notifications.push({title,...options})}};window.Notification=Alerts;
  Object.defineProperty(navigator,'serviceWorker',{configurable:true,value:{getRegistration:async()=>({showNotification:async(title,options)=>alertCalls.notifications.push({title,...options})})}});
- class Audio{constructor(){this.state='suspended';this.currentTime=0}resume(){this.state='running';return Promise.resolve()}createOscillator(){return {frequency:{value:0},connect(){},disconnect(){},start(){alertCalls.tones++},stop(){}}}createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){}}}get destination(){return {}}};window.AudioContext=Audio;
+ class Audio{constructor(){this.state='suspended';this.currentTime=0;this.sampleRate=8000}resume(){this.state='running';return Promise.resolve()}createBuffer(channels,length,rate){const data=new Float32Array(length);return {getChannelData:()=>data}}createBufferSource(){return {loop:false,connect(){},disconnect(){},start(){alertCalls.tones++;alertCalls.loops.push(this.loop)},stop(){alertCalls.stops++;this.onended?.()}}}createGain(){return {gain:{setValueAtTime(v){alertCalls.levels.push(v)}},connect(){},disconnect(){}}}get destination(){return {}}};window.AudioContext=Audio;
  }''',permission)
 
 def run(b,name,width):
@@ -96,8 +96,8 @@ def run(b,name,width):
  p.get_by_role('button',name='Dismiss finished timer',exact=True).tap();assert timer(p) is None and not strip(p).count()
  # Sound on an unlocked audio context, no permission requests until explicitly enabled.
  mock_alerts(p,'denied');icon(p,2).tap();p.evaluate('timerTest.close()');p.evaluate('timerTest.page()');p.clock.fast_forward(2100)
- assert timer(p)['status']=='complete' and p.evaluate('alertCalls.tones')==2 and p.evaluate('alertCalls.permissions')==0 and not p.evaluate('alertCalls.notifications')
- p.evaluate('timerTest.reconcile()');assert p.evaluate('alertCalls.tones')==2
+ assert timer(p)['status']=='complete' and p.evaluate('alertCalls.tones')==1 and p.evaluate('alertCalls.permissions')==0 and not p.evaluate('alertCalls.notifications')
+ p.evaluate('timerTest.reconcile()');assert p.evaluate('alertCalls.tones')==1
  p.evaluate('timerTest.viewer()')
  p.get_by_role('button',name='Dismiss finished timer',exact=True).tap()
  # Final comparison excludes only progress deliberately toggled off again (stored empty session may exist).
@@ -123,8 +123,8 @@ def recovery(b,name):
  # Expiration while absent is reconciled from persisted deadline during reload.
  p.evaluate('timerTest.expired()');p.reload();assert timer(p)['status']=='complete'
  p.evaluate('timerTest.viewer()');assert 'Timer finished' in strip(p).inner_text()
- # Completed timer can be replaced directly; only running/paused timers need confirmation.
- icon(p).tap();assert timer(p)['status']=='running' and timer(p)['id']!=original['id'] and not p.get_by_role('dialog',name='Replace current timer?',exact=True).count()
+ # Completed alarm is replaced only by an explicit choice, never silently dismissed.
+ icon(p).tap();choice(p,'Replace current timer?','Replace timer');assert timer(p)['status']=='running' and timer(p)['id']!=original['id'] and not p.get_by_role('dialog',name='Replace current timer?',exact=True).count()
  # Notification APIs are optional and storage failures must not interrupt a live timer.
  p.get_by_role('button',name='Cancel timer',exact=True).tap()
  p.evaluate("()=>{Object.defineProperty(window,'Notification',{configurable:true,value:undefined});}")
