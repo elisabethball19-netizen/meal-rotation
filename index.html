@@ -1066,6 +1066,24 @@ button.recipe-tweaking-edit{display:inline-flex;align-items:center;gap:5px;}
 #recipeViewer .recipe-tab-close svg{width:17px;height:17px;pointer-events:none;}
 #recipeViewer .recipe-tab button:focus-visible{outline:2px solid #5876ad;outline-offset:-2px;}
 #recipeViewer .recipe-occurrence-notice{font-size:13px;color:#637080;line-height:1.4;margin:0 0 10px;}
+/* Timer controls are siblings of step completion buttons, never nested inside them. */
+#recipeViewer li.recipe-timed-step{position:relative;padding-right:42px;}
+#recipeViewer button.recipe-timer-icon,.recipe-timer-dialog button.recipe-timer-icon{width:40px;min-width:40px;min-height:44px;padding:8px;border:0;border-radius:7px;background:transparent;color:#637080;display:grid;place-items:center;touch-action:manipulation;}
+#recipeViewer .recipe-timer-icon svg,.recipe-timer-dialog .recipe-timer-icon svg{width:20px;height:20px;}
+#recipeViewer .recipe-step-timer{position:absolute;right:0;top:2px;}
+#recipeViewer .recipe-timer-strip{grid-column:1/-1;display:flex;align-items:center;gap:6px;padding:4px 0 0;border-top:1px solid #e5e8eb;min-width:0;}
+#recipeViewer .recipe-timer-info{flex:1;min-width:0;line-height:1.35;}
+#recipeViewer .recipe-timer-readout{font-size:14px;font-variant-numeric:tabular-nums;}
+#recipeViewer .recipe-timer-source{font-size:12px;color:#637080;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;}
+#recipeViewer .recipe-timer-controls{display:flex;flex:none;}
+#recipeViewer .recipe-timer-finished{color:#315ba8;}
+#recipeViewer .recipe-timer-announcement{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
+.recipe-timer-dialog{position:fixed;inset:0;z-index:36000;background:#0008;display:flex;align-items:center;justify-content:center;padding:18px;}
+.recipe-timer-dialog>div{display:flex;flex-direction:column;gap:12px;background:#fff;color:#242424;padding:20px;border-radius:16px;width:100%;max-width:480px;max-height:85dvh;overflow:auto;}
+.recipe-timer-dialog strong{font-size:19px;}
+.recipe-timer-dialog .smallbtn{text-align:left;min-height:44px;overflow-wrap:anywhere;}
+.recipe-timer-dialog .recipe-timer-icon{align-self:center;}
+
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 (()=>{let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];let rotationCalendarTrackingReady=false,restoringRotationCalendars=false;try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 // Recipe content remains on existing meal records; cooking progress is separate.
@@ -1773,7 +1791,7 @@ function recipeOriginalUrl(meal){
  try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)?u.href:''}catch(e){return ''}
 }
 function setRecipeToolbarIcon(button,kind,label){
- const paths={save:appIconSvg.save,edit:appIconSvg.rename,scale:'<rect x="3" y="13" width="8" height="8" rx="1"/><path d="M3 9V3h18v18h-6M13 11l7-7M14 4h6v6"/>',settings:appIconSvg.settings,close:appIconSvg.cancel,reset:'<path d="M3 12a9 9 0 1 0 9-9c-2.5 0-4.8 1-6.4 2.6L3 8"/><path d="M3 3v5h5"/>',split:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 12h16"/>',full:'<rect x="4" y="3" width="16" height="18" rx="2"/>'};
+ const paths={timer:'<circle cx="12" cy="14" r="8"/><path d="M12 10v4l3 2M9 2h6M12 2v4M18 6l2-2"/>',pause:'<path d="M9 5v14M15 5v14"/>',play:'<path d="M8 4l12 8-12 8z"/>',bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',save:appIconSvg.save,edit:appIconSvg.rename,scale:'<rect x="3" y="13" width="8" height="8" rx="1"/><path d="M3 9V3h18v18h-6M13 11l7-7M14 4h6v6"/>',settings:appIconSvg.settings,close:appIconSvg.cancel,reset:'<path d="M3 12a9 9 0 1 0 9-9c-2.5 0-4.8 1-6.4 2.6L3 8"/><path d="M3 3v5h5"/>',split:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 12h16"/>',full:'<rect x="4" y="3" width="16" height="18" rx="2"/>'};
  button.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+paths[kind]+'</svg>';
  button.setAttribute('aria-label',label);button.title=label;
 }
@@ -1806,6 +1824,96 @@ function buildRecipeNotesSection(meal){
  const display=open=>{closed.classList.toggle('hidden',open);panel.classList.toggle('hidden',!open);show.setAttribute('aria-expanded',String(open))};show.setAttribute('aria-controls','recipeNotesPanel');show.setAttribute('aria-expanded','false');show.onclick=()=>display(true);hide.onclick=()=>display(false);
 }
 
+// One deadline-based timer, independent of cooking progress and scheduled occurrences.
+const COOKING_TIMER_KEY='mealRotationCookingTimerV1',COOKING_TIMER_MAX=30*24*60*60*1000;
+let cookingTimer=null,cookingTimerInterval=null,cookingTimerAudio=null,cookingTimerStarting=false,cookingTimerDismissDialog=null;
+function recipeCookingDurations(text){
+ const source=String(text||'').replace(/\u00a0/g,' '),found=[];
+ const numbers='(?:\\d+(?:\\s+\\d+\\/\\d+|[.,]\\d+|[½¼¾])?|\\d+\\/\\d+|[½¼¾]|one and a half|(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:[ -](?:one|two|three|four|five|six|seven|eight|nine))?|half(?: an?)?|quarter(?: of an?)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen)';
+ const pattern=new RegExp('(?:(?<![\\w./:])|(?<=[hms])(?=\\d))('+numbers+')(?:\\s*(?:–|—|-|to)\\s*('+numbers+'))?\\s*-?\\s*(hours?|hrs?|h|minutes?|mins?|min|m|seconds?|secs?|sec|s)(?![a-z])','gi');
+ const words={a:1,an:1,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90,'one and a half':1.5};
+ const value=raw=>{let s=raw.toLowerCase().trim();if(s.startsWith('half'))return .5;if(s.startsWith('quarter'))return .25;if(s in words)return words[s];const compound=s.split(/[ -]/);if(compound.length===2&&compound.every(w=>w in words))return words[compound[0]]+words[compound[1]];let extra=0;s=s.replace(/[½¼¾]/,c=>{extra={'½':.5,'¼':.25,'¾':.75}[c];return ''});const f=s.match(/^(?:(\d+)\s+)?(\d+)\/(\d+)$/);return (f?Number(f[1]||0)+Number(f[2])/Number(f[3]):Number(s.replace(',','.')))+extra};
+ for(const match of source.matchAll(pattern)){
+  if(source[match.index-1]==='-')continue;
+  // A spaced 'm' can mean metres. Accept it only with a clear timing/cooking cue.
+  if(match[3].toLowerCase()==='m'&&/\s+m$/i.test(match[0])&&!/\b(cook|bake|simmer|rest|wait|roast|boil|steam|fry|chill|marinat\w*|for|every)\b/i.test(source.slice(Math.max(0,match.index-35),match.index)))continue;
+  const factor=/^h/i.test(match[3])?3600000:/^m/i.test(match[3])?60000:1000;
+  const ms=Math.round(Math.min(value(match[1]),match[2]?value(match[2]):Infinity)*factor);
+  if(!Number.isFinite(ms)||ms<1000||ms>COOKING_TIMER_MAX)continue;
+  const part={ms,factor,label:match[0],start:match.index,end:match.index+match[0].length};
+  const previous=found[found.length-1],between=previous?source.slice(previous.end,part.start):'';
+  if(previous&&/^\s*(?:–|—|-|to)\s*$/i.test(between)){previous.ms=Math.min(previous.ms,part.ms);previous.end=part.end;previous.label=source.slice(previous.start,part.end)}
+  else if(previous&&part.factor<previous.factor&&(/^[\s,]*(?:and\s*)?$/i.test(between)||(/^\.\s*$/.test(between)&&/\b(?:hrs?|h|mins?|m|secs?|s)$/i.test(previous.label)))&&previous.ms+part.ms<=COOKING_TIMER_MAX){previous.ms+=part.ms;previous.factor=part.factor;previous.end=part.end;previous.label=source.slice(previous.start,part.end)}
+  else found.push(part);
+ }
+ return found;
+}
+function readCookingTimer(){
+ try{const t=JSON.parse(localStorage.getItem(COOKING_TIMER_KEY)||'null');if(!t||t.version!==1||typeof t.id!=='string'||!['running','paused','complete'].includes(t.status)||typeof t.recipeId!=='string'||typeof t.recipeName!=='string'||typeof t.stepToken!=='string'||typeof t.stepText!=='string')return null;if(t.status==='running'&&(!Number.isFinite(t.deadline)||t.deadline>Date.now()+COOKING_TIMER_MAX))return null;if(t.status==='paused'&&(!Number.isFinite(t.remaining)||t.remaining<=0||t.remaining>COOKING_TIMER_MAX))return null;return t}catch(e){return null}
+}
+function saveCookingTimer(){try{if(cookingTimer)localStorage.setItem(COOKING_TIMER_KEY,JSON.stringify(cookingTimer));else localStorage.removeItem(COOKING_TIMER_KEY)}catch(e){/* In-memory timer still works when storage is unavailable. */}}
+function cookingTimerRemaining(){return !cookingTimer||cookingTimer.status==='complete'?0:cookingTimer.status==='paused'?cookingTimer.remaining:Math.max(0,cookingTimer.deadline-Date.now())}
+function cookingTimerClock(ms){const s=Math.ceil(ms/1000),h=Math.floor(s/3600),m=Math.floor(s/60)%60;return h?h+':'+String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0'):m+':'+String(s%60).padStart(2,'0')}
+function prepareCookingTimerAudio(){try{const Audio=window.AudioContext||window.webkitAudioContext;if(Audio){cookingTimerAudio||=new Audio();cookingTimerAudio.resume()?.catch(()=>{})}}catch(e){}}
+async function alertCookingTimer(timer){
+ try{const ctx=cookingTimerAudio;if(ctx?.state==='running'){for(const delay of [0,.25]){const tone=ctx.createOscillator(),gain=ctx.createGain(),at=ctx.currentTime+delay;tone.type='sine';tone.frequency.value=880;gain.gain.setValueAtTime(0,at);gain.gain.linearRampToValueAtTime(.12,at+.01);gain.gain.exponentialRampToValueAtTime(.001,at+.18);tone.connect(gain);gain.connect(ctx.destination);tone.start(at);tone.stop(at+.2);tone.onended=()=>{tone.disconnect();gain.disconnect()}}}}catch(e){}
+ try{if(typeof window.Notification!=='function'||Notification.permission!=='granted')return;const options={body:timer.recipeName+' — '+timer.stepText,tag:'meal-rotation-cooking-timer-'+timer.id};const registration=await navigator.serviceWorker?.getRegistration?.();if(registration?.showNotification)await registration.showNotification('Cooking timer finished',options);else new Notification('Cooking timer finished',options)}catch(e){/* Mobile browsers may refuse notifications or audio. The finished state remains visible. */}
+}
+function syncCookingTimer(){
+ if(cookingTimer?.status==='running'&&cookingTimerRemaining()===0){cookingTimer={...cookingTimer,status:'complete',remaining:0};saveCookingTimer();alertCookingTimer(cookingTimer)}
+ if(cookingTimer?.status==='running'){if(!cookingTimerInterval)cookingTimerInterval=setInterval(syncCookingTimer,500)}else{clearInterval(cookingTimerInterval);cookingTimerInterval=null}
+ renderCookingTimer();
+}
+function cancelCookingTimer(){cookingTimer=null;saveCookingTimer();syncCookingTimer()}
+function pauseCookingTimer(){syncCookingTimer();if(cookingTimer?.status!=='running')return;cookingTimer={...cookingTimer,status:'paused',remaining:cookingTimerRemaining()};saveCookingTimer();syncCookingTimer()}
+function resumeCookingTimer(){if(cookingTimer?.status!=='paused')return;prepareCookingTimerAudio();cookingTimer={...cookingTimer,status:'running',deadline:Date.now()+cookingTimer.remaining};saveCookingTimer();syncCookingTimer()}
+function cookingTimerDialog(title,choices){return new Promise(resolve=>{
+ const view=recipeViewer,shade=document.createElement('div');shade.className='recipe-timer-dialog';shade.setAttribute('role','dialog');shade.setAttribute('aria-modal','true');shade.setAttribute('aria-label',title);
+ const panel=document.createElement('div'),heading=document.createElement('strong');heading.textContent=title;panel.append(heading);const focused=document.activeElement,inert=[...document.body.children].map(el=>[el,el.inert]);inert.forEach(([el])=>el.inert=true);
+ let settled=false;cookingTimerDismissDialog=()=>done(null);
+ function done(value){if(settled)return;settled=true;cookingTimerDismissDialog=null;shade.remove();for(const [el,was]of inert)if(el.isConnected)el.inert=was;if(focused?.isConnected)focused.focus({preventScroll:true});resolve(recipeViewer===view?value:null)}
+ for(const choice of choices){const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=choice.label;b.onclick=()=>done(choice.value);panel.append(b)}
+ const close=document.createElement('button');close.type='button';setRecipeToolbarIcon(close,'close','Cancel timer selection');close.className='recipe-timer-icon';close.onclick=()=>done(null);panel.append(close);shade.append(panel);document.body.append(shade);close.focus({preventScroll:true});shade.onclick=e=>{if(e.target===shade)done(null)};shade.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();done(null)}if(e.key==='Tab'){const buttons=[...panel.querySelectorAll('button')],first=buttons[0],last=buttons[buttons.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}};
+ })}
+async function startRecipeCookingTimer(meal,item,durations,stepNumber){
+ if(cookingTimerStarting||!recipeViewer||recipeViewer.mealId!==String(meal.id))return;cookingTimerStarting=true;prepareCookingTimerAudio();const view=recipeViewer;
+ try{
+  let duration=durations[0];
+  if(durations.length>1){const index=await cookingTimerDialog('Choose cooking duration',durations.map((d,i)=>({label:(i+1)+'. '+d.label+' · '+item.text.slice(Math.max(0,d.start-24),Math.min(item.text.length,d.end+24)),value:i})));if(index===null)return;duration=durations[index]}
+  if(recipeViewer!==view)return;
+  syncCookingTimer();if(cookingTimer&&cookingTimer.status!=='complete'){const replace=await cookingTimerDialog('Replace current timer?',[{label:'Replace timer',value:true},{label:'Keep current timer',value:false}]);if(replace!==true||recipeViewer!==view)return}
+  cookingTimer={version:1,id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),recipeId:String(meal.id),recipeName:meal.name||'Recipe',stepToken:item.token,stepText:item.text,stepNumber,context:view.context?{...view.context}:null,status:'running',deadline:Date.now()+duration.ms,remaining:duration.ms};saveCookingTimer();syncCookingTimer();
+ }finally{cookingTimerStarting=false}
+}
+function addRecipeCookingTimer(li,meal,item,stepNumber){
+ const durations=recipeCookingDurations(item.text);if(!durations.length)return;
+ li.classList.add('recipe-timed-step');const b=document.createElement('button');b.type='button';b.className='recipe-timer-icon recipe-step-timer';setRecipeToolbarIcon(b,'timer',durations.length===1?'Start timer: '+durations[0].label:'Choose timer duration');
+ for(const event of ['pointerdown','pointerup','touchstart','touchend','dblclick'])b.addEventListener(event,e=>e.stopPropagation());
+ b.onclick=e=>{e.preventDefault();e.stopPropagation();startRecipeCookingTimer(meal,item,durations,stepNumber)};li.append(b);
+}
+function renderCookingTimer(){
+ const bar=recipeViewer?.cover.querySelector('.recipe-viewer-bar');if(!bar)return;let strip=bar.querySelector('.recipe-timer-strip');
+ if(!cookingTimer){strip?.remove();return}
+ const permission=typeof window.Notification==='function'?Notification.permission:'unsupported',key=cookingTimer.id+':'+cookingTimer.status+':'+permission;
+ if(!strip||strip.dataset.timerState!==key){
+  strip?.remove();strip=document.createElement('div');strip.className='recipe-timer-strip';strip.dataset.timerState=key;
+  const info=document.createElement('div');info.className='recipe-timer-info';info.title=cookingTimer.recipeName+' — '+cookingTimer.stepText;
+  const readout=document.createElement('div');readout.className='recipe-timer-readout';readout.setAttribute('role','timer');readout.setAttribute('aria-live','off');
+  const source=document.createElement('div');source.className='recipe-timer-source';source.textContent=cookingTimer.recipeName+(Number.isSafeInteger(cookingTimer.stepNumber)?' · Step '+cookingTimer.stepNumber:'');info.append(readout,source);strip.append(info);
+  const controls=document.createElement('div');controls.className='recipe-timer-controls';
+  const control=(kind,label,action)=>{const b=document.createElement('button');b.type='button';b.className='recipe-timer-icon';setRecipeToolbarIcon(b,kind,label);b.onclick=action;controls.append(b)};
+  if(cookingTimer.status!=='complete')control(cookingTimer.status==='paused'?'play':'pause',cookingTimer.status==='paused'?'Resume timer':'Pause timer',cookingTimer.status==='paused'?resumeCookingTimer:pauseCookingTimer);
+  control('close',cookingTimer.status==='complete'?'Dismiss finished timer':'Cancel timer',cancelCookingTimer);
+  if(permission==='default'&&cookingTimer.status!=='complete'&&typeof Notification.requestPermission==='function')control('bell','Enable timer notifications',async()=>{try{await Notification.requestPermission()}catch(e){}syncCookingTimer()});
+  strip.append(controls);bar.append(strip);
+  if(cookingTimer.status==='complete'){strip.classList.add('recipe-timer-finished');const notice=document.createElement('span');notice.className='recipe-timer-announcement';notice.setAttribute('role','status');notice.textContent='Cooking timer finished for '+cookingTimer.recipeName;strip.append(notice)}
+ }
+ strip.querySelector('.recipe-timer-readout').textContent=cookingTimer.status==='complete'?'Timer finished':cookingTimer.status==='paused'?'Timer · '+cookingTimerClock(cookingTimerRemaining())+' paused':'Timer · '+cookingTimerClock(cookingTimerRemaining())+' remaining';
+}
+cookingTimer=readCookingTimer();
+window.addEventListener('focus',syncCookingTimer);window.addEventListener('pageshow',syncCookingTimer);document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncCookingTimer()});
+window.addEventListener('storage',e=>{if(e.key===null||e.key===COOKING_TIMER_KEY){cookingTimer=readCookingTimer();syncCookingTimer()}});
+
 function openRecipeViewer(meal,context=null,pushHistory=true,savedTabs=null,navigationOrigin=null){
  const origin=navigationOrigin||recipeViewer?.navigationOrigin||captureMealEditorOrigin();
  if(recipeViewer?.linkEdit){recipeLinkMessage(recipeViewer,'Save or cancel the current ingredient links before opening another recipe.');return}
@@ -1824,7 +1932,7 @@ function openRecipeViewer(meal,context=null,pushHistory=true,savedTabs=null,navi
  cover.addEventListener('click',e=>{if(recipeViewer?.suppressLinkGestureClick){recipeViewer.suppressLinkGestureClick=false;e.preventDefault();e.stopImmediatePropagation()}},{capture:true});
  cover.addEventListener('keydown',()=>{if(recipeViewer)recipeViewer.suppressLinkGestureClick=false},{capture:true});
  if(pushHistory)window.history.pushState({...window.history.state,mealRotationRecipeViewer:{mealId:String(meal.id),context}},'');
- renderRecipeViewer();syncRecipeAutoRotation();close.focus();cover.addEventListener('keydown',e=>{
+ renderRecipeViewer();syncCookingTimer();syncRecipeAutoRotation();close.focus();cover.addEventListener('keydown',e=>{
   if(e.key==='Escape'){e.preventDefault();if(recipeViewer?.linkEdit&&cookingSettings.hidden){finishRecipeLinkEdit(false);return}if(!cookingSettings.hidden){cookingSettings.hidden=true;settings.setAttribute('aria-expanded','false');settings.focus({preventScroll:true})}else closeRecipeViewer()}
   if(e.key==='Tab'){const buttons=[...cover.querySelectorAll('button:not([disabled]):not([hidden]),a[href],input:not([disabled]),select:not([disabled]),summary')].filter(e=>e.getClientRects().length);const first=buttons[0],last=buttons[buttons.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}
  });
@@ -1832,6 +1940,7 @@ function openRecipeViewer(meal,context=null,pushHistory=true,savedTabs=null,navi
  if(typeof enrichViewedRecipe==='function')enrichViewedRecipe(meal);
 }
 function finishRecipeViewerClose(resumeOrigin=true){
+ cookingTimerDismissDialog?.();
  const view=recipeViewer;if(!view)return;recipeViewer=null;view.importController?.abort();view.resizeObserver?.disconnect();view.tabResizeObserver?.disconnect();view.tabDragCleanup?.();view.dividerGestureCleanup?.();view.syncCleanup?.();view.guidedCleanup?.();view.scaleCleanup?.();clearRecipeLinkGestures(view);cancelRecipeAdvance(view);
  syncRecipeAutoRotation();
  if(typeof releaseRecipeWakeLock==='function')releaseRecipeWakeLock(view);
@@ -2193,7 +2302,7 @@ function renderRecipeViewer(){
  destination=instructionsPane;section('Instructions');if(v.linkNotice){const notice=document.createElement('p');notice.className='recipe-link-message';notice.textContent=v.linkNotice;destination.append(notice)}let ol=null,stepCount=0;
  for(const originalItem of items.steps){const item=cleanInstructionBlock(originalItem);if(item.type==='section'){const h=document.createElement('h3');h.textContent=item.text;destination.append(h);ol=null;continue}
   if(!ol){ol=document.createElement('ol');ol.className='recipe-viewer-steps';destination.append(ol)}
-  const li=document.createElement('li');li.append(tapItem(item,'steps'));
+  const li=document.createElement('li');li.append(tapItem(item,'steps'));addRecipeCookingTimer(li,meal,item,stepCount+1);
   ol.append(li);stepCount++;
  }
  if(!stepCount){const p=document.createElement('p');p.className='muted recipe-import-status';p.setAttribute('role','status');p.textContent=v.importMessage||'Instructions have not been imported. You can add them in Edit meal or view the original recipe.';destination.append(p)}
@@ -7682,7 +7791,7 @@ document.addEventListener('click',e=>{
  })().catch(err=>{console.error('Could not complete outside action',err)});
 },true);
 
-rotationCalendarTrackingReady=true;render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');resumeRecipeViewer();})();
+rotationCalendarTrackingReady=true;render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');syncCookingTimer();resumeRecipeViewer();})();
 </script><script>
 /* Detect when each page-specific header actually reaches its sticky position.
    Page renders replace these elements, so re-evaluate after DOM changes. */
