@@ -93,13 +93,13 @@ def run(b,name,width):
  for _ in range(3):p.evaluate('timerTest.reconcile()')
  assert len(p.evaluate('alertCalls.notifications'))==1
  p.reload();p.evaluate('timerTest.viewer()');assert timer(p)['status']=='complete' and '00:00' in strip(p).inner_text()
- p.get_by_role('button',name='Delete timer',exact=True).tap();assert timer(p) is None and not strip(p).count()
+ p.get_by_role('button',name='Acknowledge completed timer',exact=True).tap();assert timer(p) is None and not strip(p).count()
  # Sound on an unlocked audio context, no permission requests until explicitly enabled.
  mock_alerts(p,'denied');icon(p,2).tap();p.evaluate('timerTest.close()');p.evaluate('timerTest.page()');p.clock.fast_forward(2100)
  assert timer(p)['status']=='complete' and p.evaluate('alertCalls.tones')==1 and p.evaluate('alertCalls.permissions')==0 and not p.evaluate('alertCalls.notifications')
  p.evaluate('timerTest.reconcile()');assert p.evaluate('alertCalls.tones')==1
- p.evaluate('timerTest.viewer()')
- p.get_by_role('button',name='Delete timer',exact=True).tap()
+ p.evaluate('timerTest.viewer()');p.wait_for_timeout(30)
+ p.get_by_role('button',name='Acknowledge completed timer',exact=True).tap()
  # Final comparison excludes only progress deliberately toggled off again (stored empty session may exist).
  after=state(p)
  for key in ['meals','scales','prefs']:assert after[key]==before[key],(key,before[key],after[key])
@@ -123,8 +123,8 @@ def recovery(b,name):
  # Expiration while absent is reconciled from persisted deadline during reload.
  p.evaluate('timerTest.expired()');p.reload();assert timer(p)['status']=='complete'
  p.evaluate('timerTest.viewer()');assert '00:00' in strip(p).inner_text()
- # Completed alarm is replaced only by an explicit choice, never silently dismissed.
- icon(p).tap();choice(p,'Replace current timer?','Replace timer');assert timer(p)['status']=='running' and timer(p)['id']!=original['id'] and not p.get_by_role('dialog',name='Replace current timer?',exact=True).count()
+ # Completed timer is explicitly acknowledged before starting another timer.
+ p.wait_for_timeout(30);p.get_by_role('button',name='Acknowledge completed timer',exact=True).tap();icon(p).tap();assert timer(p)['status']=='running' and timer(p)['id']!=original['id'] and not p.get_by_role('dialog',name='Replace current timer?',exact=True).count()
  # Notification APIs are optional and storage failures must not interrupt a live timer.
  p.get_by_role('button',name='Delete timer',exact=True).tap()
  p.evaluate("()=>{Object.defineProperty(window,'Notification',{configurable:true,value:undefined});}")
@@ -132,13 +132,13 @@ def recovery(b,name):
  p.evaluate("delete window.Notification")
  p.evaluate("()=>{const set=Storage.prototype.setItem;window.timerNativeSet=set;Storage.prototype.setItem=function(key,value){if(key.endsWith('mealRotationCookingTimerV1'))throw Error('quota');return set.call(this,key,value)}}")
  icon(p,2).tap();p.clock.fast_forward(2100);assert timer(p)['status']=='complete' and not p.get_by_role('button',name='Enable timer notifications',exact=True).count()
- p.get_by_role('button',name='Delete timer',exact=True).tap();assert timer(p) is None
+ p.wait_for_timeout(30);p.get_by_role('button',name='Acknowledge completed timer',exact=True).tap();assert timer(p) is None
  p.evaluate('()=>{Storage.prototype.setItem=window.timerNativeSet}')
  assert p.evaluate('timerTest.parseInvalid("{broken")') is None
  assert p.evaluate('timerTest.parseInvalid(JSON.stringify({version:1,status:"running",deadline:"bad"}))') is None
  stable(p,before,schedule,groceries)
  assert not errors,errors
- print('PASS',name,'timer backup/restore, suspended reload expiry, direct restart after completion, unsupported alerts, storage failure and malformed timer records; saved app data unchanged',flush=True);c.close()
+ print('PASS',name,'timer backup/restore, suspended reload expiry, acknowledgment before restarting after completion, unsupported alerts, storage failure and malformed timer records; saved app data unchanged',flush=True);c.close()
 
 def layout(b,name,width,mode,landscape):
  c,p,errors,prefix=f.setup(b,name,width,'multiple');p.evaluate('timerTest.setup()');p.evaluate('timerTest.viewer()');p.evaluate('mode=>timerTest.mode(mode)',mode)

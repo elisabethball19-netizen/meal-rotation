@@ -90,7 +90,7 @@ def run(browser,filename,width):
     close();op(3);assert tabs().first.text_content()==MEALS[2]['name']
     assert tabs().first.evaluate('(e)=>getComputedStyle(e).textOverflow')=='ellipsis';assert tabs().first.evaluate('(e)=>e.scrollWidth>e.clientWidth')
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
-    assert page.locator('.recipe-viewer-bar>button').count()==4
+    assert page.locator('.recipe-viewer-bar>button').count()==5
     backup=page.evaluate('layoutTest.backup()');page.evaluate('(b)=>layoutBackup.validate(b)',backup)
     prefs=json.loads(backup['mealRotationRecipeViewPrefsV1']);assert prefs['autoOpenLinkedRecipes'] is True
     if prefix:assert page.evaluate('localStorage.getItem("mealRotationRecipeViewPrefsV1")') is None

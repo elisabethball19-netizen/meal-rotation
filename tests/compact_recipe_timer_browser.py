@@ -46,17 +46,15 @@ def run(b,name,width,mode,landscape=False):
  p.evaluate('timerTest.viewer(3)');check_row(p);assert t.timer(p)['status']=='paused'
  row(p).get_by_role('button',name='Resume timer',exact=True).tap();p.clock.fast_forward(t.timer(p)['remaining']+100);check_row(p,complete=True)
  assert a.sound(p)['kind']=='alarm'
- row(p).get_by_role('button',name='Hide timer controls',exact=True).tap();assert a.sound(p)['kind']=='alarm' and t.timer(p)['status']=='complete'
- p.get_by_role('button',name='Show timer',exact=True).tap();check_row(p,complete=True)
- if name.startswith('meal-') and width==360:p.screenshot(path='/tmp/compact-timer-viewer-'+mode+('-landscape' if landscape else '-portrait')+'.png')
- p.get_by_role('button',name='Close recipe',exact=True).tap();p.wait_for_timeout(80);l.page(p,'groups','complete');l.indicator(p).first.tap();check_row(p,True,complete=True)
- if name.startswith('meal-') and width==360:p.screenshot(path='/tmp/compact-timer-popup-'+mode+('-landscape' if landscape else '-portrait')+'.png')
- row(p,True).get_by_role('button',name='Delete timer',exact=True).tap();assert t.timer(p) is None and a.sound(p) is None and not l.popup(p).count() and not p.locator('.recipe-list-timer').count()
+ p.wait_for_timeout(30);completion=p.get_by_role('alertdialog',name="Time's Up!",exact=True);assert completion.is_visible()
+ if name.startswith('meal-') and width==360:p.screenshot(path='/tmp/compact-timer-completion-'+mode+('-landscape' if landscape else '-portrait')+'.png')
+ completion.get_by_role('button',name='Acknowledge completed timer',exact=True).tap();assert t.timer(p) is None and a.sound(p) is None and not p.locator('.recipe-list-timer').count()
+ p.get_by_role('button',name='Close recipe',exact=True).tap();p.wait_for_timeout(80)
  p.evaluate('timerTest.viewer(3)');t.icon(p).tap();row(p).get_by_role('button',name='Delete timer',exact=True).tap();assert t.timer(p) is None and not row(p).count() and not p.get_by_role('button',name='Show timer',exact=True).count()
  t.stable(p,before,schedule,groceries)
  assert not errors,errors
  if prefix:assert p.evaluate("localStorage.getItem('mealRotationDataV1')")=='WORKING SENTINEL'
- print('PASS',name,width,mode,landscape,'shared single row/3 icons, large clock, hide/reopen unchanged deadline, source-icon restore, synchronized pause/resume, 00:00/alarm retained on hide, delete clears alarm/indicators, no data changes',flush=True);c.close()
+ print('PASS',name,width,mode,landscape,'shared single row/3 icons, large clock, hide/reopen unchanged deadline, source-icon restore, synchronized pause/resume, 00:00 and automatic completion acknowledgment, delete clears alarm/indicators, no data changes',flush=True);c.close()
 
 def scrolling(b,name,landscape):
  c,p,errors,_=f.setup(b,name,360,'multiple');p.evaluate('timerListTest.seed()');p.evaluate('compactTimerTest.scrollSeed()');p.evaluate('timerTest.viewer(3)')
