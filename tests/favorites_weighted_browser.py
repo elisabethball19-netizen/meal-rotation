@@ -32,7 +32,7 @@ def weighted(b,name):
  print('PASS',name,'200 normal cycles',dict(counts),'no repeats/starvation, 30 weighted skips',dict(count),'no cooking events, one/two-recipe fallbacks, reload/backup, no-favorite candidate parity',flush=True);c.close()
 def ui(b,name,width):
  c,p,errors,prefix=f.setup(b,name,width,'multiple');before=copy.deepcopy(state(p));schedule=compose(p);sources=f.sources(p)
- p.evaluate('promotionTest.groups()');button=p.get_by_role('button',name='Add to favorites: Pernil',exact=True);button.tap();assert p.get_by_role('button',name='Remove from favorites: Pernil',exact=True).count()==1
+ p.evaluate('promotionTest.groups()');assert not p.get_by_role('button',name='Add to favorites: Pernil',exact=True).count();p.locator('[data-meal-id="1"] .master-category-meal-name').first.tap();menu=p.get_by_role('dialog',name='Meal options',exact=True);menu.get_by_role('button',name='Add to favorites: Pernil',exact=True).tap();assert menu.is_visible();menu.get_by_role('button',name='Close meal options',exact=True).tap();assert p.get_by_role('button',name='Remove from favorites: Pernil',exact=True).count()==1
  assert compose(p)==schedule and f.sources(p)==sources
  after=state(p);assert [{k:v for k,v in m.items() if k!='favorite'} for m in after['meals']]==before['meals']
  p.evaluate("promotionTest.chooser('Saturday','Weekend')");dialog=p.get_by_role('dialog',name="Choose Saturday's meal",exact=True);dialog.get_by_role('button',name='Favorites only',exact=True).tap();assert dialog.locator('.weekday-meal-choice').count()==1 and 'Pernil' in dialog.locator('.weekday-meal-choice').inner_text();dialog.get_by_role('button',name='Cancel',exact=True).tap()

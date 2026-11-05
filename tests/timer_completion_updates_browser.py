@@ -38,8 +38,8 @@ def foreground(b,name,w):
  d.get_by_role('button',name='Keep current timer',exact=True).tap();assert t.timer(p)['id']==old['id']
  start(p);d=p.get_by_role('dialog',name='Replace current timer?',exact=True);d.get_by_role('button',name='Replace timer',exact=True).tap();assert t.timer(p)['id']!=old['id'];assert p.locator('.recipe-viewer-steps .cooking-item').nth(3).get_attribute('aria-pressed')=='false'
  p.get_by_role('button',name='Current side',exact=True).tap();deck=p.evaluate('completionTest.deck()');p.clock.fast_forward(2100);p.wait_for_timeout(30);assert popup(p).is_visible() and 'Pernil' in popup(p).inner_text();assert p.evaluate('completionTest.deck()')==deck
- assert sound(p)['kind']=='alarm' and p.evaluate('alertCalls.tones')==1 and 0<p.evaluate('alertCalls.durations[0]')<=5
- p.clock.fast_forward(5100);assert sound(p) is None and t.timer(p)['status']=='complete' and popup(p).is_visible();assert p.evaluate('alertCalls.stops')==1
+ assert sound(p)['kind']=='alarm' and p.evaluate('alertCalls.tones')==1 and 5<p.evaluate('alertCalls.durations[0]')<=6
+ p.clock.fast_forward(5100);assert sound(p) is not None;p.clock.fast_forward(1000);assert sound(p) is None and t.timer(p)['status']=='complete' and popup(p).is_visible();assert p.evaluate('alertCalls.stops')==1
  for _ in range(3):p.evaluate('timerTest.reconcile()');p.evaluate("window.dispatchEvent(new Event('focus'))")
  assert p.evaluate('alertCalls.tones')==1 and len(p.evaluate('alertCalls.notifications'))==1
  ack(p);assert t.timer(p) is None and not p.locator('.recipe-list-timer').count() and not popup(p).count();assert p.evaluate('completionTest.deck()')==deck
@@ -69,14 +69,14 @@ def list_surfaces_and_completion_focus(b,name):
   p.evaluate(page);indicator=p.locator('#list .recipe-list-timer').first;assert indicator.is_visible();indicator.tap();d=p.get_by_role('dialog',name='Cooking timer',exact=True);compact(p,d);d.get_by_role('button',name='Resume timer',exact=True).tap();p.clock.fast_forward(1000);assert t.timer(p)['deadline']>timer.get('deadline',0);d.get_by_role('button',name='Pause timer',exact=True).tap();d.get_by_role('button',name='Hide timer controls',exact=True).tap();assert not d.count() and t.timer(p)['status']=='paused'
  indicator=p.locator('#list .recipe-list-timer').first;indicator.tap();p.get_by_role('dialog',name='Cooking timer',exact=True).get_by_role('button',name='Delete timer',exact=True).tap();assert t.timer(p) is None and not p.locator('.recipe-list-timer').count()
  # Completion supersedes an open recipe picker, then restores an interactive viewer.
- p.evaluate('timerTest.viewer()');start(p);p.get_by_role('button',name='Open recipes',exact=True).tap();p.clock.fast_forward(2100);p.wait_for_timeout(30);assert popup(p).is_visible() and not p.get_by_role('dialog',name='Open recipes',exact=True).count();ack(p);assert not p.locator('#recipeViewer').evaluate('(e)=>e.inert')
+ p.evaluate('timerTest.viewer()');start(p);p.get_by_role('button',name='Open recipes',exact=True).tap();p.clock.fast_forward(2100);p.wait_for_timeout(30);assert popup(p).is_visible() and not p.get_by_role('dialog',name='Open Recipes',exact=True).count();ack(p);assert not p.locator('#recipeViewer').evaluate('(e)=>e.inert')
  # Completion cancels an unfinished replacement choice, preserving the finished timer.
  start(p);old=t.timer(p);start(p,0);assert p.get_by_role('dialog',name='Replace current timer?',exact=True).is_visible();p.clock.fast_forward(2100);p.wait_for_timeout(30);assert popup(p).is_visible() and not p.get_by_role('dialog',name='Replace current timer?',exact=True).count() and t.timer(p)['id']==old['id'];ack(p)
  # Closing the viewer through browser history while complete must not leave the app inert.
  start(p);p.clock.fast_forward(2100);p.wait_for_timeout(30);p.evaluate('timerTest.close()');p.wait_for_timeout(30);assert popup(p).is_visible();p.evaluate('timerTest.close()');assert popup(p).is_visible();ack(p);assert not p.locator('#list').evaluate('(e)=>e.inert')
  assert not errors,errors;print('PASS',name,'all three list timer surfaces, live pause/resume/hide/delete, completion interrupts transient dialogs and restores focus/inert state safely',flush=True);c.close()
 def completed_backup(b,name):
- c,p,errors,_=setup(b,name,360);before=copy.deepcopy(state(p));start(p);p.clock.fast_forward(2100);p.wait_for_timeout(30);assert popup(p).is_visible();p.clock.fast_forward(5100);assert sound(p) is None
+ c,p,errors,_=setup(b,name,360);before=copy.deepcopy(state(p));start(p);p.clock.fast_forward(2100);p.wait_for_timeout(30);assert popup(p).is_visible();p.clock.fast_forward(6100);assert sound(p) is None
  backup=p.evaluate('timerTest.backup()');assert t.timer(p)['alertHandled'] is True;ack(p);p.evaluate('b=>timerTest.restore(b)',backup);p.reload();p.wait_for_timeout(80);assert popup(p).is_visible() and t.timer(p)['status']=='complete';mock(p);p.evaluate('timerTest.reconcile()');assert p.evaluate('alertCalls.tones')==0;ack(p);assert state(p)==before and not errors,errors
  print('PASS',name,'completed timer and handled-alert marker survive complete backup/restore without replay or recipe/schedule/progress changes',flush=True);c.close()
 def every_page_and_edit_draft(b,name):
