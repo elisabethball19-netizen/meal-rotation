@@ -2,7 +2,7 @@
 import copy
 import json
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 import scheduled_linked_slots_browser as f
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -92,7 +92,8 @@ def recovery_actions(browser,name):
   cover=p.locator('#mealDataRecovery');before=native(p,prefix)
   with p.expect_file_chooser() as fc:cover.get_by_role('button',name='Restore Backup',exact=True).click()
   fc.value.set_files({'name':'bad.json','mimeType':'application/json','buffer':b'{"cats":[],"meals":null}'})
-  assert 'not restored' in cover.get_by_role('status').inner_text() and native(p,prefix)==before
+  expect(cover.get_by_role('status')).to_contain_text('not restored')
+  assert native(p,prefix)==before
   backup={'version':version,**CORE}
   if version==2:backup['storage']={'mealRotationDataV1':json.dumps(CORE),'mealRotationSelectedIngredientsV1':'{"1":["1 cup rice"]}'}
   with p.expect_file_chooser() as fc:cover.get_by_role('button',name='Restore Backup',exact=True).click()
@@ -128,7 +129,7 @@ def failed_editor_and_recovery(browser,name):
  # A failed recovery restore must leave the raw originals available and allow retry.
  c,p,errors,prefix,_=bare(browser,name,{'mealRotationDataV1':'{broken'});before=native(p,prefix);fail_writes(p,['mealRotationDataV1'],True);backup={'version':2,**CORE,'storage':{'mealRotationDataV1':json.dumps(CORE),'mealRotationSelectedIngredientsV1':'{}'}}
  with p.expect_file_chooser() as fc:p.locator('#mealDataRecovery').get_by_role('button',name='Restore Backup',exact=True).click()
- fc.value.set_files({'name':'valid.json','mimeType':'application/json','buffer':json.dumps(backup).encode()});p.wait_for_function('document.getElementById("mealRecoveryStatus").textContent.includes("not restored")');assert native(p,prefix)==before;p.evaluate('restoreSafetyWrites()')
+ fc.value.set_files({'name':'valid.json','mimeType':'application/json','buffer':json.dumps(backup).encode()});p.wait_for_function('document.getElementById("mealRecoveryStatus").textContent.includes("not restored")');assert {k:v for k,v in native(p,prefix).items() if not k.endswith('mealRotationRecoveryJournalV1')}==before;assert p.evaluate('k=>localStorage.getItem(k)',prefix+'mealRotationRecoveryJournalV1');p.evaluate('restoreSafetyWrites()')
  with p.expect_file_chooser() as fc:p.locator('#mealDataRecovery').get_by_role('button',name='Restore Backup',exact=True).click()
  fc.value.set_files({'name':'valid.json','mimeType':'application/json','buffer':json.dumps(backup).encode()});p.wait_for_function('!document.getElementById("mealDataRecovery")');assert not errors,errors;c.close()
  print('PASS',name,'real editor failed Save retains draft; banner Retry saves without outside-close prompts; remove failures; recovery rollback and retry',flush=True)

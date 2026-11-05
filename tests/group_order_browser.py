@@ -92,10 +92,13 @@ def run(browser,filename,width):
  assert order()!=before['custom'];page.evaluate('groupTest.undo()');assert state()['custom']==before['custom'];button('Reset to Weekday Order').tap();page.reload();page.evaluate('groupTest.open()');assert state()['custom'] is None
  # Restore exact custom order through the existing V2 storage restore path.
  page.evaluate('(b)=>groupTest.restore(b)',backup);page.reload();page.evaluate('groupTest.open()');assert state()['custom']==json.loads(storage_copy[key]);assert order()==[x for x in json.loads(storage_copy[key]) if x in state()['cats']]+[x for x in state()['cats'] if x not in json.loads(storage_copy[key])]
- # Malformed legacy order values are ignored without silently rewriting that key.
- page.evaluate('(a)=>localStorage.setItem(a[0],a[1])',[prefix+key,'{broken']);page.reload();page.evaluate('groupTest.open()');assert state()['custom'] is None and saved()[key]=='{broken'
+ # Malformed structured records enter recovery and preserve the original bytes.
+ legacy_weekdays=state()['weekdayCategories']
+ page.evaluate('(a)=>localStorage.setItem(a[0],a[1])',[prefix+key,'{broken']);page.reload();assert page.get_by_text('Restore Backup',exact=True).is_visible();assert page.evaluate('(k)=>localStorage.getItem(k)',prefix+key)=='{broken'
+ # Repair only this disposable fixture before continuing compatibility checks.
+ page.evaluate('(k)=>localStorage.removeItem(k)',prefix+key);page.reload();page.evaluate('groupTest.open()');assert state()['custom'] is None
  # V1 restore has no custom-order field and returns to the existing weekday default.
- legacy={'version':1,**json.loads(storage_copy['mealRotationDataV1']),'weekdayCategories':state()['weekdayCategories']}
+ legacy={'version':1,**json.loads(storage_copy['mealRotationDataV1']),'weekdayCategories':legacy_weekdays}
  button('Settings and backups').tap();page.locator('[data-settings-group=backups]').evaluate('(e)=>e.open=true')
  with page.expect_file_chooser() as fc:button('Restore backup').tap()
  fc.value.set_files({'name':'legacy-backup.json','mimeType':'application/json','buffer':json.dumps(legacy).encode()});page.wait_for_timeout(160);page.evaluate('groupTest.open()');assert state()['custom'] is None and key not in saved()
