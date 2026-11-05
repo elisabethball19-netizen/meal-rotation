@@ -45,9 +45,9 @@ def run(browser,filename,width):
         step(n).scroll_into_view_if_needed();box=step(n).bounding_box();page.mouse.move(box['x']+20,box['y']+15);page.mouse.down();page.wait_for_timeout(650);page.mouse.up()
     def occurrence(day,id=1,parent=''):
         return state()['sessions']['occurrences'].get(json.dumps(['original',day,str(id),str(parent)],separators=(',',':')))
-    # Off by default on an older preference record; toolbar remains four icons.
+    # Off by default on an older preference record; toolbar includes the Open Recipes icon.
     initial_rotation={m['id']:m['rotation'] for m in state()['meals']}
-    op();assert tabs().count()==1;assert page.locator('.recipe-viewer-bar>button').count()==4
+    op();assert tabs().count()==1;assert page.locator('.recipe-viewer-bar>button').count()==5
     assert page.locator('.recipe-tab').first.locator('.recipe-tab-close').count()==0
     history_length=page.evaluate('window.history.length')
     linked('Side Dish');assert tabs().count()==2;linked('Nested Recipe');assert tabs().count()==3

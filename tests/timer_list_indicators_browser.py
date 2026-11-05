@@ -54,7 +54,7 @@ def run(b,name,width):
  for view in ['top','groups','all']:page(p,view,'complete')
  p.reload();assert t.timer(p)['status']=='complete'
  for view in ['top','groups','all']:page(p,view,'complete')
- indicator(p).first.tap();assert '00:00' in popup(p).inner_text();popup(p).get_by_role('button',name='Delete timer',exact=True).tap()
+ p.wait_for_timeout(30);completion=p.get_by_role('alertdialog',name="Time's Up!",exact=True);assert completion.is_visible();completion.get_by_role('button',name='Acknowledge completed timer',exact=True).tap()
  assert t.timer(p) is None and not popup(p).count() and not p.locator('.recipe-list-timer').count()
  t.stable(p,before,schedule,groceries)
  assert not errors,errors
