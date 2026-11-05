@@ -67,7 +67,7 @@ def moves_test(b,name,width):
 def geometry(b,name,width,multi):
  snapshots=[]
  with tempfile.TemporaryDirectory() as tmp:
-  Path(tmp,name).write_text(subprocess.check_output(['git','show','4069580db52c6641ca594fe13e949d8568acde65:'+name],cwd=ROOT,text=True))
+  Path(tmp,name).write_text(subprocess.check_output(['git','show','1e504481ae209af0931c074cddf54af3bfb2df09:'+name],cwd=ROOT,text=True))
   for base in [Path(tmp),ROOT]:
    f.ROOT=base;c,p,e,pr=setup(b,name,width);p.evaluate('sectionUITest.prepare',multi);p.evaluate('promotionTest.groups()');expand_recipe_sections(p)
    rows=card(p).locator('.master-category-meal').evaluate_all('''rows=>rows.map(row=>{const r=row.getBoundingClientRect(),s=getComputedStyle(row),info=row.querySelector('.master-meal-info'),badge=row.querySelector('.master-meal-weekdays'),arrow=row.querySelector('.recipe-section-move svg'),b=badge?.getBoundingClientRect(),a=arrow.getBoundingClientRect();let text=null;if(badge){const range=document.createRange();range.selectNodeContents(badge.querySelector('.master-weekday-token')||badge);text=range.getBoundingClientRect()}return {id:row.dataset.mealId,width:r.width,height:r.height,left:s.paddingLeft,right:s.paddingRight,top:s.paddingTop,bottom:s.paddingBottom,radius:s.borderRadius,color:s.backgroundColor,border:s.borderBottomWidth,nameX:info.getBoundingClientRect().left-r.left,days:badge?.textContent||'',badgeRight:b?r.right-b.right:null,textRight:text?r.right-text.right:null,arrowX:a.left-r.left,arrowGap:text?text.left-a.right:null,bodyScroll:info.scrollWidth<=info.clientWidth}})''')
