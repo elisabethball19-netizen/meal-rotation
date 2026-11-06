@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Private Meal Rotation diagnostics</title>
+<style>
+body{font:16px system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#202830;line-height:1.5}label{display:block;margin:16px 0}select,button,input{font:inherit;max-width:100%;min-height:44px}select{display:block;width:100%}button{margin:6px 8px 6px 0;padding:8px 12px}textarea{display:block;width:100%;box-sizing:border-box;min-height:300px;font:12px monospace}fieldset{margin:20px 0;border:1px solid #aaa}#status{white-space:pre-wrap}small{display:block}h1{font-size:25px}
+</style>
+</head>
+<body>
+<h1>Private Meal Rotation diagnostics</h1>
+<p>This standalone tool reads a backup <strong>on your device</strong>. It does not upload anything, contact the app, or change your recipes, site data, or rotation history. You can disconnect from the internet before using it.</p>
+<ol>
+<li>In the app, use <strong>Settings and backups → Export backup</strong>. Keep that backup private; do not send the original file.</li>
+<li>Choose the backup below. Select the affected group and the three recipes by their names. Names appear only in these local selectors.</li>
+<li>Generate and review the anonymized report, then download or copy that report to share with ChatGPT.</li>
+</ol>
+<p>The report omits names, ingredients, instructions, URLs, notes, photos, file names, and actual cooking dates. IDs, group names, labels, and plan names become aliases. It includes queue order, relative cooking-date ranks, eligibility/link metadata, slot choices, Favorites credits, and up to three saved rotation snapshots. Only share the generated report after reviewing it.</p>
+<label>Backup file <input id="backup" type="file" accept=".json,application/json"></label>
+<fieldset id="roles" disabled>
+<legend>Identify the reported meals locally</legend>
+<label>Affected meal group<select id="group"></select></label>
+<label>Saturday's original meal<select id="saturday"></select></label>
+<label>Sunday's skipped meal<select id="sunday"></select></label>
+<label>Saturday's manual replacement<select id="replacement"></select></label>
+<button id="generate" type="button">Generate anonymized report</button>
+</fieldset>
+<p id="status" role="status">No backup selected.</p>
+<label>Anonymized report — this is a diagnostic report, not a restorable backup<textarea id="report" readonly spellcheck="false"></textarea></label>
+<button id="download" type="button" disabled>Download report</button>
+<button id="copy" type="button" disabled>Copy report</button>
+<script>
+'use strict';
+(()=>{
+ const $=id=>document.getElementById(id),object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x),own=(o,k)=>Object.prototype.hasOwnProperty.call(o||{},k);
+ const list=x=>Array.isArray(x)?x:[],days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+ const storageKey=(storage,key)=>own(storage,key)?storage[key]:storage['mealRotationTestSandboxV1:'+key];
+ const decode=x=>typeof x==='string'?JSON.parse(x):x;
+ function readBackup(backup){
+  if(!object(backup))throw Error('backup');
+  const storage=object(backup.storage)?backup.storage:backup;
+  const data=decode(storageKey(storage,'mealRotationDataV1'));
+  const plans=decode(storageKey(storage,'mealRotationPlansV1'));
+  if(!object(data)||!Array.isArray(data.meals)||!Array.isArray(data.cats)||!object(plans)||!Array.isArray(plans.plans))throw Error('backup');
+  return {storage,data,plans};
+ }
+ const synonyms=[['potato','potatoes','mash','mashed','spud','spuds'],['rice','pilaf','risotto'],['pasta','noodle','noodles','spaghetti','macaroni','penne','linguine','fettuccine'],['vegetable','vegetables','veggie','veggies','broccoli','carrot','carrots','green beans','cauliflower'],['bread','roll','rolls','biscuit','biscuits','toast','garlic bread']];
+ const words=value=>String(value||'').normalize('NFKC').toLowerCase().replace(/[’']/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim().split(/\s+/).filter(Boolean).map(word=>word.length>4&&word.endsWith('ies')?word.slice(0,-3)+'y':word.length>4&&/(oes|ches|shes|xes|zes)$/.test(word)?word.slice(0,-2):word.length>3&&word.endsWith('s')&&!/(ss|us|is)$/.test(word)?word.slice(0,-1):word).join(' ');
+ const serveWithMatches=(title,prefs)=>{const text=' '+words(title)+' ';return list(prefs).filter(p=>typeof p==='string'&&words(p)).some(p=>{const term=words(p);return text.includes(' '+term+' ')||synonyms.some(row=>row.some(w=>words(w)===term)&&row.some(w=>text.includes(' '+words(w)+' ')))})};
+ function summarize(backup,roles={}){
+  const {storage,data,plans}=readBackup(backup),registries=new Map();
+  const alias=(type,value)=>{
+   if(value===null||value===undefined||value==='')return value===undefined?null:value;
+   if(!registries.has(type))registries.set(type,new Map());const map=registries.get(type),key=String(value);
+   if(!map.has(key))map.set(key,type+(map.size+1));return map.get(key);
+  };
+  const recipe=id=>alias('R',id),group=cat=>cat==='@day'?'@day':alias('G',cat),plan=id=>alias('P',id),label=id=>alias('L',id);
+  data.cats.forEach(group);data.meals.forEach(m=>recipe(m.id));plans.plans.forEach(p=>plan(p.id));
+  const numeric=(value)=>typeof value==='number'&&Number.isFinite(value)?value:null;
+  const stringArray=(values,transform)=>list(values).map(transform);
+  const assignments=value=>Object.fromEntries(days.filter(day=>own(value,day)).map(day=>[day,Array.isArray(value[day])?value[day].map(group):group(value[day])]));
+  const slotKey=key=>{
+   const parts=String(key).split('::'),day=days.includes(parts[0])?parts.shift():'UnknownDay';
+   if(!parts.length)return day;
+   return [day,group(parts.shift()),...parts.map(part=>['slot','order','occasional'].includes(part)?part:alias('K',part))].join('::');
+  };
+  const keyed=(value,keyTransform,valTransform)=>Object.fromEntries(object(value)?Object.entries(value).map(([key,v])=>[keyTransform(key),valTransform(v)]):[]);
+  const occurrenceKey=key=>{
+   try{const a=JSON.parse(key);if(Array.isArray(a)&&a.length>=3)return JSON.stringify([plan(a[0]),days.includes(a[1])?a[1]:'UnknownDay',recipe(a[2]),a[3]?recipe(String(a[3]).replace(/^linked:/,'')):'']);}catch(e){}
+   return alias('O',key);
+  };
+  const today=new Date();today.setUTCHours(0,0,0,0);
+  const dayOffset=value=>{if(value===null||value==='')return null;const date=new Date(value);if(!Number.isFinite(date.getTime()))return null;date.setUTCHours(0,0,0,0);return Math.round((date-today)/86400000)};
+  function choice(value){
+   if(!object(value))return {invalidType:typeof value};const out={};
+   for(const key of ['mealId','parentId','avoidMealId'])if(own(value,key))out[key]=recipe(value[key]);
+   for(const key of ['deferredMealIds','excludedMealIds','blockedParents'])if(own(value,key))out[key]=Array.isArray(value[key])?value[key].map(recipe):{invalidType:typeof value[key]};
+   for(const key of ['skipReplacement','substitution','retain','empty','sideUnavailable','preserveSideQueue','occasional'])if(own(value,key))out[key]=typeof value[key]==='boolean'?value[key]:{invalidType:typeof value[key]};
+   if(own(value,'previousGroupId'))out.previousGroupId=alias('I',value.previousGroupId);
+   return out;
+  }
+  function week(value){
+   if(!object(value))return null;
+   return {version:numeric(value.version),slots:keyed(value.slots,slotKey,item=>{
+    const out={kind:['empty','once'].includes(item?.kind)?item.kind:'unknown',groceryCheckCount:object(item?.groceryChecks)?Object.keys(item.groceryChecks).length:0};
+    if(object(item?.meal))out.meal={id:recipe(item.meal.id),cat:group(item.meal.cat),temporaryMeal:item.meal.temporaryMeal===true};return out;
+   }),order:keyed(value.order,key=>days.includes(key)?key:'UnknownDay',values=>list(values).map(token=>{
+    try{const a=JSON.parse(token);if(Array.isArray(a))return JSON.stringify(a.map((x,i)=>i===0?group(x):x==='occasional'?x:recipe(x)));}catch(e){}return alias('D',token);
+   }))};
+  }
+  function favorites(value){
+   return keyed(value,key=>{try{const a=JSON.parse(key);if(Array.isArray(a))return JSON.stringify([group(a[0]),list(a[1]).map(label)]);}catch(e){}return alias('F',key)},state=>{
+    let signature=null;try{const parsed=JSON.parse(state?.signature);if(Array.isArray(parsed))signature=parsed.map(pair=>[recipe(pair[0]),numeric(pair[1])]);}catch(e){}
+    return {signature,scores:keyed(state?.scores,recipe,numeric)};
+   });
+  }
+  function mealPlans(values){
+   return list(values).map(p=>{
+    const out={id:plan(p.id),weekdayCategories:assignments(p.weekdayCategories)};
+    for(const field of ['weekdayMealOverrides','cycleRetainedSlots'])if(own(p,field))out[field]=keyed(p[field],slotKey,recipe);
+    if(own(p,'cycleSlotChoices'))out.cycleSlotChoices=keyed(p.cycleSlotChoices,slotKey,choice);
+    if(own(p,'weekdayRecipeFilters'))out.weekdayRecipeFilters=keyed(p.weekdayRecipeFilters,slotKey,value=>Array.isArray(value)?value.map(label):label(value));
+    if(own(p,'weekSchedule'))out.weekSchedule=week(p.weekSchedule);
+    if(own(p,'occasionalMeals'))out.occasionalMeals=keyed(p.occasionalMeals,key=>days.includes(key)?key:'UnknownDay',recipe);
+    if(own(p,'favoriteRotationScores'))out.favoriteRotationScores=favorites(p.favoriteRotationScores);
+    if(own(p,'sideGroupPairs'))out.sideGroupPairs=keyed(p.sideGroupPairs,key=>days.includes(key)?key:'UnknownDay',value=>keyed(value,key=>alias('I',key),value=>alias('I',value)));
+    if(own(p,'dependentSideState'))out.dependentSideState=keyed(p.dependentSideState,key=>{try{const a=JSON.parse(key);if(Array.isArray(a))return JSON.stringify([days.includes(a[0])?a[0]:'UnknownDay',alias('I',a[1])]);}catch(e){}return alias('S',key)},value=>({mainId:recipe(value?.mainId),mealId:recipe(value?.mealId),automatic:value?.automatic===true}));
+    if(own(p,'rotationCalendar'))out.rotationCalendar={version:numeric(p.rotationCalendar?.version),weekStartRank:dateRank(p.rotationCalendar?.weekStart),slots:keyed(p.rotationCalendar?.slots,slotKey,dateRank),occurrences:keyed(p.rotationCalendar?.occurrences,occurrenceKey,dateRank),assignedOn:keyed(p.rotationCalendar?.assignedOn,occurrenceKey,dateRank)};
+    return out;
+   });
+  }
+  const snapshots=[];
+  const unreadableKeys=[];
+  const readStored=(key)=>{const raw=storageKey(storage,key);if(raw===undefined)return undefined;if(key==='mealRotationStartWeekdayV1'&&days.includes(raw))return raw;try{return decode(raw)}catch(e){unreadableKeys.push(key);return undefined}};
+  const globals={};
+  for(const [key,field,transform]of [['mealRotationWeekdayCategoriesV1','weekdayCategories',assignments],['mealRotationWeekdayMealOverridesV1','weekdayMealOverrides',v=>keyed(v,slotKey,recipe)],['mealRotationWeekdayRecipeFiltersV1','weekdayRecipeFilters',v=>keyed(v,slotKey,values=>Array.isArray(values)?values.map(label):label(values))]]){
+   const value=readStored(key);if(value!==undefined)globals[field]=transform(value);
+  }
+  let previous=readStored('mealRotationLastRotationBeforeV1'),depth=0;
+  while(object(previous)&&depth<3){
+   snapshots.push(previous);depth++;try{previous=decode(previous.lastRotationBefore)}catch(e){previous=null}
+  }
+  const dates=[];
+  const allMeals=data.meals.concat(...snapshots.map(s=>list(s.meals))),addDate=value=>{const d=dayOffset(value);if(d!==null&&!dates.includes(d))dates.push(d)};
+  allMeals.forEach(m=>addDate(m.lastCooked));
+  for(const p of plans.plans.concat(...snapshots.map(s=>list(s.mealPlans)))){const cal=p.rotationCalendar;if(!object(cal))continue;addDate(cal.weekStart);for(const field of ['slots','occurrences','assignedOn'])for(const value of Object.values(cal[field]||{}))addDate(value)}
+  for(const s of snapshots)for(const update of list(s.cookedDateUpdates)){addDate(update.before);addDate(update.after);for(const event of list(update.events))addDate(event.date)}
+  dates.sort((a,b)=>a-b);
+  const dateRank=value=>{const d=dayOffset(value);return d===null?null:dates.indexOf(d)};
+  const priorities=[...new Set(allMeals.map(m=>numeric(m.rotationPromotionPriority)).filter(v=>v!==null))].sort((a,b)=>a-b);
+  function recipes(values){
+   return list(values).map((m,index)=>{
+    const d=dayOffset(m.lastCooked),out={id:recipe(m.id),cat:group(m.cat),libraryIndex:index,rotation:m.rotation===true,favorite:m.favorite===true,lastCookedRank:d===null?null:dates.indexOf(d),lastCookedStatus:!own(m,'lastCooked')?'missing':m.lastCooked===null?'null':d===null?'invalid':'valid'};
+    for(const key of ['linkedMealIds'])if(own(m,key))out[key]=stringArray(m[key],recipe);
+    if(own(m,'labels'))out.labels=Array.isArray(m.labels)?m.labels.map(label):{invalidType:typeof m.labels};
+    if(own(m,'linkGroup'))out.linkGroup=alias('H',m.linkGroup);
+    if(own(m,'rotationPromotionPriority'))out.rotationPromotionPriorityRank=numeric(m.rotationPromotionPriority)===null?null:priorities.indexOf(m.rotationPromotionPriority);
+    if(own(m,'serveWith'))out.serveWith={preferenceCount:list(m.serveWith).length,matchingRecipeIds:list(values).filter(candidate=>serveWithMatches(candidate.name,m.serveWith)).map(candidate=>recipe(candidate.id))};
+    return out;
+   });
+  }
+  const identityMap=value=>{try{return keyed(decode(value),group,value=>alias('I',value))}catch(e){return {unreadable:true}}};
+  const contexts=values=>list(values).map(x=>({planId:plan(x.planId),day:days.includes(x.day)?x.day:'UnknownDay',cat:group(x.cat),mealId:recipe(x.mealId),parentId:recipe(x.parentId),...(own(x,'scheduleOnly')?{scheduleOnly:x.scheduleOnly===true}:{}),...(own(x,'scheduledSlot')?{scheduledSlot:x.scheduledSlot===true}:{})}));
+  const output={format:'meal-rotation-anonymous-diagnostics',version:1,expectedAppMain:'cd6d070a464121154022b9a8baa2733702ee0845',target:{group:group(roles.group),saturdayOriginal:recipe(roles.saturday),sundaySkipped:recipe(roles.sunday),manualReplacement:recipe(roles.replacement)},current:{cats:data.cats.map(group),meals:recipes(data.meals),plans:mealPlans(plans.plans),activePlanId:plan(plans.activeId),globals,startWeekday:days.includes(readStored('mealRotationStartWeekdayV1'))?readStored('mealRotationStartWeekdayV1'):null,manualRecipeOrdering:readStored('mealRotationManualRecipeOrderingV1')===true,showPlanTabs:readStored('mealRotationShowPlanTabsV1'),groupIdentities:keyed(readStored('mealRotationGroupIdentitiesV1'),group,value=>alias('I',value))},previousRotations:snapshots.map((s,index)=>({index,groupIdentities:identityMap(s.groupIdentities),cats:list(s.cats).map(group),meals:recipes(s.meals),plans:mealPlans(s.mealPlans),activePlanId:plan(s.activePlanId),weekdayCategories:assignments(s.weekdayCategories),weekdayMealOverrides:keyed(s.weekdayMealOverrides,slotKey,recipe),startWeekday:days.includes(s.startWeekday)?s.startWeekday:null,weekdayRecipeFilters:keyed(s.weekdayRecipeFilters,slotKey,values=>Array.isArray(values)?values.map(label):label(values)),hasRotationOccurrences:own(s,'rotationOccurrences'),rotationOccurrences:contexts(s.rotationOccurrences),cookingCycledContexts:contexts(s.cookingCycledContexts),cookedDateUpdates:list(s.cookedDateUpdates).map(x=>({mealId:recipe(x.mealId),beforeRank:dateRank(x.before),afterRank:dateRank(x.after),events:list(x.events).map(event=>({key:occurrenceKey(event.key),dateRank:dateRank(event.date)}))})),favoriteRotationTurns:list(s.favoriteRotationTurns).map(x=>({planId:plan(x.planId),day:days.includes(x.day)?x.day:'UnknownDay',cat:group(x.cat),slotCat:group(x.slotCat),mealId:recipe(x.mealId)}))})),olderHistoryTruncated:object(previous),unreadableStorageKeys:unreadableKeys,groceryDataOmitted:true,privateRecipeContentOmitted:true};
+  return output;
+ }
+ let selectedBackup=null;
+ function options(select,values,placeholder){select.replaceChildren();const blank=document.createElement('option');blank.value='';blank.textContent=placeholder;select.append(blank);for(const[value,name]of values){const option=document.createElement('option');option.value=String(value);option.textContent=String(name);select.append(option)}}
+ function clearReport(){ $('report').value='';$('download').disabled=$('copy').disabled=true; }
+ function populateMeals(){clearReport();const {data}=readBackup(selectedBackup),meals=data.meals.filter(m=>String(m.cat)===$('group').value);for(const id of ['saturday','sunday','replacement'])options($(id),meals.map(m=>[m.id,m.name||'Unnamed recipe']),'Choose locally…');}
+ $('backup').addEventListener('change',async()=>{
+  selectedBackup=null;clearReport();$('roles').disabled=true;
+  try{const file=$('backup').files[0];if(!file)return;const raw=JSON.parse(await file.text()),{data}=readBackup(raw);selectedBackup=raw;options($('group'),data.cats.map(cat=>[cat,cat]),'Choose locally…');$('roles').disabled=false;$('status').textContent='Read locally. Select the group and all three recipes; nothing has been sent.';}
+  catch(e){$('status').textContent='This file could not be read as a Meal Rotation JSON backup with saved plans. No report was generated and no app data was changed.';}
+ });
+ $('group').addEventListener('change',populateMeals);
+ for(const id of ['saturday','sunday','replacement'])$(id).addEventListener('change',clearReport);
+ $('generate').addEventListener('click',()=>{
+  try{if(!selectedBackup||['group','saturday','sunday','replacement'].some(id=>!$(id).value)){ $('status').textContent='Choose a group and all three recipes first.';return;}
+   const roles=Object.fromEntries(['group','saturday','sunday','replacement'].map(id=>[id,$(id).value]));$('report').value=JSON.stringify(summarize(selectedBackup,roles),null,2);$('download').disabled=$('copy').disabled=false;$('status').textContent='Report generated locally. Review it before sharing. Send only this report, never the original backup.';
+  }catch(e){clearReport();$('status').textContent='Some saved rotation metadata could not be read. No app data was changed. Tell ChatGPT this message; do not send the original backup.';}
+ });
+ $('download').addEventListener('click',()=>{if(!$('report').value)return;const url=URL.createObjectURL(new Blob([$('report').value],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='meal-rotation-anonymous-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});
+ $('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('report').value);$('status').textContent='Anonymized report copied. Share it only where you intend.'}catch(e){$('report').focus();$('report').select();$('status').textContent='Select and copy the report manually, or use Download report.'}});
+ window.rotationDiagnostic={summarize};
+})();
+</script>
+</body>
+</html>

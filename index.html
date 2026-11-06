@@ -6501,48 +6501,85 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
     choices[key]={...(valid?old:{}),...(manual?{substitution:true}:{}),mealId:String(meal.id),parentId:String(item.linkedTo??''),retain:manual||!!((allTabs||plan.id===activePlanId)&&retainedSlots?.has(scopedKey))||!!(valid&&old.retain),blockedParents:blocked};
    }
   }
+  // A temporary empty/one-time slot can conceal a real queued recipe. When
+  // it expires, release automatic pins; the hidden meal was not consumed, so
+  // do not mark it as an outgoing recipe to avoid. Explicit manual choices stay.
+  for(const hidden of hiddenRotated.filter(item=>item.planId===plan.id)){
+   if(!rotationGroupScheduled(plan,hidden.day,hidden.cat))continue;
+   const key=weekdaySlotKey(hidden.day,hidden.cat),old=choices[key];
+   if(manualWeekdayMealChoice(plan,hidden.day,hidden.cat,hidden.meal.id))continue;
+   delete overrides[key];delete pins[key];
+   const assigned=plan.weekdayCategories?.[hidden.day];
+   if((Array.isArray(assigned)?assigned:[assigned])[0]===hidden.cat)delete overrides[hidden.day];
+   choices[key]={parentId:'',blockedParents:old?.blockedParents||[]};
+  }
   plan.weekdayMealOverrides=overrides;
   if(Object.keys(pins).length||plan.cycleRetainedSlots)plan.cycleRetainedSlots=pins;
   plan.cycleSlotChoices=choices;
  }
  for(const item of selected.filter(item=>item.scheduleOnly)){const plan=mealPlans.find(p=>p.id===item.planId);clearTemporarySlot(plan,item.day,item.cat)}
- // Schedule edits defer turns, not recipes already consumed by this rotation.
- // Pool those turns across the group's rotated days so the first new selection
- // cannot reserve or bypass a later day's deferred recipe.
+ // Reopen affected groups through automatic preferences, not hidden pins.
+ // Include earlier unconsumed queue entries when old metadata identifies only
+ // one deferred day. This also supports schedules saved before deferredMealIds.
+ const outgoingIds=new Set(selected.filter(item=>!item.scheduleOnly).map(item=>String(item.meal.id)));
+ const affectedKeys=new Set(affected.map(rotationOccurrenceKey));
+ const fixedIds=new Set([...prior].flatMap(([planId,items])=>items.filter(item=>!item.scheduleOnly&&!affectedKeys.has(rotationOccurrenceKey({...item,planId}))).map(item=>String(item.meal.id))));
+ // Unselected temporary slots also reserve their underlying selections. They
+ // are absent from the visible prior list, but another tab must keep its turn.
+ for(const oldPlan of rotationBefore.mealPlans){
+  const base=getDisplayedWeekdayMealsForPlan(oldPlan,null,rotationBefore,null,true);
+  for(const entry of base){
+   const owner=temporaryGroceryOwner(oldPlan,entry,base);if(!owner)continue;
+   const cycled=selected.some(item=>item.planId===oldPlan.id&&item.scheduleOnly&&temporarySlotKey(item.day,item.cat)===owner);
+   const choice=oldPlan.cycleSlotChoices?.[weekdaySlotKey(entry.day,entry.cat)],deferred=choice?.deferredMealIds?.some(id=>String(id)!==String(entry.meal.id));
+   if(!cycled||manualWeekdayMealChoice(oldPlan,entry.day,entry.cat,entry.meal.id)&&!deferred)fixedIds.add(String(entry.meal.id));
+  }
+ }
  for(const plan of scope){
-  const oldPlan=rotationBefore.mealPlans.find(old=>old.id===plan.id),hidden=hiddenRotated.filter(item=>item.planId===plan.id);
+  const oldPlan=rotationBefore.mealPlans.find(old=>old.id===plan.id),hidden=hiddenRotated.filter(item=>item.planId===plan.id),hiddenSet=new Set(hidden);
   const reopening=selected.filter(item=>item.planId===plan.id&&!item.scheduleOnly).concat(hidden).sort((a,b)=>orderedDays().indexOf(a.day)-orderedDays().indexOf(b.day));
-  const due=new Map(),reset=new Set();
+  const due=new Map(),groups=new Set(),manualHidden=new Set(),reset=new Set();
+  const hiddenGroups=new Set(hidden.filter(item=>rotationGroupScheduled(plan,item.day,item.cat)).map(item=>item.cat));
   for(const item of reopening){
    if(!rotationGroupScheduled(plan,item.day,item.cat))continue;
    const key=weekdaySlotKey(item.day,item.cat),old=oldPlan?.cycleSlotChoices?.[key];
-   const ids=old?.deferredMealIds?.length?old.deferredMealIds:old?.skipReplacement&&old.avoidMealId?[old.avoidMealId]:[];
-   if(ids.length)reset.add(key);
-   const candidates=ids.filter(id=>String(id)!==String(item.meal.id));
+   const raw=old?.deferredMealIds?.length?old.deferredMealIds:old?.skipReplacement&&old.avoidMealId?[old.avoidMealId]:[];
+   const ids=raw.map(String).filter(id=>id!==String(item.meal.id)&&!linkedIds.has(id));
+   if(hiddenSet.has(item)&&manualWeekdayMealChoice(oldPlan,item.day,item.cat,item.meal.id)&&!ids.length){manualHidden.add(key);fixedIds.add(String(item.meal.id));continue;}
+   if(raw.length)reset.add(key);
+   if(hiddenSet.has(item)||raw.length)groups.add(item.cat);
    if(!due.has(item.cat))due.set(item.cat,[]);
-   for(const id of candidates)if(!linkedIds.has(String(id))&&!due.get(item.cat).includes(String(id)))due.get(item.cat).push(String(id));
+   for(const id of ids)if(!due.get(item.cat).includes(id))due.get(item.cat).push(id);
   }
-  // Only groups with deferred edits need reopening. Include their ordinary
-  // hidden meals in the same queue; a hidden skip alternative has no due turn.
-  for(const item of hidden){
-   if(!rotationGroupScheduled(plan,item.day,item.cat))continue;
-   const ids=due.get(item.cat),old=oldPlan?.cycleSlotChoices?.[weekdaySlotKey(item.day,item.cat)],id=String(item.meal.id);
-   if(ids?.length&&!old?.skipReplacement&&!manualWeekdayMealChoice(oldPlan,item.day,item.cat,id)&&!linkedIds.has(id)&&!ids.includes(id))ids.push(id);
+  const rank=new Map(rotationBefore.meals.map((meal,index)=>[String(meal.id),index])),pending=new Map(),assigned=new Map();
+  for(const cat of groups){
+   const held=(due.get(cat)||[]).sort((a,b)=>(rank.get(a)??Infinity)-(rank.get(b)??Infinity));
+   if(!hiddenGroups.has(cat)){pending.set(cat,held);continue;}
+   const first=reopening.find(item=>item.cat===cat&&!manualHidden.has(weekdaySlotKey(item.day,item.cat))),old=first&&oldPlan?.cycleSlotChoices?.[weekdaySlotKey(first.day,cat)];
+   const firstHeld=old?.deferredMealIds?.some(id=>String(id)!==String(first.meal.id))||old?.skipReplacement&&old.avoidMealId&&String(old.avoidMealId)!==String(first.meal.id);
+   const queue=automaticRecipeCandidates(cat,[],meals,plan).map(meal=>String(meal.id)),end=Math.max(-1,...held.map(id=>queue.indexOf(id)));
+   const ids=firstHeld?held:queue.slice(0,end+1);
+   pending.set(cat,ids.filter(id=>!outgoingIds.has(id)&&!fixedIds.has(id)));
+   assigned.set(cat,new Set());
   }
-  // Repeated skips can interleave deferred IDs from several days. Keep their
-  // saved recipe-queue positions rather than the order of the user's edits.
-  const rank=new Map(rotationBefore.meals.map((meal,index)=>[String(meal.id),index]));
-  for(const ids of due.values())ids.sort((a,b)=>rank.get(a)-rank.get(b));
   for(const item of reopening){
-   if(!rotationGroupScheduled(plan,item.day,item.cat))continue;
-   const key=weekdaySlotKey(item.day,item.cat),ids=due.get(item.cat)||[];
-   if(!ids.length&&!reset.has(key))continue;
+   const key=weekdaySlotKey(item.day,item.cat);if(!groups.has(item.cat)||manualHidden.has(key)||!rotationGroupScheduled(plan,item.day,item.cat))continue;
+   // No temporary slot in this group: retain the established rotation behavior.
+   if(!hiddenGroups.has(item.cat)){
+    const ids=pending.get(item.cat);if(!ids.length&&!reset.has(key))continue;
+    delete plan.weekdayMealOverrides[key];delete plan.cycleRetainedSlots[key];
+    const raw=plan.weekdayCategories?.[item.day],categories=Array.isArray(raw)?raw:[raw];if(categories[0]===item.cat)delete plan.weekdayMealOverrides[item.day];
+    plan.cycleSlotChoices[key]={parentId:'',avoidMealId:String(item.meal.id),blockedParents:plan.cycleSlotChoices[key]?.blockedParents||[]};
+    const possible=automaticSlotCandidates(plan,item.day,item.cat),next=ids.map(id=>possible.find(meal=>String(meal.id)===id)).find(Boolean);
+    if(next){const id=String(next.id);ids.splice(ids.indexOf(id),1);plan.weekdayMealOverrides[key]=id;plan.cycleRetainedSlots[key]=id;plan.cycleSlotChoices[key].mealId=id;}
+    continue;
+   }
    delete plan.weekdayMealOverrides[key];delete plan.cycleRetainedSlots[key];
-   const raw=plan.weekdayCategories?.[item.day],groups=Array.isArray(raw)?raw:[raw];if(groups[0]===item.cat)delete plan.weekdayMealOverrides[item.day];
-   const blockedParents=plan.cycleSlotChoices[key]?.blockedParents||[];
-   plan.cycleSlotChoices[key]={parentId:'',avoidMealId:String(item.meal.id),blockedParents};
-   const possible=automaticSlotCandidates(plan,item.day,item.cat),next=ids.map(id=>possible.find(meal=>String(meal.id)===id)).find(Boolean);
-   if(next){const id=String(next.id);ids.splice(ids.indexOf(id),1);plan.weekdayMealOverrides[key]=id;plan.cycleRetainedSlots[key]=id;plan.cycleSlotChoices[key].mealId=id;}
+   const raw=plan.weekdayCategories?.[item.day],categories=Array.isArray(raw)?raw:[raw];if(categories[0]===item.cat)delete plan.weekdayMealOverrides[item.day];
+   plan.cycleSlotChoices[key]={parentId:'',blockedParents:plan.cycleSlotChoices[key]?.blockedParents||[],...(!hiddenSet.has(item)?{avoidMealId:String(item.meal.id)}:{})};
+   const possible=automaticSlotCandidates(plan,item.day,item.cat),used=assigned.get(item.cat),available=possible.filter(meal=>!used.has(String(meal.id))&&!fixedIds.has(String(meal.id)));
+   const ids=pending.get(item.cat),next=ids.map(id=>available.find(meal=>String(meal.id)===id)).find(Boolean)||available.find(meal=>!outgoingIds.has(String(meal.id)))||available[0];
+   if(next){const id=String(next.id);used.add(id);if(ids.includes(id))ids.splice(ids.indexOf(id),1);plan.weekdayMealOverrides[key]=id;plan.cycleRetainedSlots[key]=id;plan.cycleSlotChoices[key].mealId=id;}
   }
  }
  for(const plan of scope)if(plan.weekSchedule&&selectedSlots===null){for(const day of new Set(selected.filter(item=>item.planId===plan.id).map(item=>item.day)))delete plan.weekSchedule.order[day]}
