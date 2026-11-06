@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: [PR #86](https://github.com/elisabethball19-netizen/meal-rotation/pull/86) implements combined weekday touch, empty-state, popup and keyboard refinements build on merged PR #85. The user authorized automatic merge after focused checks for this batch. Earlier no-merge instructions and historical whole-day-empty UI descriptions below are superseded.
+Latest status: the same-day group-assignment/order follow-up builds on merged PR #86. Reproduced the missing same-day confirmation and hidden saved Lunch selection on main; all focused checks pass. The user authorized automatic merge after basic checks. Earlier no-merge notes are historical.
 
 Date: November 6, 2026
 
@@ -461,3 +461,42 @@ All 36 focused cases/scenarios passed, with no JavaScript page errors:
 - `python tests/compact_meal_options_browser.py`: 4 cases passed for long-title alignment, compact actions, chooser/search/cross-group slot selection, Auto-Populate/Favorites/exclusions/duplicates/linked recipes, reload, Skip and backup validation.
 
 The keyboard check emulates visual-viewport geometry; it is not an on-device Android keyboard test. Touch drag uses Chromium's mobile touch event dispatch. Focused testing was used instead of a broad suite rerun; prior unrelated main-suite failures were not changed or reclassified. Automatic merge is authorized after checks; GitHub Pages deploys from main, and the user will verify the live app.
+
+
+
+## Same-day group assignments and stable ordering — November 6, 2026
+
+Base: latest main `003aecfc68b8ec75cdb3c46c8fa08563ef958ea2`, including merged PR #86. Branch: `fix/same-day-slot-assignments-order`.
+
+### Baseline evidence and root causes
+
+A browser replay using Weekend/Breakfast/Lunch, Beef Bowls ID 537, one-time Sandwiches, and intentionally empty Lunch reproduced bugs 2 and 3 on unchanged main:
+
+- Selecting Beef Bowls for Lunch produced zero duplicate confirmation dialogs.
+- Lunch's override was nevertheless saved as `537` while visible rows still showed only Weekend and Breakfast.
+- Changing Weekend to Spaghetti ID 22 then revealed Beef Bowls in Lunch.
+
+The duplicate filter explicitly excluded every same-day occurrence. The schedule display then deduplicated all meals by recipe ID per day, hiding an independently assigned second group. This was already committed slot state, not an uncommitted chooser variable. Those two defects explain the no-response behavior and later surprise meal.
+
+Ordering had related slot/recipe confusion: display ranking fell back to the currently emitted meal list (which changes with temporary, hidden, linked and empty presentations), rather than assigned group identities. Full rotation also explicitly deleted saved weekday order, and Rotate Back could overwrite the current display order from its snapshot. The fresh complete-order Soup sequence did not itself reproduce the reported order jump; persisted partial/legacy orders and rotation are covered explicitly rather than assuming fresh fixtures explain every saved-state variant.
+
+### Targeted correction
+
+- Rank assigned groups by their stable group slot names in saved display order, with missing legacy keys filled in assignment order. Recipe IDs and one-time/occasional token differences do not move a group. Full rotation preserves display order; Rotate Back retains the current explicit order, filling a historical order only if none exists. No order schema migration is required.
+- Include recipes already assigned to another same-day group in the existing duplicate confirmation. The same dialog retains No — Keep both meals; a same-day move shows the source group and Yes — Move meal. Cross-day wording and workflow remain intact.
+- Preserve each independently assigned slot in display output even when another slot deliberately uses the same recipe. Existing linked-addition deduplication remains.
+- A confirmed same-day move leaves its source slot explicitly empty using existing temporary-week state, preserves the original planned meal beneath it, and does not rotate a source recipe or other queues. Selecting a replacement later changes only that slot. Existing Undo/grocery reconciliation paths are reused.
+- Capture the selected recipe before awaiting the confirmation. Cancel/close leaves persistent assignments unchanged and resets the chooser preview; no hidden write is made. Existing saved explicit duplicate selections are displayed rather than silently deleted, because legacy intentional and previously hidden selections cannot safely be distinguished.
+
+No recipe, category, ingredient mapping, scaling, localStorage key, or backup schema was changed. No user browser data was accessed, reset or overwritten. Shared production/test changes match after normalizing their existing storage adapter names; isolated test features remain intact. Existing cross-day approved moves retain their previous behavior.
+
+### Focused results
+
+All 33 focused cases/scenarios passed, without JavaScript page errors:
+
+- `python tests/same_day_group_assignment_browser.py`: 4 mobile cases across both HTML files at 320px/390px. Replays the requested Soup → clear → Beef duplicate → cancel → Spaghetti sequence; verifies no writes while confirmation is open/canceled and no later Lunch assignment; tests both keep-both and same-day move with one-time and regular Breakfast; unchanged recipe content/order/rotation flags; stable complete/partial display orders; reload, forward/back and backup-storage restore; linked recipe control case; isolated production-storage sentinel and backup validation.
+- `python tests/retained_sunday_evidence_browser.py`: all 14 persisted Sunday/retention/manual-choice and repeated Back/forward regressions passed.
+- `python tests/deferred_rotation_gestures_browser.py`: 6 scenarios passed on both pages, preserving deferred turns, Favorites, tap/hold/jitter/release, drag/reload, cancellation and native scrolling.
+- Focused existing `manual_duplicate_meal_browser` subset: 9 passing scenarios. Standard cross-day yes/no/cancel on both pages, linked approved move, Undo, and partial Rotate Back. Includes grocery source checks, quantity handling, preserved unrelated progress/settings/assignments, linked recipes and rotation history.
+
+The initial new-fixture whole-record comparison after reload was adjusted to compare recipe IDs/content/order/rotation fields, since existing startup normalization adds default fields to minimal synthetic recipes. No production normalization logic was changed. The existing unrelated full-suite failures were not reclassified; no broad suite rerun was performed. Automatic merge is authorized once basic checks pass; GitHub Pages follows main and the user will personally verify live behavior.
