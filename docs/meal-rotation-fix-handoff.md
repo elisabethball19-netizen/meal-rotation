@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: [PR #83](https://github.com/elisabethball19-netizen/meal-rotation/pull/83) implements the current follow-up; PR #82 is merged in main. The current follow-up restores all assigned weekday groups, adds Create New Group to the weekday picker, and removes only its redundant whole-day empty button. Focused checks pass. The user explicitly authorized automatic merge after basic checks for this batch; previous no-merge notes below are historical.
+Latest status: the empty-group formatting and one-time meal follow-up builds on merged PR #83. The user authorized automatic merge after focused checks for this batch. Prior no-merge instructions below are historical.
 
 Date: November 6, 2026
 
@@ -367,3 +367,25 @@ No rotation allocation, retention provenance, storage schema, migration, recipe 
 - Shared application edits were compared against main and are identical between production and test HTML after normalizing their existing storage adapter names.
 
 These are focused checks rather than a full application-suite rerun. The previously documented unrelated main-suite failures were not reclassified or changed by this batch. GitHub Pages deployment follows the authorized merge; the user will verify the live app.
+
+
+
+## Empty group formatting and one-time meals — November 6, 2026
+
+Base: latest main `5a9363d2b4e0608debb00488d6aa310022be627e`, including PR #82 and PR #83. Branch: `fix/empty-group-one-time-meals`.
+
+### Implementation
+
+Empty assigned-group rows previously combined the group name and placeholder in one text string. They now use the same title-line and category-label classes as scheduled meals: message on the left, group label on the right. This also applies to “Empty this week” rows. Existing day colors and row spacing are retained; no global CSS was changed. Group labels retain the existing Meal Groups navigation action. Paired-side placeholders retain their existing chooser behavior.
+
+Tapping an ordinary empty-group message opens “Empty group options” with Move Meal Into Rotation and Add One-Time Meal. The former preserves navigation to Meal Groups; the latter opens the existing one-time meal editor. The existing `weekSchedule` temporary slot stores the meal without creating a recipe or consuming a rotation turn. Existing temporary-meal options support changing, editing, leaving empty, or resuming the planned meal. Existing weekly overview, grocery, reload, and Rotate Back/forward behavior are reused rather than reimplemented.
+
+No recipe records, queue algorithms, retention rules, storage keys, or backup schema were changed. Actual user browser storage was never accessed, reset, or overwritten. Production/test shared edits match exactly after normalizing their existing storage adapter names; test-only isolation remains intact.
+
+### Focused checks
+
+- `python tests/empty_group_once_browser.py`: four passing browser cases (production and test HTML, 320px and 390px touch viewports). Covers right-edge alignment, popup options, add/edit/remove controls, reload persistence, weekly overview inclusion, existing backup validation, no permanent recipe creation, unchanged group queue through rotation, expiration on forward rotation, restoration on Rotate Back, repeated forward rotation, preserved grocery selections, existing Meal Groups navigation, and no horizontal overflow or JavaScript page errors.
+- `python tests/retained_sunday_evidence_browser.py`: all 14 existing persisted Sunday/retention/manual-selection and Back/forward regression tests passed. No JavaScript page errors.
+- Both pages parsed and executed in Chromium without JavaScript errors. Only two shared application blocks changed; existing test-only storage/UI differences were preserved.
+
+Focused testing was used as requested, without an exhaustive application-suite rerun. Previously documented unrelated main-suite failures were not changed or reclassified. Automatic merge is authorized after checks; GitHub Pages deploys from main, and the user will verify the live app.
