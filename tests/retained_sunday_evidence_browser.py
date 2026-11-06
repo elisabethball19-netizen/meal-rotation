@@ -98,7 +98,7 @@ class RetainedSundayEvidence(unittest.TestCase):
             restored=p.evaluate('retainEvidence.plan()')
             self.assertEqual(restored['weekdayMealOverrides']['Sunday::Weekend'],'22')
             self.assertEqual(restored['cycleRetainedSlots']['Sunday::Weekend'],'22')
-            self.assertTrue(p.locator('.empty-weekday-meal').filter(has_text='Empty this week').count())
+            self.assertTrue(p.locator('.empty-weekday-meal[aria-label$="empty this week"]').count())
             p.evaluate('retainEvidence.forward()');p.reload()
             expected_sat='1001' if options.get('saturday')=='automatic' else '537'
             self.assertEqual(picks(),{'Saturday':expected_sat,'Sunday':'22' if manual else '535'})

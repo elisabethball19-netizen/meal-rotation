@@ -36,10 +36,10 @@ def run(browser,filename,width):
  c,p,errors,prefix=f.setup(browser,filename,width);p.evaluate('compactTest.seed();compactTest.long()');aligned(p)
  original=p.evaluate('compactTest.library()');before=p.evaluate('compactTest.rows()')
  blank=p.locator('.empty-weekday-meal[data-category=Breakfast] .mealname');blank.tap();d=p.get_by_role('dialog',name='Empty group options')
- assert d.get_by_role('button',name='Choose Meal',exact=True).count()==1
+ assert d.get_by_role('button',name='Select Meal',exact=True).count()==1
  assert not d.get_by_role('button',name='Auto-Populate Meal',exact=True).count()
  assert not d.get_by_role('button',name='Add One-Time Meal',exact=True).count()
- centered(d);d.get_by_role('button',name='Choose Meal',exact=True).tap()
+ centered(d);d.get_by_role('button',name='Select Meal',exact=True).tap()
  chooser=p.get_by_role('dialog',name="Choose Saturday's meal",exact=True)
  assert chooser.get_by_role('button',name='Create New Recipe',exact=True).count()==1
  assert chooser.get_by_role('button',name='Add One-Time Meal',exact=True).count()==1
@@ -82,7 +82,7 @@ def run(browser,filename,width):
  p.evaluate('compactTest.excluded()');assert p.evaluate('compactTest.candidate()') is None
  p.locator('.empty-weekday-meal[data-category=Breakfast] .mealname').tap();assert not p.get_by_role('button',name='Auto-Populate Meal',exact=True).count();p.get_by_role('button',name='Leave Saturday breakfast empty',exact=True).tap()
  p.evaluate('compactTest.single()');p.locator('.empty-weekday-meal[data-schedule-day=Thursday] .mealname').tap();p.get_by_role('button',name='Leave Thursday empty',exact=True).tap()
- assert p.locator('.empty-weekday-meal[data-schedule-day=Thursday] .mealname').inner_text()=='Empty this week'
+ assert p.locator('.empty-weekday-meal[data-schedule-day=Thursday] .mealname').inner_text()=='—'
  p.evaluate('compactTest.skip()');p.evaluate("compactTest.menu('Weekend')");p.get_by_role('button',name='Skip',exact=True).tap();assert next(r for r in p.evaluate('compactTest.rows()') if r[1]=='Weekend')[2]=='2'
  p.evaluate('compactTest.linked()');library=p.evaluate('compactTest.library()');p.locator('.empty-weekday-meal[data-category=Breakfast] .mealname').tap();p.get_by_role('button',name='Auto-Populate Meal',exact=True).tap();assert any(r[1]=='Lunch' and r[2]=='5' for r in p.evaluate('compactTest.rows()'));assert p.evaluate('compactTest.library()')==library
  p.evaluate('compactTest.validate()');assert not errors,errors

@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: [PR #85](https://github.com/elisabethball19-netizen/meal-rotation/pull/85) implements compact meal options and fixed right-aligned group labels build on merged PR #84. The user authorized automatic merge after focused checks for this batch. Earlier no-merge notes are historical.
+Latest status: combined weekday touch, empty-state, popup and keyboard refinements build on merged PR #85. The user authorized automatic merge after focused checks for this batch. Earlier no-merge instructions and historical whole-day-empty UI descriptions below are superseded.
 
 Date: November 6, 2026
 
@@ -422,3 +422,40 @@ Shared compact modal controls provide the existing close X and scroll-limited pa
 - Both HTML pages parsed/executed without JavaScript errors; shared application edits were compared and match after normalizing the existing production/test storage adapter names.
 
 Only focused checks were run, as requested. Prior unrelated full-suite failures were not reclassified. No saved user browser data was accessed or reset; no new storage keys, migration or backup schema changes were added. Automatic merge is authorized once checks pass, followed by GitHub Pages deployment and live verification by the user.
+
+
+
+## Combined weekday and popup refinements — November 6, 2026
+
+Base: latest main `a7b42b1863dae61ef171463e66192136964d40a0` (merged PR #85). Branch: `fix/weekday-touch-empty-popup-refinements`.
+
+### Root causes and corrections
+
+**Weekday dragging:** the recognizer counted/selectively targeted only actual recipe wrappers and ignored group-label buttons. Empty/unfilled rows never participated, so a mixed Weekend/Breakfast/Lunch card could not be reordered as a whole. All displayed weekday rows now share a drag target/key, including intentionally empty rows and one-time meals. Group labels accept the same hold/drag recognition as names; normal taps, held recipe actions, cancellation, movement thresholds, native scrolling and group management elsewhere remain intact. Display-order saving writes only existing `weekSchedule.order`, without the previous temporary-week stabilizer rewriting recipe choices. Touch tests confirm assignments, overrides, choice metadata and recipe queues remain exact and order survives reload.
+
+**Phantom linked groups on emptying:** reproduced the whole-day helper copying a linked-only Bread entry into an independent `Sunday::Bread` empty slot. Assignments themselves were not changed, but rendering made that derived membership look like an added group. The helper now materializes only assigned/independent slots. Rendering ignores orphan linked-group empty markers left by older saves while retaining those records and rotation history. Ordinary slot emptying preserves assignments, other days and queues. Every whole-day-empty popup action has been removed; the internal compatible helper and existing saved states remain available to history/restore paths. Users can still empty all assigned slots individually.
+
+**Corners and empty rows:** every slot now counts toward the card's final segment, rather than only populated recipes. The actual final row receives the existing bottom corner radius, with existing heading top corners, colors and styling preserved. All My Rotation empty presentations use one muted em dash; their semantic state remains available in state/accessible labels. The full row is tappable and keyboard accessible, with right-aligned group labels and the appropriate existing slot/no-group popup.
+
+### Approved UI refinements
+
+- Compact recipe and one-time quick actions are muted, non-underlined text with existing touch targets. Spacing below title/actions/Last Cooked and between centered full-width buttons is tightened consistently. Existing recipe, Skip, editor, Last Cooked, grocery and conditional Resume behavior is retained.
+- Relevant meal-selection action buttons read **Select Meal**. Chooser headings, meal-group headings and unrelated grocery selection wording remain intact.
+- Unassigned weekday popup has exactly **Select Meal** and **Choose Meal Groups**, both centered.
+- Weekday meal-group picker removes Resume planned meals and its full-width creation button. An existing-style plus icon with a 44px target sits immediately before the close X. It uses the existing creation prompt, automatically selects the group and refreshes the checkbox list without closing the picker. Focus handling, ordering and scrollable list remain.
+- Add/Edit One-Time Meal fits the visual viewport during keyboard resize/scroll, limits its inner scrolling panel to the available height, and restores positioning when the keyboard closes. Active fields scroll into view; Save/Cancel remain reachable. Listeners are cleaned up when the popup closes, including recovery/removal paths.
+
+No storage schema, migration, queue allocator, rotation provenance, scaling or ingredient mapping was changed. No actual user browser data was accessed, reset or overwritten. Shared production/test application changes were compared and match after normalizing the existing isolated storage adapter names; test-only functionality remains confined to test HTML.
+
+### Focused results
+
+All 36 focused cases/scenarios passed, with no JavaScript page errors:
+
+- `python tests/combined_weekday_ui_browser.py`: 4 cases (both HTML pages at 320px/390px touch widths). Actual Chromium touch dispatch covers dragging empty/regular group labels, display-only state, reload, dash/whole-row taps, mixed-card corners, icon creation/persistence, linked Bread conversion and legacy marker retention, contextual menus/centering, and simulated visual-viewport keyboard shrink/restore with reachable Save/Cancel for add/edit.
+- `python tests/retained_sunday_evidence_browser.py`: all 14 persisted Sunday/retention/Rotate Back/forward regressions passed. The old visible “Empty this week” assertion now uses its preserved accessible state label; rotation expectations are unchanged.
+- `python tests/deferred_rotation_gestures_browser.py`: 6 scenarios passed, preserving deferred turns/Favorites, taps, held release/jitter, drag/reload, cancellation and native page scrolling on both pages.
+- `python tests/weekday_group_selection_browser.py`: 4 cases passed for group assignments/order, reload, icon create/cancel, independent rotation, sibling empties, and emptying all slots individually. Updated obsolete labels/control expectations.
+- `python tests/empty_group_once_browser.py`: 4 cases passed for add/edit/remove, reload, overview, backup validation, expiration, repeated Back/forward, unchanged queues and grocery selections. Updated to Select Meal and the dash display.
+- `python tests/compact_meal_options_browser.py`: 4 cases passed for long-title alignment, compact actions, chooser/search/cross-group slot selection, Auto-Populate/Favorites/exclusions/duplicates/linked recipes, reload, Skip and backup validation.
+
+The keyboard check emulates visual-viewport geometry; it is not an on-device Android keyboard test. Touch drag uses Chromium's mobile touch event dispatch. Focused testing was used instead of a broad suite rerun; prior unrelated main-suite failures were not changed or reclassified. Automatic merge is authorized after checks; GitHub Pages deploys from main, and the user will verify the live app.
