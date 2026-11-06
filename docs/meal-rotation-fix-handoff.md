@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: [PR #82](https://github.com/elisabethball19-netizen/meal-rotation/pull/82) now has 14 additional passing tests for the supplied Dinner Sunday record and exact IDs 537/535/22, including retention provenance and repeated Back/Forward. The full backup was not attached; unreported context is synthetic. The PR remains draft, unmerged, and undeployed. See the final section; earlier statuses are historical.
+Latest status: [PR #83](https://github.com/elisabethball19-netizen/meal-rotation/pull/83) implements the current follow-up; PR #82 is merged in main. The current follow-up restores all assigned weekday groups, adds Create New Group to the weekday picker, and removes only its redundant whole-day empty button. Focused checks pass. The user explicitly authorized automatic merge after basic checks for this batch; previous no-merge notes below are historical.
 
 Date: November 6, 2026
 
@@ -344,3 +344,26 @@ The cold-start fixture begins with current Saturday 537 and Sunday 22. Its curre
 No additional runtime change was necessary: PR #82's existing correction passes this newly supplied pattern. This follow-up changes tests and documentation only. Production/test application blobs remain `d691301232f79b4267e2a20817c429ebfc508b53` / `b6d9236c25f50546b12b2635ba153bc9a208feb3`, matching the previously verified PR revision `04fe145aadfbd3515fd3e5f8c5f722a5d530c7c2`.
 
 PR #82 remains draft and unmerged; no deployment or actual user-data edits were performed. The reported mapping is now covered, while conclusions about unreported backup contents or the precise original flag-writing event remain limited to the evidence above.
+
+
+## Weekday group display and picker follow-up — November 6, 2026
+
+Pull request: https://github.com/elisabethball19-netizen/meal-rotation/pull/83
+
+Base: latest main `4759af3b7441cac414dab6c138607707049123a7`, including merged PR #82. Branch: `fix/weekday-group-picker-display`.
+
+### Cause and correction
+
+Assignments were saved correctly and the planner could schedule multiple groups. My Rotation only created an empty fallback when the entire weekday had no meals, so an assigned group without an eligible meal disappeared whenever a sibling group had a meal. Rendering now adds an existing-style empty row for each missing assigned group, keeps assigned ordering and explicit display ordering, and preserves sibling rows when one group is temporarily empty. Empty rows do not become persisted recipes or queue entries.
+
+The weekday picker now uses the existing new-group prompt and `createMealGroup` system, appends the new group in existing category order, selects it for the edited day, and refreshes the list immediately. Nested prompt focus and cancellation are handled without duplicate controls. Only the picker's “Leave Entire Day Empty This Week” control was removed; individual-meal/empty-meal options retain their existing empty-day behavior.
+
+No rotation allocation, retention provenance, storage schema, migration, recipe data, global CSS, or navigation redesign was introduced. Production and test HTML have identical shared edits; isolated test storage and test-only UI remain intact. No actual user browser storage was accessed or reset.
+
+### Focused verification
+
+- `python tests/weekday_group_selection_browser.py`: four passing browser cases, covering both HTML files at 320px and 390px mobile widths. Verified multiple selections, mixed populated/empty groups, ordering, reload persistence, independent category rotation, create/cancel, automatic selection, sibling empty states, existing meal-level whole-day empty action, preserved grocery checks, no duplicate controls, no horizontal overflow, and no JavaScript page errors.
+- `python tests/retained_sunday_evidence_browser.py`: 14 passing regression tests, including the persisted Sunday IDs 537/535/22, retention provenance, legitimate manual selections, and repeated Rotate Back/forward. No JavaScript page errors.
+- Shared application edits were compared against main and are identical between production and test HTML after normalizing their existing storage adapter names.
+
+These are focused checks rather than a full application-suite rerun. The previously documented unrelated main-suite failures were not reclassified or changed by this batch. GitHub Pages deployment follows the authorized merge; the user will verify the live app.
