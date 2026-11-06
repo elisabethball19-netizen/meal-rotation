@@ -10,6 +10,7 @@ f.EXTRA+='''window.groupPickerTest={
  rotate:()=>moveDisplayedMealsToBottom(new Set(['Saturday::Breakfast'])),
  rows:()=>getDisplayedWeekdayMeals().filter(x=>x.day==='Saturday').map(x=>[x.cat,x.meal.id]),
  menu:()=>{const x=getDisplayedWeekdayMeals().find(x=>x.day==='Saturday');openTopMealActionMenu(x.day,x.cat,x.meal)},
+ emptyAll:()=>getDayCategories('Saturday').forEach(cat=>leaveWeekEmpty('Saturday',cat)),
  empty:()=>leaveWeekEmpty('Saturday','Weekend'),resume:()=>resumeWeekSlot('Saturday','Weekend'),
  selected:()=>localStorage.getItem('mealRotationSelectedIngredientsV1')
 };'''
@@ -46,7 +47,7 @@ def run(browser,name,width):
     cb=d.locator('input[data-group-choice][value="Quick meals"]');assert cb.is_checked()
     assert p.evaluate('groupPickerTest.cats()')==['Weekend','Breakfast','Lunch','Quick meals']
     assert d.get_by_role('button',name='Create New Group',exact=True).count()==1
-    assert p.evaluate('document.activeElement.textContent')=='Create New Group'
+    assert p.evaluate("document.activeElement.getAttribute('aria-label')")=='Create New Group'
     box=d.bounding_box();assert box['x']>=0 and box['x']+box['width']<=width+1
     d.get_by_role('button',name='Create New Group',exact=True).click()
     p.get_by_role('dialog').filter(has_text='New group name').get_by_role('button',name='Cancel',exact=True).click()
@@ -57,13 +58,15 @@ def run(browser,name,width):
     assert p.locator('.empty-weekday-meal[data-category="Quick meals"]').count()==1
     # Empty one group must not erase the placeholders/entries of sibling groups.
     p.evaluate('groupPickerTest.empty()');assert group_order(p)==['Weekend','Breakfast','Lunch','Quick meals']
-    assert p.locator('.empty-weekday-meal[data-category=Weekend] .mealname').inner_text()=='Empty this week'
+    assert p.locator('.empty-weekday-meal[data-category=Weekend] .mealname').inner_text()=='—'
     p.evaluate('groupPickerTest.resume()')
     p.evaluate('groupPickerTest.menu()');menu=p.get_by_role('dialog',name='Meal options for Saturday',exact=True)
     menu.get_by_role('button',name='Leave Saturday weekend empty',exact=True).click()
     p.locator('.empty-weekday-meal[data-category=Weekend] .mealname').click()
     empty_menu=p.get_by_role('dialog',name='Empty meal options',exact=True)
-    empty_menu.get_by_role('button',name='Leave Entire Day Empty This Week',exact=True).click()
+    assert not empty_menu.get_by_role('button',name='Leave Entire Day Empty This Week',exact=True).count()
+    empty_menu.get_by_role('button',name='Close',exact=True).click()
+    p.evaluate('groupPickerTest.emptyAll()')
     assert p.locator('.empty-weekday-meal[data-schedule-day=Saturday]').count()==4
     assert not p.locator('.top-recipe-wrap[data-schedule-day=Saturday]').count()
     assert p.evaluate('groupPickerTest.selected()')==selected
