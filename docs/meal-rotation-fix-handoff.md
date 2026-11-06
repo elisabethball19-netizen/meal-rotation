@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: [PR #82](https://github.com/elisabethball19-netizen/meal-rotation/pull/82) now contains a targeted stale-pin correction with passing controlled browser replay. Private backups (20)/(21) were not accessible, so exact-state verification remains pending and the PR stays draft. See the final section; earlier investigation status is historical.
+Latest status: [PR #82](https://github.com/elisabethball19-netizen/meal-rotation/pull/82) now has 14 additional passing tests for the supplied Dinner Sunday record and exact IDs 537/535/22, including retention provenance and repeated Back/Forward. The full backup was not attached; unreported context is synthetic. The PR remains draft, unmerged, and undeployed. See the final section; earlier statuses are historical.
 
 Date: November 6, 2026
 
@@ -292,3 +292,55 @@ No unexpected failures or JavaScript errors occurred in the targeted passing che
 Testing used disposable browser contexts and copies of synthetic saved-state/history fixtures. No actual saved meal data was accessed, reset, or edited. All generated changes stay on PR #82. Its draft status remains appropriate until copies or private anonymized reports for backups (20)/(21) are available for exact-state replay; the existing collection guide remains available without requiring a merge/deployment.
 
 Current handoff: https://github.com/elisabethball19-netizen/meal-rotation/blob/fix/hidden-weekend-rotation-state/docs/meal-rotation-fix-handoff.md
+
+## Confirmed Sunday retention pattern: IDs 537 / 535 / 22
+
+The user subsequently supplied these facts from a fresh live-backup analysis:
+
+- Dinner, `Sunday::Weekend`: override `"22"`, retained pin `"22"`, choice exactly `{"mealId":"22","parentId":"","retain":true}`.
+- The saved `mealRotationLastRotationBeforeV1` snapshot also retains Sunday Spaghetti (22).
+- Current Saturday is Korean Slow-Cooker Beef Bowls (537); Mississippi-Style Pot Roast is 535.
+
+The full backup file was not attached. The new regression uses these exact reported fields/IDs; unreported dates, the test Pernil ID, and Saturday snapshot details are explicitly synthetic. It is not presented as replaying the user's entire backup.
+
+### What `retain` means and how it is written
+
+This exact Sunday record is **automatic**, not an explicit manual choice. `manualWeekdayMealChoice` checks matching overrides/choice metadata and `substitution: true` (or the supported older manual-override rules). `retain: true` alone does not establish manual intent.
+
+Two source paths demonstrably produce the exact reported record:
+
+1. `applyManualWeekdayMeal` calls `preserveOtherMealPlanChoices(day, category)`. When Saturday is edited, that helper marks the other day's already displayed selection as retained. If Sunday was displaying Spaghetti, the resulting Sunday choice is exactly the supplied object. This prevents an unrelated Saturday edit from changing Sunday midweek; it does not itself explain why Spaghetti was initially selected.
+2. `rotateSelectedBack` sets `retain: true` on a restored visible choice, including an automatic one, to keep the restored week stable. When restoring a temporary hidden slot, it copies that slot's prior overrides, pin, and choice metadata from the snapshot, including an existing `retain: true`.
+
+Other existing paths preserve unselected days/other tabs or carry an existing retained flag forward. The backup contains states, not an audit log of callers, so it cannot uniquely identify which earlier action first wrote this particular flag. Do not claim a specific historical writer without more evidence.
+
+### Intended lifetime
+
+- Unrelated same-week edits: keep the retained selection stable.
+- Rotate Back: restore the prior week faithfully, including its empty presentation and hidden pin. Back is not a global stale-data cleanup.
+- Explicit forward rotation of that Sunday: expire its **automatic** current-week pin and recompute the new choice. A hidden meal was not consumed, so it must not be automatically avoided or promoted over an earlier due recipe.
+- Legitimate hidden manual choices remain protected. They are not identified by `retain` alone, and no global removal of retained choices is appropriate.
+
+It is therefore normal for the archived snapshot to continue containing Spaghetti after a correct forward rotation. The current Sunday maps should then hold Pot Roast (535), while the old snapshot remains available for a faithful Back operation.
+
+### Added regression and results
+
+`python tests/retained_sunday_evidence_browser.py`: **14 passing tests**, covering both production and test HTML, with no JavaScript errors.
+
+The cold-start fixture begins with current Saturday 537 and Sunday 22. Its current and prior Sunday maps contain the exact reported retained record. Tests check:
+
+- Back restores `Empty this week` and the prior Sunday override/pin/choice for 22.
+- Forward writes 535 to the current Sunday override, retained-slot pin, and choice; the automatic `retain` flag does not carry into that new choice.
+- The old snapshot still contains 22, unchanged. No history reset or destructive repair is used.
+- Three repeated Back/reload/Forward/reload rounds behave consistently.
+- Saturday returns to 537 when the archived Saturday represents the earlier manual Pernil substitution. A separate automatic-Saturday snapshot case follows normal rotation rather than forcing Saturday to remain frozen.
+- Both individual-slot and whole-day empty markers work; the older Saturday representation without `deferredMealIds` is also covered.
+- A negative control with `substitution: true` preserves the legitimate manual Sunday 22 instead of removing all retained choices.
+- Actual Saturday-edit and visible-Rotate-Back actions produce the exact automatic retained object; classification remains non-manual.
+- Recipe records, permanent ingredient selections, opaque saved settings, and test/production storage isolation remain intact.
+
+`node --test tests/hidden-rotation-pins.test.cjs`: all **14 checks pass** again.
+
+No additional runtime change was necessary: PR #82's existing correction passes this newly supplied pattern. This follow-up changes tests and documentation only. Production/test application blobs remain `d691301232f79b4267e2a20817c429ebfc508b53` / `b6d9236c25f50546b12b2635ba153bc9a208feb3`, matching the previously verified PR revision `04fe145aadfbd3515fd3e5f8c5f722a5d530c7c2`.
+
+PR #82 remains draft and unmerged; no deployment or actual user-data edits were performed. The reported mapping is now covered, while conclusions about unreported backup contents or the precise original flag-writing event remain limited to the evidence above.
