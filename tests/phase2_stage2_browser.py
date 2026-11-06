@@ -109,10 +109,25 @@ def creation_failures(browser,name):
  p.evaluate('''()=>{window.stage2NativeSet=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(String(k).endsWith('mealRotationDataV1'))throw Error('synthetic quota');return stage2NativeSet.call(this,k,v)}}''');d.get_by_role('button',name='Save recipe and schedule',exact=True).click();p.evaluate('()=>{Storage.prototype.setItem=stage2NativeSet}');d.get_by_role('button',name='Cancel',exact=True).click();assert stage.definitions(p)==before and stage.rows(p)==old and not p.locator('#mealSaveWarning').count();clean(errors);c.close()
  print('PASS',name,'atomic creation failure rolls back schedule/library, exports latest draft, retries latest edits, persists after reload, and cancels cleanly',flush=True)
 
+def stage2_edges(browser,name):
+ c,p,errors,_=setup(browser,name,multi=True,linked=True)
+ p.evaluate('weekTest.check();weekTest.empty()');target={'planId':'original','day':'Tuesday','category':'Rice','occasional':False};old=copy.deepcopy(stage.plan(p)['weekSchedule']);checks=prior.progress(p);before=json.loads(stage.definitions(p));other=[e for e in stage.rows(p) if e['planId']!='original' or e['day']!='Tuesday']
+ d=create_dialog(p,target);fill_recipe(d,'Explicit rotation recipe',rotation=True);assert p.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ box=d.get_by_role('checkbox',name='Add to rotation',exact=True).bounding_box();assert box['width']<=24 and box['height']<=24
+ field=d.get_by_role('textbox',name='Ingredients',exact=True);field.focus();field.press('Tab');assert d.get_by_role('textbox',name='Instructions',exact=True).evaluate('(e)=>e===document.activeElement')
+ d.get_by_role('button',name='Save recipe and schedule',exact=True).click();created=next(m for m in stage.state(p)['meals'] if m['name']=='Explicit rotation recipe');assert created['rotation'] is True
+ after=json.loads(stage.definitions(p));assert [m for m in after if m['id']!=created['id']]==before;assert all(e in stage.rows(p) for e in other)
+ p.locator('#undo').click();assert stage.plan(p)['weekSchedule']==old and prior.progress(p)==checks;p.evaluate('weekTest.resume()');assert all(s['checked'] for s in sources(p).values() if s['mealId'] in [1,20])
+ p.evaluate('weekTest.my()');p.get_by_role('button',name='Add meal tab',exact=True).click();d=p.get_by_role('dialog',name='Add Meal Tab',exact=True);d.get_by_role('textbox',name='Meal tab name').fill(' dinner ');d.get_by_role('button',name='Add tab',exact=True).click();expect(d.get_by_role('status')).to_contain_text('already exists');d.get_by_role('button',name='Cancel',exact=True).click();clean(errors);c.close()
+ # Complete legacy occasional identity coexists with an assigned group.
+ c,p,errors,_=setup(browser,name,linked=True,multi=True);p.evaluate('occasionalTest.prepare(true)');prior.legacy.choose(p);p.evaluate('correctionTest.legacy()');definitions=stage.definitions(p)
+ p.evaluate('target=>stage2Test.direct(3,target)',{'planId':'original','day':'Monday','category':'Rice','occasional':True});assert stage.definitions(p)==definitions;assert any(e['day']=='Monday' and e['id']==3 for e in stage.rows(p));p.reload();assert stage.definitions(p)==definitions;clean(errors);c.close()
+ print('PASS',name,'explicit rotation creation, empty-slot Undo/checks, unchanged existing queues, mobile checkbox/focus, duplicate tab validation and legacy occasional scheduling',flush=True)
+
 if __name__=='__main__':
  with sync_playwright() as pw:
   browser=pw.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
   for name in ['index.html','meal-rotation-test.html']:
    for width in [320,360]:tab_creation(browser,name,width);direct_schedule(browser,name,width);create_recipe(browser,name,width)
-   dependencies_and_transitions(browser,name);creation_failures(browser,name)
+   dependencies_and_transitions(browser,name);creation_failures(browser,name);stage2_edges(browser,name)
   browser.close()
