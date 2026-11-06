@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest delivery: [PR #80 — skipped empty-slot turn correction](https://github.com/elisabethball19-netizen/meal-rotation/pull/80). PR #79 is merged; its earlier status entries below are historical. See the final follow-up section for current findings and validation.
+Latest status: PR #80 is merged, but the user still reproduces the live failure. The final persisted-state investigation section supersedes earlier resolution claims. This draft investigation awaits a private, anonymized report; it is not an application fix. Earlier PR #79/#80 delivery notes are historical.
 
 Date: November 6, 2026
 
@@ -187,3 +187,54 @@ The follow-up branch is ready for review of this narrow correction. Do not merge
 - Share this handoff: https://github.com/elisabethball19-netizen/meal-rotation/blob/fix/skipped-empty-slot-turns/docs/meal-rotation-fix-handoff.md
 
 The PR is open and unmerged. Mergeability is checked through the live pull-request API after the documentation update; the initial creation response may precede GitHub's mergeability calculation.
+
+## PR #80 live follow-up: persisted-state investigation — unresolved
+
+Latest investigated main: `cd6d070a464121154022b9a8baa2733702ee0845`, including merged PR #80. The user reports successful GitHub Pages deployment #447 and the same failure in both installed and Chrome views. Do not dismiss this as caching or conclude the prior fix works merely because fresh tests pass.
+
+### Confirmed report and missing evidence
+
+The user still gets Beef Bowls on Saturday and Spaghetti on Sunday, instead of Pot Roast, after Saturday was manually replaced with Pernil and Sunday skipped/left empty. Repeated Rotate Back / Rotate Meals does not correct it. The user confirmed that **Sunday shows “Empty this week” after Rotate Back**.
+
+The actual live root cause is **not established** from source and synthetic state alone. That Sunday label indicates restoration of a temporary empty presentation, but does not reveal the hidden choice or original recipe ID behind it. No actual user backup or browser storage has been inspected.
+
+### What the earlier tests missed
+
+The earlier fresh scenario created both days' choices through the then-current code. Its “legacy” variation removed Sunday's `deferredMealIds` but left Saturday's newer deferral metadata and the newer temporary empty marker. This did not test a complete upgrade from older persisted state or old snapshots lacking both deferrals.
+
+This investigation generated storage with verified pre-#79 and pre-#80 source, then loaded that committed storage before current app startup. Reloads do not reseed it. The replay performs three rounds of Rotate Meals, reload, Rotate Back, reload. It checks the original saved history before any action and preserves recipe data. The fixture files contain only synthetic data; they are not evidence of which state the user actually has.
+
+| Persisted state loaded into current main | Results across three forward rotations | Meaning |
+| --- | --- | --- |
+| Ordinary pre-#80 after-cycle state, with its old saved rotation snapshot | Beef Bowls / Pot Roast each time | This common old snapshot is already handled by #80. |
+| Pre-#79 after-cycle state, without either day’s newer deferral metadata | Pot Roast / Pernil each time | Proven algorithm compatibility failure: Sunday’s one recoverable deferred ID is pooled into the first day while Saturday’s older original is not known. Does not match the user’s correct Saturday. |
+| Constructed legacy `cycleSlotChoices.empty: true` representation | Beef Bowls / Spaghetti first, then Beef Bowls / Pot Roast | Proven legacy-representation gap: the slot lacks a schedule-only placeholder. This does not fully match repeated live behavior or the confirmed restored empty label. It is a schema probe, not an asserted user action. |
+
+The first two fixtures were produced by the actual old app operations, including an old rotation and reload. The third deliberately represents an empty slot with the legacy flag and is labeled as constructed. Producer Git blob hashes are checked by the committed generator. No speculative algorithm patch was made: choosing an original when its identity was lost could repeat a consumed meal or override a legitimate filter/reservation.
+
+### Current changes and test evidence
+
+The investigation branch adds:
+
+- `tests/fixtures/rotation-upgrades/` with three synthetic persisted snapshots and provenance.
+- `tests/generate_rotation_upgrade_fixtures.py` for reproducible generation using verified historical source.
+- `tests/persisted_rotation_upgrade_browser.py`: six upgrade tests on production/test HTML, with two passes and four explicit expected failures covering the two known compatibility gaps. **Expected failure means unfixed**, not passing rotation behavior.
+- `docs/rotation-diagnostics.html`, an offline, read-only backup redactor.
+- `tests/rotation_diagnostics_browser.py`: passes at 360 px and 760 px; checks input/UI/download, private-content sentinels, stable aliases through old history, malformed input, no storage writes, and no network requests after the intercepted document load.
+- `docs/rotation-diagnostics.md` with private collection instructions.
+
+As a control, the existing fresh exact-sequence case still passes on both HTML files. This is recorded as a comparison, not proof of a live fix. The three older baseline suite failures previously documented remain separate; those suites were not rerun here.
+
+`index.html` and `meal-rotation-test.html` are unchanged from latest main (Git blob SHAs `931d187647764bfe36b55a3b3980302b58b5151d` and `1818111b5f9d7b4f6aec8b70a3cf2df48d324e86`). There is no app styling, rotation, localStorage, recipe, Favorites, linked-meal, grocery, or history migration in this draft. This preserves both HTML files and their existing test-only differences without claiming the live bug resolved.
+
+### Required next evidence
+
+Request only an anonymized diagnostic report from the actual app state, following `docs/rotation-diagnostics.md`. It needs the affected role aliases, raw-library order, both global and per-plan overrides, Saturday/Sunday slot choices, empty-marker kind/key, deferred/avoid/exclusion fields, filters, cross-plan reservations, Favorites scores, linked/dependent relationships, and corresponding saved prior-rotation metadata. The tool retains these relationships while omitting private recipe content and using aliases/date ranks.
+
+Prefer an export while the wrong schedule is already showing and before another Rotate Back, so its saved snapshot is present. Exporting the current empty-after-Back state is also useful; do not ask the user to manipulate their data just to generate a report. Never ask the user to clear site data, reinstall, reset history, or restore a backup.
+
+Do not ask for the full backup or commit a user report publicly. The tool runs independently from a downloaded HTML file, does not access the app origin, and does not require merging/deploying this draft. A controlled browser test verified its UI; physical-device opening is not claimed tested, and the managed test browser's policy blocks local `file:` navigation.
+
+### Delivery status
+
+Draft investigation PR, awaiting actual-state evidence. **Not a resolved live bug and not ready for approval as an application fix.** Do not merge or deploy automatically. The next step is to compare the anonymized current/previous slots and identify a correction supported by that evidence, then add that persisted state to regression coverage and recheck Favorites, links, groceries, normal order, reload, and repeated Rotate Back/Rotate Meals.
