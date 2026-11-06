@@ -38,7 +38,7 @@ def slot(rows,cat,day='Tuesday',plan='original'):return next(r for r in rows if 
 def definitions(s):return sorted(s['meals'],key=lambda m:m['id'])
 def compose(p):return sorted((x['planId'],x['day'],x['cat'],x['id'],x['parent']) for x in rows(p))
 def apply(p,which):
- p.get_by_role('button',name='Cycle Meals',exact=True).tap();p.get_by_role('button',name='Select recipes to rotate out',exact=True).tap();dialog=p.get_by_role('heading',name='Select meals to rotate out').locator('..')
+ p.get_by_role('button',name='Rotate Meals',exact=True).tap();p.get_by_role('button',name='Select recipes to rotate out',exact=True).tap();dialog=p.get_by_role('heading',name='Select meals to rotate out').locator('..')
  assert dialog.get_by_role('checkbox').count()==2
  dialog.get_by_role('button',name='Deselect all',exact=True).tap()
  for name in which:dialog.get_by_role('checkbox',name=name,exact=True).check()
@@ -111,3 +111,4 @@ if __name__=='__main__':
   for f in ['index.html','meal-rotation-test.html']:
    for w in [320,360]:run(b,f,w)
   b.close()
+

@@ -7,7 +7,7 @@ f.EXTRA+='''window.skipTest={skip:(day='Saturday',cat='Weekend')=>{const entry=g
 f.EXTRA+='''skipTest.retained=(day='Wednesday',cat='Mains')=>{const x=getDisplayedWeekdayMeals().find(x=>x.day===day&&x.cat===cat),key=cookingOccurrenceKey(cookingContext(activePlanId,x.day,x.cat,x.meal,x.linkedTo));cookingSessions.occurrences[key].ingredients=[];cookingSessions.occurrences[key].steps=[];writeCookingSessions(cookingSessions);occurrenceScales.occurrences[key].multiplier=4;writeOccurrenceScales(occurrenceScales);return {key,session:JSON.parse(JSON.stringify(cookingSessions.occurrences[key])),scale:JSON.parse(JSON.stringify(occurrenceScales.occurrences[key]))}};'''
 def run(b,name,width,mode):
  c,p,errors,prefix=f.setup(b,name,width,mode);before=copy.deepcopy(state(p));schedule=compose(p);groceries=f.sources(p);old_history=p.evaluate('skipTest.history()')
- p.evaluate('promotionTest.my()');p.evaluate('skipTest.menu()');menu=p.get_by_role('dialog',name='Meal options for Saturday',exact=True);assert menu.get_by_role('button',name='Skip This Week',exact=True).count()==1;menu.get_by_role('button',name='Skip This Week',exact=True).tap();p.wait_for_timeout(100)
+ p.evaluate('promotionTest.my()');p.evaluate('skipTest.menu()');menu=p.get_by_role('dialog',name='Meal options for Saturday',exact=True);assert menu.get_by_role('button',name='Skip This Meal',exact=True).count()==1;menu.get_by_role('button',name='Skip This Meal',exact=True).tap();p.wait_for_timeout(100)
  after=state(p);now=compose(p);old=next(x for x in schedule if x[0]=='original' and x[1]=='Saturday' and x[2]=='Weekend');new=next(x for x in now if x[0]=='original' and x[1]=='Saturday' and x[2]=='Weekend');assert new[3]!=old[3]
  assert [m['id'] for m in before['meals']]==[m['id'] for m in after['meals']]
  assert before['meals']==after['meals'],'Skip must not edit recipe, rotation membership/order, or last-cooked date'
@@ -40,3 +40,4 @@ if __name__=='__main__':
    for width in [320,360]:
     for mode in ['multiple','first-manual','linked-slot','linked-protected']:run(b,name,width,mode)
   b.close()
+

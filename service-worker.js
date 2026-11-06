@@ -1,5 +1,5 @@
 /* Bump this version when changing the offline app shell. */
-const SHELL_VERSION = 'v97';
+const SHELL_VERSION = 'v108';
 const CACHE_PREFIX = `meal-rotation-shell:${self.registration.scope}:`;
 const CACHE_NAME = CACHE_PREFIX + SHELL_VERSION;
 const SHELL_FILES = [
@@ -67,3 +67,4 @@ self.addEventListener('fetch', event => {
     catch (_) { return (await cache.match(canonical)) || Response.error(); }
   })());
 });
+

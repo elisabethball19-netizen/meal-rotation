@@ -42,7 +42,7 @@ def icon(p,id,where='#list'):
 def removal(p,confirm):
  d=p.get_by_role('dialog',name='Remove Needs Adjusting?',exact=True)
  d.wait_for(state='visible')
- assert d.get_by_text('This will remove the warning and its note. The recipe and its place in your rotation will not change.',exact=True).count()==1
+ assert d.get_by_text('This removes only the Needs Adjusting status and its note. Recipes will not be deleted, and rotation positions will not change.',exact=True).count()==1
  actions=d.locator('.meal-unified-actions');assert actions.get_by_role('button').count()==2
  for label in ['Confirm removal','Cancel removal']:
   button=actions.get_by_role('button',name=label,exact=True)
@@ -163,3 +163,4 @@ if __name__=='__main__':
    for width in [320,360]:scheduled(b,name,width)
    cycling(b,name);scheduled_variants(b,name)
   b.close()
+

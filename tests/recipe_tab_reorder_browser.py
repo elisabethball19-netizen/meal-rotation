@@ -60,8 +60,8 @@ def run(browser,filename,width):
  page.evaluate('reorderTest.link(1)');assert state()['active']=='1' and state()['order']==old['order']
  page.evaluate('reorderTest.select(2)');assert state()['scroll']['panes']==[160,220]
  # Edit Recipe returns to the same reordered deck, anchor and active occurrence.
- order=state()['order'];prior=state();button('Edit Recipe').click();page.locator('#cancel').click();assert state()['order']==order and state()['active']=='2' and state()['anchor']=='1';assert state()['scroll']==prior['scroll']
- button('Edit Recipe').click();page.locator('#save').click();assert state()['order']==order and state()['active']=='2' and state()['anchor']=='1'
+ order=state()['order'];prior=state();button('Edit Recipe').click();page.get_by_role('dialog',name='Edit Recipe',exact=True).get_by_role('button',name='Cancel',exact=True).click();assert state()['order']==order and state()['active']=='2' and state()['anchor']=='1';assert state()['scroll']==prior['scroll']
+ button('Edit Recipe').click();page.get_by_role('dialog',name='Edit Recipe',exact=True).get_by_role('button',name='Save recipe',exact=True).click();assert state()['order']==order and state()['active']=='2' and state()['anchor']=='1'
  # Keyboard navigation follows the new order rather than stale creation indices.
  tab(2).focus();tab(2).press('ArrowRight');assert state()['active']==order[(order.index('2')+1)%len(order)]
  page.evaluate('reorderTest.select(2)');order=state()['order'];button('Close Cilantro Sauce tab').tap();assert state()['order']==[x for x in order if x!='3'] and state()['active']=='2'
@@ -101,3 +101,4 @@ if __name__=='__main__':
   for filename in ['index.html','meal-rotation-test.html']:
    for width in [320,360,390]:run(browser,filename,width)
   browser.close()
+

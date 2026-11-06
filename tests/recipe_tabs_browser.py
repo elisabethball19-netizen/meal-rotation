@@ -116,8 +116,8 @@ def run(browser,filename,width):
     page.locator('.recipe-instructions-pane').evaluate('(e)=>{e.scrollTop=0;e.dispatchEvent(new WheelEvent("wheel",{deltaY:-1,bubbles:true}))}');page.wait_for_timeout(250)
     assert page.locator('.recipe-sync-relevant').count()>0
     # Edit Recipe acts on active tab and restores every open tab on Cancel and Save.
-    select('Side Dish');pane_scroll(77,199);saved=scrolls();button('Edit Recipe').click();page.locator('#cancel').click();assert tabs().count()==3 and state()['active']=='2';assert scrolls()==saved
-    button('Edit Recipe').click();field=page.locator('#recipeInstructions');field.fill(field.input_value()+'\nNewly added step stays incomplete.');page.locator('#save').click()
+    select('Side Dish');pane_scroll(77,199);saved=scrolls();button('Edit Recipe').click();page.get_by_role('dialog',name='Edit Recipe',exact=True).get_by_role('button',name='Cancel',exact=True).click();assert tabs().count()==3 and state()['active']=='2';assert scrolls()==saved
+    button('Edit Recipe').click();field=page.get_by_role('dialog',name='Edit Recipe',exact=True).get_by_role('textbox',name='Cooking instructions',exact=True);field.fill(field.input_value()+'\nNewly added step stays incomplete.');page.get_by_role('dialog',name='Edit Recipe',exact=True).get_by_role('button',name='Save recipe',exact=True).click()
     assert tabs().count()==3 and state()['active']=='2';assert step(40).get_attribute('aria-pressed')=='false'
     assert occurrence('Friday') is not None and occurrence('Friday',2,'1')==side_fri
     # Keep awake belongs to the viewer, not individual tabs (mocked browser API).
@@ -159,3 +159,4 @@ if __name__=='__main__':
         for filename in ['index.html','meal-rotation-test.html']:
             for width in [360,1280]:run(browser,filename,width)
         browser.close()
+

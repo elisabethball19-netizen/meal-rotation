@@ -39,7 +39,7 @@ def key(row):return json.dumps([row['planId'],row['day'],str(row['id']),str(row[
 def core(page):return sorted((r['planId'],r['day'],r['cat'],r['id'],str(r['parent'])) for r in rows(page))
 def check_definitions(before,after):assert sorted(before['meals'],key=lambda m:m['id'])==sorted(after['meals'],key=lambda m:m['id'])
 def open_chooser(page):
- page.get_by_role('button',name='Cycle Meals',exact=True).tap();page.get_by_role('button',name='Select recipes to rotate out',exact=True).tap()
+ page.get_by_role('button',name='Rotate Meals',exact=True).tap();page.get_by_role('button',name='Select recipes to rotate out',exact=True).tap()
  return page.locator('div').filter(has=page.get_by_role('heading',name='Select meals to rotate out',exact=True)).filter(has=page.get_by_role('button',name='Move selected',exact=True)).last
 
 def run(browser,filename,width):
@@ -107,3 +107,4 @@ if __name__=='__main__':
   for f in ['index.html','meal-rotation-test.html']:
    for w in [320,360]:run(b,f,w)
   b.close()
+

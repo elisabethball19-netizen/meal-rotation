@@ -55,8 +55,8 @@ def schedule_links_and_deletions(browser,name):
  print('PASS',name,'both Back modes retain edited links; main/side/attachment deletions never resurrect',flush=True)
 
 def swipe(browser,name):
- c,p,errors,prefix=f.setup(browser,name,360,linked=True);p.evaluate("slotTest.cycle(['Tuesday::Rice','Tuesday::Sides'])");before=copy.deepcopy(f.state(p));p.evaluate('safetyTest.swipe(1)');p.locator('#mealSwipeMenu').get_by_role('button',name='Delete',exact=True).click();assert all(m['id']!=1 for m in f.state(p)['meals']);assert '"mealId":"1"' not in json.dumps(p.evaluate('slotTest.history()'),separators=(',',':'));p.locator('#undo').click();assert f.definitions(f.state(p))==f.definitions(before)
- p.evaluate('safetyTest.swipe(1)');p.locator('#mealSwipeMenu').get_by_role('button',name='Delete',exact=True).click();p.evaluate('slotTest.back()');assert all(m['id']!=1 for m in f.state(p)['meals']);assert not errors,errors
+ c,p,errors,prefix=f.setup(browser,name,360,linked=True);p.evaluate("slotTest.cycle(['Tuesday::Rice','Tuesday::Sides'])");before=copy.deepcopy(f.state(p));p.evaluate('safetyTest.swipe(1)');p.locator('#mealSwipeMenu').get_by_role('button',name='Delete recipe',exact=True).click();assert all(m['id']!=1 for m in f.state(p)['meals']);assert '"mealId":"1"' not in json.dumps(p.evaluate('slotTest.history()'),separators=(',',':'));p.locator('#undo').click();assert f.definitions(f.state(p))==f.definitions(before)
+ p.evaluate('safetyTest.swipe(1)');p.locator('#mealSwipeMenu').get_by_role('button',name='Delete recipe',exact=True).click();p.evaluate('slotTest.back()');assert all(m['id']!=1 for m in f.state(p)['meals']);assert not errors,errors
  print('PASS',name,'swipe uses dependency-aware deletion/history pruning; Undo works; Back cannot resurrect',flush=True);c.close()
 
 def bare(browser,name,data,read_failure=False):
@@ -151,3 +151,4 @@ def run_all():
    schedule_edits(b,name,False);schedule_edits(b,name,True);schedule_links_and_deletions(b,name);swipe(b,name);recovery(b,name);recovery_actions(b,name);failures(b,name);failed_editor_and_recovery(b,name)
   b.close()
 if __name__=='__main__':run_all()
+
