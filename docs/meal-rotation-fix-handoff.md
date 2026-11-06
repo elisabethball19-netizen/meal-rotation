@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: combined weekday touch, empty-state, popup and keyboard refinements build on merged PR #85. The user authorized automatic merge after focused checks for this batch. Earlier no-merge instructions and historical whole-day-empty UI descriptions below are superseded.
+Latest status: [PR #86](https://github.com/elisabethball19-netizen/meal-rotation/pull/86) implements combined weekday touch, empty-state, popup and keyboard refinements build on merged PR #85. The user authorized automatic merge after focused checks for this batch. Earlier no-merge instructions and historical whole-day-empty UI descriptions below are superseded.
 
 Date: November 6, 2026
 
@@ -426,6 +426,8 @@ Only focused checks were run, as requested. Prior unrelated full-suite failures 
 
 
 ## Combined weekday and popup refinements — November 6, 2026
+
+Pull request: https://github.com/elisabethball19-netizen/meal-rotation/pull/86
 
 Base: latest main `a7b42b1863dae61ef171463e66192136964d40a0` (merged PR #85). Branch: `fix/weekday-touch-empty-popup-refinements`.
 
