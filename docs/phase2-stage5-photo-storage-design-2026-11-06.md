@@ -8,7 +8,7 @@ Finalized before implementing storage changes, under the owner's Stage 5 authori
 
 A saved recipe may have `recipePhotoId: "rp1-<64 lowercase SHA-256 hex characters>"`. This is the digest of the processed JPEG bytes. No image data or object URL goes into localStorage. Invalid/missing references are treated as unavailable images rather than invalidating recipes or backups.
 
-Shared memberships of the same recipe use the same reference through the existing shared-recipe mutation mechanism. Serving-linked recipes remain separate recipes and keep their own photos. Existing recipe fields and memberships are not migrated.
+Shared memberships of the same recipe use the same reference using the existing shared-recipe membership rule and validated persistence transaction. Serving-linked recipes remain separate recipes and keep their own photos. Existing recipe fields and memberships are not migrated.
 
 ## Blob storage and image handling
 
@@ -19,6 +19,8 @@ Accept user-selected JPEG, PNG, WebP and GIF files; GIF uses a still frame. Limi
 Photo operations are bounded by deadlines and IndexedDB transaction completion. Upload writes and verifies the immutable blob before saving the reference using the existing validated recipe mutation/rollback/retry path. Cancel, navigation interruption, or a stale recipe/photo selection prevents the asynchronous upload from committing a reference.
 
 A crash before the reference save can leave an unreferenced blob, but cannot replace a valid recipe/photo reference with an incomplete write. Failed reference saves preserve the original recipe and photo and retain the existing recovery proposal/Retry Save behavior.
+
+Photo Undo/Redo records restore only the photo reference fields on the affected recipe memberships, preserving later recipe, shopping, scheduling and cooking edits.
 
 Replacing/removing a photo does not delete old immutable blobs. Removal detaches the reference, works without IndexedDB, and is subject to the existing recipe-save safety protections. Retention protects Undo/Redo, rotation history, failed proposals and interrupted restore. No automatic destructive garbage collection is introduced in this stage; retained unused blobs can consume quota, and subsequent failed uploads remain harmless to recipes.
 
