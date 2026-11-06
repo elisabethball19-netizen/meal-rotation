@@ -28,12 +28,6 @@ def run(browser,filename,width):
     def ingredient(n=0):return page.locator('.recipe-viewer-ingredients .cooking-item').nth(n)
     def button(name):return page.get_by_role('button',name=name,exact=True)
     def option(name,value):
-        if name=='Automatically open linked recipes in tabs':
-            current=state();ctx=current['context'];close();page.locator('#settings').click()
-            group=page.locator('#settingsPanel details[data-settings-group=display]')
-            if not group.evaluate('(e)=>e.open'):group.locator('summary').click()
-            page.get_by_label(name,exact=True).set_checked(value);button('Save settings').click();op(int(current['active']),ctx['day'] if ctx else None,ctx['parentId'] if ctx else '')
-            return
         if not page.locator('#recipeViewerSettings').is_visible():button('Recipe settings').click()
         page.get_by_label(name,exact=True).set_checked(value);button('Close settings').click()
     def scale(value):button('Scale Recipe').click();page.get_by_role('menuitemradio',name=value,exact=True).click()
@@ -45,19 +39,19 @@ def run(browser,filename,width):
         step(n).scroll_into_view_if_needed();box=step(n).bounding_box();page.mouse.move(box['x']+20,box['y']+15);page.mouse.down();page.wait_for_timeout(650);page.mouse.up()
     def occurrence(day,id=1,parent=''):
         return state()['sessions']['occurrences'].get(json.dumps(['original',day,str(id),str(parent)],separators=(',',':')))
-    # Off by default on an older preference record; toolbar includes the Open Recipes icon.
+    # Linked recipes open by default even on older preference records; other controls remain.
     initial_rotation={m['id']:m['rotation'] for m in state()['meals']}
-    op();assert tabs().count()==1;assert page.locator('.recipe-viewer-bar>button').count()==5
+    op();assert tabs().count()==3;assert page.locator('.recipe-viewer-bar>button').count()==5
     assert page.locator('.recipe-tab').first.locator('.recipe-tab-close').count()==0
     history_length=page.evaluate('window.history.length')
-    linked('Side Dish');assert tabs().count()==2;linked('Nested Recipe');assert tabs().count()==3
-    select('Main One');linked('Side Dish');assert tabs().count()==3;assert page.evaluate('window.history.length')==history_length
+    linked('Side Dish');assert tabs().count()==3;linked('Nested Recipe');assert tabs().count()==4
+    select('Main One');linked('Side Dish');assert tabs().count()==4;assert page.evaluate('window.history.length')==history_length
     assert state()['context']['parentId']=='1' and state()['context']['day']=='Tuesday'
     assert {m['id']:m['rotation'] for m in state()['meals']}==initial_rotation
     # Closing inactive retains active; closing active returns to main. Reopen uses cache.
     button('Close Nested Recipe tab').click();assert state()['active']=='2'
-    button('Close Side Dish tab').click();assert state()['active']=='1' and tabs().count()==1
-    option('Automatically open linked recipes in tabs',True);close();op();assert tabs().count()==3
+    button('Close Side Dish tab').click();assert state()['active']=='1' and tabs().count()==2
+    close();assert not page.locator('#autoOpenLinkedRecipeTabs').count();op();assert tabs().count()==3
     assert not tabs().filter(has_text='Nested Recipe').count(),'do not recursively auto-open'
     assert state()['prefs']['autoOpenLinkedRecipes'] is True
     # Every tab restores split/full positions and ratio without running sync or completion.
@@ -145,7 +139,7 @@ def run(browser,filename,width):
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
     if filename=='index.html' and width<600:page.screenshot(path='/workspace/recipe-tabs-mobile.png')
     close();assert page.locator('#recipeViewer').count()==0
-    page.evaluate('tabTest.historyOpen()');select('Side Dish');page.go_back();page.wait_for_selector('#recipeViewer',state='detached');page.go_forward();page.wait_for_selector('#recipeViewer');assert state()['active']=='1' and tabs().count()==15;close()
+    page.evaluate('tabTest.historyOpen()');select('Side Dish');page.go_back();page.wait_for_selector('#recipeViewer',state='detached');page.go_forward();page.wait_for_selector('#recipeViewer');assert state()['active']=='1' and tabs().count()==25;close()
     # Preference persists after reload; neither progress nor original quantities are migrated.
     page.evaluate("window.history.replaceState({},'')");page.reload();assert state()['prefs']['autoOpenLinkedRecipes'] is True;op();assert tabs().count()==15
     if prefix:assert page.evaluate('localStorage.getItem("mealRotationCookingSessionsV1")') is None
@@ -159,4 +153,5 @@ if __name__=='__main__':
         for filename in ['index.html','meal-rotation-test.html']:
             for width in [360,1280]:run(browser,filename,width)
         browser.close()
+
 
