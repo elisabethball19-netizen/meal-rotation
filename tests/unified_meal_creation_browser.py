@@ -15,8 +15,10 @@ f.EXTRA+='''window.creationTest={
 };'''
 
 def open_create(p,day='Saturday',cat='Lunch'):
+
+ for previous in p.locator('.weekday-meal-picker').all():previous.get_by_role('button',name='Cancel',exact=True).click()
  p.evaluate('([day,cat])=>creationTest.open(day,cat)',[day,cat]);d=p.get_by_role('dialog',name='Choose '+day+"'s meal",exact=True)
- assert not d.get_by_role('button',name='Add One-Time Meal',exact=True).count()
+ assert d.get_by_role('button',name='Add One-Time Meal',exact=True).count()==1
  assert not d.get_by_role('button',name='Favorites only',exact=True).count()
  plus=d.get_by_role('button',name='Create New Recipe',exact=True);assert plus.locator('svg').count()==1 and not plus.text_content()
  assert d.get_by_role('button',name='Search recipes',exact=True).count()==1

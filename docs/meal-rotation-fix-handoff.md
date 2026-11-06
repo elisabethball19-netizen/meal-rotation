@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: [PR #88](https://github.com/elisabethball19-netizen/meal-rotation/pull/88) implements unified scheduled recipe/one-time creation and consistent group-label/empty-row layout build on merged PR #87. The user authorized merge and deployment after basic technical checks. Historical creation forms described below are superseded by the latest section.
+Latest status: recipe-creation editor ownership, chooser controls and always-on linked tabs build on merged PR #88. Focused checks pass; the user authorized automatic merge and Pages deployment. Earlier UI/settings descriptions are historical.
 
 Date: November 6, 2026
 
@@ -533,3 +533,33 @@ No queue allocation, manual/duplicate/linked rules, group order, recipe scaling,
 The keyboard check simulates visual-viewport geometry in mobile Chromium; actual Android browser/PWA behavior will be verified live by the user. An early assertion incorrectly treated a legitimate Breakfast Sandwiches as the expired Lunch one-time meal; it now checks the target slot. The final four-case creation run passed. Older focused tests were updated where they expected the removed chooser buttons; the historical broad initial-creation scripts with now-removed fields were not rerun. No extensive full-suite rerun was performed.
 
 Merge and GitHub Pages deployment are authorized. Suggested live checks: confirm label/dash alignment, use plus to save a permanent meal and a one-time meal with groceries, toggle/cancel/reopen the form, and verify keyboard access to both fields and Save/Cancel in Chrome and the installed app.
+
+
+
+## Creation guard, chooser return context and linked tabs — November 6, 2026
+
+Base: latest main `479791e269d526c3fa48831b752cf9df45b43303`, including merged PR #88. Branch: `fix/creation-guard-linked-tabs`.
+
+### Cause and changes
+
+Creation used `editId`/`newRecipeDraftId` alone to decide whether an editor was open. A disconnected draft marker could therefore block creation without a visible form. The actual history restoration function reset `editId` but left the new-draft identity and category baseline behind. A controlled replay of group recipe creation followed by state restoration covers this lifecycle; no user backup was inspected or changed.
+
+History restoration now clears only the transient editor identity/baseline/positioning state associated with the restored editor. A shared creation guard checks connected inline, scheduled, viewer and one-time recipe editor roots and active unsaved link editing. It keeps the warning for real open editors, including a typed unsaved title verified in the browser test. Orphaned scalar IDs without an editor are cleaned without deleting recipes or touching assignments. Group recipe creation uses the same ownership check.
+
+The chooser retains one header plus icon beside Search, without a full-width recipe-creation button or heart filter. The centered full-width Add One-Time Meal button is restored below the header/search. The simplified plus form remains available for permanent or checkbox-selected temporary creation. Cancel/escape/outside dismissal returns to the original hidden chooser instance with its search, expansion, pending highlight and scroll state intact. Saving closes both dialogs and uses the existing atomic originating-slot scheduling path. Standalone creation entry points still work without a chooser callback.
+
+The Display checkbox for automatically opening linked recipes is removed. Initial viewer decks and existing linked-add paths now open direct linked recipes by default while preserving explicitly confirmed checklist decks and closed-tab/saved-viewer behavior. Old saved false values remain valid/importable but cannot disable the behavior; runtime preferences read the flag as true and ordinary future preference saves normalize it. There is no startup preference migration or deletion. Settings capture/cancel no longer controls this obsolete option. Other Display controls and preference fields remain unchanged.
+
+No rotation, group-order, duplicate confirmation, scaling, ingredient parsing, linked relationships or backup schema was changed. No actual user storage was reset or overwritten. Shared production/test application edits match after normalizing their existing storage adapter names; test-only features/storage remain isolated.
+
+### Basic focused results
+
+20 cases/scenarios passed without JavaScript page errors:
+
+- `python tests/creation_guard_linked_tabs_browser.py`: 4 cases, both pages at 320px/390px. Actual draft-create/state-restore lifecycle, defensive orphan IDs, protection of a real unsaved inline edit, plus icon and centered one-time button, cancel restoring search/selection without writes, permanent originating-slot assignment, direct one-time creation, group creation/cancel, old saved false preference, automatic linked tabs, per-tab scroll restoration, tab closing without unlink/delete, single-tab bar hiding, settings control removal, other preference preservation, backup validation, and isolated production storage sentinel.
+- `python tests/retained_sunday_evidence_browser.py`: all 14 persisted Sunday/retention/Back-forward regressions passed.
+- `same_day_group_assignment_browser.run` at 390px on each page: 2 cases passed for Saturday cancel/keep-both/move, one-time/linked controls, unchanged queues, stable order, reload, rotation/back and backup-storage restore.
+
+The first new test needed to return from the group-editor test context to My Rotation after history replay; no production view/navigation behavior was changed for that test setup. Existing chooser/tabs test expectations were updated for the approved restored button, cancel return context and always-on tabs; the broad historical tabs suite was not rerun. This was focused mobile Chromium testing rather than an extensive full-suite or physical-device session.
+
+Merge and Pages deployment are authorized. Suggested live checks: create and cancel from an empty Friday/Saturday slot, confirm the same chooser returns on cancel, and open/close linked tabs after previously disabling the old setting.
