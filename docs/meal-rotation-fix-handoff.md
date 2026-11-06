@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: PR #82 is merged in main. The current follow-up restores all assigned weekday groups, adds Create New Group to the weekday picker, and removes only its redundant whole-day empty button. Focused checks pass. The user explicitly authorized automatic merge after basic checks for this batch; previous no-merge notes below are historical.
+Latest status: [PR #83](https://github.com/elisabethball19-netizen/meal-rotation/pull/83) implements the current follow-up; PR #82 is merged in main. The current follow-up restores all assigned weekday groups, adds Create New Group to the weekday picker, and removes only its redundant whole-day empty button. Focused checks pass. The user explicitly authorized automatic merge after basic checks for this batch; previous no-merge notes below are historical.
 
 Date: November 6, 2026
 
@@ -347,6 +347,8 @@ PR #82 remains draft and unmerged; no deployment or actual user-data edits were 
 
 
 ## Weekday group display and picker follow-up — November 6, 2026
+
+Pull request: https://github.com/elisabethball19-netizen/meal-rotation/pull/83
 
 Base: latest main `4759af3b7441cac414dab6c138607707049123a7`, including merged PR #82. Branch: `fix/weekday-group-picker-display`.
 
