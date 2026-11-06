@@ -111,6 +111,8 @@ def structured_registry(browser,name):
 
 
 def upload_backup(p,backup):
+ # Native file pickers require the recovery page to own browser focus.
+ p.bring_to_front()
  with p.expect_file_chooser() as fc:p.locator('#mealDataRecovery').get_by_role('button',name='Restore Backup',exact=True).click()
  fc.value.set_files({'name':'backup.json','mimeType':'application/json','buffer':json.dumps(backup).encode()})
 
@@ -269,3 +271,4 @@ def run_all():
  if baseline:assert len(failures)==10,failures
  else:assert not failures,failures
 if __name__=='__main__':run_all()
+

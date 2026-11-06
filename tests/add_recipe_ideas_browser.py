@@ -65,7 +65,7 @@ def run(b,name,width,long):
  assert plus(p,cat).is_enabled()
  assert not p.get_by_role('dialog').count()
  # Save creates exactly one named Idea, and another creation can start afterwards.
- p.set_viewport_size({'width':width,'height':800});plus(p,cat).tap();p.locator('#name').fill('A new mobile recipe')
+ p.set_viewport_size({'width':width,'height':800});plus(p,cat).tap();p.locator('#name').fill('A new mobile recipe');assert p.locator('#rotation').is_checked();p.locator('#rotation').uncheck()
  p.wait_for_timeout(850);p.locator('#save').tap();p.wait_for_timeout(100)
  saved=[m for m in state(p)['meals'] if m['name']=='A new mobile recipe'];assert len(saved)==1 and saved[0]['cat']==cat and not saved[0]['rotation']
  assert ui(p)['draft'] is None and ui(p)['editing'] is None
@@ -96,3 +96,4 @@ if __name__=='__main__':
    for width in [320,360]:
     for long in [False,True]:run(b,name,width,long)
   b.close()
+
