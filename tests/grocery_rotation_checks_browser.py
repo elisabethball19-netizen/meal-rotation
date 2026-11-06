@@ -33,7 +33,7 @@ def prepare(browser,filename,width,linked=True):
  ctx,p,errors,prefix=fixture.setup(browser,filename,width,linked=linked,duplicate=True,multi=True);p.set_default_timeout(8000);p.evaluate('groceryTest.breakfast()');p.evaluate('slotTest.seed()');return ctx,p,errors,prefix
 
 def apply(p,selected):
- p.get_by_role('button',name='Cycle Meals',exact=True).tap();p.get_by_role('button',name='Select recipes to rotate out',exact=True).tap();d=p.get_by_role('heading',name='Select meals to rotate out').locator('..');d.get_by_role('button',name='Deselect all',exact=True).tap()
+ p.get_by_role('button',name='Rotate Meals',exact=True).tap();p.get_by_role('button',name='Select recipes to rotate out',exact=True).tap();d=p.get_by_role('heading',name='Select meals to rotate out').locator('..');d.get_by_role('button',name='Deselect all',exact=True).tap()
  for name in selected:d.get_by_role('checkbox',name=name,exact=True).check()
  d.get_by_role('button',name='Move selected',exact=True).tap()
 
@@ -154,3 +154,4 @@ if __name__=='__main__':
    for width in [320,360]:
     run(b,filename,width);full_and_repeat(b,filename,width);edits_and_links(b,filename,width);mixed_legacy_and_rename(b,filename,width)
   b.close()
+

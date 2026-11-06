@@ -43,7 +43,7 @@ def run(browser,filename,width,tabs):
  wrap=p.locator('[data-weekday=Monday]+.top-recipe-wrap');r=wrap.bounding_box();wrap.tap(position={'x':r['width']-3,'y':r['height']-3});d=p.get_by_role('dialog',name="Plan Monday's meal",exact=True);d.get_by_role('button',name='Close',exact=True).tap()
  p.locator('[data-weekday=Monday]+.top-recipe-wrap .mealname').tap();menu=p.get_by_role('dialog',name='Meal options for Monday',exact=True)
  assert menu.get_by_role('button').all_text_contents()[2:]==['Open recipe','Change meal','Skip This Meal','Leave Empty This Week','Edit meal','Edit grocery list']
- menu.get_by_role('button',name='Change meal',exact=True).tap();c=p.get_by_role('dialog',name="Choose Monday's meal",exact=True);assert c.get_by_role('button',name='Remove one-time meal',exact=True).is_visible();c.get_by_role('button',name='Cancel',exact=True).tap()
+ menu.get_by_role('button',name='Change meal',exact=True).tap();c=p.get_by_role('dialog',name="Choose Monday's meal",exact=True);assert c.get_by_role('button',name='Remove scheduled meal',exact=True).is_visible();c.get_by_role('button',name='Cancel',exact=True).tap()
  # Regular assigned day retains direct heading/group behavior and compact chooser styling.
  h(p,'Tuesday').tap();p.get_by_role('dialog',name="Choose Tuesday's meal groups",exact=True).get_by_role('button',name='Close',exact=True).tap()
  p.locator('[data-weekday=Tuesday]+.top-recipe-wrap .mealname').tap();p.get_by_role('dialog',name='Meal options for Tuesday',exact=True).get_by_role('button',name='Change meal',exact=True).tap();c=p.get_by_role('dialog',name="Choose Tuesday's meal",exact=True)
@@ -90,7 +90,7 @@ def assignment(browser,filename,width,group):
  print('PASS',filename,width,'assign permanent',group,'keeps planned substitution, progress and grocery checks',flush=True);ctx.close()
 
 def remove(browser,filename,width):
- ctx,p,errors,_=fixture.setup(browser,filename,width,linked=True,multi=True);p.evaluate('occasionalTest.prepare',True);choose(p);d=plan(p);d.get_by_role('button',name='Choose a meal',exact=True).tap();c=p.get_by_role('dialog',name="Choose Monday's meal",exact=True);c.get_by_role('button',name='Remove one-time meal',exact=True).tap();p.get_by_role('button',name='Yes',exact=True).tap()
+ ctx,p,errors,_=fixture.setup(browser,filename,width,linked=True,multi=True);p.evaluate('occasionalTest.prepare',True);choose(p);d=plan(p);d.get_by_role('button',name='Choose a meal',exact=True).tap();c=p.get_by_role('dialog',name="Choose Monday's meal",exact=True);c.get_by_role('button',name='Remove scheduled meal',exact=True).tap();p.get_by_role('button',name='Yes',exact=True).tap()
  assert not meal(p) and not state(p)['plans'][0]['weekdayCategories'].get('Monday') and next(m for m in state(p)['meals'] if m['id']==2)['rotation'] is False
  assert not errors,errors
  print('PASS',filename,width,'manual removal leaves recipe definitions and weekday assignments intact',flush=True);ctx.close()
@@ -139,7 +139,7 @@ def transitions(browser,filename,width):
  p.locator('[data-weekday=Monday]+.top-recipe-wrap .mealname').tap();p.get_by_role('dialog',name='Meal options for Monday',exact=True).get_by_role('button',name='Change meal',exact=True).tap();d=p.get_by_role('dialog',name="Choose Monday's meal",exact=True)
  d.locator('[data-meal-id="3"]').tap();d.get_by_role('button',name='Save',exact=True).tap();assert any(r['id']==3 for r in meal(p))
  p.evaluate('occasionalTest.full()');assert any(r['id']==3 for r in meal(p))
- p.locator('[data-weekday=Monday]+.top-recipe-wrap .mealname').tap();p.get_by_role('dialog',name='Meal options for Monday',exact=True).get_by_role('button',name='Change meal',exact=True).tap();p.get_by_role('button',name='Remove one-time meal',exact=True).tap();p.get_by_role('button',name='Yes',exact=True).tap()
+ p.locator('[data-weekday=Monday]+.top-recipe-wrap .mealname').tap();p.get_by_role('dialog',name='Meal options for Monday',exact=True).get_by_role('button',name='Change meal',exact=True).tap();p.get_by_role('button',name='Remove scheduled meal',exact=True).tap();p.get_by_role('button',name='Yes',exact=True).tap()
  assert 'Monday' not in state(p)['plans'][0].get('occasionalMeals',{}) and state(p)['plans'][0]['weekdayCategories']['Monday']==['Rice']
  # Malformed optional plan records are rejected before any saved data is written.
  saved=p.evaluate('slotTest.storage()');backup={**json.loads(saved['mealRotationDataV1']),'version':2,'storage':dict(saved)};plans=json.loads(saved['mealRotationPlansV1']);plans['plans'][0]['occasionalMeals']=[];backup['storage']['mealRotationPlansV1']=json.dumps(plans)

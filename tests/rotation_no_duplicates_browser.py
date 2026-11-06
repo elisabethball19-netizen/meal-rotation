@@ -63,7 +63,7 @@ def run(browser,filename,width,scenario,baseline=False,all_tabs=False,mark=False
     else:chosen=['Saturday::Weekend']
     # The exact reported scenario uses the real selection dialog and leaves Sunday unchecked.
     if scenario in ['weekend','legacy-retained','filtered'] and not all_tabs:
-        p.get_by_role('button',name='Cycle Meals',exact=True).tap();p.get_by_role('button',name='Select recipes to rotate out',exact=True).tap()
+        p.get_by_role('button',name='Rotate Meals',exact=True).tap();p.get_by_role('button',name='Select recipes to rotate out',exact=True).tap()
         dialog=p.get_by_role('heading',name='Select meals to rotate out').locator('..')
         dialog.get_by_role('button',name='Deselect all',exact=True).tap()
         dialog.get_by_role('checkbox',name='Saturday · Weekend — Saturday stew',exact=True).check()
@@ -73,7 +73,7 @@ def run(browser,filename,width,scenario,baseline=False,all_tabs=False,mark=False
             chosen=['original||'+x for x in chosen]+['lunch||Tuesday::'+before['plans'][1]['weekdayCategories']['Tuesday'][0]]
         if scenario=='retain-linked':
             # The normal UI supplies the retained set when its side checkbox is unchecked.
-            p.get_by_role('button',name='Cycle Meals',exact=True).tap();p.get_by_role('button',name='Select recipes to rotate out',exact=True).tap()
+            p.get_by_role('button',name='Rotate Meals',exact=True).tap();p.get_by_role('button',name='Select recipes to rotate out',exact=True).tap()
             d=p.get_by_role('heading',name='Select meals to rotate out').locator('..');d.get_by_role('button',name='Deselect all',exact=True).tap()
             d.get_by_role('checkbox',name='Saturday · Mains — Old Main',exact=True).check();d.get_by_role('checkbox',name='Sunday · Sides — Outgoing Sunday side',exact=True).check();d.get_by_role('button',name='Move selected',exact=True).tap()
         else:p.evaluate('(a)=>slotTest.cycle(...a)',[chosen,all_tabs,mark])
@@ -140,3 +140,4 @@ if __name__=='__main__':
                 run(b,f,360,'three-days',all_tabs=True)
                 run(b,f,360,'three-days',mark=True)
         b.close()
+

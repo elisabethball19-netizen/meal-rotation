@@ -60,7 +60,7 @@ def week_cases(browser,name):
    ctx,p,errors,prefix=setup(browser,name,zone=zone,start=start,anchor=anchor);establish(p,anchor or expected[DAYS.index(start)],zone);clock(p,today,zone);before=state(p);original_dates=local_dates(p);saved=p.evaluate('slotTest.storage()');assert all(v==OLD for v in p.evaluate('dateTest.dates()').values())
    if today=='2026-11-03' and zone=='UTC' and mark:
     # Reproduce the report through the actual setting and menu.
-    p.get_by_role('button',name='Cycle Meals',exact=True).tap();d=p.get_by_role('dialog',name='Rotate out recipes');d.get_by_role('checkbox',name='Mark rotated recipes as cooked',exact=True).check();d.get_by_role('button',name='Rotate out all recipes',exact=True).tap()
+    p.get_by_role('button',name='Rotate Meals',exact=True).tap();d=p.get_by_role('dialog',name='Rotate out recipes');d.get_by_role('checkbox',name='Mark rotated recipes as cooked',exact=True).check();d.get_by_role('button',name='Rotate out all recipes',exact=True).tap()
    else:p.evaluate('dateTest.all',mark)
    after=state(p);dates=local_dates(p)
    for i,want in enumerate(expected,1):assert dates[str(i)]==(want if mark and want else original_dates[str(i)]),(today,start,anchor,zone,mark,i,dates)
@@ -116,3 +116,4 @@ if __name__=='__main__':
    week_cases(b,name);all_tabs(b,name)
    for width in [320,360]:partial_and_reload(b,name,width);protections(b,name,width)
   b.close()
+

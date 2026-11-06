@@ -82,7 +82,7 @@ def run(browser,filename,width,size='normal',long=False):
   for v in ['rotation','grocery','overview']:
    assert positions[True,plan,v]['textTop']>positions[False,plan,v]['textTop']+30,(v,'hidden tab space remained')
  # Sticky controls still operate: rotate menu, grocery source toggle, group expansion.
- p.evaluate('headingTest.plan','original');view(p,'rotation');p.get_by_role('button',name='Cycle Meals',exact=True).tap();p.get_by_role('dialog',name='Rotate out recipes').get_by_role('button',name='Close',exact=True).tap()
+ p.evaluate('headingTest.plan','original');view(p,'rotation');p.get_by_role('button',name='Rotate Meals',exact=True).tap();p.get_by_role('dialog',name='Rotate out recipes').get_by_role('button',name='Close',exact=True).tap()
  view(p,'grocery');button=p.locator('.grocery-ingredient-name').first;button.tap();assert button.get_attribute('aria-expanded')=='true';button.tap();assert button.get_attribute('aria-expanded')=='false'
  view(p,'groups');p.get_by_role('button',name='Expand all groups',exact=True).tap();assert p.locator('.master-category-meals').count()>0;p.get_by_role('button',name='Collapse all groups',exact=True).tap()
  # A custom order shows the existing reset control between header and first card.
@@ -103,3 +103,4 @@ if __name__=='__main__':
   for filename in ['index.html','meal-rotation-test.html']:
    for width,size,long in [(280,'normal',False),(320,'normal',False),(360,'normal',False),(390,'normal',False),(740,'normal',False),(320,'extra',False),(360,'extra',True)]:run(b,filename,width,size,long)
   b.close()
+
