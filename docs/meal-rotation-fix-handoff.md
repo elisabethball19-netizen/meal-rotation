@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: compact meal options and fixed right-aligned group labels build on merged PR #84. The user authorized automatic merge after focused checks for this batch. Earlier no-merge notes are historical.
+Latest status: [PR #85](https://github.com/elisabethball19-netizen/meal-rotation/pull/85) implements compact meal options and fixed right-aligned group labels build on merged PR #84. The user authorized automatic merge after focused checks for this batch. Earlier no-merge notes are historical.
 
 Date: November 6, 2026
 
@@ -395,6 +395,8 @@ Focused testing was used as requested, without an exhaustive application-suite r
 
 
 ## Compact meal options and stable group alignment — November 6, 2026
+
+Pull request: https://github.com/elisabethball19-netizen/meal-rotation/pull/85
 
 Base: latest main `ceeabba658f29468302e21cc318bf359d404aeaa`, including PR #82–84. Branch: `fix/compact-slot-meal-options`.
 
