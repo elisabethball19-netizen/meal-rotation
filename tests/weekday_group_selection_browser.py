@@ -57,11 +57,11 @@ def run(browser,name,width):
     assert p.locator('.empty-weekday-meal[data-category="Quick meals"]').count()==1
     # Empty one group must not erase the placeholders/entries of sibling groups.
     p.evaluate('groupPickerTest.empty()');assert group_order(p)==['Weekend','Breakfast','Lunch','Quick meals']
-    assert p.locator('.empty-weekday-meal[data-category=Weekend]').inner_text().endswith('Empty this week')
+    assert p.locator('.empty-weekday-meal[data-category=Weekend] .mealname').inner_text()=='Empty this week'
     p.evaluate('groupPickerTest.resume()')
     p.evaluate('groupPickerTest.menu()');menu=p.get_by_role('dialog',name='Meal options for Saturday',exact=True)
-    menu.get_by_role('button',name='Leave Empty This Week',exact=True).click()
-    p.locator('.empty-weekday-meal[data-category=Weekend]').click()
+    menu.get_by_role('button',name='Leave Saturday weekend empty',exact=True).click()
+    p.locator('.empty-weekday-meal[data-category=Weekend] .mealname').click()
     empty_menu=p.get_by_role('dialog',name='Empty meal options',exact=True)
     empty_menu.get_by_role('button',name='Leave Entire Day Empty This Week',exact=True).click()
     assert p.locator('.empty-weekday-meal[data-schedule-day=Saturday]').count()==4

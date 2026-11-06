@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: [PR #84](https://github.com/elisabethball19-netizen/meal-rotation/pull/84) implements the empty-group formatting and one-time meal follow-up builds on merged PR #83. The user authorized automatic merge after focused checks for this batch. Prior no-merge instructions below are historical.
+Latest status: [PR #85](https://github.com/elisabethball19-netizen/meal-rotation/pull/85) implements compact meal options and fixed right-aligned group labels build on merged PR #84. The user authorized automatic merge after focused checks for this batch. Earlier no-merge notes are historical.
 
 Date: November 6, 2026
 
@@ -391,3 +391,34 @@ No recipe records, queue algorithms, retention rules, storage keys, or backup sc
 - Both pages parsed and executed in Chromium without JavaScript errors. Only two shared application blocks changed; existing test-only storage/UI differences were preserved.
 
 Focused testing was used as requested, without an exhaustive application-suite rerun. Previously documented unrelated main-suite failures were not changed or reclassified. Automatic merge is authorized after checks; GitHub Pages deploys from main, and the user will verify the live app.
+
+
+
+## Compact meal options and stable group alignment — November 6, 2026
+
+Pull request: https://github.com/elisabethball19-netizen/meal-rotation/pull/85
+
+Base: latest main `ceeabba658f29468302e21cc318bf359d404aeaa`, including PR #82–84. Branch: `fix/compact-slot-meal-options`.
+
+### Changes and cause
+
+The gesture recognizer appended an invisible 44px spacer after the meal body when multiple displayed meals became reorderable. That reduced the body's width and pulled its group label inward. The spacer was removed; row-based touch reorder/hold behavior remains. Scheduled recipes, one-time meals and empty messages now share a full-width name/group grid with wrapping names and right-aligned labels. Existing weekday colors, card design and vertical spacing remain.
+
+Empty assigned-group messages open a compact modal with Choose Meal, Auto-Populate Meal when eligible candidates exist, and a contextual Leave day/group empty action. Choose Meal delegates to the existing chooser with search, all eligible group lists, Create New Recipe and Add One-Time Meal. It does not move a recipe's permanent group. The initial menu has no separate one-time action. Paired-side placeholders use the same compact entry menu and existing eligibility rules.
+
+Auto-Populate uses existing automatic/Favorites ranking and paired-side candidate rules, respects slot exclusions, prefers recipes not used by other scheduled slots, and retains the existing bounded duplicate fallback when all candidates are used. It uses the existing slot scheduling/grocery/Undo path, marking its choice automatic rather than a manual substitution. It does not advance queues, mark recipes cooked, or rotate another slot. Explicit empty-slot state is cleared for the selected slot only. Existing deferred/exclusion metadata is preserved.
+
+Recipe popups show title, underlined Select/Skip/Edit actions (Skip only for an independently scheduled recipe), Last Cooked/date editor, then centered Open recipe, contextual Leave empty, and Edit grocery list buttons. Select opens the existing chooser without changing a meal. Library-only popups retain their Schedule Meal and Favorite controls. One-time popups show Select/Edit, contextual Leave empty, and Resume planned meal only if an underlying scheduled recipe exists; they omit recipe-only controls. Existing one-time editor/expiration/Rotate Back logic is reused.
+
+Shared compact modal controls provide the existing close X and scroll-limited panel, 44px touch targets, centered wrapping full-width labels, and consistent spacing. Existing empty-week menus retain their whole-day action so the earlier preserved empty-day feature remains available.
+
+### Focused verification
+
+- `tests/compact_meal_options_browser.py`: four passing cases, production/test HTML at 320px and 390px touch widths. Includes right-edge alignment before/after choosing meals and with long recipe/one-time names; exact compact action lists; centered labels/touch size; chooser search and cross-group selection affecting only its target; recipe library unchanged; conditional Resume; one-time edit/reload; automatic Favorites choice; exclusions; duplicate avoidance; linked recipe activation; unchanged queues/unrelated slots; contextual single/multiple-group empty wording; real Skip action; backup validation; no JavaScript page errors or horizontal overflow.
+- `tests/retained_sunday_evidence_browser.py`: all 14 persisted Sunday/manual-retention and repeated Back/forward regression tests passed.
+- `tests/deferred_rotation_gestures_browser.py`: six passing scenarios across both pages, covering deferred turns with/without Favorites and tap, hold/jitter/release, drag/reload, cancellation, and native scroll.
+- `tests/weekday_group_selection_browser.py`: four passing mobile cases for multiple groups, ordering, reload, group creation, independent rotation, and empty-day behavior. Existing selectors were updated for the approved labels/layout.
+- `tests/empty_group_once_browser.py`: four passing mobile cases for one-time add/edit/remove, overview, persistence, expiration, repeated Back/forward, queue preservation, grocery selections, and navigation. Updated to reach one-time creation through Choose Meal and to omit Resume when no underlying planned meal exists.
+- Both HTML pages parsed/executed without JavaScript errors; shared application edits were compared and match after normalizing the existing production/test storage adapter names.
+
+Only focused checks were run, as requested. Prior unrelated full-suite failures were not reclassified. No saved user browser data was accessed or reset; no new storage keys, migration or backup schema changes were added. Automatic merge is authorized once checks pass, followed by GitHub Pages deployment and live verification by the user.

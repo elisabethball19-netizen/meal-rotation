@@ -23,8 +23,9 @@ def run(browser,filename,width):
  weekend=p.locator('.top-recipe-wrap[data-schedule-day=Saturday] .top-meal-inline-category').bounding_box()
  box=tag.bounding_box();assert abs(box['x']+box['width']-weekend['x']-weekend['width'])<=3
  blank.locator('.mealname').tap();dialog=p.get_by_role('dialog',name='Empty group options')
- assert dialog.get_by_role('button',name='Move Meal Into Rotation',exact=True).count()==1
- dialog.get_by_role('button',name='Add One-Time Meal',exact=True).tap()
+ assert dialog.get_by_role('button',name='Choose Meal',exact=True).count()==1
+ dialog.get_by_role('button',name='Choose Meal',exact=True).tap()
+ p.get_by_role('button',name='Add One-Time Meal',exact=True).tap()
  editor=p.get_by_role('dialog',name='Add One-Time Meal',exact=True)
  editor.get_by_role('textbox',name='One-time meal name',exact=True).fill('Pancakes and Bacon')
  editor.get_by_role('button',name='Save one-time meal',exact=True).tap()
@@ -33,12 +34,13 @@ def run(browser,filename,width):
  assert p.evaluate('emptyOnce.data()')==original
  p.reload();p.evaluate('promotionTest.my()');assert ['Breakfast','Pancakes and Bacon'] in p.evaluate('emptyOnce.rows()')
  p.evaluate('promotionTest.validate()')
- p.evaluate('emptyOnce.menu()');p.get_by_role('button',name='Edit one-time meal',exact=True).tap()
+ p.evaluate('emptyOnce.menu()');p.get_by_role('button',name='Edit',exact=True).tap()
  editor=p.get_by_role('dialog',name='Edit one-time meal',exact=True);editor.get_by_role('textbox',name='One-time meal name',exact=True).fill('Sandwiches');editor.get_by_role('button',name='Save one-time meal',exact=True).tap()
  assert ['Breakfast','Sandwiches'] in p.evaluate('emptyOnce.rows()')
- p.evaluate('emptyOnce.menu()');assert p.get_by_role('button',name='Change meal',exact=True).count()==1
- p.get_by_role('button',name='Resume planned meal',exact=True).tap();assert not p.evaluate('emptyOnce.slots()')
- p.locator('.empty-weekday-meal[data-category=Breakfast] .mealname').tap();p.get_by_role('button',name='Add One-Time Meal',exact=True).tap()
+ p.evaluate('emptyOnce.menu()');assert p.get_by_role('button',name='Select',exact=True).count()==1
+ assert not p.get_by_role('button',name='Resume planned meal',exact=True).count()
+ p.get_by_role('button',name='Leave Saturday breakfast empty',exact=True).tap();assert p.evaluate("emptyOnce.slots()['Saturday::Breakfast'].kind")=='empty'
+ p.locator('.empty-weekday-meal[data-category=Breakfast] .mealname').tap();p.get_by_role('button',name='Choose Meal',exact=True).tap();p.get_by_role('button',name='Add One-Time Meal',exact=True).tap()
  p.get_by_role('textbox',name='One-time meal name',exact=True).fill('Sandwiches');p.get_by_role('button',name='Save one-time meal',exact=True).tap()
  p.evaluate('emptyOnce.enable()');order=p.evaluate("promotionTest.order('Breakfast')")
  p.evaluate('promotionTest.full()');assert not p.evaluate('emptyOnce.slots()');assert p.evaluate("promotionTest.order('Breakfast')")==order
@@ -46,7 +48,7 @@ def run(browser,filename,width):
  p.evaluate('emptyOnce.back()');p.reload();p.evaluate('promotionTest.my()');assert ['Breakfast','Sandwiches'] in p.evaluate('emptyOnce.rows()')
  p.evaluate('promotionTest.full()');assert ['Breakfast','Breakfast meal 1'] in p.evaluate('emptyOnce.rows()')
  assert p.evaluate('groupPickerTest.selected()')==checks
- p.locator('.empty-weekday-meal[data-category=Lunch] .mealname').tap();p.get_by_role('button',name='Move Meal Into Rotation',exact=True).tap()
+ p.locator('.empty-weekday-meal[data-category=Lunch] .top-meal-inline-category').tap()
  assert p.locator('.master-category-card').count()>0
  assert p.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
  if prefix:assert p.evaluate("localStorage.getItem('mealRotationDataV1')")=='WORKING SENTINEL'
