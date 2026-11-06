@@ -25,9 +25,9 @@ def run(browser,filename,width):
  blank.locator('.mealname').tap();dialog=p.get_by_role('dialog',name='Empty group options')
  assert dialog.get_by_role('button',name='Select Meal',exact=True).count()==1
  dialog.get_by_role('button',name='Select Meal',exact=True).tap()
- p.get_by_role('button',name='Add One-Time Meal',exact=True).tap()
+ p.get_by_role('button',name='Create New Recipe',exact=True).tap();p.get_by_role('checkbox',name='One-time meal',exact=True).check()
  editor=p.get_by_role('dialog',name='Add One-Time Meal',exact=True)
- editor.get_by_role('textbox',name='One-time meal name',exact=True).fill('Pancakes and Bacon')
+ editor.get_by_role('textbox',name='Meal name',exact=True).fill('Pancakes and Bacon')
  editor.get_by_role('button',name='Save one-time meal',exact=True).tap()
  assert ['Breakfast','Pancakes and Bacon'] in p.evaluate('emptyOnce.rows()')
  assert 'Pancakes and Bacon' in p.evaluate('emptyOnce.overview()')
@@ -40,8 +40,8 @@ def run(browser,filename,width):
  p.evaluate('emptyOnce.menu()');assert p.get_by_role('button',name='Select',exact=True).count()==1
  assert not p.get_by_role('button',name='Resume planned meal',exact=True).count()
  p.get_by_role('button',name='Leave Saturday breakfast empty',exact=True).tap();assert p.evaluate("emptyOnce.slots()['Saturday::Breakfast'].kind")=='empty'
- p.locator('.empty-weekday-meal[data-category=Breakfast] .mealname').tap();p.get_by_role('button',name='Select Meal',exact=True).tap();p.get_by_role('button',name='Add One-Time Meal',exact=True).tap()
- p.get_by_role('textbox',name='One-time meal name',exact=True).fill('Sandwiches');p.get_by_role('button',name='Save one-time meal',exact=True).tap()
+ p.locator('.empty-weekday-meal[data-category=Breakfast] .mealname').tap();p.get_by_role('button',name='Select Meal',exact=True).tap();p.get_by_role('button',name='Create New Recipe',exact=True).tap();p.get_by_role('checkbox',name='One-time meal',exact=True).check()
+ p.get_by_role('textbox',name='Meal name',exact=True).fill('Sandwiches');p.get_by_role('button',name='Save one-time meal',exact=True).tap()
  p.evaluate('emptyOnce.enable()');order=p.evaluate("promotionTest.order('Breakfast')")
  p.evaluate('promotionTest.full()');assert not p.evaluate('emptyOnce.slots()');assert p.evaluate("promotionTest.order('Breakfast')")==order
  assert ['Breakfast','Breakfast meal 1'] in p.evaluate('emptyOnce.rows()')
