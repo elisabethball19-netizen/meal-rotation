@@ -3702,7 +3702,12 @@ function withSchedulingPlan(planId,action){
 }
 function scheduleMealFromGroups(mealId,target){
  if(editId!==null||mealPersistence.paused||groceryCheckStorageInvalid){throw Error('Save or recover the open changes before scheduling a meal.')}
- validateScheduleTarget(target);const meal=meals.find(meal=>String(meal.id)===String(mealId));if(!meal)throw Error('This recipe is no longer available.');
+ const plan=validateScheduleTarget(target),meal=meals.find(meal=>String(meal.id)===String(mealId));if(!meal)throw Error('This recipe is no longer available.');
+ // The allocator emits a recipe once per day. Reject an unrepresentable second
+ // slot before taking an Undo snapshot or changing any schedule or groceries.
+ const displayed=getDisplayedWeekdayMealsForPlan(plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan);
+ const duplicate=displayed.find(entry=>entry.day===target.day&&String(entry.meal.id)===String(meal.id)&&!(target.occasional?entry.occasional&&entry.linkedTo==null:entry.cat===target.category));
+ if(duplicate)throw Error('This recipe is already scheduled in another group ('+duplicate.cat+') on '+target.day+'. A recipe can only appear once per weekday in each meal tab. Choose another group or day, or cancel to select another recipe.');
  saveActiveMealPlan();const before=JSON.parse(captureState());
  withSchedulingPlan(target.planId,()=>applyManualWeekdayMeal(target.day,target.category,meal,null,!!target.occasional,{quiet:true,schedulingOnly:true,beforeState:before}));
  snapshot(JSON.stringify(before));finishScheduleChangeUndo(before);renderList();return true;
@@ -6138,14 +6143,16 @@ function rotateSelectedBack(selected,restoreAll=false){
   const plan=mealPlans.find(p=>p.id===item.planId);
   if(item.scheduleOnly){const old=previous.mealPlans.find(p=>p.id===item.planId),key=temporarySlotKey(item.day,item.cat);editableWeekSchedule(plan).slots[key]=JSON.parse(JSON.stringify(old.weekSchedule.slots[key]));continue}
   clearTemporarySlot(plan,item.day,item.cat);
-  const priorPlan=previous.mealPlans.find(p=>p.id===item.planId),dependent=!!pairedMainGroup(priorPlan,item.day,item.cat),substitution=priorPlan?.cycleSlotChoices?.[weekdaySlotKey(item.day,item.cat)]?.substitution===true||!!(dependent&&plan&&!pairedMainGroup(plan,item.day,item.cat)&&item.meal.cat!==item.cat);
+  const priorPlan=previous.mealPlans.find(p=>p.id===item.planId),priorChoice=priorPlan?.cycleSlotChoices?.[weekdaySlotKey(item.day,item.cat)],dependent=!!pairedMainGroup(priorPlan,item.day,item.cat),substitution=priorPlan?.cycleSlotChoices?.[weekdaySlotKey(item.day,item.cat)]?.substitution===true||!!(dependent&&plan&&!pairedMainGroup(plan,item.day,item.cat)&&item.meal.cat!==item.cat);
   if(!plan||!meals.some(m=>String(m.id)===String(item.meal.id)&&(substitution||(m.rotation&&(m.cat===item.cat||dependent)))))continue;
   const overrides={...(plan.weekdayMealOverrides||{})};
   const raw=(plan.weekdayCategories||{})[item.day];const groups=Array.isArray(raw)?raw:[raw];
   if(groups[0]===item.cat)delete overrides[item.day];
   overrides[weekdaySlotKey(item.day,item.cat)]=String(item.meal.id);
   plan.cycleRetainedSlots={...(plan.cycleRetainedSlots||{}),[weekdaySlotKey(item.day,item.cat)]:String(item.meal.id)};
-  plan.cycleSlotChoices={...(plan.cycleSlotChoices||{}),[weekdaySlotKey(item.day,item.cat)]:{...(substitution?{substitution:true}:{}),mealId:String(item.meal.id),parentId:(()=>{const parent=String(item.parentId??item.linkedTo??'');return meals.some(m=>String(m.id)===parent&&(m.linkedMealIds||[]).some(id=>String(id)===String(item.meal.id)))?parent:''})(),retain:true}};
+  // Preserve the saved choice metadata, including paired-side queue protection;
+  // validate IDs against current recipes rather than restoring recipe records.
+  plan.cycleSlotChoices={...(plan.cycleSlotChoices||{}),[weekdaySlotKey(item.day,item.cat)]:{...(String(priorChoice?.mealId)===String(item.meal.id)?JSON.parse(JSON.stringify(priorChoice)):{}),...(substitution?{substitution:true}:{}),mealId:String(item.meal.id),parentId:(()=>{const parent=String(item.parentId??item.linkedTo??'');return meals.some(m=>String(m.id)===parent&&(m.linkedMealIds||[]).some(id=>String(id)===String(item.meal.id)))?parent:''})(),retain:true}};
   plan.weekdayMealOverrides=overrides;
  }
  // Restore linked children's positions from the saved pre-cycle order.
