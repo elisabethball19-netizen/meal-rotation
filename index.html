@@ -6501,6 +6501,17 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
     choices[key]={...(valid?old:{}),...(manual?{substitution:true}:{}),mealId:String(meal.id),parentId:String(item.linkedTo??''),retain:manual||!!((allTabs||plan.id===activePlanId)&&retainedSlots?.has(scopedKey))||!!(valid&&old.retain),blockedParents:blocked};
    }
   }
+  // A temporary empty/one-time slot can conceal a real queued recipe. When
+  // that hidden recipe is cycled, release its old retained override as well;
+  // otherwise it reappears unchanged when the temporary slot is removed.
+  for(const hidden of hiddenRotated.filter(item=>item.planId===plan.id)){
+   if(!rotationGroupScheduled(plan,hidden.day,hidden.cat))continue;
+   const key=weekdaySlotKey(hidden.day,hidden.cat);
+   delete overrides[key];delete pins[key];
+   const assigned=plan.weekdayCategories?.[hidden.day];
+   if((Array.isArray(assigned)?assigned:[assigned])[0]===hidden.cat)delete overrides[hidden.day];
+   choices[key]={parentId:'',avoidMealId:String(hidden.meal.id),blockedParents:[]};
+  }
   plan.weekdayMealOverrides=overrides;
   if(Object.keys(pins).length||plan.cycleRetainedSlots)plan.cycleRetainedSlots=pins;
   plan.cycleSlotChoices=choices;
