@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: unified scheduled recipe/one-time creation and consistent group-label/empty-row layout build on merged PR #87. The user authorized merge and deployment after basic technical checks. Historical creation forms described below are superseded by the latest section.
+Latest status: [PR #88](https://github.com/elisabethball19-netizen/meal-rotation/pull/88) implements unified scheduled recipe/one-time creation and consistent group-label/empty-row layout build on merged PR #87. The user authorized merge and deployment after basic technical checks. Historical creation forms described below are superseded by the latest section.
 
 Date: November 6, 2026
 
@@ -506,6 +506,8 @@ The initial new-fixture whole-record comparison after reload was adjusted to com
 
 
 ## Unified meal creation and consistent empty rows — November 6, 2026
+
+Pull request: https://github.com/elisabethball19-netizen/meal-rotation/pull/88
 
 Base: latest main `6828cfe4fef5426c12ea18e1222bfe306b4282ba` (merged PR #87). Branch: `fix/unified-meal-creation-layout`.
 
