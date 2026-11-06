@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: PR #80 is merged, but the user still reproduces the live failure. The final persisted-state investigation section supersedes earlier resolution claims. This draft investigation awaits a private, anonymized report; it is not an application fix. Earlier PR #79/#80 delivery notes are historical.
+Latest status: [draft investigation PR #81](https://github.com/elisabethball19-netizen/meal-rotation/pull/81). PR #80 is merged, but the user still reproduces the live failure. The final persisted-state investigation section supersedes earlier resolution claims. This draft investigation awaits a private, anonymized report; it is not an application fix. Earlier PR #79/#80 delivery notes are historical.
 
 Date: November 6, 2026
 
@@ -238,3 +238,11 @@ Do not ask for the full backup or commit a user report publicly. The tool runs i
 ### Delivery status
 
 Draft investigation PR, awaiting actual-state evidence. **Not a resolved live bug and not ready for approval as an application fix.** Do not merge or deploy automatically. The next step is to compare the anonymized current/previous slots and identify a correction supported by that evidence, then add that persisted state to regression coverage and recheck Favorites, links, groceries, normal order, reload, and repeated Rotate Back/Rotate Meals.
+
+Investigation PR: https://github.com/elisabethball19-netizen/meal-rotation/pull/81
+
+Private collection instructions: https://github.com/elisabethball19-netizen/meal-rotation/blob/investigate/persisted-rotation-state/docs/rotation-diagnostics.md
+
+Standalone offline tool (download the raw HTML and open locally; no merge/deployment required): https://github.com/elisabethball19-netizen/meal-rotation/blob/investigate/persisted-rotation-state/docs/rotation-diagnostics.html
+
+Share this handoff with ChatGPT: https://github.com/elisabethball19-netizen/meal-rotation/blob/investigate/persisted-rotation-state/docs/meal-rotation-fix-handoff.md
