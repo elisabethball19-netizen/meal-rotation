@@ -1,5 +1,7 @@
 # Meal Rotation bug-fix handoff
 
+Latest delivery: [PR #80 — skipped empty-slot turn correction](https://github.com/elisabethball19-netizen/meal-rotation/pull/80). PR #79 is merged; its earlier status entries below are historical. See the final follow-up section for current findings and validation.
+
 Date: November 6, 2026
 
 ## Review links and status
@@ -177,4 +179,11 @@ No new failures occurred in these targeted passing checks. The three older basel
 
 ### Review status
 
-The follow-up branch is ready for review of this narrow correction. Do not merge or deploy automatically. The pull-request link is recorded below after creation.
+The follow-up branch is ready for review of this narrow correction. Do not merge or deploy automatically.
+
+- Follow-up PR: https://github.com/elisabethball19-netizen/meal-rotation/pull/80
+- Implementation commit: `a561051b50164c7961a2894a5941e6cb8e92e84f`
+- Branch: `fix/skipped-empty-slot-turns`
+- Share this handoff: https://github.com/elisabethball19-netizen/meal-rotation/blob/fix/skipped-empty-slot-turns/docs/meal-rotation-fix-handoff.md
+
+The PR is open and unmerged. Mergeability is checked through the live pull-request API after the documentation update; the initial creation response may precede GitHub's mergeability calculation.
