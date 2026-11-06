@@ -25,12 +25,14 @@ Then replay:
 python tests/persisted_rotation_upgrade_browser.py
 ```
 
-The two successful pre-#80-history tests pass. Four tests are explicitly marked `expectedFailure`: pre-#79 and legacy-empty cases in both HTML files. These are **known unfixed algorithm compatibility failures**, not evidence that the app is fixed. Once a correction makes them pass, unittest reports unexpected success until the expected-failure annotations are removed.
+PR #82 verification now requires both the pre-#79 and pre-#80 after-cycle fixtures to pass on both HTML files (four tests). The earlier missing-deferral failure is no longer marked expectedFailure.
 
-Current repeated outcomes (three Rotate Meals / reload / Rotate Back / reload rounds):
+Only the two constructed legacy-empty-flag probes remain `expectedFailure`. They represent `cycleSlotChoices.empty` without a `weekSchedule` marker, unlike the user's confirmed temporary “Empty this week” state. These remain known unfixed schema probes, not passing rotation behavior. Once fixed, unittest reports unexpected success until the annotations are removed.
 
-- Pre-#79: Pot Roast/Pernil on all three forward rotations; this does not match the user's correct Saturday.
-- Pre-#80 ordinary saved history: Beef Bowls/Pot Roast on all three.
-- Constructed legacy empty flag: Beef Bowls/Spaghetti first, then Beef Bowls/Pot Roast. Rotate Back does not reproduce the user's consistently empty Sunday, so this alone does not establish the live cause.
+Current PR #82 repeated outcomes (three Rotate Meals / reload / Rotate Back / reload rounds):
 
-No fixture resets or clears storage during the replay. Assertions verify that loading the app has not rewritten the saved history before user actions, recipe data remains unchanged, and the test app leaves production storage untouched.
+- Pre-#79: Beef Bowls/Pot Roast in all three rounds. Before #82 this was Pot Roast/Pernil.
+- Pre-#80 ordinary saved history: Beef Bowls/Pot Roast in all three rounds.
+- Constructed legacy empty flag: Beef Bowls/Spaghetti first, then Beef Bowls/Pot Roast, unchanged from the base branch. This does not reproduce the confirmed temporary empty marker.
+
+No fixture resets or clears storage during replay. Assertions verify that loading the app has not rewritten saved history before user actions, recipe data remains unchanged, and the test app leaves production storage untouched. Fixtures are synthetic; the private backups referenced as (20)/(21) are not available in this workspace.

@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: [draft investigation PR #81](https://github.com/elisabethball19-netizen/meal-rotation/pull/81). PR #80 is merged, but the user still reproduces the live failure. The final persisted-state investigation section supersedes earlier resolution claims. This draft investigation awaits a private, anonymized report; it is not an application fix. Earlier PR #79/#80 delivery notes are historical.
+Latest status: [PR #82](https://github.com/elisabethball19-netizen/meal-rotation/pull/82) now contains a targeted stale-pin correction with passing controlled browser replay. Private backups (20)/(21) were not accessible, so exact-state verification remains pending and the PR stays draft. See the final section; earlier investigation status is historical.
 
 Date: November 6, 2026
 
@@ -246,3 +246,49 @@ Private collection instructions: https://github.com/elisabethball19-netizen/meal
 Standalone offline tool (download the raw HTML and open locally; no merge/deployment required): https://github.com/elisabethball19-netizen/meal-rotation/blob/investigate/persisted-rotation-state/docs/rotation-diagnostics.html
 
 Share this handoff with ChatGPT: https://github.com/elisabethball19-netizen/meal-rotation/blob/investigate/persisted-rotation-state/docs/meal-rotation-fix-handoff.md
+
+## PR #82 verification and correction
+
+PR: https://github.com/elisabethball19-netizen/meal-rotation/pull/82
+
+Branch: `fix/hidden-weekend-rotation-state`. The PR currently targets the investigation branch (`investigate/persisted-rotation-state`); that existing stacked relationship is preserved. Nothing is merged or deployed.
+
+### Root cause verified in the stored-state reproduction
+
+A temporary Sunday empty/one-time slot hides the underlying automatic selection. Three persisted maps can still identify the old meal: `weekdayMealOverrides`, `cycleRetainedSlots`, and `cycleSlotChoices`. Removing the temporary marker can revive that automatic pin.
+
+The initial PR #82 cleanup block passed its three isolated tests, but a full browser replay still returned Beef Bowls/Spaghetti. The subsequent deferred-turn logic promoted the hidden alternative into the due set, effectively undoing the cleanup. Conversely, unconditionally avoiding the hidden meal incorrectly changed a normal empty week: a legitimate Sunday Pot Roast was replaced by Pernil, even though the hidden meal had not been consumed.
+
+The correction distinguishes an unfinished hidden manual choice from a stale automatic pin, and treats an unconsumed hidden recipe as eligible rather than consumed. It rebuilds preferences for affected temporary-slot groups using explicit deferred originals plus the existing automatic candidate order, while reserving selections belonging to other visible or hidden slots/tabs. The old metadata-poor pre-#79 case also works now: when Saturday's original identity is absent, earlier eligible queue entries are considered before assigning Sunday's one known deferred original to Saturday.
+
+The origin of the particular retained flag in private backups (20)/(21) has not been established here. Those files were not accessible in the workspace or linked from PR #82. The new retained-pin case is built from a copy of the repository's synthetic persisted fixture and models the shape shown by the PR, not the user's actual backup. Do not claim exact live-backup verification.
+
+### Changes
+
+- Release hidden automatic override/pin state when its temporary slot rotates. Preserve blocked linked parents and explicit manual choices.
+- Do not create an `avoidMealId` merely because a meal was hidden; it was not consumed.
+- Do not promote a hidden alternative ahead of earlier eligible recipes. Prefer known deferred originals, use normal date/Favorites candidate ranking for metadata-poor fallback, and suppress already outgoing or reserved meals when distinct eligible choices exist.
+- Respect reservations in other tabs even when their meals are themselves temporarily hidden.
+- Preserve existing rotation handling for groups without temporary slots. The final allocator still resolves linked priorities, filters, and unavoidable-repeat fallback.
+- Apply identical application edits to `index.html` and `meal-rotation-test.html`. No styling, navigation, recipe fields, storage keys, or schema versions were changed. No migration/reset or history deletion workaround was introduced.
+- Expand the three pin-cleanup tests to 14 checks across both HTML files and add full persisted browser replay coverage. Remove the pre-#79 expected-failure annotations now that those historical upgrades pass.
+
+### Tests and results
+
+- `node --test tests/hidden-rotation-pins.test.cjs`: 14 passing checks for both HTML files, including other-plan/unassigned-group isolation, manual/self-deferred choices, and blocked linked parents.
+- `hidden_rotation_replay_browser.py`: 22 passing cold-storage scenarios (11 per app), each with three forward/reload/back/reload rounds followed by three consecutive forward rotations. Covers stale retained pins, ordinary empty weeks, manual/self-deferred/deferred-manual choices, whole-day empties, Favorites, linked recipes, visible and hidden cross-tab reservations, and legacy candidate ranking. Verifies recipe data, grocery checks, permanent ingredient selections, opaque saved settings, backup validation, sandbox isolation, and no JavaScript errors. The stale-pin scenario fails on the initial PR #82 implementation with Sunday Spaghetti, and passes after the correction with Sunday Pot Roast.
+- `skipped_empty_rotation_browser.py`: all 30 fixture scenarios pass on production/test HTML (24 PASS summaries).
+- `skip_this_week_browser.py`: all 22 cases pass.
+- `grocery_rotation_checks_browser.py`: all 16 cases pass, including fractions, repeated ingredients, linked recipes, partial/full rotation, other tabs, Undo/Rotate Back, backups, and reload.
+- `deferred_rotation_gestures_browser.py`: all 6 reported cases pass, including touch tap, hold/release, cancellation, dragging, and actual native vertical scrolling.
+- Relevant Stage 1 empty, one-time, and manual/linked-Idea checks pass on both HTML files. Existing weekly all-rotation with Mark Cooked enabled passes on both. Ten normal weighted Favorites cycles preserve the established sequence on both apps.
+- `persisted_rotation_upgrade_browser.py`: four historical upgrade cases pass (pre-#79 and pre-#80 on both HTML files). Two constructed legacy `cycleSlotChoices.empty` probes remain explicitly expected failures, unchanged from the base; they lack the temporary `weekSchedule` marker confirmed in the user's report and are not represented as fixed.
+- A source-diff comparison confirms identical application edits with only the pre-existing test-only differences preserved.
+
+No unexpected failures or JavaScript errors occurred in the targeted passing checks. The full older Stage 1 runner also reaches an obsolete assertion requiring visible `.week-reorder-handle` controls; this fails on unchanged base too, because those controls were intentionally removed earlier. Its relevant empty/one-time/manual cases were run separately, and the current mobile gesture suite passes. The three previously documented unrelated baseline suite failures were not broadened into this fix or claimed resolved.
+
+### Scope of verification
+
+Testing used disposable browser contexts and copies of synthetic saved-state/history fixtures. No actual saved meal data was accessed, reset, or edited. All generated changes stay on PR #82. Its draft status remains appropriate until copies or private anonymized reports for backups (20)/(21) are available for exact-state replay; the existing collection guide remains available without requiring a merge/deployment.
+
+Current handoff: https://github.com/elisabethball19-netizen/meal-rotation/blob/fix/hidden-weekend-rotation-state/docs/meal-rotation-fix-handoff.md

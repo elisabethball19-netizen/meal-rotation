@@ -1,6 +1,7 @@
 """Replay committed pre-fix storage, not a newly initialized app.
 
-Two proven compatibility failures are marked expectedFailure, not reported fixed.
+The constructed legacy empty-flag probe remains an expectedFailure.
+Full pre-#79 and pre-#80 saved-history upgrades must pass.
 These fixtures are synthetic; none contains the user's saved app data.
 """
 import json
@@ -62,7 +63,7 @@ def case(filename,fixture):
 
 for filename,tag in [('index.html','production'),('meal-rotation-test.html','sandbox')]:
     setattr(PersistedUpgrade,'test_pre80_saved_history_'+tag,case(filename,'pre80-after-cycle.json'))
-    setattr(PersistedUpgrade,'test_pre79_missing_both_deferrals_'+tag,unittest.expectedFailure(case(filename,'pre79-after-cycle.json')))
+    setattr(PersistedUpgrade,'test_pre79_missing_both_deferrals_'+tag,case(filename,'pre79-after-cycle.json'))
     setattr(PersistedUpgrade,'test_legacy_empty_slot_'+tag,unittest.expectedFailure(case(filename,'pre80-legacy-empty.json')))
 
 if __name__=='__main__':unittest.main(verbosity=2)
