@@ -5285,19 +5285,28 @@ function removeOccasionalMeal(day){
  saveWeekdayMealOverrides();reconcileRotatedGroceryChecks(before,[]);persist();renderList();
 }
 function openDayCategoryPicker(day){
+ const initiatingControl=document.activeElement,inert=[...document.body.children].map(el=>[el,el.inert]);
  const shade=document.createElement('div');shade.style.cssText='position:fixed;inset:0;background:#0008;z-index:13000;display:grid;place-items:center;padding:18px';
  const panel=document.createElement('div');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','weekdayGroupPickerTitle');panel.style.cssText='background:#fff;border-radius:14px;padding:18px;width:min(420px,100%);max-height:min(65vh,520px);overflow:hidden;display:flex;flex-direction:column';
+ // Keep focus in the active picker even when assignment rendering replaces its opener.
+ const focusable=()=>[...panel.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]')].filter(el=>el.getClientRects().length&&!el.closest('[inert]'));
+ let closed=false;
+ const containFocus=event=>{if(!closed&&!shade.inert&&!panel.contains(event.target))(focusable()[0]||panel).focus({preventScroll:true})};
+ const dismiss=()=>{if(closed)return;closed=true;document.removeEventListener('focusin',containFocus);shade.remove();for(const [el,was]of inert)if(el.isConnected)el.inert=was;const usable=el=>el?.isConnected&&el.getClientRects().length&&!el.closest('[inert]');const dayControl=document.querySelector('button.weekday-heading[data-weekday="'+day+'"]'),target=usable(initiatingControl)&&initiatingControl!==document.body?initiatingControl:dayControl;if(usable(target))target.focus({preventScroll:true})};
+ panel.tabIndex=-1;
  const heading=document.createElement('h3');heading.textContent='Choose '+day+"'s meal groups";heading.id='weekdayGroupPickerTitle';heading.style.cssText='margin:0;min-width:0;flex:1;overflow-wrap:anywhere';
  const header=document.createElement('div');header.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-shrink:0';
- const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close');close.style.cssText+=';width:44px;height:44px;min-width:44px;min-height:44px;flex:0 0 44px';close.onclick=()=>shade.remove();header.append(heading,close);panel.append(header);
- const emptyDay=document.createElement('button');emptyDay.type='button';emptyDay.className='smallbtn';emptyDay.style.minHeight='44px';emptyDay.textContent='Leave Entire Day Empty This Week';emptyDay.onclick=()=>{shade.remove();leaveWeekEmpty(day,null,true)};panel.append(emptyDay);
- if(Object.keys(weekSchedule(mealPlans.find(p=>p.id===activePlanId)).slots).some(key=>key.startsWith(day+'::'))){const resume=document.createElement('button');resume.type='button';resume.className='smallbtn';resume.textContent='Resume planned meals';resume.style.minHeight='44px';resume.onclick=()=>{shade.remove();resumeWeekSlot(day,null,true)};panel.append(resume)}
+ const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close');close.style.cssText+=';width:44px;height:44px;min-width:44px;min-height:44px;flex:0 0 44px';close.onclick=dismiss;header.append(heading,close);panel.append(header);
+ const emptyDay=document.createElement('button');emptyDay.type='button';emptyDay.className='smallbtn';emptyDay.style.minHeight='44px';emptyDay.textContent='Leave Entire Day Empty This Week';emptyDay.onclick=()=>{dismiss();leaveWeekEmpty(day,null,true)};panel.append(emptyDay);
+ if(Object.keys(weekSchedule(mealPlans.find(p=>p.id===activePlanId)).slots).some(key=>key.startsWith(day+'::'))){const resume=document.createElement('button');resume.type='button';resume.className='smallbtn';resume.textContent='Resume planned meals';resume.style.minHeight='44px';resume.onclick=()=>{dismiss();resumeWeekSlot(day,null,true)};panel.append(resume)}
  const body=document.createElement('div');body.className='weekday-group-picker-body';body.style.cssText='overflow-y:auto;min-height:0;flex:1;overscroll-behavior:contain';panel.append(body);
  const assigned=getDayCategories(day);
  for(const cat of getCategoryButtonOrder()){const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;padding:4px;min-height:36px';const cb=document.createElement('input');cb.type='checkbox';cb.value=cat;cb.checked=assigned.includes(cat);cb.style.width='20px';cb.style.height='20px';label.append(cb,document.createTextNode(cat));body.append(label)}
  const pairBox=document.createElement('div');body.append(pairBox);
  for(const cb of body.querySelectorAll(':scope > label > input[type=checkbox]')){cb.dataset.groupChoice='true';cb.addEventListener('change',()=>{const selected=[...body.querySelectorAll('input[data-group-choice]:checked')].map(x=>x.value);setDayCategories(day,selected.length?selected:[EMPTY_DAY_ASSIGNMENT]);buildSidePairControls(pairBox,day);if(tutorialStage==='3'&&selected.length)setTutorialStage('done')})}buildSidePairControls(pairBox,day);
- shade.append(panel);shade.onclick=e=>{if(e.target===shade)shade.remove()};document.body.append(shade);
+ shade.append(panel);shade.onclick=e=>{if(e.target===shade)dismiss()};
+ shade.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();dismiss();return}if(e.key==='Tab'){const controls=focusable(),first=controls[0]||panel,last=controls.at(-1)||panel;if(!panel.contains(document.activeElement)||document.activeElement===panel||e.shiftKey&&document.activeElement===first||!e.shiftKey&&document.activeElement===last){e.preventDefault();(e.shiftKey?last:first).focus({preventScroll:true})}}};
+ for(const [el]of inert)el.inert=true;document.body.append(shade);document.addEventListener('focusin',containFocus);close.focus({preventScroll:true});
 }
 function getVisibleTopMeals(){
  if(allMealsActive)return mealPlans.flatMap(plan=>getDisplayedWeekdayMealsForPlan(plan));
