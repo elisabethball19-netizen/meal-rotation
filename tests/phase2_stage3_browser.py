@@ -19,6 +19,7 @@ stage.f.HOOK += '''window.stage3Test={
  rawSelections:()=>JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}'),
  schedule:id=>scheduleMealFromGroups(id,{planId:activePlanId,day:'Sunday',category:null,occasional:true}),
  defaultSources:id=>getGroceryContributions(true).filter(s=>String(s.mealId)===String(id)),
+ copy:()=>{chooseExistingMealsForNewGroup('Rice',true)},
  chooser:id=>openTopIngredientChooser(meals.find(m=>m.id===id)),
  exclude:id=>{const meal=meals.find(m=>m.id===id),selections=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');selections[String(id)]=[meal.ingredients[1]];localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selections));persist();render()},
  preview:()=>recipeViewer.previewProgress
@@ -96,10 +97,16 @@ def related_import_defaults(b,name,ideas=False):
 def shared_content(b,name):
  c,p,errors,_=setup(b,name);p.evaluate('stage3Test.shared');before=copy.deepcopy(stage.state(p)['meals']);rows=stage.rows(p);d=editor(p);d.get_by_role('textbox',name='Recipe notes',exact=True).fill('Shared viewer note');d.get_by_role('button',name='Save recipe',exact=True).click();after=stage.state(p)['meals'];assert [dict(m,notes=next(old['notes'] for old in before if old['id']==m['id'])) for m in after]==before;assert all(m['notes']=='Shared viewer note' for m in after if m['id'] in [1,3]);assert stage.rows(p)==rows;clean(errors);c.close();print('PASS',name,'shared recipe content propagates while membership, Favorites, statuses and schedules stay intact',flush=True)
 
+def copied_membership_exclusions(b,name):
+ c,p,errors,_=setup(b,name);target={'planId':'original','day':'Tuesday','category':'Rice','occasional':False};d=s2.create_dialog(p,target);s2.fill_recipe(d,'Membership exclusion recipe',rotation=True,groceries=True);d.get_by_role('button',name='Save recipe and schedule',exact=True).click();record=next(m for m in stage.state(p)['meals'] if m['name']=='Membership exclusion recipe')
+ p.evaluate('stage3Test.chooser',record['id']);chooser=p.locator('[data-recipe-edit-draft]').filter(has=p.get_by_text('Add ingredients to grocery list',exact=True));chooser.get_by_role('checkbox',name='2 cups rice',exact=True).uncheck();chooser.get_by_role('button',name='Save',exact=True).click();assert len(p.evaluate('stage3Test.defaultSources',record['id']))==1
+ p.evaluate('stage3Test.copy');d=p.get_by_role('dialog').filter(has_text='Add existing meals to Rice');d.get_by_role('searchbox',name='Search meals',exact=True).fill('Membership exclusion recipe');checks=d.locator('input[type=checkbox]:visible');assert checks.count()==1;checks.check();d.get_by_role('button',name='Add selected meals',exact=True).click();assert len([m for m in stage.state(p)['meals'] if m['name']=='Membership exclusion recipe'])==2
+ assert len(p.evaluate('stage3Test.defaultSources',record['id']))==1,'Copying a new membership must not override explicit ingredient exclusions';backup=p.evaluate('weekTest.storage()');p.evaluate('weekTest.restore',backup);p.reload();assert len(p.evaluate('stage3Test.defaultSources',record['id']))==1;clean(errors);c.close();print('PASS',name,'real membership copy preserves explicit ingredient exclusions through backup/reload',flush=True)
+
 if __name__=='__main__':
  with sync_playwright() as pw:
   b=pw.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
   for name in ['index.html','meal-rotation-test.html']:
    for width in [320,360]:viewer_edit(b,name,width);groceries(b,name,width)
-   groceries(b,name,320,True);defaults(b,name);failed_save(b,name);defaults_options(b,name);editor_accessibility_and_preview(b,name);quantity_and_failure_cancel(b,name);related_import_defaults(b,name);related_import_defaults(b,name,True);shared_content(b,name)
+   groceries(b,name,320,True);defaults(b,name);failed_save(b,name);defaults_options(b,name);editor_accessibility_and_preview(b,name);quantity_and_failure_cancel(b,name);related_import_defaults(b,name);related_import_defaults(b,name,True);shared_content(b,name);copied_membership_exclusions(b,name)
   b.close()

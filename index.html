@@ -7437,9 +7437,10 @@ function mealLinkedCopies(meal){
 }
 function grocerySelectionsForMeal(meal,selections){
  if(meal.temporaryMeal)return meal.ingredients||[];
- const merged=new Map();
- for(const copy of mealLinkedCopies(meal)){
-  const saved=selections&&selections[String(copy.id)],entries=Array.isArray(saved)?saved:copy.groceryDefaultAll===true?copy.ingredients:[];
+ const merged=new Map(),copies=mealLinkedCopies(meal),explicit=copies.some(copy=>Array.isArray(selections?.[String(copy.id)]));
+ // An explicit choice (including an empty list) wins over defaults on new memberships.
+ for(const copy of copies){
+  const saved=selections&&selections[String(copy.id)],entries=Array.isArray(saved)?saved:!explicit&&copy.groceryDefaultAll===true?copy.ingredients:[];
   if(Array.isArray(entries))for(const entry of entries){const line=String(entry).trim();if(line)merged.set(ingredientKey(line),line)}
  }
  return [...merged.values()];
