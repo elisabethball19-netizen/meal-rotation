@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: [PR #87](https://github.com/elisabethball19-netizen/meal-rotation/pull/87) implements the same-day group-assignment/order follow-up builds on merged PR #86. Reproduced the missing same-day confirmation and hidden saved Lunch selection on main; all focused checks pass. The user authorized automatic merge after basic checks. Earlier no-merge notes are historical.
+Latest status: unified scheduled recipe/one-time creation and consistent group-label/empty-row layout build on merged PR #87. The user authorized merge and deployment after basic technical checks. Historical creation forms described below are superseded by the latest section.
 
 Date: November 6, 2026
 
@@ -502,3 +502,32 @@ All 33 focused cases/scenarios passed, without JavaScript page errors:
 - Focused existing `manual_duplicate_meal_browser` subset: 9 passing scenarios. Standard cross-day yes/no/cancel on both pages, linked approved move, Undo, and partial Rotate Back. Includes grocery source checks, quantity handling, preserved unrelated progress/settings/assignments, linked recipes and rotation history.
 
 The initial new-fixture whole-record comparison after reload was adjusted to compare recipe IDs/content/order/rotation fields, since existing startup normalization adds default fields to minimal synthetic recipes. No production normalization logic was changed. The existing unrelated full-suite failures were not reclassified; no broad suite rerun was performed. Automatic merge is authorized once basic checks pass; GitHub Pages follows main and the user will personally verify live behavior.
+
+
+
+## Unified meal creation and consistent empty rows — November 6, 2026
+
+Base: latest main `6828cfe4fef5426c12ea18e1222bfe306b4282ba` (merged PR #87). Branch: `fix/unified-meal-creation-layout`.
+
+### Changes
+
+- Empty group labels used spans that did not inherit the existing button-only small uppercase style. Both now receive the same explicit 12px, normal-weight, muted uppercase styling, letter spacing and right alignment. Empty rows use flex centering within their existing 40px minimum; the dash stays in the normal name column, with matching right inset and existing corner treatment. No dividers, colors, group-order or gesture changes were introduced.
+- All weekday/group/change-meal selection paths use the same chooser. Its two large creation buttons and heart/Favorites filter were removed. A single existing-style plus icon beside search opens creation. Existing group lists, search, highlights, last-cooked labels, selection/save/cancel and duplicate confirmation remain intact; contextual chooser headings remain unchanged.
+- The initial Create New Recipe form now contains only Meal name, an unchecked One-time meal checkbox, Recipe Group, optional Ingredients, and Save/Cancel. Checking the checkbox changes the heading to Add One-Time Meal and hides/disables the group dropdown. Each opening resets the checkbox to unchecked. No instructions, source, notes, rotation or grocery toggles are shown initially.
+- Permanent creation reuses the existing atomic create-and-schedule transaction, its existing rotation default, group membership and ingredient grocery selection. Only the originating slot is scheduled; the full recipe editor remains available later for instructions and other details. One-time creation reuses the existing temporary-week save, expiration, grocery and restoration behavior and never adds a permanent recipe.
+- Shared viewport fitting now scrolls only the modal's inner scrolling regions to reveal focused fields. It locks background overflow and guards page scroll while open, fits to visual-viewport keyboard resize/offsets, restores original overflow/scroll and cleans listeners on close. The same behavior applies to existing one-time add/edit and recipe-viewer Edit Recipe dialogs. Save/Cancel remain reachable; unrelated dialogs were not redesigned.
+
+No queue allocation, manual/duplicate/linked rules, group order, recipe scaling, storage schema or backup migration changed. Actual user browser storage was not accessed, reset or replaced. Production/test shared edits were compared and match after normalizing their existing storage adapter names; test-only UI/storage remain isolated.
+
+### Focused evidence
+
+26 cases/scenarios passed with no JavaScript page errors:
+
+- `python tests/unified_meal_creation_browser.py`: 4 mobile cases (production/test HTML at 320px/390px). Covers consistent label typography, vertically centered dash/corners, all chooser entry contexts, toolbar without heart/large buttons, unchecked reset and cancel without writes, permanent scheduling to another recipe group without changing sibling slots, ingredient/grocery integration, later full editor, one-time add/edit/reload/expiration/Back, backup validation, keyboard geometry with reachable controls and unchanged background scroll, and production-storage isolation.
+- `python tests/retained_sunday_evidence_browser.py`: all 14 persisted Sunday/retention/Back-forward regressions passed.
+- `python tests/deferred_rotation_gestures_browser.py`: all 6 deferred-turn/Favorites and tap/hold/drag/reload/native-scroll scenarios passed on both pages.
+- `same_day_group_assignment_browser.run` at 390px on each page: 2 cases passed for the exact Saturday cancel/keep-both/move sequence, unchanged queues, one-time/linked controls, stable order, reload, rotation/back and backup-storage restore.
+
+The keyboard check simulates visual-viewport geometry in mobile Chromium; actual Android browser/PWA behavior will be verified live by the user. An early assertion incorrectly treated a legitimate Breakfast Sandwiches as the expired Lunch one-time meal; it now checks the target slot. The final four-case creation run passed. Older focused tests were updated where they expected the removed chooser buttons; the historical broad initial-creation scripts with now-removed fields were not rerun. No extensive full-suite rerun was performed.
+
+Merge and GitHub Pages deployment are authorized. Suggested live checks: confirm label/dash alignment, use plus to save a permanent meal and a one-time meal with groceries, toggle/cancel/reopen the form, and verify keyboard access to both fields and Save/Cancel in Chrome and the installed app.

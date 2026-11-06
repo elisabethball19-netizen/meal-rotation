@@ -42,7 +42,8 @@ def run(browser,filename,width):
  centered(d);d.get_by_role('button',name='Select Meal',exact=True).tap()
  chooser=p.get_by_role('dialog',name="Choose Saturday's meal",exact=True)
  assert chooser.get_by_role('button',name='Create New Recipe',exact=True).count()==1
- assert chooser.get_by_role('button',name='Add One-Time Meal',exact=True).count()==1
+ assert not chooser.get_by_role('button',name='Add One-Time Meal',exact=True).count()
+ assert chooser.get_by_role('button',name='Create New Recipe',exact=True).locator('svg').count()==1
  chooser.get_by_role('button',name='Search recipes',exact=True).tap();chooser.get_by_role('searchbox',name='Search recipes').fill('Lunch meal 1')
  chooser.locator('[data-meal-id="5"]').tap();chooser.get_by_role('button',name='Save',exact=True).tap()
  now=p.evaluate('compactTest.rows()');assert next(r for r in now if r[1]=='Breakfast')[2]=='5'
