@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: the empty-group formatting and one-time meal follow-up builds on merged PR #83. The user authorized automatic merge after focused checks for this batch. Prior no-merge instructions below are historical.
+Latest status: [PR #84](https://github.com/elisabethball19-netizen/meal-rotation/pull/84) implements the empty-group formatting and one-time meal follow-up builds on merged PR #83. The user authorized automatic merge after focused checks for this batch. Prior no-merge instructions below are historical.
 
 Date: November 6, 2026
 
@@ -371,6 +371,8 @@ These are focused checks rather than a full application-suite rerun. The previou
 
 
 ## Empty group formatting and one-time meals — November 6, 2026
+
+Pull request: https://github.com/elisabethball19-netizen/meal-rotation/pull/84
 
 Base: latest main `5a9363d2b4e0608debb00488d6aa310022be627e`, including PR #82 and PR #83. Branch: `fix/empty-group-one-time-meals`.
 
