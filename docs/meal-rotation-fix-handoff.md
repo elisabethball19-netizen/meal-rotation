@@ -1,5 +1,7 @@
 # Meal Rotation bug-fix handoff
 
+Latest delivery: [PR #80 — skipped empty-slot turn correction](https://github.com/elisabethball19-netizen/meal-rotation/pull/80). PR #79 is merged; its earlier status entries below are historical. See the final follow-up section for current findings and validation.
+
 Date: November 6, 2026
 
 ## Review links and status
@@ -112,3 +114,76 @@ No new failures occurred in these reruns. The three previously documented failur
 ### Approval status
 
 PR #79 is mergeable and ready for human approval of these targeted changes, with the existing baseline test limitations disclosed above. No automatic merge or deployment was performed. This document update does not change either application fix.
+
+
+## Follow-up: skipped empty slot still bypasses its original — November 6, 2026
+
+This section supersedes the earlier PR #79 delivery status: PR #79 has been merged. This correction starts from latest main `ba6f3b7d802338541ecc640cbfe001599e38a453` on a separate branch, `fix/skipped-empty-slot-turns`. No merge or deployment is authorized.
+
+### Reproduction and root cause
+
+The new fixture uses the reported seven-recipe order exactly: Pernil, Korean Slow-Cooker Beef Bowls, Mississippi-Style Pot Roast, Spaghetti, Tortilla Soup, Apple Braised Pork, French Dip. Saturday starts with Beef Bowls and Sunday with Pot Roast. Unlike the earlier test, Pernil precedes both originals and the recipes have distinct cooking dates.
+
+The current main has two separate UI actions: **Skip This Meal** chooses a replacement, and **Leave Empty This Week** hides the slot. The reported empty-Sunday result is reproducible after Skip's state is hidden by an empty slot. The regression covers that combination, Skip without the empty marker, and leaving the original slot empty directly. The actions themselves were not redesigned or renamed.
+
+On main, the empty-Sunday state contains:
+
+- Saturday: manual Pernil, with `deferredMealIds: ["2"]` for Beef Bowls.
+- Sunday: hidden Spaghetti, with `skipReplacement: true`, `deferredMealIds: ["3"]`, and `avoidMealId: "3"` for Pot Roast.
+- A temporary `weekSchedule` empty marker over Sunday.
+
+`rotationWeekEntries` represents Sunday as a schedule-only empty placeholder. Rotation's normal slot-reset loop skips schedule-only entries. Clearing the empty marker therefore revives the pinned Spaghetti choice, along with the old avoidance of Pot Roast. `deferredMealIds` was used to protect originals from Skip alternatives but was never handed back to next-week selection. Pot Roast was not physically moved to the queue tail or credited as consumed; the retained choice caused it to be bypassed.
+
+The new regression fails against untouched main with exactly Saturday Beef Bowls / Sunday Spaghetti. Saturday's working retention is preserved by the correction.
+
+### Correction
+
+- Collect unconsumed deferred turns only from the slots being rotated, including underlying choices hidden by empty or one-time slots.
+- Pool those IDs across the same group's rotating days and sort by their saved recipe-queue positions. Repeated skips can otherwise interleave IDs in edit order and bypass an earlier due recipe.
+- Clear the expired replacement/avoidance state and return eligible deferred recipes as ordinary automatic preferences to the existing allocator. Its filters, linked priority, reservations, and duplicate prevention remain in charge.
+- Exclude recipes actually advanced elsewhere in the same rotation. Ignore unavailable/Idea or filtered-out recipes rather than resurrecting them.
+- Leave unselected slots and ordinary empty-week allocation without deferred edits on their existing paths.
+- Recognize legacy skipped-choice metadata using `skipReplacement` / `avoidMealId` when `deferredMealIds` is absent.
+- Restore the hidden slot's underlying overrides, pins, and choice metadata during Rotate Back, as well as its empty/one-time presentation. This keeps a second forward rotation consistent.
+
+The application edits are synchronized in `index.html` and `meal-rotation-test.html`. The drag gesture implementation, styling, recipe records, storage keys, schema versions, and test-only storage differences were not changed. There is no migration and no new persistent field.
+
+### Regression evidence
+
+New test: `tests/skipped_empty_rotation_browser.py`.
+
+Passed on both HTML files:
+
+- Exact seven-meal sequence at 320 px and 360 px, including Skip plus empty, Skip alone, and direct empty.
+- Saturday Beef Bowls and Sunday Pot Roast in order after rotation; unchanged unconsumed recipe data/cooked dates.
+- Reload before rotation, reload after rotation, Rotate Back, hidden-choice restoration, and a second forward rotation.
+- Favorites plus Mark Cooked enabled; neither schedule edits nor hidden skipped originals consume Favorites credit turns.
+- Three consecutive days sharing a group, repeated manual replacements, repeated skips, whole-day empties, and distinct selections in saved queue order.
+- Partial rotations preserve unselected deferrals.
+- Unavailable deferred recipes, slot filters, cross-tab manual reservations, duplicate prevention, and ordinary empty-week order.
+- Incoming grocery quantities reset, unrelated tab checks and ingredient selections are preserved, and Rotate Back restores the prior visible grocery state.
+
+The new suite reports 24 PASS summaries covering 30 fixture scenarios. Its optional `--source-dir /path/to/clean-main` argument runs the same test against baseline HTML files. Running against main `ba6f3b7` reproduces the reported Sunday-Spaghetti assertion failure.
+
+Existing checks rerun successfully:
+
+- `deferred_rotation_gestures_browser.py`: all 6 reported cases, including mobile tap, hold/release with jitter, cancellation, drag/reload, and native vertical scrolling.
+- `skip_this_week_browser.py`: all 22 cases.
+- `grocery_rotation_checks_browser.py`: all 16 cases, including linked meals, retained checks, partial/full rotation, Undo, Rotate Back, backups, and reload.
+- Existing Stage 1 empty and one-time meal checks: both checks pass on both files, including linked/dependent sides and history.
+- Existing weekly all-rotation check with Mark Cooked enabled: passes on both files.
+- Ten normal weighted Favorites rotations per app preserve the prior sequence `1, 2, 3, 4, 1, 2, 1, 3, 4, 1`.
+- Final synchronization check confirms identical application edit blocks with pre-existing test-only differences preserved.
+
+No new failures occurred in these targeted passing checks. The three older baseline failures documented above are separate findings; their full suites were not rerun or claimed fixed as part of this narrow correction. The newly reproduced failure is specifically the hidden skipped-slot regression, now passing with the correction. Testing used mobile Chromium emulation, not physical devices or every browser.
+
+### Review status
+
+The follow-up branch is ready for review of this narrow correction. Do not merge or deploy automatically.
+
+- Follow-up PR: https://github.com/elisabethball19-netizen/meal-rotation/pull/80
+- Implementation commit: `a561051b50164c7961a2894a5941e6cb8e92e84f`
+- Branch: `fix/skipped-empty-slot-turns`
+- Share this handoff: https://github.com/elisabethball19-netizen/meal-rotation/blob/fix/skipped-empty-slot-turns/docs/meal-rotation-fix-handoff.md
+
+The PR is open and unmerged. Mergeability is checked through the live pull-request API after the documentation update; the initial creation response may precede GitHub's mergeability calculation.

@@ -6325,7 +6325,17 @@ function rotateSelectedBack(selected,restoreAll=false){
  // Keep unselected meals and current edits intact; restore only selected slots.
  for(const item of desired){
   const plan=mealPlans.find(p=>p.id===item.planId);
-  if(item.scheduleOnly){const old=previous.mealPlans.find(p=>p.id===item.planId),key=temporarySlotKey(item.day,item.cat);editableWeekSchedule(plan).slots[key]=JSON.parse(JSON.stringify(old.weekSchedule.slots[key]));continue}
+  if(item.scheduleOnly){
+   const old=previous.mealPlans.find(p=>p.id===item.planId),key=temporarySlotKey(item.day,item.cat);editableWeekSchedule(plan).slots[key]=JSON.parse(JSON.stringify(old.weekSchedule.slots[key]));
+   // Rotating a hidden slot may reopen its deferred original. Restore the
+   // underlying choice as well as the empty/one-time presentation on Rotate Back.
+   const keys=item.cat==='@day'?new Set(['weekdayMealOverrides','cycleRetainedSlots','cycleSlotChoices'].flatMap(field=>Object.keys(old[field]||{}).concat(Object.keys(plan[field]||{}))).filter(key=>key.startsWith(item.day+'::'))):new Set([weekdaySlotKey(item.day,item.cat)]);
+   const raw=plan.weekdayCategories?.[item.day],groups=Array.isArray(raw)?raw:[raw];if(item.cat==='@day'||groups[0]===item.cat)keys.add(item.day);
+   for(const field of ['weekdayMealOverrides','cycleRetainedSlots','cycleSlotChoices'])for(const key of keys){
+    plan[field]={...(plan[field]||{})};if(Object.hasOwn(old[field]||{},key))plan[field][key]=JSON.parse(JSON.stringify(old[field][key]));else delete plan[field][key];
+   }
+   continue;
+  }
   clearTemporarySlot(plan,item.day,item.cat);
   const priorPlan=previous.mealPlans.find(p=>p.id===item.planId),priorChoice=priorPlan?.cycleSlotChoices?.[weekdaySlotKey(item.day,item.cat)],dependent=!!pairedMainGroup(priorPlan,item.day,item.cat),substitution=priorPlan?.cycleSlotChoices?.[weekdaySlotKey(item.day,item.cat)]?.substitution===true||!!(dependent&&plan&&!pairedMainGroup(plan,item.day,item.cat)&&item.meal.cat!==item.cat);
   if(!plan||!meals.some(m=>String(m.id)===String(item.meal.id)&&(substitution||(m.rotation&&(m.cat===item.cat||dependent)))))continue;
@@ -6514,6 +6524,45 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
   plan.cycleSlotChoices=choices;
  }
  for(const item of selected.filter(item=>item.scheduleOnly)){const plan=mealPlans.find(p=>p.id===item.planId);clearTemporarySlot(plan,item.day,item.cat)}
+ // Schedule edits defer turns, not recipes already consumed by this rotation.
+ // Pool those turns across the group's rotated days so the first new selection
+ // cannot reserve or bypass a later day's deferred recipe.
+ for(const plan of scope){
+  const oldPlan=rotationBefore.mealPlans.find(old=>old.id===plan.id),hidden=hiddenRotated.filter(item=>item.planId===plan.id);
+  const reopening=selected.filter(item=>item.planId===plan.id&&!item.scheduleOnly).concat(hidden).sort((a,b)=>orderedDays().indexOf(a.day)-orderedDays().indexOf(b.day));
+  const due=new Map(),reset=new Set();
+  for(const item of reopening){
+   if(!rotationGroupScheduled(plan,item.day,item.cat))continue;
+   const key=weekdaySlotKey(item.day,item.cat),old=oldPlan?.cycleSlotChoices?.[key];
+   const ids=old?.deferredMealIds?.length?old.deferredMealIds:old?.skipReplacement&&old.avoidMealId?[old.avoidMealId]:[];
+   if(ids.length)reset.add(key);
+   const candidates=ids.filter(id=>String(id)!==String(item.meal.id));
+   if(!due.has(item.cat))due.set(item.cat,[]);
+   for(const id of candidates)if(!linkedIds.has(String(id))&&!due.get(item.cat).includes(String(id)))due.get(item.cat).push(String(id));
+  }
+  // Only groups with deferred edits need reopening. Include their ordinary
+  // hidden meals in the same queue; a hidden skip alternative has no due turn.
+  for(const item of hidden){
+   if(!rotationGroupScheduled(plan,item.day,item.cat))continue;
+   const ids=due.get(item.cat),old=oldPlan?.cycleSlotChoices?.[weekdaySlotKey(item.day,item.cat)],id=String(item.meal.id);
+   if(ids?.length&&!old?.skipReplacement&&!manualWeekdayMealChoice(oldPlan,item.day,item.cat,id)&&!linkedIds.has(id)&&!ids.includes(id))ids.push(id);
+  }
+  // Repeated skips can interleave deferred IDs from several days. Keep their
+  // saved recipe-queue positions rather than the order of the user's edits.
+  const rank=new Map(rotationBefore.meals.map((meal,index)=>[String(meal.id),index]));
+  for(const ids of due.values())ids.sort((a,b)=>rank.get(a)-rank.get(b));
+  for(const item of reopening){
+   if(!rotationGroupScheduled(plan,item.day,item.cat))continue;
+   const key=weekdaySlotKey(item.day,item.cat),ids=due.get(item.cat)||[];
+   if(!ids.length&&!reset.has(key))continue;
+   delete plan.weekdayMealOverrides[key];delete plan.cycleRetainedSlots[key];
+   const raw=plan.weekdayCategories?.[item.day],groups=Array.isArray(raw)?raw:[raw];if(groups[0]===item.cat)delete plan.weekdayMealOverrides[item.day];
+   const blockedParents=plan.cycleSlotChoices[key]?.blockedParents||[];
+   plan.cycleSlotChoices[key]={parentId:'',avoidMealId:String(item.meal.id),blockedParents};
+   const possible=automaticSlotCandidates(plan,item.day,item.cat),next=ids.map(id=>possible.find(meal=>String(meal.id)===id)).find(Boolean);
+   if(next){const id=String(next.id);ids.splice(ids.indexOf(id),1);plan.weekdayMealOverrides[key]=id;plan.cycleRetainedSlots[key]=id;plan.cycleSlotChoices[key].mealId=id;}
+  }
+ }
  for(const plan of scope)if(plan.weekSchedule&&selectedSlots===null){for(const day of new Set(selected.filter(item=>item.planId===plan.id).map(item=>item.day)))delete plan.weekSchedule.order[day]}
  for(const plan of scope){const entries=prior.get(plan.id)||[];rememberDependentSideState(plan,entries);for(const day of weekdays){const raw=plan.weekdayCategories?.[day];for(const cat of Array.isArray(raw)?raw:[raw]){if(!cat)continue;const parent=pairedMainGroup(plan,day,cat);if(!parent)continue;const owner=selected.some(item=>!item.scheduleOnly&&item.planId===plan.id&&item.day===day&&item.cat===parent),side=selected.some(item=>!item.scheduleOnly&&item.planId===plan.id&&item.day===day&&item.cat===cat);if(!owner&&!side)continue;const key=dependentSideKey(day,cat),old=plan.dependentSideState[key];plan.dependentSideState[key]={...old,...(owner?{mainId:'__rotating__'}:{}),mealId:'',automatic:false};if(owner&&!entries.some(item=>item.day===day&&item.cat===cat)){delete plan.cycleSlotChoices?.[weekdaySlotKey(day,cat)];delete plan.weekdayMealOverrides?.[weekdaySlotKey(day,cat)];delete plan.cycleRetainedSlots?.[weekdaySlotKey(day,cat)]}}}}
  const resolvingActive=mealPlans.find(plan=>plan.id===activePlanId);weekdayMealOverrides={...(resolvingActive?.weekdayMealOverrides||{})};
