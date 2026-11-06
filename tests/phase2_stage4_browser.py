@@ -68,13 +68,10 @@ def group_delete(b,name,width,duplicate=False):
   if item['cat']=='Rice':item['cat']='Destination'
  assert after==expected,('Exact IDs and all recipe fields',after,expected)
  remaining_checks={item['id']:(item['checked'],item['line']) for item in p.evaluate('weekTest.sources()')};assert checks.keys()&remaining_checks.keys();assert all(remaining_checks[key]==checks[key] for key in checks.keys()&remaining_checks.keys()),'Unaffected grocery occurrences keep checks and quantities'
+ unrelated={key:value for key,value in checks.items() if json.loads(json.loads(key)[0])[:2]!=['original','Tuesday']};assert unrelated;assert all(remaining_checks.get(key)==value for key,value in unrelated.items()),'No unrelated contribution may disappear'
  p.locator('#undo').click();assert records(p)==old,'Undo must restore exact records and IDs'
  undo_checks={item['id']:(item['checked'],item['line']) for item in p.evaluate('weekTest.sources()')};assert undo_checks.keys()==checks.keys();assert all(undo_checks[key][0]==value[0] for key,value in checks.items()),'Undo preserves every checked occurrence'
- if not duplicate:assert undo_checks==checks,'Non-merge Undo restores exact grocery quantities'
- else:
-  # Existing merge Undo can lose scales on restored occurrences in the changed
-  # day (documented separately). Other plan/day quantities must remain exact.
-  unrelated={key:value for key,value in checks.items() if json.loads(json.loads(key)[0])[:2]!=['original','Tuesday']};assert unrelated;assert all(undo_checks[key]==value for key,value in unrelated.items())
+ assert undo_checks==checks,'Undo restores every grocery quantity, including the merged day'
  p.evaluate('stage4Test.del','Rice');d=p.get_by_role('dialog',name='Delete “Rice” group?',exact=True);d.get_by_role('button',name='Delete group, but keep recipes',exact=True).click();d.get_by_role('combobox',name='Move recipes to group',exact=True).select_option('Destination');d.get_by_role('button',name='Confirm moving recipes and deleting group',exact=True).click();assert records(p)==expected
  assert not errors,errors;saved=storage(p);p.reload();assert records(p)==expected;p.evaluate('weekTest.restore',saved);p.reload();assert records(p)==expected;assert p.evaluate('document.documentElement.scrollWidth<=innerWidth');clean(errors);c.close();print('PASS',name,width,'group deletion keeps exact IDs/fields, duplicate',duplicate,'Cancel, Undo, safe focus, trash, reload and backup',flush=True)
 
