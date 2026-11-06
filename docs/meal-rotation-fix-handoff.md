@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: recipe-creation editor ownership, chooser controls and always-on linked tabs build on merged PR #88. Focused checks pass; the user authorized automatic merge and Pages deployment. Earlier UI/settings descriptions are historical.
+Latest status: [PR #89](https://github.com/elisabethball19-netizen/meal-rotation/pull/89) implements recipe-creation editor ownership, chooser controls and always-on linked tabs build on merged PR #88. Focused checks pass; the user authorized automatic merge and Pages deployment. Earlier UI/settings descriptions are historical.
 
 Date: November 6, 2026
 
@@ -537,6 +537,8 @@ Merge and GitHub Pages deployment are authorized. Suggested live checks: confirm
 
 
 ## Creation guard, chooser return context and linked tabs — November 6, 2026
+
+Pull request: https://github.com/elisabethball19-netizen/meal-rotation/pull/89
 
 Base: latest main `479791e269d526c3fa48831b752cf9df45b43303`, including merged PR #88. Branch: `fix/creation-guard-linked-tabs`.
 
