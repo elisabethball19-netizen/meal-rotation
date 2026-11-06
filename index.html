@@ -5986,6 +5986,15 @@ function openOneTimeMealEditor(day,cat,current=null){
  shade.dataset.recoveryDraft='one-time-meal';shade.mealRecoveryDraft={ownerId:owner,kind:'one-time-meal',capture:()=>({planId,day,cat,name:name.value,ingredients:groceries.value.split('\n')}),dirty:()=>name.value!==(current?.name||'')||groceries.value!==(current?.ingredients||[]).join('\n'),discard:()=>shade.remove()};
  actions.append(save,cancel);box.append(title,name,groceries,note,actions);shade.append(box);shade.addEventListener('keydown',e=>{if(e.key==='Escape')close()});shade.onclick=e=>{if(e.target===shade)close()};document.body.append(shade);name.focus();
 }
+function openUnscheduledGroupActions(day,cat){
+ const shade=document.createElement('div');shade.className='recipe-timer-dialog';
+ const box=document.createElement('div');box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','Empty group options');
+ const close=()=>shade.remove();appendRotationCloseHeader(box,day+' · '+cat,close);
+ for(const [label,fn] of [['Move Meal Into Rotation',()=>navigateAfterSettings(()=>openMasterCategories(cat))],['Add One-Time Meal',()=>openOneTimeMealEditor(day,cat)]]){
+  const button=document.createElement('button');button.type='button';button.className='smallbtn';button.style.minHeight='44px';button.textContent=label;button.onclick=()=>{close();fn()};box.append(button);
+ }
+ shade.append(box);shade.onclick=e=>{if(e.target===shade)close()};shade.onkeydown=e=>{if(e.key==='Escape')close()};document.body.append(shade);box.querySelector('button')?.focus();
+}
 function openWeekEmptyActions(day,cat){
  const shade=document.createElement('div');shade.className='recipe-timer-dialog';const box=document.createElement('div');box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','Empty meal options');appendRotationCloseHeader(box,day+' · Empty this week',()=>shade.remove());
  for(const [label,fn] of [['Change meal',()=>openWeekdayMealChooser(day,cat==='@day'?null:cat,null,cat==='@day')],['Resume planned meal',()=>resumeWeekSlot(day,cat)],['Leave Entire Day Empty This Week',()=>leaveWeekEmpty(day,null,true)]]){const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=label;b.onclick=()=>{shade.remove();fn()};box.append(b)}shade.append(box);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.onkeydown=e=>{if(e.key==='Escape')shade.remove()};document.body.append(shade);
@@ -7444,13 +7453,16 @@ displayedTop.forEach(entry=>{
   }
 if(!top){
  const blank=document.createElement('div');blank.className='empty-weekday-meal';blank.dataset.scheduleDay=day;blank.dataset.category=c||'';
- if(temporaryEmpty){blank.textContent=(c==='@day'?'':c+' · ')+'Empty this week';blank.setAttribute('role','button');blank.tabIndex=0;blank.style.cssText='background:'+colorForDay(day)+';padding:10px 14px;min-height:44px;color:#777;cursor:pointer';blank.onclick=()=>openWeekEmptyActions(day,c);blank.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openWeekEmptyActions(day,c)}};list.append(blank);return}
- if(needsRotation&&c){
-  const paired=pairedMainGroup(currentPlan,day,c);
-  blank.textContent=c+' · '+(paired?'No matching side in rotation':'Move a meal into rotation to display it here.');blank.setAttribute('role','button');blank.tabIndex=0;
-  blank.style.cssText='background:'+colorForDay(day)+';padding:10px 14px;min-height:44px;color:#777;cursor:pointer';
-  blank.onclick=()=>paired?openWeekdayMealChooser(day,c,null):navigateAfterSettings(()=>openMasterCategories(c));
-  blank.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();blank.click()}};list.append(blank);return;
+ if(temporaryEmpty||needsRotation&&c){
+  const paired=pairedMainGroup(currentPlan,day,c),line=document.createElement('div');line.className='top-meal-title-line';
+  const message=document.createElement('button');message.type='button';message.className='mealname';message.style.color='#777';
+  message.textContent=temporaryEmpty?'Empty this week':paired?'No matching side in rotation':'Move a meal into rotation to display it here.';
+  message.onclick=()=>temporaryEmpty?openWeekEmptyActions(day,c):paired?openWeekdayMealChooser(day,c,null):openUnscheduledGroupActions(day,c);
+  line.append(message);
+  if(c&&c!=='@day'){
+   const tag=document.createElement('button');tag.type='button';tag.textContent=c;tag.className='top-meal-category clickable-group-heading top-meal-inline-category';tag.title='Open '+c+' in Meal Groups';tag.setAttribute('aria-label','Open '+c+' group in Meal Groups');tag.onclick=()=>navigateAfterSettings(()=>openMasterCategories(c));line.append(tag);
+  }
+  blank.style.cssText='background:'+colorForDay(day)+';padding:10px 16px 10px 14px;min-height:44px;color:#777';blank.append(line);list.append(blank);return;
  }
  blank.textContent=needsRotation?'Move a meal into rotation to display it here.':(meals.length===0?'Tap to choose a meal group':'No meal planned');blank.style.cursor='pointer';blank.onclick=()=>!getDayCategories(day).length?openWeekdayCard(day):(needsRotation?openDayGroupForRotation(day):openDayCategoryPicker(day));blank.style.cssText='background:'+colorForDay(day)+';padding:10px 14px 14px;color:#777;border-radius:0 0 8px 8px;font-size:16px';
  list.append(blank);return;
@@ -9124,5 +9136,6 @@ try{rotationCalendarTrackingReady=true;render();window.history.replaceState({...
   schedule();
 })();
 </script><script src="./pwa.js" defer></script></body></html>
+
 
 
