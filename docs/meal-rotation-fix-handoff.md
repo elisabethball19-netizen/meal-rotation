@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: [PR #89](https://github.com/elisabethball19-netizen/meal-rotation/pull/89) implements recipe-creation editor ownership, chooser controls and always-on linked tabs build on merged PR #88. Focused checks pass; the user authorized automatic merge and Pages deployment. Earlier UI/settings descriptions are historical.
+Latest status: linked-side restoration, shared full meal creation, occurrence-scoped groceries and scheduled-meal favorites are ready for PR review. This batch is **not authorized to merge or deploy without the user's approval**. That instruction supersedes earlier automatic-merge notes below.
 
 Date: November 6, 2026
 
@@ -565,3 +565,47 @@ No rotation, group-order, duplicate confirmation, scaling, ingredient parsing, l
 The first new test needed to return from the group-editor test context to My Rotation after history replay; no production view/navigation behavior was changed for that test setup. Existing chooser/tabs test expectations were updated for the approved restored button, cancel return context and always-on tabs; the broad historical tabs suite was not rerun. This was focused mobile Chromium testing rather than an extensive full-suite or physical-device session.
 
 Merge and Pages deployment are authorized. Suggested live checks: create and cancel from an empty Friday/Saturday slot, confirm the same chooser returns on cancel, and open/close linked tabs after previously disabling the old setting.
+
+
+
+## Linked-side restoration, full editor, occurrence groceries and popup heart — November 6, 2026
+
+Base: latest main `664d1eb935a768fc831973e135ea7437bd9741d6`, including merged PR #89. Branch: `fix/linked-restoration-full-editor-groceries`. Status: review branch only; main and GitHub Pages are unchanged.
+
+### Implementation
+
+**Restore hidden linked sides.** A scheduled parent's action menu lists a separate Restore [side name] action for each side actually suppressed by weekly empty-slot, exclusion or blocked-parent state. Duplicate relationship IDs do not create duplicate buttons. Restoration changes only that plan/day's relevant side placement and suppression, retains permanent links, and leaves other occurrences alone. It supports inline sides and independently assigned side groups. Restoring one of several sides does not restore the others or move an already rotating side to the front of its queue.
+
+Weekly held grocery checks are retained in existing temporary-slot checks and an optional validated `weekSchedule.linkedGroceryChecks` map. Restoration preserves available checks and leaves newly required source lines unchecked. Old four-component held checks remain readable. A matching side-only rotation snapshot can supply older checks only when the same parent occurrence is still present and that parent was not cycled. Data that was never retained in a legacy save is not reconstructed; absent historical check evidence remains unchecked.
+
+**One full editor for scheduled creation.** The chooser plus icon now reads Create New Meal and launches the actual Meal Groups `renderEditor`, rather than a second simplified form. The existing name/group/rotation controls, Timing, Organization, Recipe, ingredients/instructions/URL/import/link controls, Notes & Reminders and validation are reused. Creation's group label is Meal Group. The One-time meal checkbox is unchecked for every new draft; rich one-time edits reopen checked. All fields remain available for temporary meals, and their details survive save/edit/reload/expiry/Back.
+
+The full editor runs in a keyboard-aware modal host; nested linked controls retain their normal stacking and behavior. Its private draft is filtered from persisted recipe data and captured state. Cancel removes only the draft and returns to the original chooser; a regular save reuses atomic create-and-schedule, while a one-time save uses temporary-week state with rotation forced off. Permanent multi-group memberships and the In rotation setting are honored. The originating day, group and plan tab are retained. Rich temporary linked meals use the existing placement/suppression rules and do not consume linked recipe queue turns. No full-width Create New Recipe or Add One-Time Meal button is reintroduced in the chooser.
+
+Creation validation now tolerates newly eligible automatic candidates that remain behind an already-saved explicit empty slot, only when no prior underlying meal occupied that slot. This is a read-only validation distinction: it does not create empty flags in other meal plans or change their saved weekly empty records. It prevents a false rejection when creating a rotating meal in another tab while preserving the visible empty selections. A broader proposed mutation of unfilled slots was rejected by automatic review and was not implemented.
+
+**Independent grocery occurrences.** The former source identity was plan/day/recipe/role and grocery collection also deduplicated by cooking context. Same-recipe, same-day groups therefore collapsed. Sources now include the scheduled group's stable identity as a fifth identity component, and collection deduplicates by that occurrence. Each duplicate contributes its own quantities and checked state; removing one leaves the others intact. Existing aggregation, fractions, unmeasured ingredients, ingredient selections, scaling context and shopping splits remain.
+
+Compatibility: the V1 grocery ledger accepts both legacy four-component and new five-component identities. The existing group-identity registry supplies stable slot IDs lazily, so renaming a group does not change its grocery source IDs. Older unscoped checks are applied once to the stable original assignment order, not copied onto every duplicate or reassigned by display dragging. New quantities reconcile as unchecked. No global ingredient checks or selections are cleared. Existing backups without the optional metadata still import; new checks and weekly held checks are validated and round-trip with the registry.
+
+**Scheduled-meal heart.** Saved-recipe action popups now use the existing favorite button between title and close X, including scheduled meals. It toggles immediately through existing favorite persistence, stays open, retains selected/outline appearance and leaves schedule IDs, recipe queue order and display order unchanged. Long titles wrap without overlapping the heart/X. No favorite heart is added to the meal chooser.
+
+### Focused verification
+
+34 distinct cases/scenarios passed across production and isolated test HTML, with no JavaScript page errors:
+
+- `tests/remaining_meal_features_browser.py`: 4 mobile cases at 320px/390px. Legacy/scoped same-day duplicate groceries, other days/tabs, checked/unchecked quantity totals and removing one occurrence; display-order-safe legacy checks; inline and assigned-group side restoration, multiple individually hidden sides, newly added ingredient lines, old held checks and matching old snapshot checks; popup favorite persistence/long-title alignment; full-editor cancel, permanent/rich temporary creation, time/ingredients/instructions/URL/notes, temporary edit/reload/expiry/Back, backup validation, private-draft exclusion and simulated keyboard access without page scrolling.
+- `tests/full_editor_occurrence_boundaries_browser.py`: 2 cases at 390px. Correct originating plan tab, permanent memberships and unchecked rotation, normal rotating creation behind another tab's explicit empty state, queue-preserving side restore, nested linked picker, temporary linked recipes/memberships, editing/restoring/expiring/Back, and no permanent draft leakage.
+- `tests/retained_sunday_evidence_browser.py`: all 14 persisted Sunday/manual-retention and Back/forward regressions passed.
+- `tests/deferred_rotation_gestures_browser.py`: 6 deferred-turn/Favorites and tap/hold/drag/reload/native-scroll scenarios passed.
+- Focused `grocery_rotation_checks_browser` subset (`run`, `full_and_repeat`, `mixed_legacy_and_rename`, both pages at 360px): 6 passed, including mixed checked quantities, shared/fraction/unmeasured ingredients, cross-plan retention, full/partial rotations and Back, Undo, reload/backups/progress/settings, stable group rename IDs, and invalid-backup rejection without writes.
+- `same_day_group_assignment_browser.run`, both pages at 390px: 2 passed for cancel/keep-both/move, independent slots, one-time/linked controls, queue/order/history, reload and backup-storage restore.
+- JavaScript syntax and new Python test compilation passed. Shared application edits match after normalizing the existing production/test storage adapter names; test-only features remain isolated.
+
+The tests use copies of synthetic and legacy-format fixtures, not the user's actual saved app data. Historical simplified-form tests are superseded by the requested full-editor workflow; no exhaustive application-suite rerun was performed and earlier unrelated main-suite failures were not reclassified.
+
+### Phone verification and delivery
+
+Still requires physical-phone verification: Android keyboard/scroll/focus with the full editor in Chrome and the installed app; camera/photo/OCR and live URL imports with device permissions/network; visual/touch comfort of long titles and nested editor controls; and the user's actual previously hidden-side state/check history. Simulated mobile Chromium checks do not establish those physical-device results.
+
+No actual user data was accessed, reset, cleared or reconstructed. No recipes, settings, links or rotation history were replaced as a migration. All changes remain isolated in this PR. **Do not merge or deploy until the user approves.**
