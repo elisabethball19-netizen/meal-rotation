@@ -3145,7 +3145,7 @@ function openRecipeImportReview(targets,previewCleanup=true){
       if(findRelatedImportedMeal({url:details.originalRecipeUrl},[target]))throw Error('The source points to the current recipe, so no self-link was added. No changes were saved.');
       // Check identifiers again against staged imports, so multiple parents reuse one recipe.
       match=findRelatedImportedMeal({name:details.name,url:choice.ref.url,sourceId:choice.ref.sourceId},next,target)||findRelatedImportedMeal({url:details.originalRecipeUrl},next,target);
-      if(!match){match={...details,id:nextId++,cat:target.cat,name:details.name||choice.ref.name,url:choice.ref.url,importSourceId:choice.ref.sourceId||undefined,recipeSageId:recipeSageUuidPattern.test(choice.ref.sourceId)?choice.ref.sourceId:'',rotation:relatedRotation.checked,groceryDefaultAll:true,labels:[],recipeImportPending:false};next.push(match)}
+      if(!match){match={...details,id:nextId++,cat:target.cat,name:details.name||choice.ref.name,url:choice.ref.url,importSourceId:choice.ref.sourceId||undefined,recipeSageId:recipeSageUuidPattern.test(choice.ref.sourceId)?choice.ref.sourceId:'',rotation:relatedRotation.checked,groceryDefaultAll:true,keepAsIdea:!relatedRotation.checked,labels:[],recipeImportPending:false};next.push(match)}
      }
      linked.push(match.id);
     }
@@ -3732,7 +3732,7 @@ function openCreateScheduledRecipe(target){
 function addScheduledRecipeDraft(draft,transaction){
  validateScheduleTarget(draft.target);const recipe=draft.recipe;if(!recipe||!String(recipe.name||'').trim()||!Array.isArray(recipe.ingredients)||recipe.ingredients.some(line=>typeof line!=='string')||typeof recipe.rotation!=='boolean')throw Error('Invalid recipe draft.');
  if(!cats.length&&recipe.cat==='Misc')cats.push('Misc');if(!cats.includes(recipe.cat))throw Error('Choose an existing recipe group.');
- const created={...recipe,groceryDefaultAll:true,id:id++,name:recipe.name.trim(),prep:'',cook:'',total:'',linkedMealIds:[]};meals.push(created);transaction.createdRecipeId=created.id;
+ const created={...recipe,groceryDefaultAll:true,keepAsIdea:!recipe.rotation,id:id++,name:recipe.name.trim(),prep:'',cook:'',total:'',linkedMealIds:[]};meals.push(created);transaction.createdRecipeId=created.id;
  const selections=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');selections[String(created.id)]=draft.includeGroceries?[...created.ingredients]:[];localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selections));
 }
 
@@ -4587,7 +4587,7 @@ function showRecipeImportSelection(items,filename){
    const cook=recipeImportMinutes(r.cookTime);
    const importedLabels=[...new Set(recipeImportTags(r).map(tag=>{const key=labelKey(tag);if(!canonicalLabels.has(key))canonicalLabels.set(key,tag.trim().replace(/\s+/g,' '));return canonicalLabels.get(key)}))];
    const importedDetails=completeRecipeFields(r);
-   const base={recipeImportReferences:importedDetails.recipeImportReferences,recipeImportPending:!importedDetails.instructions.some(b=>b.type==='step')&&!!(recipeImportUrl(r)||importedDetails.originalRecipeUrl),instructions:importedDetails.instructions,notes:importedDetails.notes,originalRecipeUrl:importedDetails.originalRecipeUrl,name:r.name.trim(),labels:importedLabels,rotation:importRotation.checked,groceryDefaultAll:true,prep,cook,total:total!==''?total:(prep!==''&&cook!==''?Number(prep)+Number(cook):''),marinate:importedDetails.marinate,url:recipeImportUrl(r),sourceUrl:recipeImportSourceUrl(r),recipeSageId:/^[0-9a-f]{8}-/.test(sourceId)?sourceId:'',importSourceId:sourceId,ingredients:importedDetails.ingredients};
+   const base={recipeImportReferences:importedDetails.recipeImportReferences,recipeImportPending:!importedDetails.instructions.some(b=>b.type==='step')&&!!(recipeImportUrl(r)||importedDetails.originalRecipeUrl),instructions:importedDetails.instructions,notes:importedDetails.notes,originalRecipeUrl:importedDetails.originalRecipeUrl,name:r.name.trim(),labels:importedLabels,rotation:importRotation.checked,groceryDefaultAll:true,keepAsIdea:!importRotation.checked,prep,cook,total:total!==''?total:(prep!==''&&cook!==''?Number(prep)+Number(cook):''),marinate:importedDetails.marinate,url:recipeImportUrl(r),sourceUrl:recipeImportSourceUrl(r),recipeSageId:/^[0-9a-f]{8}-/.test(sourceId)?sourceId:'',importSourceId:sourceId,ingredients:importedDetails.ingredients};
    const group=categories.length>1?'imported-'+(sourceId||nextId):'';
    categories.forEach(cat=>{const meal={...base,id:nextId++,cat,linkGroup:group,ingredients:[...base.ingredients]};newMeals.push(meal);enrichIds.push(meal.id)});
    if(sourceId)existingIds.add(sourceId);
@@ -5906,7 +5906,7 @@ function reconcileActiveLinkedMeals(){
  let changed=false;
  for(const targetId of activeLinks){
   const target=meals.find(m=>String(m.id)===targetId);
-  if(!target||!automaticLinks.has(targetId))continue;
+  if(!target||!automaticLinks.has(targetId)||target.keepAsIdea===true&&!target.rotation)continue;
   const newlyActivated=!previouslyActiveLinkedIds.has(targetId);
   if(!target.rotation){target.rotation=true;changed=true}
   if(newlyActivated){
@@ -8676,6 +8676,7 @@ $('save').onclick=async()=>{
   if(!persistenceEditor.isConnected||editId!==m.id)return;
   if(JSON.stringify(captureEditorRecoveryDraft())!==validatedDraftFingerprint){await showAppMessage('Your draft changed while confirmation was open. Your latest changes are still here; save again to validate them.');return}
   const fields=sharedRecipeChanges(m,next);for(const [field,key]of [['name','name'],['marinate','marinate'],['ingredients','ingredients'],['instructions','recipeInstructions'],['notes','recipeNotes'],['url','url']])if($(key).value===savedEditorDraft[field])delete fields[field];if($('prep').value===savedEditorDraft.prep&&$('totaltime').value===savedEditorDraft.total){delete fields.prep;delete fields.total;delete fields.cook}if(JSON.stringify(serveWithDraft)===savedEditorDraft.serveWith)delete fields.serveWith;if(JSON.stringify(linkedMealDraft)===savedEditorDraft.linked)delete fields.linkedMealIds;if(JSON.stringify(nextMakeAhead)===savedEditorDraft.tasks)delete fields.makeAheadTasks;if($('editNeedsTweaking').checked===savedEditorDraft.adjusting&&$('editNeedsTweakingNote').value===savedEditorDraft.adjustingNote){delete fields.needsTweaking;delete fields.needsTweakingNote}if(!$('recipeIngredientLinks').hasChanges()&&!fields.ingredients&&!fields.instructions)delete fields.ingredientStepLinks;
+  if(newRecipeDraftId===m.id)fields.keepAsIdea=!$('rotation').checked;
   try{applyRecipeBulk([String(m.id)],{}, {render:false,editor:{sourceId:String(m.id),memberships:editorMembershipDraft.map(draft=>({...draft})),fields,rotation:$('rotation').checked}})}catch(e){await showAppMessage('Recipe could not be saved: '+e.message+' Your draft is still open.');return}
   const saved=meals.find(record=>String(record.id)===String(m.id));if(newRecipeDraftId===m.id)newRecipeDraftId=null;editorCategoryBaseline=null;editorDraftCategories=null;editId=null;if(tutorialStage==='editing')setTutorialStage('3');restoreMealEditorScroll();if(saved&&importedRecipeDetailsDraft?.recipeImportReferences?.length)recipeImportNotice('Related recipe references were found. No new links have been selected.',[saved]);
 
