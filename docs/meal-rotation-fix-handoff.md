@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: the same-day group-assignment/order follow-up builds on merged PR #86. Reproduced the missing same-day confirmation and hidden saved Lunch selection on main; all focused checks pass. The user authorized automatic merge after basic checks. Earlier no-merge notes are historical.
+Latest status: [PR #87](https://github.com/elisabethball19-netizen/meal-rotation/pull/87) implements the same-day group-assignment/order follow-up builds on merged PR #86. Reproduced the missing same-day confirmation and hidden saved Lunch selection on main; all focused checks pass. The user authorized automatic merge after basic checks. Earlier no-merge notes are historical.
 
 Date: November 6, 2026
 
@@ -465,6 +465,8 @@ The keyboard check emulates visual-viewport geometry; it is not an on-device And
 
 
 ## Same-day group assignments and stable ordering — November 6, 2026
+
+Pull request: https://github.com/elisabethball19-netizen/meal-rotation/pull/87
 
 Base: latest main `003aecfc68b8ec75cdb3c46c8fa08563ef958ea2`, including merged PR #86. Branch: `fix/same-day-slot-assignments-order`.
 
