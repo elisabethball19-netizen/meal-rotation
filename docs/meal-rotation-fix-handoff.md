@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: linked-side restoration, shared full meal creation, occurrence-scoped groceries and scheduled-meal favorites are ready for PR review. This batch is **not authorized to merge or deploy without the user's approval**. That instruction supersedes earlier automatic-merge notes below.
+Latest status: [PR #90](https://github.com/elisabethball19-netizen/meal-rotation/pull/90) contains linked-side restoration, shared full meal creation, occurrence-scoped groceries and scheduled-meal favorites are ready for PR review. This batch is **not authorized to merge or deploy without the user's approval**. That instruction supersedes earlier automatic-merge notes below.
 
 Date: November 6, 2026
 
@@ -569,6 +569,8 @@ Merge and Pages deployment are authorized. Suggested live checks: create and can
 
 
 ## Linked-side restoration, full editor, occurrence groceries and popup heart — November 6, 2026
+
+Pull request: https://github.com/elisabethball19-netizen/meal-rotation/pull/90 (open, awaiting approval; not merged or deployed).
 
 Base: latest main `664d1eb935a768fc831973e135ea7437bd9741d6`, including merged PR #89. Branch: `fix/linked-restoration-full-editor-groceries`. Status: review branch only; main and GitHub Pages are unchanged.
 
