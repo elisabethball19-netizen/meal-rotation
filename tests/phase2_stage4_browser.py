@@ -7,7 +7,7 @@ stage=s3.stage
 stage.f.HOOK += '''window.stage4Test={
  clearPlans:()=>{for(const p of mealPlans){p.weekdayCategories={};p.weekdayMealOverrides={};p.cycleSlotChoices={};p.cycleRetainedSlots={};delete p.weekSchedule;delete p.occasionalMeals;delete p.rotationCalendar;delete p.dependentSideState}weekdayCategories={};weekdayMealOverrides={};saveActiveMealPlan();persist();render()},
  empty:(groups=true)=>{meals=[];id=1;cats=groups?['Rice','Sides']:[];active=cats[0]||'';localStorage.setItem('mealRotationSelectedIngredientsV1','{}');stage4Test.clearPlans();openMasterCategories()},
- groups:()=>openMasterCategories(),newDraft:()=>addRecipeToGroup(''),setup:()=>openRotationSetup(),full:id=>openEditor(id),
+ groups:()=>openMasterCategories(),newDraft:()=>addRecipeToGroup(''),addAlternate:()=>{meals.push({id:id++,name:'Next recipe',cat:meals[0].cat,rotation:true,ingredients:[]});persist();renderList()},setup:()=>openRotationSetup(),full:id=>openEditor(id),
  group:id=>openMasterCategoryEditMenu(id),del:id=>openCategoryDeleteDialog(id),swipe:id=>openMealSwipeMenu(meals.find(m=>m.id===id)),
  tweak:()=>{const m=meals.find(m=>m.id===1);assignRecipeTweaking(m,true,'Needs less salt.');persist();renderList()},
  destination:()=>{createMealGroup('Destination')},
@@ -98,6 +98,28 @@ def empty_collection(b,name,width,groups):
  assert not p.locator('.empty-meal-groups').count()
  saved=storage(p);p.reload();p.evaluate('stage4Test.groups()');assert records(p)[0]['name']=='First recipe'
  p.evaluate('weekTest.restore',saved);p.reload();assert records(p)[0]['name']=='First recipe'
+ p.get_by_role('button',name='Set Up Your Rotation',exact=True).tap()
+ planner=p.get_by_role('dialog',name='What day do you want to cook First recipe?',exact=True)
+ expect(planner.get_by_role('combobox',name='Group to rotate',exact=True)).to_have_count(0)
+ planner.get_by_role('button',name='Tuesday',exact=True).tap()
+ confirmation=p.get_by_role('dialog',name='Meal planned',exact=True)
+ expect(confirmation).to_contain_text('First recipe is planned for Tuesday dinner.')
+ expect(confirmation.get_by_text('Rotate Meals',exact=True)).to_be_visible()
+ expect(confirmation.locator('svg')).to_have_count(1)
+ expect(confirmation).to_contain_text(('Rice' if groups else 'My recipes')+' group')
+ confirmation.get_by_role('button',name='Done',exact=True).tap()
+ expect(p.locator('[data-schedule-day="Tuesday"]').get_by_text('First recipe',exact=True)).to_be_visible()
+ plan=next(plan for plan in s2.plans(p) if plan['id']=='original')
+ assert plan['weekdayCategories']['Tuesday']==['Rice' if groups else 'My recipes']
+ p.locator('#undo').tap()
+ assert not next(plan for plan in s2.plans(p) if plan['id']=='original')['weekdayCategories']
+ p.get_by_role('button',name='Set Up Your Rotation',exact=True).tap()
+ planner.get_by_role('button',name='Tuesday',exact=True).tap()
+ confirmation.get_by_role('button',name='Done',exact=True).tap()
+ p.evaluate('stage4Test.addAlternate()')
+ p.get_by_role('button',name='Rotate Meals',exact=True).tap()
+ p.get_by_role('button',name='Rotate out all recipes',exact=True).tap()
+ expect(p.locator('[data-schedule-day="Tuesday"]').get_by_text('Next recipe',exact=True)).to_be_visible()
  assert p.evaluate('document.documentElement.scrollWidth<=innerWidth')
  if prefix:assert p.evaluate('localStorage.getItem("mealRotationDataV1")')=='WORKING SENTINEL'
  clean(errors);c.close();print('PASS',name,width,'first recipe editor, group choice and creation, cancel, reload and backup',flush=True)
@@ -182,26 +204,19 @@ def fresh_install(b,name):
  if unassigned.get_attribute('aria-expanded')=='false':unassigned.tap()
  next_step=p.get_by_role('button',name='Add to weekly plan',exact=True)
  next_step.tap()
- picker=p.get_by_role('dialog',name='Select Meal Group',exact=True)
- picker.get_by_role('button',name='Close without changes',exact=True).tap()
- p.locator('#cancel').tap()
+ planner=p.get_by_role('dialog',name='What day do you want to cook First recipe?',exact=True)
+ planner.get_by_role('button',name='Close setup',exact=True).tap()
  assert records(p)[0]['cat']=='' and not records(p)[0]['rotation']
  next_step.tap()
- picker=p.get_by_role('dialog',name='Select Meal Group',exact=True)
- group=picker.get_by_role('checkbox').first
- group_name=group.get_attribute('value')
- group.check()
- picker.get_by_role('button',name='Apply selected groups',exact=True).tap()
- expect(p.locator('#rotation')).to_be_enabled()
- expect(p.locator('#rotation')).to_be_checked()
- p.locator('#save').tap()
- expect(next_step).to_have_count(0)
- p.get_by_role('button',name='Set Up Your Rotation',exact=True).tap()
- p.get_by_role('dialog',name='Set Up Your Rotation',exact=True).get_by_role('button',name='Monday',exact=True).tap()
- day=p.get_by_role('dialog',name="Choose Monday's meal groups",exact=True)
- day.get_by_role('checkbox',name=group_name,exact=True).check()
- day.get_by_role('button',name='Close',exact=True).tap()
+ planner.get_by_role('button',name='Monday',exact=True).tap()
+ confirmation=p.get_by_role('dialog',name='Meal planned',exact=True)
+ expect(confirmation).to_contain_text('First recipe is planned for Monday dinner.')
+ expect(confirmation.get_by_text('Rotate Meals',exact=True)).to_have_count(0)
+ confirmation.get_by_role('button',name='Done',exact=True).tap()
  expect(p.locator('[data-schedule-day="Monday"]').get_by_text('First recipe',exact=True)).to_be_visible()
+ assert not any(plan['weekdayCategories'] for plan in s2.plans(p))
+ p.get_by_role('button',name='Meal Groups',exact=True).tap()
+ expect(next_step).to_have_count(0)
  if prefix:assert p.evaluate('localStorage.getItem("mealRotationDataV1")')=='WORKING SENTINEL'
  clean(errors);c.close();print('PASS',name,'genuine fresh install retains default tabs and clear empty onboarding through reload',flush=True)
 
