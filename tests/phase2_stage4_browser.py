@@ -7,7 +7,7 @@ stage=s3.stage
 stage.f.HOOK += '''window.stage4Test={
  clearPlans:()=>{for(const p of mealPlans){p.weekdayCategories={};p.weekdayMealOverrides={};p.cycleSlotChoices={};p.cycleRetainedSlots={};delete p.weekSchedule;delete p.occasionalMeals;delete p.rotationCalendar;delete p.dependentSideState}weekdayCategories={};weekdayMealOverrides={};saveActiveMealPlan();persist();render()},
  empty:(groups=true)=>{meals=[];id=1;cats=groups?['Rice','Sides']:[];active=cats[0]||'';localStorage.setItem('mealRotationSelectedIngredientsV1','{}');stage4Test.clearPlans();openMasterCategories()},
- groups:()=>openMasterCategories(),setup:()=>openRotationSetup(),full:id=>openEditor(id),
+ groups:()=>openMasterCategories(),newDraft:()=>addRecipeToGroup(''),setup:()=>openRotationSetup(),full:id=>openEditor(id),
  group:id=>openMasterCategoryEditMenu(id),del:id=>openCategoryDeleteDialog(id),swipe:id=>openMealSwipeMenu(meals.find(m=>m.id===id)),
  tweak:()=>{const m=meals.find(m=>m.id===1);assignRecipeTweaking(m,true,'Needs less salt.');persist();renderList()},
  destination:()=>{createMealGroup('Destination')},
@@ -23,23 +23,54 @@ def records(p):return copy.deepcopy(stage.state(p)['meals'])
 def storage(p):return p.evaluate('weekTest.storage()')
 def clean(errors):assert not errors,errors
 
-def choose_first_recipe_group(page, filename, group, create=False):
- editor=page.locator('#editor')
- picker=editor.get_by_role('button',name='Edit meal groups' if filename=='index.html' else 'Group',exact=True)
- if filename!='index.html':
-  page.wait_for_timeout(850)
-  picker.evaluate("(button)=>button.scrollIntoView({block:'center'})")
- picker.tap()
+def choose_first_recipe_group(page, group, create=False):
+ page.locator('#editor').get_by_role('button',name='Edit meal groups',exact=True).tap()
  dialog=page.get_by_role('dialog',name='Choose a group for your recipe',exact=True)
  if create:
   dialog.get_by_role('textbox',name='New group name',exact=True).fill(group)
- elif filename=='index.html':
-  dialog.get_by_role('checkbox',name=group,exact=True).check()
  else:
-  dialog.get_by_role('radio',name=group,exact=True).tap()
- if filename=='index.html' or create:
-  dialog.get_by_role('button',name='Apply selected groups' if filename=='index.html' else 'Apply new group',exact=True).tap()
+  dialog.get_by_role('checkbox',name=group,exact=True).check()
+ dialog.get_by_role('button',name='Apply selected groups',exact=True).tap()
  expect(dialog).to_have_count(0)
+
+
+def compact_editor_rows(b,name,width):
+ c,p,errors,_=setup(b,name,width)
+ p.evaluate('stage4Test.newDraft()')
+ p.locator('#name').fill('Compact editor recipe')
+ fields=p.locator('#editor .meal-editor-fields')
+ card=fields.locator(':scope > .meal-card-edit-mode')
+ links=fields.locator('.meal-linked-picker-trigger')
+ groups=fields.get_by_role('button',name='Edit meal groups',exact=True)
+ expect(links).to_have_count(1);expect(groups).to_have_count(1)
+ expect(card.get_by_text('Add to rotation',exact=True)).to_be_visible()
+ expect(card.get_by_text('Linked Recipes',exact=True)).to_have_count(0)
+ expect(card.get_by_text('Meal Groups',exact=True)).to_have_count(0)
+ assert fields.evaluate("""el=>{
+  const card=el.querySelector('.meal-card-edit-mode'),links=el.querySelector('#mealCardLinkedPicker'),groups=el.querySelector('.meal-group-editor-heading');
+  return !!(card.compareDocumentPosition(links)&Node.DOCUMENT_POSITION_FOLLOWING)&&!!(links.compareDocumentPosition(groups)&Node.DOCUMENT_POSITION_FOLLOWING)
+   &&Math.abs(links.querySelector('.meal-card-links-action').getBoundingClientRect().right-groups.querySelector('button').getBoundingClientRect().right)<1;
+ }""")
+ links.tap()
+ dialog=p.get_by_role('dialog',name='Select Linked Recipes',exact=True)
+ for check in dialog.get_by_role('checkbox').all()[:3]:check.check()
+ dialog.get_by_role('button',name='Apply linked recipes',exact=True).tap()
+ expect(links).to_contain_text('+2 more')
+ groups.tap()
+ dialog=p.get_by_role('dialog',name='Choose a group for your recipe',exact=True)
+ for check in dialog.get_by_role('checkbox').all()[:3]:check.check()
+ dialog.get_by_role('button',name='Apply selected groups',exact=True).tap()
+ expect(fields.locator('.meal-group-assigned-list')).to_contain_text('+1 more')
+ p.locator('#rotation').uncheck()
+ p.locator('#save').tap()
+ expect(p.locator('#editor .editor')).to_have_count(0)
+ saved=[m for m in records(p) if m['name']=='Compact editor recipe']
+ assert len(saved)==3 and all(len(m['linkedMealIds'])==3 for m in saved),saved
+ p.reload();p.evaluate('id=>stage4Test.full(id)',saved[0]['id'])
+ expect(links).to_contain_text('+2 more')
+ expect(fields.locator('.meal-group-assigned-list')).to_contain_text('+1 more')
+ clean(errors);c.close()
+ print('PASS',name,width,'compact editor layout and persisted linked recipes and groups',flush=True)
 
 
 def empty_collection(b,name,width,groups):
@@ -53,13 +84,13 @@ def empty_collection(b,name,width,groups):
  add.focus();p.keyboard.press('Enter')
  expect(p.locator('#editor .editor')).to_be_visible()
  expect(p.locator('#rotation')).to_be_disabled()
- choose_first_recipe_group(p,name,'Discarded group',create=True)
+ choose_first_recipe_group(p,'Discarded group',create=True)
  assert 'Discarded group' not in p.evaluate('stage4Test.categories()')
  p.locator('#cancel').tap()
  assert records(p)==[] and 'Discarded group' not in p.evaluate('stage4Test.categories()')
  add.tap()
  p.locator('#name').fill('First recipe')
- choose_first_recipe_group(p,name,'Rice' if groups else 'My recipes',create=not groups)
+ choose_first_recipe_group(p,'Rice' if groups else 'My recipes',create=not groups)
  p.locator('#save').tap()
  expect(p.get_by_role('button',name='Set Up Your Rotation',exact=True)).to_be_visible()
  assert len(records(p))==1 and records(p)[0]['rotation']
@@ -167,6 +198,7 @@ if __name__=='__main__':
  with sync_playwright() as pw:
   b=pw.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
   for name in ['index.html','meal-rotation-test.html']:
+   compact_editor_rows(b,name,360)
    for width in [280,320,360]:
     for groups in [False,True]:empty_collection(b,name,width,groups)
     rotation_setup(b,name,width);group_delete(b,name,width,width==360)

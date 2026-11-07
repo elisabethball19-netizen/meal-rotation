@@ -97,19 +97,10 @@ def run(browser, filename, width):
         ideas.tap()
     sides.get_by_role('button', name='White Bean Soup', exact=True).tap()
     page.get_by_role('button', name='Edit', exact=True).tap()
-    if filename == 'index.html':
-        page.get_by_role('button', name='Edit meal groups', exact=True).tap()
-        picker = page.get_by_role('dialog', name='Select Meal Group')
-        picker.get_by_role('checkbox', name='Sides', exact=True).uncheck()
-        picker.get_by_role('button', name='Apply selected groups', exact=True).tap()
-    else:
-        group_button = page.locator('#categoryRows').get_by_role('button', name='Group', exact=True)
-        page.wait_for_timeout(850)
-        group_button.evaluate("(button) => button.scrollIntoView({block: 'center'})")
-        group_button.tap()
-        page.get_by_role('dialog', name='Select Meal Group').get_by_role(
-            'radio', name='No group', exact=True).tap()
-        expect(page.get_by_role('dialog', name='Select Meal Group')).to_have_count(0)
+    page.get_by_role('button', name='Edit meal groups', exact=True).tap()
+    picker = page.get_by_role('dialog', name='Select Meal Group')
+    picker.get_by_role('checkbox', name='Sides', exact=True).uncheck()
+    picker.get_by_role('button', name='Apply selected groups', exact=True).tap()
     page.locator('#editor').get_by_role('button', name='Save', exact=True).tap()
     expect(page.locator('#editor .editor')).to_have_count(0)
     expect(unassigned.get_by_role('button', name='Unassigned 1 meal', exact=True)).to_be_visible()
