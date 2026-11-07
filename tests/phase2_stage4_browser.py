@@ -23,16 +23,54 @@ def records(p):return copy.deepcopy(stage.state(p)['meals'])
 def storage(p):return p.evaluate('weekTest.storage()')
 def clean(errors):assert not errors,errors
 
+def choose_first_recipe_group(page, filename, group, create=False):
+ editor=page.locator('#editor')
+ picker=editor.get_by_role('button',name='Edit meal groups' if filename=='index.html' else 'Group',exact=True)
+ if filename!='index.html':
+  page.wait_for_timeout(850)
+  picker.evaluate("(button)=>button.scrollIntoView({block:'center'})")
+ picker.tap()
+ dialog=page.get_by_role('dialog',name='Choose a group for your recipe',exact=True)
+ if create:
+  dialog.get_by_role('textbox',name='New group name',exact=True).fill(group)
+ elif filename=='index.html':
+  dialog.get_by_role('checkbox',name=group,exact=True).check()
+ else:
+  dialog.get_by_role('radio',name=group,exact=True).tap()
+ if filename=='index.html' or create:
+  dialog.get_by_role('button',name='Apply selected groups' if filename=='index.html' else 'Apply new group',exact=True).tap()
+ expect(dialog).to_have_count(0)
+
+
 def empty_collection(b,name,width,groups):
- c,p,errors,prefix=setup(b,name,width);p.evaluate('stage4Test.empty',groups);before=storage(p);section=p.get_by_role('region',name='Meal Groups',exact=True);assert section.get_by_role('button',name='Import Recipes',exact=True).count()==1 and section.get_by_role('button',name='Add Recipe',exact=True).count()==1;assert not p.locator('.master-expansion-controls,.master-category-card,.master-order-reset').count()
- add=section.get_by_role('button',name='Add Recipe',exact=True);assert add.bounding_box()['height']>=44;add.focus();p.keyboard.press('Enter');d=p.get_by_role('dialog',name='Add Recipe',exact=True);d.get_by_role('button',name='Cancel',exact=True).click();assert storage(p)==before
- add.click();d=p.get_by_role('dialog',name='Add Recipe',exact=True)
- if not groups:d.get_by_role('textbox',name='New group name',exact=True).fill('My recipes')
- d.get_by_role('button',name='Continue',exact=True).click();assert p.locator('#editor .editor').is_visible() and p.locator('#rotation').is_checked();p.locator('#cancel').click();assert records(p)==[];p.get_by_role('button',name='Add Recipe',exact=True).click();p.get_by_role('dialog',name='Add Recipe',exact=True).get_by_role('button',name='Continue',exact=True).click();p.locator('#name').fill('First recipe');p.locator('#save').click();p.wait_for_function('!document.querySelector("#editor .editor")');assert len(records(p))==1 and records(p)[0]['rotation'];assert not p.locator('.empty-meal-groups').count();assert not p.get_by_role('button',name='Import Recipes',exact=True).count();assert p.get_by_role('button',name='Set Up Your Rotation',exact=True).count()==1
- saved=storage(p);p.reload();p.evaluate('stage4Test.groups()');assert records(p)[0]['name']=='First recipe';p.evaluate('weekTest.restore',saved);p.reload();assert records(p)[0]['name']=='First recipe'
+ c,p,errors,prefix=setup(b,name,width)
+ p.evaluate('stage4Test.empty',groups)
+ section=p.get_by_role('region',name='Meal Groups',exact=True)
+ expect(section.get_by_role('button',name='Import Recipes',exact=True)).to_be_visible()
+ assert not p.locator('.master-expansion-controls,.master-category-card,.master-order-reset').count()
+ add=section.get_by_role('button',name='Add Recipe',exact=True)
+ assert add.bounding_box()['height']>=44
+ add.focus();p.keyboard.press('Enter')
+ expect(p.locator('#editor .editor')).to_be_visible()
+ expect(p.locator('#rotation')).to_be_disabled()
+ choose_first_recipe_group(p,name,'Discarded group',create=True)
+ assert 'Discarded group' not in p.evaluate('stage4Test.categories()')
+ p.locator('#cancel').tap()
+ assert records(p)==[] and 'Discarded group' not in p.evaluate('stage4Test.categories()')
+ add.tap()
+ p.locator('#name').fill('First recipe')
+ choose_first_recipe_group(p,name,'Rice' if groups else 'My recipes',create=not groups)
+ p.locator('#save').tap()
+ expect(p.get_by_role('button',name='Set Up Your Rotation',exact=True)).to_be_visible()
+ assert len(records(p))==1 and records(p)[0]['rotation']
+ assert records(p)[0]['cat']==('Rice' if groups else 'My recipes')
+ assert not p.locator('.empty-meal-groups').count()
+ saved=storage(p);p.reload();p.evaluate('stage4Test.groups()');assert records(p)[0]['name']=='First recipe'
+ p.evaluate('weekTest.restore',saved);p.reload();assert records(p)[0]['name']=='First recipe'
  assert p.evaluate('document.documentElement.scrollWidth<=innerWidth')
  if prefix:assert p.evaluate('localStorage.getItem("mealRotationDataV1")')=='WORKING SENTINEL'
- clean(errors);c.close();print('PASS',name,width,'empty groups',groups,'clear actions, no empty clutter, keyboard/Cancel, creation defaults, reload/backup and isolation',flush=True)
+ clean(errors);c.close();print('PASS',name,width,'first recipe editor, group choice and creation, cancel, reload and backup',flush=True)
+
 
 def empty_import(b,name):
  c,p,errors,_=setup(b,name);p.evaluate('stage4Test.empty',False);p.get_by_role('button',name='Import Recipes',exact=True).click();d=p.get_by_role('dialog',name='Import recipes',exact=True);assert d.get_by_role('button').first.evaluate('(e)=>e===document.activeElement');p.keyboard.press('Escape');assert not d.count() and records(p)==[]
@@ -88,6 +126,7 @@ def fresh_install(b,name):
  p.route('http://stage4.test/**',lambda r:r.fulfill(content_type='text/html',body=source) if r.request.url.endswith(name) else r.fulfill(body=''));p.route('https://**/*',lambda r:r.fulfill(body=''));p.goto('http://stage4.test/'+name);assert [plan['name'] for plan in s2.plans(p)]==['Breakfast','Lunch','Dinner'];assert records(p)==[]
  start=p.get_by_role('region',name='Get started',exact=True)
  expect(start.get_by_role('button',name='Add Recipe',exact=True)).to_be_visible()
+ assert start.evaluate("(card)=>getComputedStyle(card).borderTopWidth")=='2px'
  start.get_by_role('button',name='Import Recipes',exact=True).tap()
  p.get_by_role('dialog',name='Import recipes',exact=True).get_by_role('button',name='Cancel',exact=True).tap()
  assert not p.locator('.meal-tutorial-hint').count() and records(p)==[]
@@ -98,15 +137,16 @@ def fresh_install(b,name):
  assert [plan['name'] for plan in s2.plans(p)]==['Breakfast','Lunch','Dinner'] and records(p)==[]
  p.locator('button[data-destination="top"]').tap()
  start.get_by_role('button',name='Add Recipe',exact=True).tap()
- dialog=p.get_by_role('dialog',name='Add Recipe',exact=True)
- if dialog.get_by_role('textbox',name='New group name',exact=True).is_visible():
-  dialog.get_by_role('textbox',name='New group name',exact=True).fill('First group')
- dialog.get_by_role('button',name='Continue',exact=True).tap()
+ expect(p.locator('#editor .editor')).to_be_visible()
+ expect(p.get_by_role('dialog',name='Add Recipe',exact=True)).to_have_count(0)
  p.locator('#name').fill('First recipe')
  p.locator('#save').tap()
- expect(p.get_by_role('button',name='Set Up Your Rotation',exact=True)).to_be_visible()
- expect(start).to_have_count(0)
- assert records(p)[0]['name']=='First recipe'
+ expect(p.get_by_role('button',name='Unassigned 1 meal',exact=True)).to_be_visible()
+ expect(p.get_by_role('button',name='First recipe',exact=True)).to_be_visible()
+ expect(p.get_by_role('button',name='Set Up Your Rotation',exact=True)).to_have_count(0)
+ assert records(p)[0]['name']=='First recipe' and records(p)[0]['cat']=='' and not records(p)[0]['rotation']
+ p.reload()
+ assert records(p)[0]['name']=='First recipe' and records(p)[0]['cat']==''
  if prefix:assert p.evaluate('localStorage.getItem("mealRotationDataV1")')=='WORKING SENTINEL'
  clean(errors);c.close();print('PASS',name,'genuine fresh install retains default tabs and clear empty onboarding through reload',flush=True)
 
