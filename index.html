@@ -1891,14 +1891,17 @@ function recipeAssociationItems(meal){
 // Viewer-only ordering: keep stored ingredient arrays and cooking tokens unchanged.
 // Keep ingredient section headings attached to their original ingredients.
 function recipeViewerIngredientOrder(meal,items){
- const links=validRecipeIngredientLinks(meal);
- if(!links.length)return items.ingredients;
- const stepOrder=new Map(items.steps.filter(item=>item.token&&cleanInstructionBlock(item).type!=='section').map((item,index)=>[item.token,index]));
+ // Use the same effective associations as ingredient synchronization:
+ // explicitly saved links override inferred links for each instruction step.
+ const matches=recipeIngredientMatches(meal);
  const firstUse=new Map();
- for(const link of links){
-  const rank=stepOrder.get(link.step);
-  if(rank===undefined)continue;
-  for(const token of link.ingredients)firstUse.set(token,Math.min(firstUse.get(token)??Infinity,rank));
+ let stepIndex=0;
+ for(const item of items.steps){
+  if(!item.token||cleanInstructionBlock(item).type==='section')continue;
+  for(const token of matches.get(item.token)||[]){
+   if(!firstUse.has(token))firstUse.set(token,stepIndex);
+  }
+  stepIndex++;
  }
  if(!firstUse.size)return items.ingredients;
  const sections=[{heading:null,entries:[]}];
