@@ -3552,20 +3552,36 @@ function saveWeekdayCategories(){
   if(typeof mealPlans!=='undefined')saveActiveMealPlan();
 }
 function weekdaySlotKey(day,cat){return day+'::'+cat}
+function boundOccasionalGroup(plan,day){
+ const id=plan.occasionalMeals?.[day];if(id==null)return null;
+ const prefix=day+'::';return Object.entries(plan.cycleSlotChoices||{}).find(([key,choice])=>key.startsWith(prefix)&&key!==prefix+'@day'&&choice.occasional===true&&String(choice.mealId)===String(id))?.[0].slice(prefix.length)||null;
+}
+function unassignedWeekGroupSlots(plan,day,assigned,entries=getDisplayedWeekdayMealsForPlan(plan)){
+ const linkedMasks=new Set();
+ for(const parent of entries)if(parent.day===day&&(assigned.includes(parent.cat)||parent.cat==='@day'||parent.occasional))for(const id of parent.meal.linkedMealIds||[]){const side=meals.find(meal=>String(meal.id)===String(id));if(side){linkedMasks.add(side.cat);linkedMasks.add(linkedRecipePlacement(plan,day,parent,side,entries))}}
+ const orphaned=[];for(const [key,item]of Object.entries(weekSchedule(plan).slots)){const prefix=day+'::';if(key.startsWith(prefix)){const cat=key.slice(prefix.length);if(cat!=='@day'&&!assigned.includes(cat)&&(item.kind==='once'||!linkedMasks.has(cat)))orphaned.push(cat)}}
+ const owner=boundOccasionalGroup(plan,day);if(owner&&owner!=='@day'&&!assigned.includes(owner))orphaned.push(owner);
+ return {orphaned,linkedMasks};
+}
 function setDayCategories(day,values){
   const previous=getDayCategories(day);
   const next=values.includes(EMPTY_DAY_ASSIGNMENT)?[EMPTY_DAY_ASSIGNMENT]:[...new Set(values.filter(c=>cats.includes(c)))];
   const plan=mealPlans.find(plan=>plan.id===activePlanId),occasional=meals.find(meal=>String(meal.id)===String(plan?.occasionalMeals?.[day]));
+  const occasionalOwner=boundOccasionalGroup(plan,day),removeOccasional=occasionalOwner&&!next.includes(occasionalOwner);
   const groceryBefore=captureGroceryCheckStates(),schedules=new Map(mealPlans.map(p=>[p.id,getDisplayedWeekdayMealsForPlan(p.id===activePlanId?{...p,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:p)]));
-  snapshot();preserveOtherMealPlanChoices(null,null,schedules);
-  for(const cat of new Set([...previous,...next]))if(previous.includes(cat)!==next.includes(cat)){
+  snapshot();preserveOtherMealPlanChoices(null,null,schedules);if(removeOccasional)delete plan.occasionalMeals[day];
+  const {orphaned,linkedMasks}=unassignedWeekGroupSlots(plan,day,next,schedules.get(plan.id)||[]),removed=new Set([...previous.filter(cat=>!next.includes(cat)),...orphaned,...(removeOccasional?[occasionalOwner]:[])]);
+  // Delete only unassigned group state; day-only meals and deliberate linked
+  // side masks remain valid even without an independent group assignment.
+  for(const cat of new Set([...previous,...next,...removed]))if(previous.includes(cat)!==next.includes(cat)||removed.has(cat)){
    const key=weekdaySlotKey(day,cat);delete weekdayMealOverrides[key];delete plan.cycleRetainedSlots?.[key];delete plan.cycleSlotChoices?.[key];
+   if(removed.has(cat)){if(weekSchedule(plan).slots[temporarySlotKey(day,cat)]?.kind!=='empty'||!linkedMasks.has(cat))clearTemporarySlot(plan,day,cat);const sideKey=dependentSideKey(day,cat);if(sideKey)delete plan.dependentSideState?.[sideKey]}
   }
   weekdayCategories[day]=next;
   for(const c of previous)if(!next.includes(c)){delete weekdayMealOverrides[weekdaySlotKey(day,c)];}saveWeekdayRecipeFilters();
   delete weekdayMealOverrides[day];
-  if(occasional&&next.some(cat=>cats.includes(cat))&&(next.includes(occasional.cat)||!(occasional.linkedMealIds||[]).some(id=>meals.some(meal=>String(meal.id)===String(id)&&next.includes(meal.cat))))){
-   const cat=next.includes(occasional.cat)?occasional.cat:next.find(cat=>cats.includes(cat)),key=weekdaySlotKey(day,cat);
+  if(occasional&&!removeOccasional&&(occasionalOwner||!previous.length)&&next.some(cat=>cats.includes(cat))&&(next.includes(occasional.cat)||!(occasional.linkedMealIds||[]).some(id=>meals.some(meal=>String(meal.id)===String(id)&&next.includes(meal.cat))))){
+   const cat=occasionalOwner&&next.includes(occasionalOwner)?occasionalOwner:next.includes(occasional.cat)?occasional.cat:next.find(cat=>cats.includes(cat)),key=weekdaySlotKey(day,cat);
    weekdayMealOverrides[key]=String(occasional.id);plan.cycleRetainedSlots={...(plan.cycleRetainedSlots||{}),[key]:String(occasional.id)};
    plan.cycleSlotChoices={...(plan.cycleSlotChoices||{}),[key]:{mealId:String(occasional.id),parentId:'',retain:true,substitution:true,occasional:true,blockedParents:[]}};
   }
@@ -5436,7 +5452,7 @@ function openDayCategoryPicker(day){
  const focusable=()=>[...panel.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]')].filter(el=>el.getClientRects().length&&!el.closest('[inert]'));
  let closed=false;
  const containFocus=event=>{if(!closed&&!shade.inert&&!panel.contains(event.target))(focusable()[0]||panel).focus({preventScroll:true})};
- const dismiss=afterClose=>{if(closed)return;closed=true;document.removeEventListener('focusin',containFocus);shade.remove();for(const [el,was]of inert)if(el.isConnected)el.inert=was;if(typeof afterClose==='function')afterClose();const usable=el=>el?.isConnected&&el.getClientRects().length&&!el.closest('[inert]');const dayControl=document.querySelector('button.weekday-heading[data-weekday="'+day+'"]'),target=usable(initiatingControl)&&initiatingControl!==document.body?initiatingControl:dayControl;if(usable(target))target.focus({preventScroll:true})};
+ const dismiss=afterClose=>{if(closed)return;closed=true;document.removeEventListener('focusin',containFocus);if(activePlanId===pickerPlanId){const assigned=getDayCategories(day);if(unassignedWeekGroupSlots(mealPlans.find(p=>p.id===activePlanId),day,assigned).orphaned.length)setDayCategories(day,assigned.length?assigned:[EMPTY_DAY_ASSIGNMENT])}shade.remove();for(const [el,was]of inert)if(el.isConnected)el.inert=was;if(typeof afterClose==='function')afterClose();const usable=el=>el?.isConnected&&el.getClientRects().length&&!el.closest('[inert]');const dayControl=document.querySelector('button.weekday-heading[data-weekday="'+day+'"]'),target=usable(initiatingControl)&&initiatingControl!==document.body?initiatingControl:dayControl;if(usable(target))target.focus({preventScroll:true})};
  panel.tabIndex=-1;
  const heading=document.createElement('h3');heading.textContent='Choose '+day+"'s meal groups";heading.id='weekdayGroupPickerTitle';heading.style.cssText='margin:0;min-width:0;flex:1;overflow-wrap:anywhere';
  const header=document.createElement('div');header.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-shrink:0';
@@ -5448,7 +5464,7 @@ function openDayCategoryPicker(day){
   for(const cat of getCategoryButtonOrder()){
    const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;padding:4px;min-height:36px';
    const cb=document.createElement('input');cb.type='checkbox';cb.value=cat;cb.checked=assigned.includes(cat);cb.dataset.groupChoice='true';cb.style.width='20px';cb.style.height='20px';
-   cb.addEventListener('change',()=>{const selected=[...body.querySelectorAll('input[data-group-choice]:checked')].map(x=>x.value);setDayCategories(day,selected.length?selected:[EMPTY_DAY_ASSIGNMENT]);buildSidePairControls(pairBox,day);if(tutorialStage==='3'&&selected.length)setTutorialStage('done')});
+   cb.addEventListener('change',()=>{if(activePlanId!==pickerPlanId)return;const selected=[...body.querySelectorAll('input[data-group-choice]:checked')].map(x=>x.value);setDayCategories(day,selected.length?selected:[EMPTY_DAY_ASSIGNMENT]);buildSidePairControls(pairBox,day);if(tutorialStage==='3'&&selected.length)setTutorialStage('done')});
    label.append(cb,document.createTextNode(cat));body.append(label);
   }
   body.append(pairBox);buildSidePairControls(pairBox,day);

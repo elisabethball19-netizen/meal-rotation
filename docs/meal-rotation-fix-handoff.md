@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: [PR #90](https://github.com/elisabethball19-netizen/meal-rotation/pull/90) contains linked-side restoration, shared full meal creation, occurrence-scoped groceries and scheduled-meal favorites are ready for PR review. This batch is **not authorized to merge or deploy without the user's approval**. That instruction supersedes earlier automatic-merge notes below.
+Latest status: [PR #90](https://github.com/elisabethball19-netizen/meal-rotation/pull/90) contains linked-side restoration, shared full meal creation, occurrence-scoped groceries, scheduled-meal favorites, and consistent weekday-group removal, ready for PR review. This batch is **not authorized to merge or deploy without the user's approval**. That instruction supersedes earlier automatic-merge notes below.
 
 Date: November 6, 2026
 
@@ -611,3 +611,24 @@ The tests use copies of synthetic and legacy-format fixtures, not the user's act
 Still requires physical-phone verification: Android keyboard/scroll/focus with the full editor in Chrome and the installed app; camera/photo/OCR and live URL imports with device permissions/network; visual/touch comfort of long titles and nested editor controls; and the user's actual previously hidden-side state/check history. Simulated mobile Chromium checks do not establish those physical-device results.
 
 No actual user data was accessed, reset, cleared or reconstructed. No recipes, settings, links or rotation history were replaced as a migration. All changes remain isolated in this PR. **Do not merge or deploy until the user approves.**
+
+## November 7, 2026 — Multiple weekday-group removal follow-up
+
+Status: added to PR #90; not merged or deployed. Approval remains required before merging.
+
+### Root cause and correction
+
+Unchecking groups cleared assigned groups and manual/retained choices but left temporary `weekSchedule.slots` records behind. The schedule renderer still appended those one-time meals, so an occupied Breakfast could remain visible after Lunch disappeared. A second path could carry a formerly day-only meal into a remaining group when its owning group was removed.
+
+Group updates now clear removed groups' scheduled selections, manual/retained choices, and dependent-side state only for the selected day and active meal-plan tab. The chooser also reconciles old already-unchecked orphan selections when closed. Group-bound occasional meals are removed with their owning slot instead of being transferred into another group. Genuine day-only meals and intentional hidden-linked-side masks remain intact. Display-order preferences, permanent recipes, rotation membership, other days/tabs, settings, grocery selections, and rotation history are preserved. No user data was accessed or reset.
+
+### Verification
+
+- Reproduced the pre-fix failure against the previous PR #90 source: unchecked Breakfast retained its saved one-time Sandwiches slot.
+- `tests/weekday_group_removal_browser.py`: 26 browser cases passed across both HTML files, Saturday/Sunday, one occupied plus one empty, both occupied, both empty, adopted meals, legacy orphan records, and day-only/hidden-side boundaries. Checks include actual checkbox interaction, raw saved state, reopening, reload, reassignment, scoped rotation, backup compatibility, unchanged recipes/settings/history/other day/tab, and isolated test storage.
+- Two enhanced reassignment cases passed, explicitly choosing a meal after reassigning Breakfast, then checking scoped rotation.
+- `tests/retained_sunday_evidence_browser.py`: 14 tests passed, preserving the weekend rotation correction and repeated Rotate Back behavior.
+- `tests/remaining_meal_features_browser.py`: all 4 production/test mobile-width cases passed (320/390 px), including linked-side restoration, full editor, duplicate grocery contributions, and favorites.
+- Inline JavaScript syntax checks, Python compilation, and identical shared-change checks passed. No JavaScript errors were observed in these browser runs.
+
+The new removal matrix uses synthetic persisted fixtures at mobile width; actual saved meal data was not modified. Physical Android interaction remains for live-device verification after approval and deployment.
