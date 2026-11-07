@@ -103,7 +103,10 @@ def run(browser, filename, width):
         picker.get_by_role('checkbox', name='Sides', exact=True).uncheck()
         picker.get_by_role('button', name='Apply selected groups', exact=True).tap()
     else:
-        page.locator('#categoryRows').get_by_role('button', name='Group', exact=True).tap()
+        group_button = page.locator('#categoryRows').get_by_role('button', name='Group', exact=True)
+        page.wait_for_timeout(850)
+        group_button.evaluate("(button) => button.scrollIntoView({block: 'center'})")
+        group_button.tap()
         page.get_by_role('dialog', name='Select Meal Group').get_by_role(
             'radio', name='No group', exact=True).tap()
         expect(page.get_by_role('dialog', name='Select Meal Group')).to_have_count(0)
