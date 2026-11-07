@@ -49,8 +49,8 @@ def create(p,once,name):
  reveal(p,'#recipeNotes');p.locator('#recipeNotes').fill('Remember the sauce.')
  reveal(p,'#url');p.locator('#url').fill('https://example.test/recipe')
  if once:p.locator('#scheduledOneTime').check()
- page_y=p.evaluate('scrollY');p.evaluate('combinedTest.resize(360,0)');p.wait_for_timeout(60);p.locator('#save').scroll_into_view_if_needed();button=p.locator('#save').bounding_box();assert button['y']+button['height']<=360;assert p.evaluate('scrollY')==page_y
- p.locator('#save').click();p.wait_for_timeout(80);p.evaluate('combinedTest.resize(800,0)')
+ p.locator('#url').focus();p.wait_for_timeout(40);page_y=p.evaluate('scrollY');p.evaluate('combinedTest.resize(360,0)');p.wait_for_timeout(80);assert not p.locator('#save').is_visible();assert p.evaluate('scrollY')==page_y
+ p.evaluate('combinedTest.resize(800,0)');p.wait_for_timeout(80);p.locator('#save').click();p.wait_for_timeout(80)
  assert not p.get_by_role('alertdialog').count(),p.locator('body').inner_text()[-2000:]
  assert not p.locator('#editor .editor').count()
  return p.evaluate('remainingTest.temp()')
