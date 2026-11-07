@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: Batch 2 Notes & Reminders and live editor indicators are on `ui/meal-editor-notes-batch2`, awaiting review. Not merged or deployed. Main includes Batch 1 (PR #92). Earlier sections below are historical.
+Latest status: Batch 3 editor refinements are on `ui/meal-editor-refinements-batch3`, awaiting review; not merged or deployed. Main includes merged PR #93. Earlier sections below are historical.
 
 Date: November 6, 2026
 
@@ -692,3 +692,15 @@ Physical Android numeric keyboard behavior, installed-PWA/offline interaction an
 - Real Android numeric keyboard, native unit dropdowns and installed-PWA touch/scroll comfort still need phone verification. No Batch 3, photo removal, app-wide cleanup or linked-side rotation changes were implemented.
 
 Batch 1's separate HTTPS test preview (exact branch head `6567b39665f8f50030ba9bd303ce0fd5d2d28c2a`): https://raw.githack.com/elisabethball19-netizen/meal-rotation/6567b39665f8f50030ba9bd303ce0fd5d2d28c2a/meal-rotation-test.html . Served HTML matched the branch blob byte-for-byte. It uses the isolated test-storage namespace on a different origin from the live GitHub Pages app; it does not contain Batch 2.
+
+## November 7, 2026 — Batch 3: editor refinements, recipe linking and meal selection
+
+- Base: latest confirmed main `09d60e4352061bed379c48b49b6a6342eca056c8` (PR #93). Dedicated branch `ui/meal-editor-refinements-batch3`; no automatic merge or deployment.
+- Every full meal-editor section and subsection now starts collapsed. Editor expansion preferences are ignored and no longer written; old settings and Meal Groups expansion remain intact.
+- Make Ahead's compact plus sits immediately before its heading chevron and expands the section when adding. Hours/Days uses inline segmented buttons; stored task IDs, day/hour values and scheduling logic are unchanged. Redundant note labels are removed with accessible field names retained. Nested headings use lighter typography, indentation and subtle dividers.
+- Recipe has Ingredients, Instructions and Link Steps subsections. All ingredient/instruction photo, camera and link import controls remain available. Link Steps uses one step selector and ingredient checkboxes initialized from the existing automatic matcher; edits use the existing per-step manual override tokens. Reset to automatic appears only for manual overrides. Switching steps preserves other draft overrides; the matching algorithm and viewer completion behavior are unchanged.
+- Serve with uses removable chips, available suggestions and a custom-entry plus, with existing normalization preventing duplicates. Linked Meals uses the existing grouped picker inline, selected rows, compact scrolling and left chevrons. This picker alone always uses AND word matching and has no Match word order checkbox; general search preferences are untouched.
+- Live draft indicators remain text-only updates. Linked draft changes participate in unsaved-change detection; editor Cancel restores saved data. No recipe data, photos, rotation algorithm, grocery calculation or occurrence-scale storage was migrated.
+- Passed: four focused production/test mobile runs (320/390px), covering collapsed reopening, independent sections, header task addition, segmented timing, inline Serve with/link selection, AND search, automatic/manual step links/reset, saved overrides driving viewer ingredient completion, live indicators, Save/Cancel/reload/backups and one-time/keyboard-sized toolbar. Eight existing Make Ahead calendar/editor/rotation/backup scenarios and four existing shared-editor/linked/grocery/favorite cases passed. No JavaScript errors in these runs. Inline JavaScript syntax, Python compilation and identical shared HTML edits passed; uploaded source hashes checked.
+- Existing `inline_links_browser.py` still times out when it expects `#editor [data-editor-section="recipe"]` after the recipe viewer's quick Edit Recipe action. The same missing-full-editor timeout was reproduced on unchanged main. Its obsolete Ingredient matching assertion was updated for Reset to automatic, but this suite is not reported as passing.
+- Physical Android keyboard, camera/gallery/OCR imports, native file/URL flows and installed-PWA touch/scroll comfort remain phone checks. Photo/import controls were inspected and retained; real camera/OCR was not exercised. Existing matching ambiguity rules are preserved. No smarter linked-side rotation, per-occurrence side overrides or photo removal was implemented.

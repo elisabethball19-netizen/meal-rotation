@@ -1169,6 +1169,24 @@ body.recipe-bulk-select{--recipe-bulk-space:96px;}body.recipe-bulk-select .unifi
 #editor .meal-editor-inline-icon{border:0;background:transparent;padding:4px;min-height:44px;min-width:36px;display:inline-grid;place-items:center;color:inherit;}
 #editor .meal-editor-inline-icon svg{width:22px;height:22px;}
 #editor #recipeNotes{min-height:120px;}
+
+/* Batch 3 editor-only hierarchy and compact draft controls. */
+#editor .meal-editor-subsection{margin-left:10px;border-color:#ecece8;}
+#editor .meal-editor-subsection>summary{font-size:13px;font-weight:500;padding:6px 0;min-height:40px;}
+#editor .meal-editor-subsection>.settings-group-content{padding-bottom:8px;}
+#editor #recipeMakeAhead>summary>.meal-editor-inline-icon{margin-left:auto;min-width:36px;width:36px;min-height:36px;}
+#editor #recipeMakeAhead>summary>.settings-chevron{margin-left:0;}
+#editor .meal-editor-segmented{display:flex;align-items:stretch;min-width:0;border:1px solid #ccc;border-radius:7px;overflow:hidden;}
+#editor .meal-editor-segmented button{flex:1;min-width:0;border:0;border-radius:0;background:#fff;font-size:12px;padding:6px 4px;min-height:38px;}
+#editor .meal-editor-segmented button[aria-pressed="true"]{background:#e8e4d8;color:#393a32;font-weight:600;}
+#editor .meal-editor-chips,#editor .meal-editor-suggestions{display:flex;flex-wrap:wrap;gap:6px;}
+#editor .meal-editor-chip{border:1px solid #d8d7cf;background:#f7f6ef;color:inherit;border-radius:14px;padding:7px 10px;font-size:13px;min-height:36px;max-width:100%;overflow-wrap:anywhere;}
+#editor .meal-editor-custom{display:flex;gap:6px;align-items:center;}
+#editor .meal-editor-custom input{flex:1;min-width:0;}
+#editor .meal-editor-linked-list{max-height:260px;overflow-y:auto;overscroll-behavior:contain;}
+#editor .meal-editor-linked-list label{margin:0;font-size:13px;}
+#editor .meal-editor-group-heading{gap:8px;justify-content:flex-start!important;padding:8px 3px!important;font-size:13px;min-height:40px;}
+#editor .meal-editor-text-action{border:0;background:transparent;color:#6b7067;padding:8px 0;text-align:left;font-size:12px;min-height:36px;}
 </style></head><body><div class="tabs" id="tabs"></div><div class="catmenu hidden" id="catmenu"></div><div id="editor"></div><div id="list"></div><script>
 /* Shared inline in both apps: recovery must run before migrations or autosave. */
 // Optional immutable images. This layer never writes recipe/localStorage data.
@@ -1907,27 +1925,23 @@ function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
  v.syncWasEnabled=true;v.syncRequested=false;
 }
 function installRecipeIngredientLinkEditor(meal){
- const root=$('recipeIngredientLinks');if(!root)return;
+ const root=$('recipeIngredientLinks');if(!root)return;const body=root.querySelector('.settings-group-content');
  let draft=validRecipeIngredientLinks(meal),selected='';
  const draftMeal=()=>({...meal,ingredients:$('ingredients').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),instructions:$('recipeInstructions').value===instructionEditorText(meal.instructions)?meal.instructions:$('recipeInstructions').value});
- root.captureRecoveryDraft=()=>({links:JSON.parse(JSON.stringify(draft)),selectedStep:selected});
- root.getLinks=next=>validRecipeIngredientLinks(next||draftMeal(),draft);
- root.hasChanges=()=>JSON.stringify(root.getLinks())!==JSON.stringify(validRecipeIngredientLinks(meal));
+ root.captureRecoveryDraft=()=>({links:JSON.parse(JSON.stringify(draft)),selectedStep:selected});root.getLinks=next=>validRecipeIngredientLinks(next||draftMeal(),draft);root.hasChanges=()=>JSON.stringify(root.getLinks())!==JSON.stringify(validRecipeIngredientLinks(meal));
  const render=()=>{
-  const current=draftMeal(),items=recipeAssociationItems(current);draft=validRecipeIngredientLinks(current,draft);root.replaceChildren();
-  const summary=document.createElement('summary');summary.textContent='Step links';root.append(summary);
-  const help=document.createElement('p');help.className='muted';help.textContent='Automatic matching needs no setup. Choose a step to override its ingredients, or return it to Automatic. Links are saved with the meal. Edited items require new links. Identical repeated rows or steps must be distinguishable before they can be linked.';root.append(help);
+  const current=draftMeal(),items=recipeAssociationItems(current);draft=validRecipeIngredientLinks(current,draft);body.replaceChildren();
+  const help=document.createElement('p');help.className='muted';help.textContent='Select a step to review or change its ingredients.';body.append(help);
   const label=document.createElement('label');label.textContent='Instruction step';const select=document.createElement('select');select.setAttribute('aria-label','Instruction step for ingredient links');
-  for(const [n,item] of items.steps.entries()){const o=document.createElement('option');o.value=item.token;o.textContent=(n+1)+'. '+cleanInstructionBlock(item).text;select.append(o)}
-  if(items.steps.some(i=>i.token===selected))select.value=selected;selected=select.value;select.onchange=()=>{selected=select.value;render()};label.append(select);root.append(label);
-  if(!items.steps.length){const p=document.createElement('p');p.className='muted';p.textContent='Add distinct instruction steps and ingredients to create links.';root.append(p);return}
-  const entry=draft.find(l=>l.step===selected),modeLabel=document.createElement('label');modeLabel.textContent='Ingredient matching';const mode=document.createElement('select');mode.setAttribute('aria-label','Ingredient matching');
-  for(const [value,text] of [['auto','Automatic'],['manual','Choose ingredients']]){const o=document.createElement('option');o.value=value;o.textContent=text;mode.append(o)}mode.value=entry?'manual':'auto';
-  mode.onchange=()=>{draft=draft.filter(l=>l.step!==selected);if(mode.value==='manual')draft.push({step:selected,ingredients:[]});render()};modeLabel.append(mode);root.append(modeLabel);
-  if(entry){const list=document.createElement('div');list.className='recipe-link-choices';for(const ingredient of items.ingredients){const l=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=entry.ingredients.includes(ingredient.token);input.onchange=()=>{entry.ingredients=input.checked?[...entry.ingredients,ingredient.token]:entry.ingredients.filter(t=>t!==ingredient.token)};l.append(input,document.createTextNode(ingredient.text));list.append(l)}root.append(list)}
+  for(const [n,item]of items.steps.entries()){const option=document.createElement('option');option.value=item.token;option.textContent=(n+1)+'. '+cleanInstructionBlock(item).text;select.append(option)}
+  if(items.steps.some(i=>i.token===selected))select.value=selected;selected=select.value;select.onchange=()=>{selected=select.value;render()};label.append(select);body.append(label);
+  if(!items.steps.length){const message=document.createElement('p');message.className='muted';message.textContent='Add distinct instruction steps and ingredients to create links.';body.append(message);return}
+  const automatic=recipeIngredientMatches({...current,ingredientStepLinks:[]}).get(selected)||[],entry=draft.find(link=>link.step===selected),chosen=new Set(entry?entry.ingredients:automatic);
+  const reset=document.createElement('button');reset.type='button';reset.className='meal-editor-text-action';reset.textContent='Reset to automatic';reset.hidden=!entry;reset.onclick=()=>{draft=draft.filter(link=>link.step!==selected);render();root.dispatchEvent(new Event('change',{bubbles:true}))};
+  const list=document.createElement('div');list.className='recipe-link-choices';
+  for(const ingredient of items.ingredients){const row=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=chosen.has(ingredient.token);input.onchange=()=>{if(input.checked)chosen.add(ingredient.token);else chosen.delete(ingredient.token);draft=draft.filter(link=>link.step!==selected);draft.push({step:selected,ingredients:[...chosen]});reset.hidden=false;root.dispatchEvent(new Event('change',{bubbles:true}))};row.append(input,document.createTextNode(ingredient.text));list.append(row)}body.append(list,reset);
  };
- root.ontoggle=()=>{if(root.open)render()};
- for(const id of ['ingredients','recipeInstructions'])$(id).addEventListener('change',()=>{if(root.open)render()});
+ root.ontoggle=()=>{if(root.open)render()};for(const id of ['ingredients','recipeInstructions'])$(id).addEventListener('change',()=>{if(root.open)render()});
 }
 
 function configureRecipeSplit(v,divider,panes){
@@ -2281,12 +2295,11 @@ function buildRecipeViewerSettings(bar,inner){
 }
 function mealEditorSubsection(key,title,id,meal){
  const group=makeSettingsGroup(key,title);delete group.details.dataset.settingsGroup;group.details.classList.add('meal-editor-subsection');group.details.dataset.editorSubsection=key;group.details.id=id;
- group.details.open=!(newRecipeDraftId===meal.id&&!scheduledMealEditor?.current)&&recipeEditorSections.subsections?.[key]===true;
- let previous=group.details.open;group.details.addEventListener('toggle',()=>{if(previous===group.details.open)return;previous=group.details.open;(recipeEditorSections.subsections??={})[key]=previous;saveRecipeEditorSections()});return group;
+ group.details.open=false;return group;
 }
 function buildRecipeNotesSection(meal){
  const links=$('recipeIngredientLinks');links.open=false;
- const notes=$('recipeNotes'),label=notes.previousElementSibling,group=mealEditorSubsection('notes','Notes','editorNotesSection',meal);notes.value=String(meal.notes||'');links.after(group.details);group.content.id='recipeNotesPanel';label.htmlFor='recipeNotes';group.content.append(label,notes);
+ const notes=$('recipeNotes'),label=notes.previousElementSibling,group=mealEditorSubsection('notes','Notes','editorNotesSection',meal);notes.value=String(meal.notes||'');links.after(group.details);group.content.id='recipeNotesPanel';label.htmlFor='recipeNotes';label.remove();notes.setAttribute('aria-label','Notes');group.content.append(notes);
 }
 
 // One deadline-based timer, independent of cooking progress and scheduled occurrences.
@@ -2907,16 +2920,18 @@ function buildMakeAheadEditor(meal){
   const description=document.createElement('input');description.type='text';description.className='make-ahead-description';description.placeholder='Preparation task';description.setAttribute('aria-label','Preparation task');description.value=task.description||'';
   const timing=document.createElement('div');timing.className='make-ahead-lead';
   const number=document.createElement('input');number.type='number';number.inputMode='decimal';number.min='0';number.step='any';number.className='make-ahead-days';number.setAttribute('aria-label','Preparation lead time');number.value=String(task.hoursBefore??task.daysBefore??0);
-  const unit=document.createElement('select');unit.setAttribute('aria-label','Preparation lead time unit');for(const [value,text]of [['hours','Hours'],['days','Days']]){const option=document.createElement('option');option.value=value;option.textContent=text;unit.append(option)}unit.value=task.hoursBefore!==undefined?'hours':'days';
-  timing.append(number,unit);const hint=document.createElement('small');hint.className='muted make-ahead-timing-hint';hint.textContent=validMakeAheadLead(task)||task.id===undefined?'0 days means same day.':'Saved lead time: '+String(task.hoursBefore??task.daysBefore)+' '+(task.hoursBefore!==undefined?'hours':'days')+' (retained until edited).';
+  const unit=document.createElement('input');unit.type='hidden';unit.value=task.hoursBefore!==undefined?'hours':'days';
+  const units=document.createElement('div');units.className='meal-editor-segmented';units.setAttribute('role','group');units.setAttribute('aria-label','Preparation lead time unit');
+  for(const [value,text]of [['hours','Hours'],['days','Days']]){const option=document.createElement('button');option.type='button';option.textContent=text;option.dataset.leadUnit=value;option.setAttribute('aria-pressed',String(unit.value===value));option.onclick=()=>{unit.value=value;for(const button of units.querySelectorAll('button'))button.setAttribute('aria-pressed',String(button===option));changed()};units.append(option)}
+  timing.append(number,unit,units);const hint=document.createElement('small');hint.className='muted make-ahead-timing-hint';hint.textContent=validMakeAheadLead(task)||task.id===undefined?'0 days means same day.':'Saved lead time: '+String(task.hoursBefore??task.daysBefore)+' '+(task.hoursBefore!==undefined?'hours':'days')+' (retained until edited).';
   const initial={number:number.value,unit:unit.value},untouched=()=>number.value===initial.number&&unit.value===initial.unit;
   row.readDraft=()=>{const record={...task,id:row.dataset.taskId,description:description.value.trim()};if(!untouched()||task.id===undefined){delete record.hoursBefore;record.daysBefore=unit.value==='days'?Number(number.value):0;if(unit.value==='hours')record.hoursBefore=Number(number.value)}return record};
   row.validDraft=()=>!description.value.trim()||task.id!==undefined&&untouched()||number.value.trim()!==''&&validMakeAheadLead(row.readDraft())&&(unit.value!=='hours'||Number(number.value)>0);
   const remove=document.createElement('button');remove.type='button';remove.className='meal-editor-inline-icon';setIconButton(remove,'delete','Remove preparation task');remove.onclick=()=>{row.remove();if(!body.querySelector('.make-ahead-task-editor'))taskRow();changed()};
-  row.append(description,timing,hint,remove);body.insertBefore(row,add);return row;
+  row.append(description,timing,hint,remove);body.append(row);return row;
  }
- body.append(add);const saved=Array.isArray(meal.makeAheadTasks)?meal.makeAheadTasks:[];saved.filter(t=>t&&typeof t==='object').forEach(taskRow);if(!saved.length)taskRow();
- add.onclick=()=>{const row=taskRow();row.querySelector('input').focus({preventScroll:true});changed()};$('editorNotesSection').before(box);
+ const heading=box.querySelector('summary');heading.insertBefore(add,heading.querySelector('.settings-chevron'));const saved=Array.isArray(meal.makeAheadTasks)?meal.makeAheadTasks:[];saved.filter(t=>t&&typeof t==='object').forEach(taskRow);if(!saved.length)taskRow();
+ add.onclick=e=>{e.preventDefault();e.stopPropagation();box.open=true;const row=taskRow();row.querySelector('input').focus({preventScroll:true});changed()};$('editorNotesSection').before(box);
  box.readDraft=()=>[...body.querySelectorAll('.make-ahead-task-editor')].map(row=>row.readDraft()).filter(t=>t.description);
  box.validDraft=()=>[...body.querySelectorAll('.make-ahead-task-editor')].every(row=>row.validDraft());
 }
@@ -2958,7 +2973,7 @@ function buildRecipeTweakingEditor(meal){
  const remove=recipeTweakingTrash(()=>{legacy=false;state.checked=false;note.value='';control.removalConfirmed=true;refresh();note.dispatchEvent(new Event('input',{bubbles:true}))});
  function refresh(){status.textContent=legacy?'Marked for adjustment (no note).':'';status.hidden=!legacy;remove.hidden=!state.checked&&!note.value.trim()}
  note.addEventListener('input',()=>{if(note.value.trim())legacy=false;state.checked=!!note.value.trim()||legacy;if(!state.checked)control.removalConfirmed=true;refresh()});
- row.append(label,remove);group.content.append(state,row,status,note);refresh();$('rotation').closest('label').before(control);
+ note.setAttribute('aria-label','Needs Adjusting note');row.append(remove);group.content.append(state,row,status,note);refresh();$('rotation').closest('label').before(control);
 }
 function openNeedsTweaking(meal,updated=null,editing=false){
  if(document.getElementById('needsTweakingDialog'))return;
@@ -4050,7 +4065,7 @@ function initializeMasterCategoryExpansion(extraCategory){
  if(extraCategory&&cats.includes(extraCategory))masterExpandedCategories.add(extraCategory);
 }
 
-function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=false,scrollExpandedToTop=false,resetOnSelect=false,compactPinned=false){
+function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=false,scrollExpandedToTop=false,resetOnSelect=false,compactPinned=false,leftChevrons=false){
  // Entries: {meal, checked, onChange}. Keep selections when groups collapse or searches change.
  const groups=new Map();entries.forEach(entry=>{const cat=entry.meal.cat||'Ungrouped';if(!groups.has(cat))groups.set(cat,[]);groups.get(cat).push(entry)});
  const sections=[];
@@ -4074,7 +4089,7 @@ function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=
  [...groups.keys()].sort((a,b)=>Number(groups.get(b).some(x=>x.checked))-Number(groups.get(a).some(x=>x.checked))||a.localeCompare(b)).forEach(cat=>{
   const section=document.createElement('div');section.style.cssText='border-bottom:1px solid #ddd';
   const header=document.createElement('button');header.type='button';header.style.cssText='display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 6px;text-align:left;background:transparent;border:0;color:inherit;font-weight:600;cursor:pointer';
-  const name=document.createElement('span');name.textContent=cat;const arrow=document.createElement('span');arrow.textContent='▸';header.append(name,arrow);
+  const name=document.createElement('span');name.textContent=cat;const arrow=document.createElement('span');arrow.textContent='▸';if(leftChevrons){header.append(arrow,name);header.classList.add('meal-editor-group-heading');name.style.flex='1'}else header.append(name,arrow);
   const body=document.createElement('div');body.style.cssText='display:none;padding:0 4px 6px 14px';
   groups.get(cat).sort((a,b)=>Number(!!b.checked)-Number(!!a.checked)||a.meal.name.localeCompare(b.meal.name)).forEach(entry=>{
    const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 3px;cursor:pointer';
@@ -8777,9 +8792,7 @@ function reviewPhotoIngredients(text,originalText,kind='ingredients'){
   });
 }
 const RECIPE_EDITOR_SECTIONS_KEY='mealRotationEditorSectionsV1';
-let recipeEditorSections={ingredients:false,instructions:true},recipeEditorReturn=null;
-try{const saved=JSON.parse(localStorage.getItem(RECIPE_EDITOR_SECTIONS_KEY)||'null');if(saved){for(const key of ['ingredients','instructions'])if(typeof saved[key]==='boolean')recipeEditorSections[key]=saved[key];for(const [field,keys]of [['sections',['serve','linked','recipe','notes']],['subsections',['adjusting','ahead','notes']]])if(saved[field]&&typeof saved[field]==='object')recipeEditorSections[field]=Object.fromEntries(keys.filter(key=>typeof saved[field][key]==='boolean').map(key=>[key,saved[field][key]]))}}catch(e){}
-function saveRecipeEditorSections(){try{localStorage.setItem(RECIPE_EDITOR_SECTIONS_KEY,JSON.stringify(recipeEditorSections))}catch(e){}}
+let recipeEditorSections={ingredients:false,instructions:false},recipeEditorReturn=null;
 function openViewedRecipeEditor(){
  const view=recipeViewer;if(!view)return;
  if(view.linkEdit){recipeLinkMessage(view,'Save or cancel the current ingredient links before editing the recipe.');return}
@@ -8852,9 +8865,7 @@ function organizeMealEditor(){
   if(key==='recipe')summary.textContent=(meal.ingredients||[]).some(x=>String(x).trim())||instructionBlocks(meal.instructions).some(x=>x.text?.trim())||String(meal.url||'').trim()?'Added':'';
   if(key==='notes')summary.textContent=String(meal.notes||'').trim()||meal.needsTweaking||recipeMakeAheadTasks(meal).length?'Added':'';
   group.details.querySelector('summary').insertBefore(summary,group.details.querySelector('.settings-chevron'));
-  group.details.open=!isNew&&recipeEditorSections.sections?.[key]===true;
-  // Ignore initial toggle notifications; only changed section states update preferences.
-  let previous=group.details.open;group.details.addEventListener('toggle',()=>{if(group.details.open===previous)return;previous=group.details.open;(recipeEditorSections.sections??={})[key]=previous;saveRecipeEditorSections()});
+  group.details.open=false;
   content[key]=group.content;sections.append(group.details);
  }
  const rotation=$('rotation').closest('label');rotation.querySelector('span').textContent='In rotation';$('categoryRows').after(rotation);root.querySelector('label').htmlFor='name';$('categoryRows').previousElementSibling.htmlFor='cat';$('categoryRows').previousElementSibling.textContent='Meal Groups';
@@ -8879,15 +8890,15 @@ function revealMealEditorField(field){
 
 function buildRecipeEditorSections(meal){
  const field=$('recipeInstructions'),label=field.previousElementSibling,hint=field.nextElementSibling;
- const ingredients=document.createElement('section');ingredients.id='editorIngredientsSection';label.before(ingredients);ingredients.before($('rotation').closest('label'));ingredients.append($('ingredientsClosed'),$('ingredientsPanel'));
- const instructions=document.createElement('section');instructions.id='editorInstructionsSection';label.before(instructions);
+ const ingredients=mealEditorSubsection('ingredients','Ingredients','editorIngredientsSection',meal).details;label.before(ingredients);ingredients.before($('rotation').closest('label'));ingredients.querySelector('.settings-group-content').append($('ingredientsClosed'),$('ingredientsPanel'));$('ingredientsClosed').classList.add('hidden');$('hideIngredients').classList.add('hidden');
+ const instructions=mealEditorSubsection('instructions','Instructions','editorInstructionsSection',meal).details;label.before(instructions);
  const closed=document.createElement('div');closed.id='instructionsClosed';const show=document.createElement('button');show.id='toggleInstructions';show.className='smallbtn';show.type='button';show.textContent='Instructions';closed.append(show);
  const panel=document.createElement('div');panel.id='instructionsPanel';panel.className='ingredients-panel';const tools=document.createElement('div');tools.className='ingredient-toolrow';const hide=document.createElement('button');hide.id='hideInstructions';hide.type='button';hide.className='smallbtn';hide.textContent='Hide instructions';tools.append(hide);
  for(const [id,source,title] of [['instructionPhotoButton','ingredientPhotoButton','Choose cooking instructions photo from gallery'],['instructionCameraButton','ingredientCameraButton','Take cooking instructions photo']]){const button=document.createElement('button');button.id=id;button.type='button';button.className='ingredient-tool';button.title=title;button.setAttribute('aria-label',title);button.innerHTML=$(source).innerHTML;tools.append(button)}
  panel.append(tools,label,field,hint);
  for(const [id,camera] of [['instructionGalleryInput',false],['instructionCameraInput',true]]){const input=document.createElement('input');input.id=id;input.type='file';input.accept='image/*';input.className='hidden';if(camera)input.setAttribute('capture','environment');panel.append(input)}
- instructions.append(closed,panel);buildRecipeNotesSection(meal);
- const display=open=>{panel.classList.toggle('hidden',!open);closed.classList.toggle('hidden',open);recipeEditorSections.instructions=open;saveRecipeEditorSections()};show.onclick=()=>display(true);hide.onclick=()=>display(false);display(recipeEditorSections.instructions);
+ instructions.querySelector('.settings-group-content').append(closed,panel);closed.classList.add('hidden');hide.classList.add('hidden');const links=$('recipeIngredientLinks');links.replaceWith(mealEditorSubsection('links','Link Steps','recipeIngredientLinks',meal).details);buildRecipeNotesSection(meal);
+ const display=open=>{instructions.open=open;panel.classList.toggle('hidden',!open)};show.onclick=()=>display(true);hide.onclick=()=>display(false);instructions.addEventListener('toggle',()=>display(instructions.open));display(false);
 }
 async function importInstructionsFromPhoto(file,mealId){
  const field=$('recipeInstructions');if(!file||!file.type.startsWith('image/')||!field)return;
@@ -9052,29 +9063,25 @@ keyboardButton.onclick=()=>{
   if(activeTimeField.isConnected){activeTimeField.blur();activeTimeField.focus();}
 };
 let serveWithDraft=normalizeServeWith(m.serveWith);
-function updateServeWith(){$('serveWith').textContent='Serve with'+(serveWithDraft.length?': '+serveWithDraft.join(', '):'');document.querySelector('#editor .editor')?.refreshIndicators?.()}
-updateServeWith();$('serveWith').readDraft=()=>[...serveWithDraft];$('serveWith').onclick=()=>chooseServeWith(serveWithDraft,value=>{serveWithDraft=value;updateServeWith()});
+const serveButton=$('serveWith');serveButton.hidden=true;serveButton.readDraft=()=>[...serveWithDraft];
+const serveBody=serveButton.parentElement,chips=document.createElement('div'),suggestions=document.createElement('div'),customRow=document.createElement('div'),custom=document.createElement('input');
+chips.className='meal-editor-chips';suggestions.className='meal-editor-suggestions';customRow.className='meal-editor-custom';custom.type='text';custom.placeholder='Add custom suggestion...';custom.setAttribute('aria-label','Custom Serve with suggestion');
+const suggestionTitle=document.createElement('div');suggestionTitle.className='muted';suggestionTitle.textContent='Serve with suggestions';
+const options=normalizeServeWith(['Rice','Potatoes','Pasta','Vegetables','Bread',...serveWithDraft]);
+function updateServeWith(){
+ chips.replaceChildren();suggestions.replaceChildren();
+ for(const name of serveWithDraft){const remove=document.createElement('button');remove.type='button';remove.className='meal-editor-chip';remove.textContent=name+' ×';remove.setAttribute('aria-label','Remove Serve with '+name);remove.onclick=()=>{serveWithDraft=serveWithDraft.filter(value=>serveWithWords(value)!==serveWithWords(name));updateServeWith()};chips.append(remove)}
+ for(const name of options.filter(name=>!serveWithDraft.some(value=>serveWithWords(value)===serveWithWords(name)))){const add=document.createElement('button');add.type='button';add.className='meal-editor-chip';add.textContent=name;add.onclick=()=>{serveWithDraft=normalizeServeWith([...serveWithDraft,name]);updateServeWith()};suggestions.append(add)}
+ document.querySelector('#editor .editor')?.refreshIndicators?.();
+}
+const addCustom=document.createElement('button');addCustom.type='button';addCustom.className='meal-editor-inline-icon';setIconButton(addCustom,'add','Add custom Serve with suggestion');
+function addServeCustom(){const value=custom.value.trim();if(!serveWithWords(value))return;if(!serveWithDraft.some(name=>serveWithWords(name)===serveWithWords(value)))serveWithDraft.push(value);if(!options.some(name=>serveWithWords(name)===serveWithWords(value)))options.push(value);custom.value='';updateServeWith()}
+addCustom.onclick=addServeCustom;custom.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addServeCustom()}};customRow.append(custom,addCustom);serveBody.append(chips,suggestionTitle,suggestions,customRow);updateServeWith();
 let linkedMealDraft=Array.isArray(m.linkedMealIds)?[...m.linkedMealIds]:[];
-$('editLinkedMeals').onclick=()=>{
- const originalLinkedDraft=[...linkedMealDraft];
- const overlay=document.createElement('div');overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10010;display:flex;align-items:center;justify-content:center;padding:16px';
- const panel=document.createElement('div');panel.style.cssText='background:white;color:#222;border-radius:12px;padding:18px;max-width:450px;width:100%;max-height:85vh;display:flex;flex-direction:column;gap:8px';
- const heading=document.createElement('h3');heading.textContent='Linked meals';heading.style.margin='0 0 8px';panel.append(heading);
- const description=document.createElement('p');description.textContent='Choose recipes to serve automatically with this meal.';description.style.fontSize='14px';panel.append(description);
- const search=document.createElement('input');search.type='search';search.placeholder='Search meals';search.setAttribute('aria-label','Search meals');search.style.cssText='width:100%;padding:10px;border:1px solid #bbb;border-radius:8px;margin-bottom:8px';
- const searchOption=document.createElement('label');searchOption.style.cssText='display:flex;align-items:center;gap:9px;font-size:14px;padding:2px 0 8px';const searchMode=document.createElement('input');searchMode.type='checkbox';searchMode.checked=localStorage.getItem('mealRotationLinkedSearchAnyOrderV1')==='false';searchMode.style.cssText='width:20px;height:20px';searchOption.append(searchMode,document.createTextNode('Match word order'));panel.append(searchOption);panel.append(search);searchMode.onchange=()=>{localStorage.setItem('mealRotationLinkedSearchAnyOrderV1',String(!searchMode.checked));search.dispatchEvent(new Event('input'))};
- const list=document.createElement('div');list.style.cssText='overflow:auto;min-height:60px;flex:1';panel.append(list);
- const options=meals.filter(x=>x.id!==m.id&&!(m.linkGroup&&x.linkGroup===m.linkGroup));
- buildGroupedMealPicker(list,search,options.map(option=>({meal:option,checked:linkedMealDraft.some(id=>String(id)===String(option.id)),onChange(checked){linkedMealDraft=linkedMealDraft.filter(id=>String(id)!==String(option.id));if(checked)linkedMealDraft.push(option.id);updateLinkedLabel()}})),searchMode,true);
- const actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:flex-end;gap:12px;flex-shrink:0;padding-top:12px;border-top:1px solid #ddd;background:white';
- const cancel=document.createElement('button');cancel.type='button';setIconButton(cancel,'cancel','Cancel');
- const done=document.createElement('button');done.type='button';setIconButton(done,'save','OK');
- const close=save=>{if(!save)linkedMealDraft=originalLinkedDraft;overlay.remove();updateLinkedLabel()};
- cancel.onclick=()=>close(false);done.onclick=()=>close(true);
- actions.classList.add('meal-unified-actions');actions.append(done,cancel);panel.append(actions);overlay.append(panel);overlay.onclick=e=>{if(e.target===overlay)close(false)};document.body.append(overlay);
-};
-function updateLinkedLabel(){$('editLinkedMeals').textContent='↗ Linked meals'+(linkedMealDraft.length?' ('+linkedMealDraft.length+')':'');document.querySelector('#editor .editor')?.refreshIndicators?.()}
-updateLinkedLabel();
+const linkedButton=$('editLinkedMeals');linkedButton.hidden=true;linkedButton.readDraft=()=>[...linkedMealDraft];const linkedBody=linkedButton.parentElement,linkedSearch=document.createElement('input'),linkedList=document.createElement('div');
+linkedSearch.type='search';linkedSearch.placeholder='Search linked meals';linkedSearch.setAttribute('aria-label','Search linked meals');linkedList.className='meal-editor-linked-list';linkedBody.append(linkedSearch,linkedList);
+function updateLinkedLabel(){document.querySelector('#editor .editor')?.refreshIndicators?.()}
+buildGroupedMealPicker(linkedList,linkedSearch,meals.filter(option=>option.id!==m.id&&!(m.linkGroup&&option.linkGroup===m.linkGroup)).map(option=>({meal:option,checked:linkedMealDraft.some(id=>String(id)===String(option.id)),onChange(checked){linkedMealDraft=linkedMealDraft.filter(id=>String(id)!==String(option.id));if(checked)linkedMealDraft.push(option.id);updateLinkedLabel()}})),{checked:false},true,false,false,true,true);
 let ingredientImportUrl=String(m.ingredientImportUrl||'');let importedRecipeDetailsDraft=null;
 const ingredientField=$('ingredients');
 function draftIngredientLines(){return ingredientField.value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)}
@@ -9084,9 +9091,8 @@ function updateIngredientDisplay(){
   $('ingredientsLabel').classList.toggle('hidden',!present);document.querySelector('#editor .editor')?.refreshIndicators?.();
 }
 function displayIngredients(open,remember=true){
-  if(remember){recipeEditorSections.ingredients=open;saveRecipeEditorSections()}
+  $('editorIngredientsSection').open=open;
   $('ingredientsPanel').classList.toggle('hidden',!open);
-  $('ingredientsClosed').classList.toggle('hidden',open);
   updateIngredientDisplay();
 }
 function applyImportedRecipeDraft(details){
@@ -9104,7 +9110,7 @@ function mergeIngredientDraft(lines){
 ingredientField.addEventListener('input',updateIngredientDisplay);
 updateIngredientDisplay();
 $('toggleIngredients').onclick=()=>displayIngredients(true);
-$('hideIngredients').onclick=()=>displayIngredients(false);displayIngredients(recipeEditorSections.ingredients,false);installInstructionPhotoControls(m);
+$('hideIngredients').onclick=()=>displayIngredients(false);$('editorIngredientsSection').addEventListener('toggle',()=>displayIngredients($('editorIngredientsSection').open,false));displayIngredients(false,false);installInstructionPhotoControls(m);
 $('ingredientLinkButton').onclick=async()=>{
   const recipeUrl=$('url').value.trim();
   let importUrl=null,choice='other';
@@ -9286,6 +9292,7 @@ function editorHasPendingChanges(){
    (!!byId('editNeedsTweaking')?.checked&&(byId('editNeedsTweakingNote')?.value.trim()||'')!==String(meal.needsTweakingNote||''))||
    JSON.stringify(byId('recipeMakeAhead')?.readDraft?.()||[])!==JSON.stringify(recipeMakeAheadTasks(meal))||
    JSON.stringify(byId('serveWith')?.readDraft?.()||[])!==JSON.stringify(meal.serveWith||[])||
+   JSON.stringify(byId('editLinkedMeals')?.readDraft?.()||[])!==JSON.stringify(meal.linkedMealIds||[])||
    !!byId('recipeIngredientLinks')?.hasChanges?.()||
    !!byId('rotation')?.checked!==(!!meal.rotation||newRecipeDraftId===meal.id)||
    JSON.stringify((byId('ingredients')?.value||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean))!==JSON.stringify((meal.ingredients||[]).map(removeIngredientListMarker).map(x=>String(x).trim()).filter(Boolean))||

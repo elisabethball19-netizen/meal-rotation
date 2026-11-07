@@ -48,7 +48,7 @@ def editor(b,name):
  c,p,errors,_=f.setup(b,name,360,'multiple');p.evaluate('prepTest.seed()');before=copy.deepcopy(state(p));p.evaluate('promotionTest.editor(2)');p.wait_for_timeout(850);open_editor_section(p,'notes')
  box=p.locator('#recipeMakeAhead');box.locator('summary').tap();assert box.get_by_role('textbox',name='Preparation task',exact=True).count()==4
  box.get_by_role('button',name='Add preparation task',exact=True).tap();box.get_by_role('textbox',name='Preparation task',exact=True).last.fill('Thaw chicken')
- box.get_by_role('combobox',name='Preparation lead time unit',exact=True).last.select_option('days');box.get_by_role('spinbutton',name='Preparation lead time',exact=True).last.fill('3')
+ box.locator('.make-ahead-task-editor').last.get_by_role('button',name='Days',exact=True).click();box.get_by_role('spinbutton',name='Preparation lead time',exact=True).last.fill('3')
  p.locator('#save').tap();after=state(p);m=next(m for m in after['meals'] if m['id']==2);assert m['makeAheadTasks'][-1]['daysBefore']==3 and m['marinate']=='120'
  p.evaluate('promotionTest.editor(2)');p.wait_for_timeout(850);open_editor_section(p,'notes');p.locator('#recipeMakeAhead').evaluate('(e)=>e.open=true');p.get_by_role('textbox',name='Preparation task',exact=True).last.fill('Discard change');p.locator('#cancel').tap();assert state(p)['meals']==after['meals']
  assert not errors,errors
