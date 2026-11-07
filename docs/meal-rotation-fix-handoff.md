@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: [PR #90](https://github.com/elisabethball19-netizen/meal-rotation/pull/90) was merged into `main` on November 7, 2026 with explicit user approval (merge commit `804139563c095b02e0252c3717f5e1340a971009`). GitHub Pages deployment: https://github.com/elisabethball19-netizen/meal-rotation/actions/runs/42316231287. Earlier approval-required statements below describe the pre-merge review stage.
+Latest status: scheduled-occurrence recipe scaling is implemented on `feature/scheduled-occurrence-scaling`, awaiting review. This update is not authorized to merge or deploy. PR #90 remains merged; the earlier sections below are historical.
 
 Date: November 6, 2026
 
@@ -636,3 +636,37 @@ The new removal matrix uses synthetic persisted fixtures at mobile width; actual
 ## November 7, 2026 — Approved merge and deployment
 
 The user explicitly requested “Merge and deploy PR 90.” GitHub reported the PR mergeable with a clean merge state; no remote check runs or commit statuses were configured for its head. Previously recorded focused tests passed. PR #90 was merged with its exact reviewed head `43a14eda60e033625f21d765e426d7412da2b45b`. Pages deployment for the merge commit is tracked at https://github.com/elisabethball19-netizen/meal-rotation/actions/runs/42316231287. No saved app data was accessed, reset, or replaced.
+
+## November 7, 2026 — Scheduled-occurrence recipe scaling
+
+Status: implemented on `feature/scheduled-occurrence-scaling` from latest confirmed main `edbafbef26c9fe8048fe75b95fe96b37590f35e2`. No merge, deployment, user-data reset, or original ingredient rewrite.
+
+### Implementation and storage
+
+The existing presets, ingredient parser/formatter, recipe viewer and grocery aggregation are reused. The scale menu now includes a labeled decimal numeric field and Apply multiplier control. Both presets and custom entry call `setViewedRecipeScale`; zero, negative, blank, nonnumeric and nonfinite values are rejected. The custom field shows the saved multiplier; matching presets remain highlighted. Mobile viewport handling keeps the field available when the keyboard reduces the viewport.
+
+Scales continue using `mealRotationOccurrenceScalesV1` with its version-1 envelope. New records are keyed by plan, day, recipe, linked-parent and stable group identity; their context includes `scaleGroupId`. Missing entries mean 1×. Existing four-component preset entries are accepted and apply only to their recorded group; editing that occurrence replaces its legacy entry lazily. No collection-wide migration is performed. The existing cooking-progress identity is unchanged.
+
+`currentRecipeContext` and `definiteRecipeContext` now resolve the actual group rather than rejecting same-day recipe duplicates as ambiguous. Viewer tab identities distinguish scale occurrences. Library previews remain unscheduled and never write an occurrence multiplier. Linked recipes have their own scales, defaulting to 1×. Existing linked scheduling and grocery contribution deduplication are retained.
+
+`reconcileCookingSchedule` and `clearCycledCookingContexts` prune scales by group-specific occurrence. Removing/replacing/rotating an occurrence cannot transfer its scale to an unrelated future selection or clear an independent duplicate's scale. Group rename and existing parent-deletion context transfers retain compatible scale records. Rotate Back retains its existing progress-reset semantics: restored meals start at 1× after their occurrence was rotated out.
+
+### Checked grocery quantities
+
+The existing `mealRotationGroceryOccurrenceChecksV1` boolean ledger accepts an optional `quantities` map keyed by the existing stable grocery source ID. Each entry records already checked lower/upper quantities. Old booleans and legacy ingredient checks remain readable. Scaling materializes prior checked amounts, clamps them when a requirement decreases, and leaves increases unchecked. Existing split grocery rows show checked and unchecked portions without introducing a new grocery interface. Checking/unchecking those rows updates only their represented amount.
+
+Quantity records travel through the existing rotation reconciliation, source rename, scoped undo, temporary-slot resume and hidden-side restoration paths. Temporary masks use optional `groceryQuantities` / `linkedGroceryQuantities` alongside their existing boolean records. Backup capture already includes these app-owned records; validation accepts the compatible extensions and legacy backups without them. Ingredient normalization, unit boundaries, unmeasured text and existing quantity precision are preserved; incompatible units are not converted or summed together. Unparseable ingredient quantities remain text.
+
+### Focused verification
+
+- `tests/occurrence_scaling_browser.py`: four mobile production/test runs at 320px and 390px. Covers 1×/½×/1½×/2×/3×, 0.75×/2.25×, rejected inputs, exact ingredient display, same-day duplicate scales via the existing meal action workflow, different days/tabs, included tab filtering, independent linked sides, no duplicate linked grocery sources, checked increases/decreases/toggles, partial-check backup/restore, temporary empty/resume, hidden-side restoration, one-time groceries, group rename, removal/replacement, rotation/Rotate Back, reload, old scale data and standalone preview isolation. No JavaScript errors.
+- `tests/remaining_meal_features_browser.py`: all four existing 320/390px production/test feature runs passed, covering linked-side restoration, full editors, duplicate groceries and favorites.
+- `tests/retained_sunday_evidence_browser.py`: all 14 persisted weekend rotation tests passed.
+- `tests/grocery_rotation_checks_browser.py`: all 16 existing grouped scenarios passed across both HTML files and 320/360px widths, including rotation, checked portions, linked removal, ingredient/group rename, exclusions, undo, reload and backup validation.
+- Inline JavaScript syntax, Python compilation and identical shared HTML edit checks passed. Test-only storage isolation remains intact.
+
+### Pre-existing failure and manual verification
+
+`tests/recipe_touch_browser.py` fails because its exact-name selector finds two “Cilantro Sauce” tabs (scheduled and preview). The same strict-selector failure was reproduced against unchanged main source. This test is not reported as passing and the unrelated tab workflow was not redesigned.
+
+Physical Android numeric keyboard behavior, installed-PWA/offline interaction and visual touch comfort require phone verification after approval. Browser coverage uses synthetic persisted fixtures, never the user's actual localStorage. Existing parsing precision and conservative handling of ambiguous ingredient text remain limitations; scaling does not infer quantities from prose. No new build system, settings page or linked-side rotation feature was introduced.
