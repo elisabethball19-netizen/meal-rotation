@@ -77,7 +77,7 @@ def run(browser, filename, mode):
     # Edit Recipe consumes exactly the same saved override.
     page.get_by_role('button',name='Edit Recipe',exact=True).click()
     open_editor_section(page,'recipe');page.locator('#recipeIngredientLinks summary').click()
-    assert page.get_by_label('Ingredient matching',exact=True).input_value()=='manual'
+    assert page.get_by_role('button',name='Reset to automatic',exact=True).is_visible()
     assert page.locator('.recipe-link-choices input').evaluate_all('(els)=>els.slice(0,3).map(e=>e.checked)')==[False,True,True]
     page.locator('#cancel').click();page.wait_for_timeout(100)
     # Restore automatic matching, save, and verify original matches and marks unchanged.
@@ -112,3 +112,4 @@ if __name__=='__main__':
         for file in ['index.html','meal-rotation-test.html']:
             for mode in ['split','full']:run(browser,file,mode)
         browser.close()
+
