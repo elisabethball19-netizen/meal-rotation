@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: scheduled-occurrence recipe scaling is implemented on `feature/scheduled-occurrence-scaling`, awaiting review. This update is not authorized to merge or deploy. PR #90 remains merged; the earlier sections below are historical.
+Latest status: Batch 1 meal-editor layout is on `ui/meal-editor-layout-batch1`, awaiting review; not merged or deployed. Main already includes PR #91 scaling. Earlier sections below are historical.
 
 Date: November 6, 2026
 
@@ -670,3 +670,12 @@ Quantity records travel through the existing rotation reconciliation, source ren
 `tests/recipe_touch_browser.py` fails because its exact-name selector finds two “Cilantro Sauce” tabs (scheduled and preview). The same strict-selector failure was reproduced against unchanged main source. This test is not reported as passing and the unrelated tab workflow was not redesigned.
 
 Physical Android numeric keyboard behavior, installed-PWA/offline interaction and visual touch comfort require phone verification after approval. Browser coverage uses synthetic persisted fixtures, never the user's actual localStorage. Existing parsing precision and conservative handling of ambiguous ingredient text remain limitations; scaling does not infer quantities from prose. No new build system, settings page or linked-side rotation feature was introduced.
+
+## November 7, 2026 — Batch 1 meal-editor layout
+
+- Based on main `197edc2b3aeb5dc631f932afe7add7d2a1991d73`, including PR #91. No merge or deployment authorized.
+- Shared `organizeMealEditor` now keeps meal name, memberships, rotation and timing accessible above Serve with, Linked Meals, Recipe and Notes & Reminders. Existing selection dialogs and all nested recipe/notes controls remain intact. Scoped CSS replaces nested section borders with subtle dividers.
+- Top-level section preferences extend the existing `mealRotationEditorSectionsV1` record separately from recipe data. New meals begin collapsed; saved content does not auto-expand sections. Muted headings show saved Serve with, linked count, or conservative Added indicators.
+- `installMealEditorLayout` bounds each inline/modal editor, gives fields their own scroll area, and keeps the unchanged Save/Delete/Cancel icons in its bottom toolbar. Visual-viewport resizing keeps fields and toolbar separate; listeners clean up when the editor is removed.
+- Focused `tests/editor_batch1_browser.py`: four production/test mobile cases at 320/390px passed for creation/editing/one-time meals, membership controls, existing timing storage, all four sections/preferences/summaries, Serve with/Linked Meals dialogs, save/delete confirmation/cancel, inline/modal reduced keyboard viewport, scrolling, reload and backup validation. Existing `remaining_meal_features_browser.py`: four cases passed. No JavaScript errors. Inline JS syntax, Python compilation and shared HTML synchronization passed.
+- Real Android keyboard, native dropdowns and installed-PWA touch/scroll comfort still require phone verification. No later-batch interactions, rotation/scaling/grocery algorithms, recipe data or user storage were changed.
