@@ -9133,32 +9133,29 @@ let editorMembershipDraft=categoryMembers().map(record=>({id:String(record.id),c
 if(!editorDraftCategories)editorDraftCategories=[...new Set(categoryMembers().map(x=>x.cat).filter(Boolean))];
 function renderCategoryRows(){
  const holder=$('categoryRows');if(!holder)return;holder.replaceChildren();
- function refresh(){editorDraftCategories=editorMembershipDraft.filter(d=>d.cat).map(d=>d.cat);renderCategoryRows()}
- const primary=editorMembershipDraft.find(draft=>String(draft.id)===String(m.id));
- for(const draft of [primary,...editorMembershipDraft.filter(d=>d!==primary)]){if(draft!==primary&&draft.removed)continue;const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:7px;margin-bottom:7px';const select=document.createElement('select');select.style.cssText='flex:1;min-width:0';if(draft===primary)select.id='cat';select.setAttribute('aria-label',draft===primary?(scheduledMealEditor?'Meal Group':'Group'):'Additional group');const empty=document.createElement('option');empty.value='';empty.textContent='Choose group…';select.append(empty);
- for(const cat of cats){const option=document.createElement('option');option.value=cat;option.textContent=cat;option.disabled=cat!==draft.cat&&editorMembershipDraft.some(other=>other!==draft&&other.cat===cat);select.append(option)}select.value=draft.cat;
- select.onchange=()=>{if(editorMembershipDraft.some(other=>other!==draft&&other.cat===select.value&&select.value)){select.value=draft.cat;return}draft.cat=select.value;refresh()};select.hidden=true;select.tabIndex=-1;row.append(select);
- const picker=document.createElement('button');picker.type='button';picker.className='smallbtn meal-group-picker-button';picker.textContent=draft.cat||'Choose group…';picker.setAttribute('aria-label',select.getAttribute('aria-label'));picker.setAttribute('aria-haspopup','dialog');picker.onclick=()=>{
+ const primary=editorMembershipDraft.find(item=>String(item.id)===String(m.id));
+ if(!primary)return;
+ const selectedGroups=()=>[...new Set(editorMembershipDraft.filter(item=>!item.removed&&item.cat).map(item=>item.cat))];
+ const select=document.createElement('select');select.id='cat';select.hidden=true;select.tabIndex=-1;
+ const current=selectedGroups();const primaryOption=document.createElement('option');primaryOption.value=primary.cat||'';primaryOption.textContent=primary.cat||'No group';select.append(primaryOption);select.value=primary.cat||'';holder.append(select);
+ const picker=document.createElement('button');picker.type='button';picker.className='smallbtn meal-group-picker-button';picker.textContent=current.length?current.join(', '):'＋ Choose meal groups';picker.setAttribute('aria-label','Choose meal groups');picker.setAttribute('aria-haspopup','dialog');
+ picker.onclick=()=>{
   const d=recipeBulkDialog('Select Meal Group',()=>picker),list=document.createElement('div');list.className='meal-group-picker-options';list.setAttribute('role','group');list.setAttribute('aria-label','Meal Groups');
-  const selected=new Set(editorMembershipDraft.filter(item=>!item.removed&&item.cat).map(item=>item.cat));
+  const selected=new Set(selectedGroups());
   for(const cat of cats){const label=document.createElement('label'),check=document.createElement('input'),text=document.createElement('span');check.type='checkbox';check.value=cat;check.checked=selected.has(cat);text.textContent=cat;label.append(check,text);check.onchange=()=>{if(check.checked)selected.add(cat);else selected.delete(cat)};list.append(label)}
   const actions=document.createElement('div');actions.style.cssText='display:flex;align-items:center;justify-content:center;gap:48px;margin:12px auto 0';
   const apply=document.createElement('button');apply.type='button';apply.className='iconbtn';setIconButton(apply,'save','Apply selected groups');apply.style.cssText+=';width:44px;height:44px';
   apply.onclick=()=>{
-   const chosen=[...cats].filter(cat=>selected.has(cat)),existing=editorMembershipDraft.filter(item=>item!==primary&&!item.removed);
-   const primaryCat=selected.has(primary.cat)?primary.cat:(chosen[0]||'');
-   primary.cat=primaryCat;primary.removed=false;
+   const chosen=cats.filter(cat=>selected.has(cat)),existing=editorMembershipDraft.filter(item=>item!==primary&&!item.removed),oldPrimary=primary.cat;
+   const primaryCat=selected.has(oldPrimary)?oldPrimary:(chosen[0]||'');primary.cat=primaryCat;primary.removed=false;
    const remaining=new Set(chosen.filter(cat=>cat!==primaryCat));
    for(const item of existing){if(remaining.has(item.cat)){remaining.delete(item.cat)}else{item.cat='';item.removed=true}}
    for(const cat of remaining)editorMembershipDraft.push({id:null,cat});
-   refresh();d.close();holder.querySelector('.meal-group-picker-button')?.focus({preventScroll:true});
+   editorDraftCategories=chosen;d.close();renderCategoryRows();
   };
-  const cancel=document.createElement('button');cancel.type='button';cancel.className='iconbtn meal-group-picker-close';setIconButton(cancel,'cancel','Close without changes');cancel.style.cssText+=';width:44px;height:44px';cancel.onclick=d.close;
+  const cancel=document.createElement('button');cancel.type='button';cancel.className='iconbtn';setIconButton(cancel,'cancel','Close without changes');cancel.style.cssText+=';width:44px;height:44px';cancel.onclick=d.close;
   actions.append(apply,cancel);d.panel.append(list,actions);cancel.focus({preventScroll:true});
- };row.append(picker);
- const action=document.createElement('button');action.type='button';action.className='smallbtn category-remove';setIconButton(action,draft===primary?'add':'delete',draft===primary?'Add group membership':'Remove meal from '+(draft.cat||'new group'));action.style.cssText+=';flex:0 0 44px;width:44px;height:44px;min-height:44px';if(draft!==primary&&draft.id!==null){action.title='Remove this recipe from '+draft.cat+'. The recipe remains in its other groups.';action.querySelector('svg').style.width=action.querySelector('svg').style.height='18px'}
- if(draft===primary){action.disabled=editorMembershipDraft.some(d=>d.id===null&&!d.cat&&!d.removed)||!cats.some(cat=>!editorMembershipDraft.some(d=>d.cat===cat));action.onclick=()=>{editorMembershipDraft.push({id:null,cat:''});refresh();[...holder.querySelectorAll('.meal-group-picker-button')].at(-1)?.focus({preventScroll:true})}}
- else action.onclick=()=>{draft.cat='';draft.removed=true;refresh()};row.append(action);holder.append(row)}
+ };holder.append(picker);
 }
 
 function askAddMealCategory(){return new Promise(resolve=>{
