@@ -10,6 +10,7 @@ fixture.HOOK+='''window.highlightTest={
  open:()=>{const day=activePlanId==='original'?'Tuesday':'Wednesday';const current=getDisplayedWeekdayMeals().find(x=>x.day===day&&x.cat==='Rice');openWeekdayMealChooser(day,'Rice',current.meal)},
  friday:()=>{meals.find(m=>m.id===2).name='Carne Asada';persist();const current=getDisplayedWeekdayMeals().find(x=>x.day==='Friday'&&x.cat==='Rice');openWeekdayMealChooser('Friday','Rice',current.meal)},
  empty:()=>openWeekdayMealChooser('Monday',null,null,true),
+ order:category=>masterRecipeOrder(category).map(meal=>String(meal.id)),
  data:()=>({planId:activePlanId,day:activePlanId==='original'?'Tuesday':'Wednesday',days:orderedDays(),colors:Object.fromEntries(orderedDays().map(day=>[day,colorForDay(day)])),entries:scheduledRecipeHighlights().scheduledEntries.map(x=>({id:String(x.meal.id),day:x.day,cat:x.cat,planId:x.planId,planName:x.planName}))}),
  tabs:value=>{showMealPlanTabs=value;renderList()},
  once:()=>{const plan=mealPlans.find(p=>p.id===activePlanId);plan.occasionalMeals={Monday:'2'};saveActiveMealPlan();renderList()},
@@ -28,8 +29,11 @@ def compare(p,pending=None):
   # Expected UI: move only this plan's edited weekday; keep every other occurrence.
   entries=[dict(e,id=str(pending)) if e['planId']==data['planId'] and e['day']==data['day'] and e['cat']=='Rice' else e for e in entries]
  for cat,rows in expected.items():
-  assert [r['id'] for r in actual[cat]]==[r['id'] for r in rows],(cat,actual[cat],rows)
-  for a,b in zip(actual[cat],rows):
+  assert [r['id'] for r in actual[cat]]==p.evaluate('category=>highlightTest.order(category)',cat),(cat,actual[cat])
+  master_by_id={row['id']:row for row in rows}
+  assert set(master_by_id)=={row['id'] for row in actual[cat]}
+  for a in actual[cat]:
+   b=master_by_id[a['id']]
    used=[e for e in entries if e['id']==a['id']];days=[day for day in data['days'] if any(e['day']==day for e in used)]
    assert a['days']==' · '.join(day[:3].upper() for day in days),(a,days)
    if used:
@@ -47,7 +51,7 @@ def compare(p,pending=None):
 def run(browser,filename,width,tabs,active):
  ctx,p,errors,prefix=fixture.setup(browser,filename,width,linked=True,duplicate=True,multi=True);p.set_default_timeout(8000);p.evaluate('([tabs,active])=>highlightTest.prepare(tabs,active)',[tabs,active]);p.evaluate('slotTest.seed()');base=state(p)
  p.evaluate('highlightTest.groups()');expected=master(p)
- assert [r['id'] for r in expected['Rice']]==(['3','1','2'] if not tabs and active=='lunch' else ['1','3','2'])
+ assert [r['id'] for r in expected['Rice']]==(['3','1','2'] if active=='lunch' else ['1','3','2'])
  byid={r['id']:r for rows in expected.values() for r in rows}
  assert byid['1']['days']==('TUE · FRI' if active=='original' else '')
  assert byid['3']['days']==('WED' if active=='lunch' else '')
@@ -70,7 +74,7 @@ def run(browser,filename,width,tabs,active):
  d.locator('[data-meal-id="3"]').tap();compare(p,3)
  assert d.locator('[data-meal-id="3"]').get_attribute('aria-pressed')=='true'
  d.get_by_role('button',name='Search recipes',exact=True).tap();search=d.get_by_role('searchbox');search.fill('recipe rice')
- assert d.locator('.weekday-meal-choice').evaluate_all('(es)=>es.map(e=>e.dataset.mealId)')==[r['id'] for r in expected['Rice']]
+ assert d.locator('.weekday-meal-choice').evaluate_all('(es)=>es.map(e=>e.dataset.mealId)')==p.evaluate("highlightTest.order('Rice')")
  # Search must keep the same pending weekday feedback as grouped rows.
  row=d.locator('[data-meal-id="3"]');assert ('TUE' if active=='original' else 'WED') in row.locator('.master-meal-weekdays').inner_text()
  search.fill('');compare(p,3);d.get_by_role('button',name='Cancel',exact=True).tap()
@@ -133,10 +137,55 @@ def feedback(browser,filename,width,tabs):
  if prefix:assert p.evaluate("localStorage.getItem('mealRotationDataV1')")=='WORKING SENTINEL'
  assert not errors,errors;ctx.close();print('PASS',filename,width,tabs,'Friday repeated choices, other-day highlights, search, unchanged styles/data, Save/reload, duplicate prompt X reset, empty one-time preview',flush=True)
 
+fixture.HOOK+='''window.sharedBadgeTest={
+ prepare:()=>{
+  for(const meal of meals)meal.linkedMealIds=[];
+  for(const id of [1,12]){const meal=meals.find(m=>m.id===id);meal.name='Lentils';meal.linkGroup='shared-lentils'}
+  meals.find(m=>m.id===13).name='Lentils';
+  meals.find(m=>m.id===11).name='Pernil';
+  const dinner=mealPlans.find(plan=>plan.id==='original'),lunch=mealPlans.find(plan=>plan.id==='lunch');
+  const assign=(plan,groups,choices)=>{
+   plan.weekdayCategories=groups;plan.weekdayMealOverrides=choices;plan.cycleRetainedSlots={...choices};
+   plan.cycleSlotChoices=Object.fromEntries(Object.entries(choices).map(([key,mealId])=>[key,{mealId,substitution:true}]));
+  };
+  assign(dinner,{Wednesday:['Rice'],Saturday:['Sides'],Sunday:['Sides']},{'Wednesday::Rice':'1','Saturday::Sides':'11'});
+  assign(lunch,{Sunday:['Sides']},{'Sunday::Sides':'12'});
+  dinner.weekSchedule={version:1,slots:{'Sunday::Sides':{kind:'empty'}},order:{}};
+  weekdayCategories=dinner.weekdayCategories;weekdayMealOverrides=dinner.weekdayMealOverrides;saveActiveMealPlan();persist();
+ },
+ switchToLunch:()=>loadMealPlan('lunch',false)
+};'''
+
+
+def shared_recipe_badges(browser,filename,width):
+ ctx,p,errors,_=fixture.setup(browser,filename,width,multi=True)
+ p.evaluate('sharedBadgeTest.prepare()')
+ before=compose(p); queue=definitions(state(p))
+ p.evaluate('highlightTest.groups()')
+ groups=master(p)
+ rice={r['id']:r for r in groups['Rice']}
+ sides={r['id']:r for r in groups['Sides']}
+ assert [r['id'] for r in groups['Sides'][:2]]==['11','12'],groups['Sides']
+ assert sides['11']['days']=='SAT'
+ assert sides['12']['days']==rice['1']['days']=='WED'
+ assert sides['12']['color']==rice['1']['color']=='rgb(246, 222, 170)'
+ assert sides['13']['days']=='',sides['13']
+ assert compose(p)==before and definitions(state(p))==queue
+ p.evaluate('sharedBadgeTest.switchToLunch();highlightTest.groups()')
+ groups=master(p)
+ assert next(r for r in groups['Rice'] if r['id']=='1')['days']=='SUN'
+ assert groups['Sides'][0]['id']=='12' and groups['Sides'][0]['days']=='SUN'
+ assert next(r for r in groups['Sides'] if r['id']=='11')['days']==''
+ assert not errors,errors
+ ctx.close()
+ print('PASS',filename,width,'shared recipe badges, selected tab, directly scheduled recipe first, saved queue untouched',flush=True)
+
+
 if __name__=='__main__':
  with sync_playwright() as pw:
   b=pw.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
   for filename in ['index.html','meal-rotation-test.html']:
+   for width in [320,360]:shared_recipe_badges(b,filename,width)
    for width in [320,360]:
     for tabs in [True,False]:
      for active in ['original','lunch']:run(b,filename,width,tabs,active)

@@ -7517,14 +7517,23 @@ function scheduledRecipeHighlights(preview=null,{activePlanBadgesOnly=false}={})
    scheduledEntries.sort((a,b)=>mealPlans.findIndex(plan=>plan.id===a.planId)-mealPlans.findIndex(plan=>plan.id===b.planId)||days.indexOf(a.day)-days.indexOf(b.day));
   }
  }
+ // Meal Groups shows the same scheduled days for every membership of a shared recipe.
+ const sharedMemberIds=new Map();
+ if(activePlanBadgesOnly)for(const meal of meals){
+  if(!meal.linkGroup)continue;
+  if(!sharedMemberIds.has(meal.linkGroup))sharedMemberIds.set(meal.linkGroup,[]);
+  sharedMemberIds.get(meal.linkGroup).push(String(meal.id));
+ }
  for(const entry of scheduledEntries){
   if(activePlanBadgesOnly&&entry.planId!==activePlanId)continue;
-  const key=String(entry.meal.id);
-  if(!featuredColorById.has(key))featuredColorById.set(key,colorForDay(entry.day));
-  if(!scheduledDaysByMeal.has(key))scheduledDaysByMeal.set(key,new Map());
-  const dayPlans=scheduledDaysByMeal.get(key);
-  if(!dayPlans.has(entry.day))dayPlans.set(entry.day,[]);
-  dayPlans.get(entry.day).push(entry);
+  const ids=sharedMemberIds.get(entry.meal.linkGroup)||[String(entry.meal.id)];
+  for(const key of ids){
+   if(!featuredColorById.has(key))featuredColorById.set(key,colorForDay(entry.day));
+   if(!scheduledDaysByMeal.has(key))scheduledDaysByMeal.set(key,new Map());
+   const dayPlans=scheduledDaysByMeal.get(key);
+   if(!dayPlans.has(entry.day))dayPlans.set(entry.day,[]);
+   dayPlans.get(entry.day).push(entry);
+  }
  }
  return {featuredColorById,scheduledDaysByMeal,scheduledEntries};
 }
@@ -7617,6 +7626,12 @@ function renderMasterCategories(list){
  const displayedGroups=masterOrderedGroups([...baseGroupOrder.filter(cat=>activeGroupNames.has(cat)),...baseGroupOrder.filter(cat=>!activeGroupNames.has(cat))]);
  for(const category of displayedGroups){ 
   const categoryMeals=masterRecipeOrder(category,{scheduledEntries});
+  if(!manualRecipeOrdering){
+   const scheduledHere=new Set(scheduledEntries.filter(entry=>entry.planId===activePlanId&&entry.cat===category).map(entry=>sharedRecipeIdentity(entry.meal)));
+   const displayRank=meal=>!meal.rotation?3:scheduledHere.has(sharedRecipeIdentity(meal))?0:scheduledDaysByMeal.has(String(meal.id))?1:2;
+   // Keep the underlying queue and the order within each display tier intact.
+   categoryMeals.sort((a,b)=>displayRank(a)-displayRank(b));
+  }
   const card=document.createElement('section');card.className='master-category-card';card.dataset.category=category;
   const header=document.createElement('div');header.className='master-category-header';header.style.background='#f8f9fa';if(activeGroupNames.has(category)){card.classList.add('master-category-this-week');}
   const expanded=masterExpandedCategories.has(category);
