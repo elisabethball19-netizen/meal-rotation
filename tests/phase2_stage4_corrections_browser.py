@@ -37,7 +37,7 @@ def picker(p,day):return p.get_by_role('dialog',name="Choose "+day+"'s meal grou
 def setup_launcher(p):
  opener=p.get_by_role('button',name='Set Up Your Rotation',exact=True);opener.focus();p.keyboard.press('Enter');return p.get_by_role('dialog',name='Set Up Your Rotation',exact=True)
 def choose_tab(p,d,tab='lunch'):
- select=d.get_by_role('combobox',name='Meal tab',exact=True);reach(p,select)
+ select=d.get_by_role('combobox',name='Meal to plan',exact=True);reach(p,select)
  p.keyboard.press('Home' if tab=='original' else 'End');p.keyboard.press('Tab');assert select.input_value()==tab
 
 def onboarding(b,name,width):

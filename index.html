@@ -7564,15 +7564,15 @@ function needsRotationSetup(){
 }
 function appendRotationSetupPrompt(parent){
  if(!needsRotationSetup())return;
- const section=document.createElement('section');section.className='rotation-setup-prompt';section.style.cssText='padding:12px;margin:10px 0;border:1px solid #d5dde6;border-radius:10px;background:#f8fafc';
- const text=document.createElement('p');text.textContent='Choose weekday meal groups to start your rotation.';text.style.margin='0 0 8px';
+ const section=document.createElement('section');section.className='rotation-setup-prompt';section.style.cssText='padding:12px;margin:10px 0;border:1px solid #d5dde6;border-top:2px solid #bcc8d3;border-radius:10px;background:#f8fafc';
+ const text=document.createElement('p');text.textContent='Pick a day to plan your first meal. You can set up the rest of the week later.';text.style.margin='0 0 8px';
  const button=document.createElement('button');button.type='button';button.className='smallbtn';button.style.minHeight='44px';button.textContent='Set Up Your Rotation';button.onclick=openRotationSetup;section.append(text,button);parent.append(section);
 }
 function openRotationSetup(){
  if(editId!==null){showAppMessage('Save or cancel the open recipe first.');return}
- const d=recipeBulkDialog('Set Up Your Rotation'),hint=document.createElement('p');hint.textContent='Choose a day to open its normal meal-group controls. Only the assignments you explicitly change will be saved.';d.panel.append(hint);
- const tab=stage2FormField(d.panel,'Meal tab',stage2Select(mealPlans.map(plan=>[plan.id,plan.name])));tab.value=activePlanId;
- const days=document.createElement('div');days.className='recipe-bulk-fields';days.style.cssText='display:grid;gap:6px;overflow:auto';
+ const d=recipeBulkDialog('Set Up Your Rotation'),hint=document.createElement('p');hint.textContent='Pick a meal and a day. Then choose the group of recipes the app should pick from for that day.';hint.style.margin='0';d.panel.append(hint);
+ const tab=stage2FormField(d.panel,'Meal to plan',stage2Select(mealPlans.map(plan=>[plan.id,plan.name])));tab.value=activePlanId;
+ const days=document.createElement('div');days.className='recipe-bulk-fields';days.setAttribute('role','group');days.setAttribute('aria-label','Day of the week');days.style.cssText='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px';
  for(const day of orderedDays()){const button=document.createElement('button');button.type='button';button.className='smallbtn';button.style.cssText='min-height:44px;text-align:left';button.textContent=day;button.onclick=()=>{const planId=tab.value;if(!mealPlans.some(plan=>plan.id===planId)){return}d.close();navigateAfterSettings(()=>{if(activePlanId!==planId)loadMealPlan(planId,false);showTop=true;allMealsActive=false;groceryTabActive=false;render();openDayCategoryPicker(day)})};days.append(button)}
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close setup');close.style.minHeight='44px';close.onclick=d.close;d.panel.append(days,close);tab.focus({preventScroll:true});
 }
