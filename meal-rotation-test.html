@@ -4042,7 +4042,7 @@ function scheduleMealFromGroups(mealId,target){
  const duplicate=displayed.find(entry=>entry.day===target.day&&String(entry.meal.id)===String(meal.id)&&!(target.occasional?entry.occasional&&entry.linkedTo==null:entry.cat===target.category));
  if(duplicate)throw Error('This recipe is already scheduled in another group ('+duplicate.cat+') on '+target.day+'. A recipe can only appear once per weekday in each meal tab. Choose another group or day, or cancel to select another recipe.');
  saveActiveMealPlan();const before=JSON.parse(captureState());
- withSchedulingPlan(target.planId,()=>applyManualWeekdayMeal(target.day,target.category,meal,null,!!target.occasional,{quiet:true,schedulingOnly:true,beforeState:before}));
+ withSchedulingPlan(target.planId,()=>applyManualWeekdayMeal(target.day,target.category,meal,null,!!target.occasional,{quiet:true,schedulingOnly:true,beforeState:before,startGroup:target.startGroup,automatic:target.startGroup&&meal.rotation}));
  snapshot(JSON.stringify(before));finishScheduleChangeUndo(before);renderList();return true;
 }
 function openScheduleMealDialog(meal){
@@ -7584,15 +7584,58 @@ function appendRotationSetupPrompt(parent){
  if(!needsRotationSetup())return;
  const section=document.createElement('section');section.className='rotation-setup-prompt';section.style.cssText='padding:12px;margin:10px 0;border:1px solid #d5dde6;border-top:2px solid #bcc8d3;border-radius:10px;background:#f8fafc';
  const text=document.createElement('p');text.textContent='Pick a day to plan your first meal. You can set up the rest of the week later.';text.style.margin='0 0 8px';
- const button=document.createElement('button');button.type='button';button.className='smallbtn';button.style.minHeight='44px';button.textContent='Set Up Your Rotation';button.onclick=openRotationSetup;section.append(text,button);parent.append(section);
+ const first=meals[0],recipe=first&&meals.every(meal=>sharedRecipeIdentity(meal)===sharedRecipeIdentity(first))?first:null;
+ const button=document.createElement('button');button.type='button';button.className='smallbtn';button.style.minHeight='44px';button.textContent='Set Up Your Rotation';button.onclick=()=>openRotationSetup(recipe);section.append(text,button);parent.append(section);
 }
-function openRotationSetup(){
+function showFirstMealPlanned(meal,day,planName,category){
+ const d=recipeBulkDialog('Meal planned'),summary=document.createElement('p');
+ summary.textContent=meal.name+' is planned for '+day+' '+planName.toLocaleLowerCase()+'.';summary.style.cssText='margin:0;font-weight:600';d.panel.append(summary);
+ if(category){
+  const explanation=document.createElement('p');explanation.style.cssText='margin:0;line-height:1.55';
+  const example=document.createElement('span'),button=document.querySelector('.rotation-heading-actions button[aria-label="Rotate Meals"]');
+  example.textContent='Rotate Meals';
+  if(button){
+   example.style.cssText=button.style.cssText+';vertical-align:middle';
+   example.replaceChildren(...[...button.childNodes].map(node=>node.cloneNode(true)));
+   const icon=example.querySelector('svg');if(icon){icon.setAttribute('width','18');icon.setAttribute('height','18');icon.setAttribute('fill','none');icon.setAttribute('stroke','currentColor');icon.setAttribute('stroke-width','1.8')}
+  }
+  explanation.append('When you use ',example,' to rotate '+day+'’s '+planName.toLocaleLowerCase()+', the app will pick the next recipe from the ');
+  const group=document.createElement('strong');group.textContent=category+' group';explanation.append(group,'.');d.panel.append(explanation);
+ }
+ const done=document.createElement('button');done.type='button';done.className='smallbtn';done.style.minHeight='44px';done.textContent='Done';done.onclick=d.close;d.panel.append(done);done.focus({preventScroll:true});
+}
+function openRotationSetup(recipe=null){
  if(editId!==null){showAppMessage('Save or cancel the open recipe first.');return}
- const d=recipeBulkDialog('Set Up Your Rotation'),hint=document.createElement('p');hint.textContent='Pick a meal and a day. Then choose the group of recipes the app should pick from for that day.';hint.style.margin='0';d.panel.append(hint);
+ const title=recipe?'What day do you want to cook '+recipe.name+'?':'Set Up Your Rotation';
+ const d=recipeBulkDialog(title);
+ if(!recipe){
+  const hint=document.createElement('p');hint.textContent='Pick a meal and a day. Then choose the group of recipes the app should pick from for that day.';hint.style.margin='0';d.panel.append(hint);
+ }
  const tab=stage2FormField(d.panel,'Meal to plan',stage2Select(mealPlans.map(plan=>[plan.id,plan.name])));tab.value=activePlanId;
+ const members=recipe?sharedRecipeMembers(recipe).filter(meal=>cats.includes(meal.cat)):[];
+ const group=members.length>1?stage2FormField(d.panel,'Group to rotate',stage2Select([['','Choose a group'],...members.map(meal=>[meal.cat,meal.cat])])):null;
+ const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');error.hidden=true;
  const days=document.createElement('div');days.className='recipe-bulk-fields';days.setAttribute('role','group');days.setAttribute('aria-label','Day of the week');days.style.cssText='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px';
- for(const day of orderedDays()){const button=document.createElement('button');button.type='button';button.className='smallbtn';button.style.cssText='min-height:44px;text-align:left';button.textContent=day;button.onclick=()=>{const planId=tab.value;if(!mealPlans.some(plan=>plan.id===planId)){return}d.close();navigateAfterSettings(()=>{if(activePlanId!==planId)loadMealPlan(planId,false);showTop=true;allMealsActive=false;groceryTabActive=false;render();openDayCategoryPicker(day)})};days.append(button)}
- const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close setup');close.style.minHeight='44px';close.onclick=d.close;d.panel.append(days,close);tab.focus({preventScroll:true});
+ for(const day of orderedDays()){
+  const button=document.createElement('button');button.type='button';button.className='smallbtn';button.style.cssText='min-height:44px;text-align:left';button.textContent=day;
+  button.onclick=()=>{
+   const plan=mealPlans.find(plan=>plan.id===tab.value);if(!plan)return;
+   if(!recipe){d.close();navigateAfterSettings(()=>{if(activePlanId!==plan.id)loadMealPlan(plan.id,false);showTop=true;allMealsActive=false;groceryTabActive=false;render();openDayCategoryPicker(day)});return}
+   if(group&&!group.value){error.textContent='Choose which group to rotate.';error.hidden=false;group.focus();return}
+   const meal=(group?members.find(meal=>meal.cat===group.value):members[0])||recipe,category=meal.cat||null;
+   try{
+    if(rotationWeekEntries(plan).some(entry=>entry.day===day))throw Error(day+' already has a plan. Choose another day.');
+    if(category&&Object.hasOwn(plan.weekdayCategories||{},day))throw Error(day+' already has a group. Choose another day.');
+    scheduleMealFromGroups(meal.id,{planId:plan.id,day,category,occasional:!category,startGroup:!!category});
+   }catch(problem){error.textContent=problem.message;error.hidden=false;return}
+   d.close();navigateAfterSettings(()=>{
+    if(activePlanId!==plan.id)loadMealPlan(plan.id,false);
+    showTop=true;allMealsActive=false;groceryTabActive=false;render();
+    showFirstMealPlanned(meal,day,plan.name,category);
+   });
+  };days.append(button)
+ }
+ const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close setup');close.style.minHeight='44px';close.onclick=d.close;d.panel.append(days,error,close);tab.focus({preventScroll:true});
 }
 function renderEmptyMealGroups(list){
  const section=document.createElement('section');section.className='master-categories empty-meal-groups';section.setAttribute('aria-label','Meal Groups');const title=document.createElement('h2');title.textContent='Meal Groups';
@@ -7715,16 +7758,11 @@ function renderMasterCategories(list){
        });mealInfo.append(linkedInfo)
       }
      }
-     if(!category&&meals.length===1&&newRecipeDraftId===null){
+     if(!category&&meals.length===1&&newRecipeDraftId===null&&!scheduledEntries.some(entry=>entry.meal.id===m.id)){
       const nextStep=document.createElement('p');nextStep.className='muted';nextStep.style.margin='8px 0 4px';
-      nextStep.textContent='Choose a meal group so the app can include this recipe in your weekly plan.';
+      nextStep.textContent='Pick a day to cook this recipe.';
       const planRecipe=document.createElement('button');planRecipe.type='button';planRecipe.className='smallbtn';planRecipe.style.minHeight='44px';planRecipe.textContent='Add to weekly plan';
-      planRecipe.onclick=()=>{
-       openEditor(m.id);
-       if(editId!==m.id)return;
-       $('rotation').checked=true;
-       document.querySelector('#editor .meal-group-picker-button')?.click();
-      };
+      planRecipe.onclick=()=>openRotationSetup(m);
       mealInfo.append(nextStep,planRecipe);
      }
      row.append(mealInfo,...manualMoves);
@@ -8031,7 +8069,7 @@ function confirmDuplicateMealChoice(meal,occurrences,target=null){return new Pro
  yes.onclick=()=>finish({replace:selected});const no=document.createElement('button');no.type='button';no.className='smallbtn';no.textContent='No — Keep both meals';no.style.cssText='display:block;width:100%;min-height:44px;padding:12px;text-align:left;white-space:normal';no.onclick=()=>finish({replace:null});update();panel.append(yes,no);shade.append(panel);shade.onclick=e=>{if(e.target===shade)finish(null)};shade.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();finish(null)}};document.body.append(shade);close.focus({preventScroll:true});
 })}
 function applyManualWeekdayMeal(day,category,meal,replacing=null,occasional=false,options={}){
- if(category==='@day'||!getDayCategories(day).length){category=null;occasional=true}
+ if(!options.startGroup&&(category==='@day'||!getDayCategories(day).length)){category=null;occasional=true}
  const groceryBefore=captureGroceryCheckStates(),beforeIds=new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)));
  saveActiveMealPlan();const beforeState=options.beforeState||JSON.parse(captureState()),plan=mealPlans.find(plan=>plan.id===activePlanId);
  const sameDayMove=replacing&&replacing.day===day&&replacing.cat!==category;
@@ -8041,6 +8079,7 @@ function applyManualWeekdayMeal(day,category,meal,replacing=null,occasional=fals
  const rotateSource=replacing&&!sameDayMove&&rotationGroupScheduled(plan,replacing.day,replacing.cat);
  if(rotateSource&&beforeState.scheduleChangeUndo){const occurrences=new Set(moving.map(item=>groceryOccurrenceIdentity(plan,item)));beforeState.scheduleChangeUndo.sourceIds=[...groceryBefore].filter(([,item])=>occurrences.has(item.source.occurrence)).map(([id])=>id)}
  if(!rotateSource&&!options.quiet)snapshot(JSON.stringify(beforeState));preserveOtherMealPlanChoices(day,category);
+ if(options.startGroup)weekdayCategories[day]=[category];
  if(occasional){
   const slot=prior.find(item=>item.day===day&&item.occasional&&!item.linkedTo&&rotationGroupScheduled(plan,day,item.cat));
   plan.occasionalMeals={...(plan.occasionalMeals||{}),[day]:String(meal.id)};
