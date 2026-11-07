@@ -9282,7 +9282,7 @@ const addCustom=document.createElement('button');addCustom.type='button';addCust
 function addServeCustom(){const value=custom.value.trim();if(!serveWithWords(value))return;if(!serveWithDraft.some(name=>serveWithWords(name)===serveWithWords(value)))serveWithDraft.push(value);if(!options.some(name=>serveWithWords(name)===serveWithWords(value)))options.push(value);custom.value='';updateServeWith()}
 addCustom.onclick=addServeCustom;custom.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addServeCustom()}};customRow.append(custom,addCustom);serveBody.append(chips,suggestionTitle,suggestions,customRow);updateServeWith();
 let linkedMealDraft=Array.isArray(m.linkedMealIds)?[...m.linkedMealIds]:[];
-const linkedButton=$('editLinkedMeals');linkedButton.hidden=true;linkedButton.readDraft=()=>[...linkedMealDraft];const linkedBody=linkedButton.parentElement,linkedSearch=document.createElement('input'),linkedList=document.createElement('div');
+const linkedButton=$('editLinkedMeals');linkedButton.hidden=true;linkedButton.readDraft=()=>[...linkedMealDraft];linkedButton.writeDraft=ids=>{linkedMealDraft=[...ids];updateLinkedLabel()};const linkedBody=linkedButton.parentElement,linkedSearch=document.createElement('input'),linkedList=document.createElement('div');
 linkedSearch.type='search';linkedSearch.placeholder='Search linked meals';linkedSearch.setAttribute('aria-label','Search linked meals');linkedList.className='meal-editor-linked-list';linkedBody.append(linkedSearch,linkedList);
 function updateLinkedLabel(){document.querySelector('#editor .editor')?.refreshIndicators?.()}
 buildGroupedMealPicker(linkedList,linkedSearch,meals.filter(option=>option.id!==m.id&&!option._scheduledEditorDraft&&typeof option.name==='string'&&option.name.trim()&&!(m.linkGroup&&option.linkGroup===m.linkGroup)).map(option=>({meal:option,checked:linkedMealDraft.some(id=>String(id)===String(option.id)),onChange(checked){linkedMealDraft=linkedMealDraft.filter(id=>String(id)!==String(option.id));if(checked)linkedMealDraft.push(option.id);updateLinkedLabel()}})),{checked:false},true,false,false,true,true);linkedList.collapseMealGroups();
@@ -9496,7 +9496,7 @@ $('cancel').onclick=()=>{mealPersistence.cancelOwner('recipe:'+m.id);rollbackEdi
   const actions=document.createElement('div');actions.className='meal-linked-dialog-actions';
   const apply=document.createElement('button');apply.type='button';apply.className='iconbtn';setIconButton(apply,'save','Apply linked recipes');apply.onclick=()=>{
    const ids=options.filter(option=>selected.has(String(option.id))).map(option=>option.id);
-   $('editLinkedMeals').readDraft=()=>[...ids];d.close();refresh();
+   $('editLinkedMeals').writeDraft(ids);d.close();
   };
   const cancel=document.createElement('button');cancel.type='button';cancel.className='iconbtn';setIconButton(cancel,'cancel','Close without changes');cancel.onclick=d.close;
   actions.append(apply,cancel);d.panel.append(search,list,actions);cancel.focus({preventScroll:true});
