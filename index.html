@@ -9067,7 +9067,7 @@ function positionMealEditor(focusNewMeal=false){
   const header=row.closest('.master-category-card')?.querySelector('.master-category-header');
   const headerStyle=header&&getComputedStyle(header);
   const headerHeight=headerStyle&&headerStyle.position==='sticky'?header.getBoundingClientRect().height+Math.max(0,parseFloat(headerStyle.top)||0):0;
-  const top=window.scrollY+row.getBoundingClientRect().top-viewportTop-headerHeight-8;
+  const top=window.scrollY+row.getBoundingClientRect().top-viewportTop-headerHeight-24;
   window.scrollTo({top:Math.max(0,top),behavior:'instant'});
  }
  function schedule(){cancelAnimationFrame(frame);frame=requestAnimationFrame(align)}
