@@ -1248,11 +1248,13 @@ body.recipe-bulk-select{--recipe-bulk-space:96px;}body.recipe-bulk-select .unifi
 #editor .meal-card-field-button:focus-visible,#editor .meal-card-name-field input:focus,#editor .meal-card-time-field input:focus{border-color:#626b60;outline:1px solid #626b60;outline-offset:0;}
 #editor .meal-card-times{margin:0;gap:4px;}
 #editor .meal-card-time-field .meal-card-field-button{font-size:12px;--text-base-size:12px;padding:5px;min-height:32px;}
-#editor .meal-card-linked{margin:0;border:0;}
+#editor .meal-card-linked{margin:5px 0 0;border:0;}
 #editor .meal-card-linked>summary{display:flex;flex-wrap:wrap;gap:4px 9px;padding:2px 0;min-height:32px;list-style:none;}
 #editor .meal-card-linked>summary::marker{content:'';}
 #editor .meal-card-linked>summary::-webkit-details-marker{display:none;}
 #editor .meal-card-linked-names{flex:1 1 120px;min-width:0;overflow-wrap:anywhere;}
+#editor .meal-card-edit-mode:has(.meal-card-linked){padding-bottom:3px!important;}
+#editor .meal-card-linked>summary{min-height:28px;padding:0;}
 #editor .meal-card-links-action{font-weight:600;padding:5px 2px;color:#4d5849;}
 #editor .meal-editor-segmented{background:transparent;}
 #editor .meal-editor-segmented button{background:#fafafa;border-color:#e2e2e2;box-shadow:none;color:#626262;font-weight:400;}
