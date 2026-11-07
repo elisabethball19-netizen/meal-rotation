@@ -38,7 +38,7 @@ def empty_import(b,name):
  c,p,errors,_=setup(b,name);p.evaluate('stage4Test.empty',False);p.get_by_role('button',name='Import Recipes',exact=True).click();d=p.get_by_role('dialog',name='Import recipes',exact=True);assert d.get_by_role('button').first.evaluate('(e)=>e===document.activeElement');p.keyboard.press('Escape');assert not d.count() and records(p)==[]
  p.get_by_role('button',name='Import Recipes',exact=True).click();p.bring_to_front()
  with p.expect_file_chooser() as fc:p.get_by_role('dialog',name='Import recipes',exact=True).get_by_role('button',name=re.compile('Choose recipe export file')).click()
- fc.value.set_files({'name':'first.json','mimeType':'application/json','buffer':json.dumps({'@type':'Recipe','name':'Imported first recipe','recipeIngredient':['2 cups rice'],'recipeInstructions':'Simmer for 15 minutes.'}).encode()});d=p.get_by_role('dialog',name='Choose meal groups',exact=True);assert d.get_by_role('checkbox',name='Add imported recipes to rotation',exact=True).is_checked();d.get_by_role('button',name='Import recipes',exact=True).click();p.get_by_role('alertdialog').get_by_role('button',name='OK',exact=True).click();assert records(p)[0]['rotation'] and records(p)[0]['groceryDefaultAll'];assert not p.get_by_role('button',name='Import Recipes',exact=True).count();clean(errors);c.close();print('PASS',name,'empty Import uses existing real file picker/parser, keyboard cancellation and Stage 3 defaults',flush=True)
+ fc.value.set_files({'name':'first.json','mimeType':'application/json','buffer':json.dumps({'@type':'Recipe','name':'Imported first recipe','recipeIngredient':['2 cups rice'],'recipeInstructions':'Simmer for 15 minutes.'}).encode()});d=p.get_by_role('dialog',name='Choose meal groups',exact=True);assert d.get_by_role('checkbox',name='Add grouped imports to rotation',exact=True).is_checked();d.get_by_role('button',name='Import recipes',exact=True).click();p.get_by_role('alertdialog').get_by_role('button',name='OK',exact=True).click();assert records(p)[0]['cat']=='' and not records(p)[0]['rotation'] and records(p)[0]['groceryDefaultAll'];assert not p.get_by_role('button',name='Set Up Your Rotation',exact=True).count();assert p.get_by_role('button',name='Unassigned 1 meal',exact=True).is_visible();clean(errors);c.close();print('PASS',name,'first import uses the file picker, shows Unassigned, and waits for a group before prompting for setup',flush=True)
 
 def rotation_setup(b,name,width):
  c,p,errors,_=setup(b,name,width);p.evaluate('stage4Test.clearPlans();stage4Test.groups()');before=storage(p);definitions=records(p);prompt=p.get_by_role('button',name='Set Up Your Rotation',exact=True);prompt.focus();p.keyboard.press('Enter');d=p.get_by_role('dialog',name='Set Up Your Rotation',exact=True);d.get_by_role('combobox',name='Meal tab').select_option('lunch');d.get_by_role('button',name='Close setup',exact=True).click();assert storage(p)==before
@@ -86,7 +86,27 @@ def fresh_install(b,name):
  source=(stage.f.ROOT/name).read_text().replace('resumeRecipeViewer();})();','resumeRecipeViewer();'+stage.f.HOOK.replace('localStorage','testStorage' if prefix else 'localStorage')+'})();')
  if prefix:p.add_init_script("localStorage.setItem('mealRotationDataV1','WORKING SENTINEL')")
  p.route('http://stage4.test/**',lambda r:r.fulfill(content_type='text/html',body=source) if r.request.url.endswith(name) else r.fulfill(body=''));p.route('https://**/*',lambda r:r.fulfill(body=''));p.goto('http://stage4.test/'+name);assert [plan['name'] for plan in s2.plans(p)]==['Breakfast','Lunch','Dinner'];assert records(p)==[]
- p.get_by_role('button',name='Meal Groups',exact=True).click();assert p.get_by_role('button',name='Add Recipe',exact=True).is_visible() and p.get_by_role('button',name='Import Recipes',exact=True).is_visible();assert not p.locator('.master-category-card,.master-expansion-controls').count();p.reload();assert [plan['name'] for plan in s2.plans(p)]==['Breakfast','Lunch','Dinner'] and records(p)==[]
+ start=p.get_by_role('region',name='Get started',exact=True)
+ expect(start.get_by_role('button',name='Add Recipe',exact=True)).to_be_visible()
+ start.get_by_role('button',name='Import Recipes',exact=True).tap()
+ p.get_by_role('dialog',name='Import recipes',exact=True).get_by_role('button',name='Cancel',exact=True).tap()
+ assert not p.locator('.meal-tutorial-hint').count() and records(p)==[]
+ p.get_by_role('button',name='Meal Groups',exact=True).tap()
+ assert p.get_by_role('button',name='Add Recipe',exact=True).is_visible() and p.get_by_role('button',name='Import Recipes',exact=True).is_visible()
+ assert not p.locator('.master-category-card,.master-expansion-controls').count()
+ p.reload()
+ assert [plan['name'] for plan in s2.plans(p)]==['Breakfast','Lunch','Dinner'] and records(p)==[]
+ p.locator('button[data-destination="top"]').tap()
+ start.get_by_role('button',name='Add Recipe',exact=True).tap()
+ dialog=p.get_by_role('dialog',name='Add Recipe',exact=True)
+ if dialog.get_by_role('textbox',name='New group name',exact=True).is_visible():
+  dialog.get_by_role('textbox',name='New group name',exact=True).fill('First group')
+ dialog.get_by_role('button',name='Continue',exact=True).tap()
+ p.locator('#name').fill('First recipe')
+ p.locator('#save').tap()
+ expect(p.get_by_role('button',name='Set Up Your Rotation',exact=True)).to_be_visible()
+ expect(start).to_have_count(0)
+ assert records(p)[0]['name']=='First recipe'
  if prefix:assert p.evaluate('localStorage.getItem("mealRotationDataV1")')=='WORKING SENTINEL'
  clean(errors);c.close();print('PASS',name,'genuine fresh install retains default tabs and clear empty onboarding through reload',flush=True)
 
