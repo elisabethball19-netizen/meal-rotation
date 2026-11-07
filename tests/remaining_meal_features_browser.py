@@ -31,7 +31,7 @@ f.EXTRA+='''window.remainingTest={
 };'''
 
 def reveal(p,selector):
- p.locator(selector).evaluate('(e)=>{for(let a=e.parentElement;a;a=a.parentElement)if(a.tagName==="DETAILS")a.open=true}')
+ p.locator(selector).evaluate('(e)=>{e.revealCardField?.();for(let a=e.parentElement;a;a=a.parentElement)if(a.tagName==="DETAILS")a.open=true}')
  button={'#ingredients':'#toggleIngredients','#recipeInstructions':'#toggleInstructions','#recipeNotes':'#toggleRecipeNotes'}.get(selector)
  if button and p.locator(button).is_visible():p.locator(button).click()
 
@@ -43,7 +43,7 @@ def create(p,once,name):
  assert p.locator('#scheduledOneTime').is_checked() is False
  assert not any(m.get('_scheduledEditorDraft') for m in p.evaluate('remainingTest.savedLibrary()'))
  p.locator('#name').fill(name)
- reveal(p,'#prep');p.locator('#prep').fill('15 min');p.locator('#totaltime').fill('45 min')
+ reveal(p,'#prep');p.locator('#prep').fill('15 min');reveal(p,'#totaltime');p.locator('#totaltime').fill('45 min')
  reveal(p,'#ingredients');p.locator('#ingredients').fill('2 cups rice\n1 cup beans')
  reveal(p,'#recipeInstructions');p.locator('#recipeInstructions').fill('Simmer for 30 minutes.')
  reveal(p,'#recipeNotes');p.locator('#recipeNotes').fill('Remember the sauce.')
