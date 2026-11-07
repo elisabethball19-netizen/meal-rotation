@@ -5646,7 +5646,7 @@ function openDayCategoryPicker(day){
  panel.tabIndex=-1;
  const heading=document.createElement('h3');heading.textContent='Choose '+day+"'s meal groups";heading.id='weekdayGroupPickerTitle';heading.style.cssText='margin:0;min-width:0;flex:1;overflow-wrap:anywhere';
  const header=document.createElement('div');header.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-shrink:0';
- const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close');close.style.cssText+=';width:44px;height:44px;min-width:44px;min-height:44px;flex:0 0 44px';close.onclick=dismiss;header.append(heading,close);panel.append(header);
+ const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close');close.style.cssText+=';width:36px;height:36px;min-width:36px;min-height:36px;flex:0 0 36px';close.onclick=dismiss;header.append(heading,close);panel.append(header);
  const body=document.createElement('div');body.className='weekday-group-picker-body';body.style.cssText='overflow-y:auto;min-height:0;flex:1;overscroll-behavior:contain';panel.append(body);
  const pairBox=document.createElement('div');
  const renderChoices=()=>{
