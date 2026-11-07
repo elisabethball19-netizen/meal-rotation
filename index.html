@@ -1888,6 +1888,29 @@ function recipeAssociationItems(meal){
  const unique=item=>item.token&&counts.get(item.token.replace(/#\d+$/,''))===1;
  return {ingredients:items.ingredients.filter(i=>!syncIngredientHeading(i.text)&&unique(i)),steps:items.steps.filter(i=>i.type==='step'&&cleanInstructionBlock(i).type!=='section'&&unique(i))};
 }
+// Viewer-only ordering: keep stored ingredient arrays and cooking tokens unchanged.
+// Keep ingredient section headings attached to their original ingredients.
+function recipeViewerIngredientOrder(meal,items){
+ const links=validRecipeIngredientLinks(meal);
+ if(!links.length)return items.ingredients;
+ const stepOrder=new Map(items.steps.filter(item=>item.token&&cleanInstructionBlock(item).type!=='section').map((item,index)=>[item.token,index]));
+ const firstUse=new Map();
+ for(const link of links){
+  const rank=stepOrder.get(link.step);
+  if(rank===undefined)continue;
+  for(const token of link.ingredients)firstUse.set(token,Math.min(firstUse.get(token)??Infinity,rank));
+ }
+ if(!firstUse.size)return items.ingredients;
+ const sections=[{heading:null,entries:[]}];
+ for(const item of items.ingredients){
+  if(syncIngredientHeading(item.text))sections.push({heading:item,entries:[]});
+  else sections[sections.length-1].entries.push(item);
+ }
+ const rank=section=>Math.min(Infinity,...section.entries.map(item=>firstUse.get(item.token)??Infinity));
+ sections.forEach(section=>section.entries.sort((a,b)=>(firstUse.get(a.token)??Infinity)-(firstUse.get(b.token)??Infinity)));
+ sections.sort((a,b)=>rank(a)-rank(b));
+ return sections.flatMap(section=>section.heading?[section.heading,...section.entries]:section.entries);
+}
 function validRecipeIngredientLinks(meal,links=meal.ingredientStepLinks){
  const items=recipeAssociationItems(meal),ingredients=new Set(items.ingredients.map(i=>i.token)),steps=new Set(items.steps.map(i=>i.token));
  if(!Array.isArray(links))return [];
@@ -3118,7 +3141,7 @@ function renderRecipeViewer(){
   return el;
  };
  section('Ingredients');const ul=document.createElement('ul');ul.className='recipe-viewer-ingredients';
- for(const item of items.ingredients){const li=document.createElement('li');li.append(v.linkEdit?buildRecipeLinkIngredient(v,item,meal,multiplier,session):tapItem(item,'ingredients'));ul.append(li)}
+ for(const item of recipeViewerIngredientOrder(meal,items)){const li=document.createElement('li');li.append(v.linkEdit?buildRecipeLinkIngredient(v,item,meal,multiplier,session):tapItem(item,'ingredients'));ul.append(li)}
  if(ul.children.length)destination.append(ul);else{const p=document.createElement('p');p.className='muted';p.textContent='No ingredients saved yet.';destination.append(p)}
  destination=instructionsPane;section('Steps');if(v.linkNotice){const notice=document.createElement('p');notice.className='recipe-link-message';notice.textContent=v.linkNotice;destination.append(notice)}let ol=null,stepCount=0;
  for(const originalItem of items.steps){const item=cleanInstructionBlock(originalItem);if(item.type==='section'){const h=document.createElement('h3');h.textContent=item.text;destination.append(h);ol=null;continue}
