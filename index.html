@@ -7697,6 +7697,18 @@ function renderMasterCategories(list){
        });mealInfo.append(linkedInfo)
       }
      }
+     if(!category&&meals.length===1&&newRecipeDraftId===null){
+      const nextStep=document.createElement('p');nextStep.className='muted';nextStep.style.margin='8px 0 4px';
+      nextStep.textContent='Choose a meal group so the app can include this recipe in your weekly plan.';
+      const planRecipe=document.createElement('button');planRecipe.type='button';planRecipe.className='smallbtn';planRecipe.style.minHeight='44px';planRecipe.textContent='Add to weekly plan';
+      planRecipe.onclick=()=>{
+       openEditor(m.id);
+       if(editId!==m.id)return;
+       $('rotation').checked=true;
+       document.querySelector('#editor .meal-group-picker-button')?.click();
+      };
+      mealInfo.append(nextStep,planRecipe);
+     }
      row.append(mealInfo,...manualMoves);
      if(category)row.append(recipeSectionMoveButton(m));bindRecipeBulkRow(row,m);
      appendScheduledRecipeWeekdays(row,m,scheduledDaysByMeal);

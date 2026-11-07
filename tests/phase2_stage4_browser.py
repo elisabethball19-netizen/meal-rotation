@@ -178,6 +178,30 @@ def fresh_install(b,name):
  assert records(p)[0]['name']=='First recipe' and records(p)[0]['cat']=='' and not records(p)[0]['rotation']
  p.reload()
  assert records(p)[0]['name']=='First recipe' and records(p)[0]['cat']==''
+ unassigned=p.get_by_role('button',name='Unassigned 1 meal',exact=True)
+ if unassigned.get_attribute('aria-expanded')=='false':unassigned.tap()
+ next_step=p.get_by_role('button',name='Add to weekly plan',exact=True)
+ next_step.tap()
+ picker=p.get_by_role('dialog',name='Select Meal Group',exact=True)
+ picker.get_by_role('button',name='Close without changes',exact=True).tap()
+ p.locator('#cancel').tap()
+ assert records(p)[0]['cat']=='' and not records(p)[0]['rotation']
+ next_step.tap()
+ picker=p.get_by_role('dialog',name='Select Meal Group',exact=True)
+ group=picker.get_by_role('checkbox').first
+ group_name=group.get_attribute('value')
+ group.check()
+ picker.get_by_role('button',name='Apply selected groups',exact=True).tap()
+ expect(p.locator('#rotation')).to_be_enabled()
+ expect(p.locator('#rotation')).to_be_checked()
+ p.locator('#save').tap()
+ expect(next_step).to_have_count(0)
+ p.get_by_role('button',name='Set Up Your Rotation',exact=True).tap()
+ p.get_by_role('dialog',name='Set Up Your Rotation',exact=True).get_by_role('button',name='Monday',exact=True).tap()
+ day=p.get_by_role('dialog',name="Choose Monday's meal groups",exact=True)
+ day.get_by_role('checkbox',name=group_name,exact=True).check()
+ day.get_by_role('button',name='Close',exact=True).tap()
+ expect(p.locator('[data-schedule-day="Monday"]').get_by_text('First recipe',exact=True)).to_be_visible()
  if prefix:assert p.evaluate('localStorage.getItem("mealRotationDataV1")')=='WORKING SENTINEL'
  clean(errors);c.close();print('PASS',name,'genuine fresh install retains default tabs and clear empty onboarding through reload',flush=True)
 
