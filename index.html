@@ -9155,7 +9155,7 @@ function renderCategoryRows(){
   };
   const cancel=document.createElement('button');cancel.type='button';cancel.className='iconbtn meal-group-picker-close';setIconButton(cancel,'cancel','Close without changes');cancel.style.cssText+=';width:44px;height:44px';cancel.onclick=d.close;
   actions.append(apply,cancel);d.panel.append(list,actions);cancel.focus({preventScroll:true});
- }row.append(picker);
+ };row.append(picker);
  const action=document.createElement('button');action.type='button';action.className='smallbtn category-remove';setIconButton(action,draft===primary?'add':'delete',draft===primary?'Add group membership':'Remove meal from '+(draft.cat||'new group'));action.style.cssText+=';flex:0 0 44px;width:44px;height:44px;min-height:44px';if(draft!==primary&&draft.id!==null){action.title='Remove this recipe from '+draft.cat+'. The recipe remains in its other groups.';action.querySelector('svg').style.width=action.querySelector('svg').style.height='18px'}
  if(draft===primary){action.disabled=editorMembershipDraft.some(d=>d.id===null&&!d.cat&&!d.removed)||!cats.some(cat=>!editorMembershipDraft.some(d=>d.cat===cat));action.onclick=()=>{editorMembershipDraft.push({id:null,cat:''});refresh();[...holder.querySelectorAll('.meal-group-picker-button')].at(-1)?.focus({preventScroll:true})}}
  else action.onclick=()=>{draft.cat='';draft.removed=true;refresh()};row.append(action);holder.append(row)}
