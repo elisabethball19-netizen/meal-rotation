@@ -36,7 +36,12 @@ def compare(p,pending=None):
     color=data['colors'][used[0]['day']];rgb=tuple(int(color[n:n+2],16) for n in (1,3,5));want='rgb'+str(rgb)
    else:want='rgb(255, 255, 255)'
    assert a['color']==want,(a,want)
-   if pending is None:assert a['title']==b['title'],(a,b)
+   if pending is None:
+    visible=[e for e in used if e['planId']==data['planId']]
+    visible_days=[day for day in data['days'] if any(e['day']==day for e in visible)]
+    assert b['days']==' · '.join(day[:3].upper() for day in visible_days),(b,visible_days)
+    assert all(e['planName'] in b['title'] for e in visible),(b,visible)
+    assert bool(b['title'])==bool(visible),(b,visible)
  return actual
 
 def run(browser,filename,width,tabs,active):
@@ -44,8 +49,8 @@ def run(browser,filename,width,tabs,active):
  p.evaluate('highlightTest.groups()');expected=master(p)
  assert [r['id'] for r in expected['Rice']]==(['3','1','2'] if not tabs and active=='lunch' else ['1','3','2'])
  byid={r['id']:r for rows in expected.values() for r in rows}
- assert byid['1']['days']==('TUE · FRI' if tabs or active=='original' else '')
- assert byid['3']['days']==('WED' if tabs or active=='lunch' else '')
+ assert byid['1']['days']==('TUE · FRI' if active=='original' else '')
+ assert byid['3']['days']==('WED' if active=='lunch' else '')
  if byid['1']['days']:assert byid['1']['color']=='rgb(209, 222, 192)' and 'Dinner' in byid['1']['title']
  if byid['3']['days']:assert byid['3']['color']=='rgb(246, 222, 170)' and 'Lunch' in byid['3']['title']
  p.evaluate('highlightTest.open()');d=chooser(p);expand(d);compare(p)
