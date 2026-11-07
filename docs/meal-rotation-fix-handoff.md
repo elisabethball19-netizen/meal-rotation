@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: Batch 1 meal-editor layout is on `ui/meal-editor-layout-batch1`, awaiting review; not merged or deployed. Main already includes PR #91 scaling. Earlier sections below are historical.
+Latest status: Batch 2 Notes & Reminders and live editor indicators are on `ui/meal-editor-notes-batch2`, awaiting review. Not merged or deployed. Main includes Batch 1 (PR #92). Earlier sections below are historical.
 
 Date: November 6, 2026
 
@@ -679,3 +679,16 @@ Physical Android numeric keyboard behavior, installed-PWA/offline interaction an
 - `installMealEditorLayout` bounds each inline/modal editor, gives fields their own scroll area, and keeps the unchanged Save/Delete/Cancel icons in its bottom toolbar. Visual-viewport resizing keeps fields and toolbar separate; listeners clean up when the editor is removed.
 - Focused `tests/editor_batch1_browser.py`: four production/test mobile cases at 320/390px passed for creation/editing/one-time meals, membership controls, existing timing storage, all four sections/preferences/summaries, Serve with/Linked Meals dialogs, save/delete confirmation/cancel, inline/modal reduced keyboard viewport, scrolling, reload and backup validation. Existing `remaining_meal_features_browser.py`: four cases passed. No JavaScript errors. Inline JS syntax, Python compilation and shared HTML synchronization passed.
 - Real Android keyboard, native dropdowns and installed-PWA touch/scroll comfort still require phone verification. No later-batch interactions, rotation/scaling/grocery algorithms, recipe data or user storage were changed.
+
+## November 7, 2026 — Batch 2: Notes & Reminders and live indicators
+
+- Base: latest confirmed main `3af9537e487126be60f2cd5fd3c4e5d7984b7809`. Dedicated branch `ui/meal-editor-notes-batch2`; do not merge/deploy automatically.
+- Text-only indicator refresh reads current editor drafts for Serve with, Linked Meals, Recipe and Notes & Reminders. Existing selection handlers and delegated input/change events update labels without rebuilding fields, resetting expansion, or replacing the editor. Linked-dialog Cancel restores its prior indicator.
+- Notes & Reminders now contains Needs Adjusting, Make Ahead and Notes subsections, using the Batch 1 chevrons/dividers and existing editor-preference record's compatible `subsections` extension. Saved content does not force expansion.
+- Adjustment text controls the status; trash clears the draft text/status without a new modal. The obsolete visible checkbox is removed; an internal hidden state retains existing save/recovery handlers. Legacy marked-without-note records remain visibly identified and stay marked until explicitly cleared. Cancel discards drafts.
+- Preparation tasks use direct editable rows, a plus icon, trash icons and inline number/Hours/Days controls. Existing IDs, day offsets and extra task fields are retained. Fractional days remain exact; new hour tasks add optional `hoursBefore` alongside `daysBefore:0`. Unrepresentable legacy values are shown as retained timing and kept unchanged unless edited. No destructive migration occurs.
+- Necessary scheduling support subtracts hour offsets from the app's existing scheduled-date anchor; whole-day offsets retain their calendar-day behavior. Reminders remain date-based: no meal clock time, timed alarm or new scheduling system is introduced. Existing task completion identities remain unchanged.
+- Passed: four focused 320/390px production/test runs for live indicators, subsection preferences, legacy statuses, adding/editing/clearing notes/tasks, exact/legacy timing, invalid timing rejection, Cancel/Save/reload/backup, one-time creation and reduced keyboard viewport; two additional final-source linked-checkbox/Cancel checks; all eight existing Make Ahead boundary/editor/rotation/backup scenarios; all four existing full-editor/linked/grocery/favorite feature runs. No JavaScript errors observed. Inline JS syntax, Python compilation and identical shared HTML edits checked.
+- Real Android numeric keyboard, native unit dropdowns and installed-PWA touch/scroll comfort still need phone verification. No Batch 3, photo removal, app-wide cleanup or linked-side rotation changes were implemented.
+
+Batch 1's separate HTTPS test preview (exact branch head `6567b39665f8f50030ba9bd303ce0fd5d2d28c2a`): https://raw.githack.com/elisabethball19-netizen/meal-rotation/6567b39665f8f50030ba9bd303ce0fd5d2d28c2a/meal-rotation-test.html . Served HTML matched the branch blob byte-for-byte. It uses the isolated test-storage namespace on a different origin from the live GitHub Pages app; it does not contain Batch 2.
