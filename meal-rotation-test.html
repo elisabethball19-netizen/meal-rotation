@@ -1513,8 +1513,8 @@ function captureBackupStorage(){
 function validateBackupCore(d){
  const weekdays=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
  const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
- if(!object(d)||!Array.isArray(d.cats)||!d.cats.length||d.cats.some(c=>typeof c!=='string'||!c.trim())||new Set(d.cats).size!==d.cats.length)throw new Error('Invalid groups');
- if(!Array.isArray(d.meals))throw new Error('Invalid recipes: recipe list is missing');const invalidRecipe=d.meals.find(m=>!object(m)||!Number.isSafeInteger(Number(m.id))||Number(m.id)<1||typeof m.name!=='string'||typeof m.cat!=='string'||!d.cats.includes(m.cat)||('ingredients'in m&&!Array.isArray(m.ingredients))||('labels'in m&&(!Array.isArray(m.labels)||m.labels.some(x=>typeof x!=='string'))));if(invalidRecipe!==undefined)throw new Error('Invalid recipes: '+(object(invalidRecipe)?String(invalidRecipe.name||'unnamed recipe')+' (ID '+String(invalidRecipe.id??'missing')+')':'invalid recipe entry'));
+ if(!object(d)||!Array.isArray(d.cats)||d.cats.some(c=>typeof c!=='string'||!c.trim())||new Set(d.cats).size!==d.cats.length)throw new Error('Invalid groups');
+ if(!Array.isArray(d.meals))throw new Error('Invalid recipes: recipe list is missing');const invalidRecipe=d.meals.find(m=>!object(m)||!Number.isSafeInteger(Number(m.id))||Number(m.id)<1||typeof m.name!=='string'||(m.cat!==''&&!d.cats.includes(m.cat))||('ingredients'in m&&!Array.isArray(m.ingredients))||('labels'in m&&(!Array.isArray(m.labels)||m.labels.some(x=>typeof x!=='string'))));if(invalidRecipe!==undefined)throw new Error('Invalid recipes: '+(object(invalidRecipe)?String(invalidRecipe.name||'unnamed recipe')+' (ID '+String(invalidRecipe.id??'missing')+')':'invalid recipe entry'));
  for(const m of d.meals){if('serveWith'in m&&(!Array.isArray(m.serveWith)||m.serveWith.some(v=>typeof v!=='string'||!v.trim())))throw Error('Invalid Serve with preferences');if('preferredSideGroupIds'in m&&(!Array.isArray(m.preferredSideGroupIds)||m.preferredSideGroupIds.some(id=>typeof id!=='string'||!id)))throw Error('Invalid preferred side groups');if('instructions'in m&&m.instructions!=null&&typeof m.instructions!=='string'&&(!Array.isArray(m.instructions)||m.instructions.some(b=>typeof b!=='string'&&(!b||typeof b!=='object'||!['step','section'].includes(b.type)||typeof b.text!=='string'))))throw Error('Invalid recipe instructions');if('notes'in m&&typeof m.notes!=='string')throw Error('Invalid recipe notes');}
  if(new Set(d.meals.map(m=>String(m.id))).size!==d.meals.length)throw new Error('Duplicate recipe IDs');
  if('active'in d&&typeof d.active!=='string')throw new Error('Invalid active group');
@@ -4092,13 +4092,13 @@ function writeMasterGroupOrder(next,recordHistory=true){
 function restoreMasterGroupOrder(next){const value=validMasterGroupOrder(next)?next:null;return JSON.stringify(value)===JSON.stringify(masterGroupOrder)||writeMasterGroupOrder(value,false)}
 function renameMasterGroupOrder(old,next){return masterGroupOrder===null||!masterGroupOrder.includes(old)||writeMasterGroupOrder(masterGroupOrder.map(c=>c===old?next:c),false)}
 function removeMasterGroupOrder(category){return masterGroupOrder===null||!masterGroupOrder.includes(category)||writeMasterGroupOrder(masterGroupOrder.filter(c=>c!==category),false)}
-function currentMasterGroupOrder(){const shown=[...document.querySelectorAll('#list .master-category-card')].map(card=>card.dataset.category);return shown.length===cats.length?shown:masterOrderedGroups(masterDisplayOrder())}
+function currentMasterGroupOrder(){const shown=[...document.querySelectorAll('#list .master-category-card')].map(card=>card.dataset.category).filter(category=>cats.includes(category));return shown.length===cats.length?shown:masterOrderedGroups(masterDisplayOrder())}
 function installMasterGroupDragging(wrap,reset){
  const events=new AbortController(),signal=events.signal;let gesture=null,suppressClick=false;
  const on=(target,event,handler,options={})=>target.addEventListener(event,handler,{...options,signal});
- const cards=()=>[...wrap.querySelectorAll(':scope>.master-category-card')];
+ const cards=()=>[...wrap.querySelectorAll(':scope>.master-category-card')].filter(card=>cats.includes(card.dataset.category));
  const eligible=target=>{
-  const card=target.closest('.master-category-card');if(!card||target.closest('.master-category-meal,.editor,[contenteditable="true"]'))return null;
+  const card=target.closest('.master-category-card');if(!card||!cats.includes(card.dataset.category)||target.closest('.master-category-meal,.editor,[contenteditable="true"]'))return null;
   const control=target.closest('button,a,input,select,textarea,summary,[role="button"]');
   if(control&&(!control.classList.contains('master-category-title')||target.closest('svg')))return null;
   return card;
@@ -4937,14 +4937,14 @@ function showRecipeImportSelection(items,filename){
  toolbar.append(all,none);box.append(toolbar);
  const list=document.createElement('div');list.style.cssText='overflow-y:auto;min-height:70px;max-height:45vh;padding:6px 2px;border-top:1px solid #e5e5e5;border-bottom:1px solid #e5e5e5';const checks=[];
  for(const tag of tags){const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 4px;font-size:16px';const cb=document.createElement('input');cb.type='checkbox';cb.checked=false;cb.style.cssText='width:21px;height:21px;flex:0 0 21px';const name=document.createElement('span');name.textContent=tag;name.style.flex='1';const count=document.createElement('span');count.textContent=String(items.filter(x=>recipeImportTags(x).includes(tag)).length);count.style.cssText='font-size:12px;color:#888';row.append(cb,name,count);list.append(row);checks.push({tag,cb});cb.onchange=updateSummary;}
- if(!tags.length){list.textContent='This file has no recipe tags. All imported meals will go into Misc.';list.style.fontSize='14px';all.disabled=true;none.disabled=true;}
+ if(!tags.length){list.textContent='This file has no recipe tags. All imported meals will go into Unassigned.';list.style.fontSize='14px';all.disabled=true;none.disabled=true;}
  box.append(list);
- const notes=document.createElement('p');notes.style.cssText='font-size:13px;color:#666;margin:0';notes.textContent='Checked source tags become meal groups. Meals without a checked group go to Misc.';box.append(notes);const importRotation=document.createElement('input');importRotation.type='checkbox';importRotation.checked=true;stage2FormField(box,'Add imported recipes to rotation',importRotation);
+ const notes=document.createElement('p');notes.style.cssText='font-size:13px;color:#666;margin:0';notes.textContent='Checked source tags become meal groups. Meals without a checked group go to Unassigned.';box.append(notes);const importRotation=document.createElement('input');importRotation.type='checkbox';importRotation.checked=true;stage2FormField(box,'Add grouped imports to rotation',importRotation);
  const footer=document.createElement('div');footer.style.cssText='display:flex;justify-content:flex-end;gap:10px;margin-top:6px';
  const cancel=document.createElement('button');cancel.type='button';cancel.className='smallbtn';cancel.textContent='Cancel';
  const apply=document.createElement('button');apply.type='button';apply.className='smallbtn';apply.textContent='Import recipes';apply.style.cssText='background:#e8eefb;border-color:#aac0df;font-weight:600';
  footer.append(cancel,apply);box.append(footer);overlay.append(box);document.body.append(overlay);
- function updateSummary(){const chosen=new Set(checks.filter(x=>x.cb.checked).map(x=>x.tag));const miscellaneous=items.filter(x=>!recipeImportTags(x).some(t=>chosen.has(t))).length;summary.textContent=chosen.size+' groups selected · '+miscellaneous+' recipes will go into Misc';}
+ function updateSummary(){const chosen=new Set(checks.filter(x=>x.cb.checked).map(x=>x.tag));const unassigned=items.filter(x=>!recipeImportTags(x).some(t=>chosen.has(t))).length;summary.textContent=chosen.size+' groups selected · '+unassigned+' recipes will go into Unassigned';}
  all.onclick=()=>{checks.forEach(x=>x.cb.checked=true);updateSummary()};none.onclick=()=>{checks.forEach(x=>x.cb.checked=false);updateSummary()};cancel.onclick=()=>overlay.remove();overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};
  apply.onclick=()=>{
   const chosen=new Set(checks.filter(x=>x.cb.checked).map(x=>x.tag));
@@ -4952,14 +4952,14 @@ function showRecipeImportSelection(items,filename){
   const nextCats=[...cats],newMeals=meals.map(m=>({...m})),addedCats=[];const enrichIds=[];
   const canonicalLabels=new Map(allRecipeLabels().map(name=>[labelKey(name),name]));
   const existingIds=new Set(meals.map(m=>String(m.importSourceId||'')).filter(Boolean));
-  let nextId=id,added=0,skipped=0,enriched=0,firstCategory='';
+  let nextId=id,added=0,skipped=0,enriched=0,unassigned=0,firstCategory='';
   const catFor=tag=>{const key=normalize(tag);let cat=nextCats.find(c=>normalize(c)===key);if(!cat){cat=tag.charAt(0).toUpperCase()+tag.slice(1);nextCats.push(cat);addedCats.push(cat)}return cat};
   for(const r of items){
    const sourceId=recipeImportIdentity(r);
    if(sourceId&&existingIds.has(sourceId)){const details=completeRecipeFields(r);for(const m of newMeals.filter(m=>m.importSourceId===sourceId))if(fillMissingRecipeContent(m,details))enriched++;skipped++;continue;}
    const matching=recipeImportTags(r).filter(t=>chosen.has(t));
    const categories=[...new Set(matching.map(catFor))];
-   if(!categories.length)categories.push(catFor('Misc'));
+   if(!categories.length){categories.push('');unassigned++}
    if(!firstCategory)firstCategory=categories[0];
    const prep=recipeImportMinutes(r.prepTime??r.activeTime);
    const total=recipeImportMinutes(r.totalTime);
@@ -4968,7 +4968,7 @@ function showRecipeImportSelection(items,filename){
    const importedDetails=completeRecipeFields(r);
    const base={recipeImportReferences:importedDetails.recipeImportReferences,recipeImportPending:!importedDetails.instructions.some(b=>b.type==='step')&&!!(recipeImportUrl(r)||importedDetails.originalRecipeUrl),instructions:importedDetails.instructions,notes:importedDetails.notes,originalRecipeUrl:importedDetails.originalRecipeUrl,name:r.name.trim(),labels:importedLabels,rotation:importRotation.checked,groceryDefaultAll:true,keepAsIdea:!importRotation.checked,prep,cook,total:total!==''?total:(prep!==''&&cook!==''?Number(prep)+Number(cook):''),marinate:importedDetails.marinate,url:recipeImportUrl(r),sourceUrl:recipeImportSourceUrl(r),recipeSageId:/^[0-9a-f]{8}-/.test(sourceId)?sourceId:'',importSourceId:sourceId,ingredients:importedDetails.ingredients};
    const group=categories.length>1?'imported-'+(sourceId||nextId):'';
-   categories.forEach(cat=>{const meal={...base,id:nextId++,cat,linkGroup:group,ingredients:[...base.ingredients]};newMeals.push(meal);enrichIds.push(meal.id)});
+   categories.forEach(cat=>{const meal={...base,id:nextId++,cat,linkGroup:group,ingredients:[...base.ingredients]};if(!cat){meal.rotation=false;meal.keepAsIdea=true}newMeals.push(meal);enrichIds.push(meal.id)});
    if(sourceId)existingIds.add(sourceId);
    added++;
   }
@@ -4981,8 +4981,9 @@ function showRecipeImportSelection(items,filename){
   snapshot();cats=nextCats;meals=newMeals;id=nextId;recipeLabelCatalog=[...canonicalLabels.values()];saveRecipeLabelCatalog();active=nextActive;showTop=false;editId=null;menuCat=null;
   expandedCats=[...new Set([...expandedCats,...addedCats])];
   try{testStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}
+  if(unassigned){masterExpansionInitialized=true;masterExpandedCategories.add('')}
   overlay.remove();render();
-  recipeImportNotice('Imported '+added+' recipes into '+(importRotation.checked?'In Rotation':'Ideas')+' across '+addedCats.length+' new groups.'+(enriched?' Added missing details to '+enriched+' existing recipe records.':'')+(skipped?' Skipped '+skipped+' duplicate recipes.':'')+(enrichIds.some(id=>!instructionBlocks(meals.find(m=>m.id===id)?.instructions).some(b=>b.type==='step'))?' Some imports have no reliable cooking instructions yet. Available ingredients were preserved. Supported source URLs will be checked in the background; use Refresh Recipes from RecipeSage with your export for any still incomplete recipes.':''),meals.filter(m=>m.recipeImportReferences?.length&&(enrichIds.includes(m.id)||items.some(r=>recipeImportIdentity(r)===m.importSourceId))));
+  recipeImportNotice('Imported '+added+' recipes across '+addedCats.length+' new groups.'+(unassigned?' '+unassigned+' saved in Unassigned.':'')+(enriched?' Added missing details to '+enriched+' existing recipe records.':'')+(skipped?' Skipped '+skipped+' duplicate recipes.':'')+(enrichIds.some(id=>!instructionBlocks(meals.find(m=>m.id===id)?.instructions).some(b=>b.type==='step'))?' Some imports have no reliable cooking instructions yet. Available ingredients were preserved. Supported source URLs will be checked in the background; use Refresh Recipes from RecipeSage with your export for any still incomplete recipes.':''),meals.filter(m=>m.recipeImportReferences?.length&&(enrichIds.includes(m.id)||items.some(r=>recipeImportIdentity(r)===m.importSourceId))));
   enrichImportedRecipes(enrichIds);
  };
  updateSummary();
@@ -6439,7 +6440,7 @@ function reconcileActiveLinkedMeals(){
  let changed=false;
  for(const targetId of activeLinks){
   const target=meals.find(m=>String(m.id)===targetId);
-  if(!target||!automaticLinks.has(targetId)||target.keepAsIdea===true&&!target.rotation)continue;
+  if(!target?.cat||!automaticLinks.has(targetId)||target.keepAsIdea===true&&!target.rotation)continue;
   const newlyActivated=!previouslyActiveLinkedIds.has(targetId);
   if(!target.rotation){target.rotation=true;changed=true}
   if(newlyActivated){
@@ -6566,7 +6567,7 @@ function finishRecipePromotion(meal,before){
  saveWeekdayMealOverrides();reconcileActiveLinkedMeals();reconcileRotatedGroceryChecks(before.grocery,[]);
 }
 function promoteMealToRotation(meal){
- if(meal.rotation)return;
+ if(!meal.cat||meal.rotation)return;
  if(groceryCheckStorageInvalid){showAppMessage('Saved grocery check states could not be read. Export a backup before repairing this browser data.');return}
  snapshot();const before=prepareRecipePromotion(meal);
  meal.rotation=true;const from=meals.indexOf(meal);if(from>=0)meals.splice(from,1);
@@ -7170,7 +7171,7 @@ function openMealSwipeMenu(meal){
   try{applyRecipeBulk([String(meal.id)],{delete:true});if(editId===meal.id)editId=null}
   catch(error){showAppMessage('Recipe could not be deleted: '+error.message)}
  });
- const move=option(meal.rotation?'Remove from rotation':'Move to rotation',()=>{
+ if(meal.cat)option(meal.rotation?'Remove from rotation':'Move to rotation',()=>{
   const current=meals.find(item=>item.id===meal.id);if(!current)return;
   if(!current.rotation){promoteMealToRotation(current);return}
   demoteMealToIdeas(current);
@@ -7296,12 +7297,13 @@ function recipeBulkDialog(title,returnFocus=null){
 }
 function openRecipeBulkScopes(){
  const d=recipeBulkDialog('Select recipes'),visible=[...document.querySelectorAll('.master-category-meal')].filter(row=>row.getClientRects().length).map(row=>row.dataset.mealId),focus=recipeBulkFocus;
- const options=[];if(focus){options.push(['Select '+focus.cat+' · '+(focus.rotation?'In Rotation':'Ideas'),meals.filter(m=>m.cat===focus.cat&&!!m.rotation===focus.rotation).map(m=>String(m.id))]);options.push(['Select all in '+focus.cat,meals.filter(m=>m.cat===focus.cat).map(m=>String(m.id))])}options.push(['Select expanded sections',visible],['Select all recipes across all groups',meals.map(m=>String(m.id))]);
+ const options=[];if(focus){if(focus.cat)options.push(['Select '+focus.cat+' · '+(focus.rotation?'In Rotation':'Ideas'),meals.filter(m=>m.cat===focus.cat&&!!m.rotation===focus.rotation).map(m=>String(m.id))]);options.push(['Select all in '+(focus.cat||'Unassigned'),meals.filter(m=>m.cat===focus.cat).map(m=>String(m.id))])}options.push(['Select expanded sections',visible],['Select all recipes across all groups',meals.map(m=>String(m.id))]);
  for(const [name,ids]of options){const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=name+' ('+ids.length+')';b.onclick=()=>{ids.forEach(id=>recipeBulkIds.add(id));updateRecipeBulkUI();d.close()};d.panel.append(b)}const none=document.createElement('button');none.type='button';none.className='smallbtn';none.textContent='Deselect all';none.onclick=()=>{recipeBulkIds.clear();updateRecipeBulkUI();d.close()};const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close selection options');close.onclick=d.close;d.panel.append(none,close);close.focus({preventScroll:true});
 }
 function validateRecipeBulkChange(ids,patch,allowEmpty=false){
  for(const key of ['rotation','favorite','adjusting','delete'])if(Object.hasOwn(patch,key)&&typeof patch[key]!=='boolean')throw Error('Invalid '+key+' change.');for(const key of ['addLabels','removeLabels'])if(patch[key]!==undefined&&(!Array.isArray(patch[key])||patch[key].some(label=>typeof label!=='string'||!label.trim())))throw Error('Invalid recipe labels.');
  if((!ids.length&&!allowEmpty)||ids.some(id=>!meals.some(m=>String(m.id)===id)))throw Error('The recipe selection changed. Select the recipes again.');if(patch.category&&!cats.includes(patch.category))throw Error('Choose an existing meal group.');
+ if(patch.rotation===true&&!patch.category&&meals.some(meal=>meal.cat===''&&ids.includes(String(meal.id))))throw Error('Choose a meal group before adding unassigned recipes to rotation.');
  if((patch.addLabels||[]).some(label=>(patch.removeLabels||[]).some(other=>labelKey(label)===labelKey(other))))throw Error('A label cannot be added and removed in the same update.');
  if(patch.category){const groups=new Map();for(const m of meals){if(!m.linkGroup)continue;const cat=ids.includes(String(m.id))?patch.category:m.cat,key=JSON.stringify([m.linkGroup,cat]);if(groups.has(key)){const other=groups.get(key);if(ids.includes(String(m.id))&&m.cat!==patch.category||ids.includes(String(other.id))&&other.cat!==patch.category)throw Error('Shared copies of the same recipe cannot occupy the same group. Choose a different destination; no recipes were moved.')}groups.set(key,m)}}
 }
@@ -7355,13 +7357,14 @@ function validateBulkScheduleResult(schedules,departing,allowedDays=[],creating=
 function applyEditorRecipeMutation(edit,transaction){
  const source=meals.find(m=>String(m.id)===edit.sourceId);if(!source)throw Error('This recipe no longer exists.');const members=sharedRecipeMembers(source),memberIds=new Set(members.map(m=>String(m.id))),destinations=new Set();
  for(const draft of edit.memberships){if(draft.id!==null&&!memberIds.has(String(draft.id)))throw Error('A group membership changed. Close and reopen the editor.');if(draft.cat&&!cats.includes(draft.cat))throw Error('Choose an existing group.');if(draft.cat&&destinations.has(draft.cat))throw Error('This recipe already belongs to that group.');if(draft.cat)destinations.add(draft.cat)}
- if(!destinations.size)throw Error('Choose a group before saving.');
  const primary=edit.memberships.find(draft=>String(draft.id)===edit.sourceId),wasRotation=source.rotation;
- if(primary?.cat&&!wasRotation&&edit.rotation)transaction.promotion=prepareRecipePromotion({...source,...edit.fields,cat:primary.cat},false);
+ if(!primary)throw Error('The recipe group changed. Close and reopen the editor.');
+ const keepUnassigned=!destinations.size;
+ if(primary.cat&&!wasRotation&&edit.rotation)transaction.promotion=prepareRecipePromotion({...source,...edit.fields,cat:primary.cat},false);
  assignSharedRecipeFields(source,edit.fields);if(Object.hasOwn(edit.fields,'ingredientStepLinks')&&sharedRecipeMembers(source).some(record=>JSON.stringify(validRecipeIngredientLinks(record))!==JSON.stringify(record.ingredientStepLinks||[])))throw Error('Shared ingredient links do not match the saved recipe content.');
  if(Object.hasOwn(edit.fields,'linkedMealIds'))for(const [planId,entries]of transaction.schedules)for(const entry of entries)if(memberIds.has(String(entry.meal.id)))transaction.allowedDays.push({planId,day:entry.day});
- for(const draft of edit.memberships){if(draft.id===null||!draft.cat)continue;const record=meals.find(m=>String(m.id)===String(draft.id));record.cat=draft.cat;transaction.selected.add(String(record.id));if(String(record.id)===edit.sourceId){if(record.rotation&&!edit.rotation)transaction.departing.add(String(record.id));record.rotation=edit.rotation;if(!record.rotation)delete record.rotationPromotionPriority}}
- for(const member of members)if(!edit.memberships.some(draft=>String(draft.id)===String(member.id)&&draft.cat))transaction.removed.add(String(member.id));
+ for(const draft of edit.memberships){if(draft.id===null||(!draft.cat&&!(keepUnassigned&&draft===primary)))continue;const record=meals.find(m=>String(m.id)===String(draft.id)),previousCategory=record.cat;record.cat=draft.cat;transaction.selected.add(String(record.id));if(draft===primary){const rotation=!!draft.cat&&edit.rotation;if((wasRotation&&!rotation)||(previousCategory&&!draft.cat))transaction.departing.add(String(record.id));record.rotation=rotation;if(!record.rotation)delete record.rotationPromotionPriority}}
+ for(const member of members)if(!edit.memberships.some(draft=>String(draft.id)===String(member.id)&&(draft.cat||(keepUnassigned&&draft===primary))))transaction.removed.add(String(member.id));
  const additions=edit.memberships.filter(draft=>draft.id===null&&draft.cat);let group=source.linkGroup;if(additions.length&&!group)group='linked-'+source.id+'-'+Date.now();
  for(const member of members)if(!transaction.removed.has(String(member.id)))member.linkGroup=group||'';
  for(const draft of additions){const record={...JSON.parse(JSON.stringify(source)),id:id++,cat:draft.cat,rotation:edit.rotation,linkGroup:group};delete record.rotationPromotionPriority;meals.push(record);const selections=JSON.parse(testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');selections[String(record.id)]=grocerySelectionsForMeal(source,selections);testStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selections))}
@@ -7564,6 +7567,7 @@ function renderMasterCategories(list){
  if(!meals.length){renderEmptyMealGroups(list);return}
  const wrap=document.createElement('section');wrap.className='master-categories';wrap.setAttribute('aria-label','Meal Groups');
  const {featuredColorById,scheduledDaysByMeal,scheduledEntries}=scheduledRecipeHighlights(null,{activePlanBadgesOnly:true});
+ const hasUnassigned=meals.some(meal=>meal.cat==='');
  const heading=document.createElement('div');heading.className='master-categories-heading';
  const title=document.createElement('h2');title.textContent='Meal Groups';heading.append(title);
  const controls=document.createElement('div');controls.className='master-expansion-controls';
@@ -7571,7 +7575,7 @@ function renderMasterCategories(list){
  addGroup.onclick=async()=>{let n=await appDialog('New group name','','prompt');if(n&&n.trim()){try{n=createMealGroup(n)}catch(e){await showAppMessage(e.message);return}active=n;persist();const groupResult=await chooseExistingMealsForNewGroup(n.trim());if(groupResult==='delete'){cats=cats.filter(c=>c!==n.trim());active=cats[0]||'';persist();openMasterCategories()}else openMasterCategories(n.trim())}};
  for(const [expand,icon,label] of [[true,'chevrons-down','Expand all groups'],[false,'chevrons-up','Collapse all groups']]){
   const button=document.createElement('button');button.type='button';button.className='iconbtn';setIconButton(button,icon,label);
-  button.onclick=()=>{masterExpansionInitialized=true;masterExpandedCategories.clear();if(expand)masterDisplayOrder().forEach(c=>masterExpandedCategories.add(c));renderList()};controls.append(button);
+  button.onclick=()=>{masterExpansionInitialized=true;masterExpandedCategories.clear();if(expand){masterDisplayOrder().forEach(c=>masterExpandedCategories.add(c));if(hasUnassigned)masterExpandedCategories.add('')}renderList()};controls.append(button);
  }
  controls.append(addGroup);heading.append(controls);wrap.append(heading);appendRotationSetupPrompt(wrap);
  const resetOrder=document.createElement('button');resetOrder.type='button';resetOrder.className='master-order-reset';resetOrder.textContent='Reset to Weekday Order';resetOrder.hidden=masterGroupOrder===null;resetOrder.onclick=()=>{if(writeMasterGroupOrder(null))renderList()};wrap.append(resetOrder);
@@ -7603,6 +7607,7 @@ function renderMasterCategories(list){
   }
  }
  const displayedGroups=masterOrderedGroups([...baseGroupOrder.filter(cat=>activeGroupNames.has(cat)),...baseGroupOrder.filter(cat=>!activeGroupNames.has(cat))]);
+ if(hasUnassigned)displayedGroups.unshift('');
  for(const category of displayedGroups){ 
   const categoryMeals=masterRecipeOrder(category,{scheduledEntries});
   if(!manualRecipeOrdering){
@@ -7617,27 +7622,30 @@ function renderMasterCategories(list){
   const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(expanded));
   toggle.onclick=()=>{masterExpansionInitialized=true;const opening=!masterExpandedCategories.has(category);if(opening){if(!recipeBulkMode)masterExpandedCategories.clear();masterExpandedCategories.add(category)}else masterExpandedCategories.delete(category);if(recipeBulkMode){recipeBulkFocus={cat:category,rotation:true};bulkRecipeRender()}else renderList();if(opening&&!recipeBulkMode)requestAnimationFrame(()=>{const target=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category);if(target)target.scrollIntoView({behavior:'smooth',block:'start'});});};
   const chevron=document.createElementNS('http://www.w3.org/2000/svg','svg');chevron.setAttribute('viewBox','0 0 24 24');chevron.setAttribute('aria-hidden','true');chevron.innerHTML=expanded?'<path d="m6 15 6-6 6 6"/>':'<path d="m6 9 6 6 6-6"/>';toggle.append(chevron);
-  const name=document.createElement('strong');name.textContent=category;toggle.append(name);
+  const name=document.createElement('strong');name.textContent=category||'Unassigned';toggle.append(name);
   const count=document.createElement('span');count.className='master-category-count';count.textContent=categoryMeals.length+' '+(categoryMeals.length===1?'meal':'meals');toggle.append(count);
 
   header.append(toggle);
+  if(category){
   const editCat=document.createElement('button');editCat.type='button';editCat.className='iconbtn';setIconButton(editCat,'rename','Edit '+category+' (reorder, rename, delete)');editCat.onclick=()=>openMasterCategoryEditMenu(category);
   header.append(editCat);
   const addMeal=document.createElement('button');addMeal.type='button';addMeal.className='iconbtn';addMeal.title='Add meal to '+category;addMeal.setAttribute('aria-label',addMeal.title);addMeal.textContent='+';addMeal.style.cssText='font-size:24px';
   addMeal.disabled=addingGroupRecipe||newRecipeDraftId!==null;addMeal.onclick=()=>addRecipeToGroup(category);
-  header.append(addMeal);card.append(header);
+  header.append(addMeal);
+  }
+  card.append(header);
   if(expanded){
    const items=document.createElement('div');items.className='master-category-meals';
-   for(const [label,rot] of [['In Rotation',true],['Ideas',false]]){
-    const groupMeals=categoryMeals.filter(m=>!!m.rotation===rot);
+   for(const [label,rot] of category?[['In Rotation',true],['Ideas',false]]:[['Recipes',false]]){
+    const groupMeals=category?categoryMeals.filter(m=>!!m.rotation===rot):categoryMeals;
     const section=document.createElement('div');section.className='master-recipe-section';section.dataset.recipeSection=rot?'rotation':'ideas';
-    const open=masterRecipeSectionOpen(category,rot),bodyId='master-section-'+cats.indexOf(category)+'-'+section.dataset.recipeSection;
+    const open=!category||masterRecipeSectionOpen(category,rot),bodyId='master-section-'+cats.indexOf(category)+'-'+section.dataset.recipeSection;
     const group=document.createElement('button');group.type='button';group.className='master-category-group-label';group.setAttribute('aria-expanded',String(open));group.setAttribute('aria-controls',bodyId);group.setAttribute('aria-label',category+': '+label+' ('+groupMeals.length+' recipes)');
     const chevron=document.createElementNS('http://www.w3.org/2000/svg','svg');chevron.setAttribute('viewBox','0 0 24 24');chevron.setAttribute('aria-hidden','true');chevron.innerHTML='<path d="'+(open?'m6 15 6-6 6 6':'m6 9 6 6 6-6')+'"/>';
     const sectionName=document.createElement('span');sectionName.className='master-recipe-section-name';sectionName.textContent=label;
     const sectionCount=document.createElement('span');sectionCount.className='master-recipe-section-count';sectionCount.textContent=String(groupMeals.length);group.append(chevron,sectionName,sectionCount);
     group.onclick=e=>{e.preventDefault();e.stopPropagation();setMasterRecipeSectionOpen(category,rot,!masterRecipeSectionOpen(category,rot));if(recipeBulkMode){recipeBulkFocus={cat:category,rotation:rot};bulkRecipeRender()}else renderList();document.getElementById(bodyId)?.previousElementSibling?.focus({preventScroll:true})};
-    const sectionBody=document.createElement('div');sectionBody.className='master-recipe-section-recipes';sectionBody.id=bodyId;sectionBody.hidden=!open;section.append(group,sectionBody);items.append(section);
+    const sectionBody=document.createElement('div');sectionBody.className='master-recipe-section-recipes';sectionBody.id=bodyId;sectionBody.hidden=!open;if(category)section.append(group);section.append(sectionBody);items.append(section);
     for(const m of groupMeals){
      const row=document.createElement('div');row.className='master-category-meal';row.dataset.mealId=String(m.id);const manualMoves=[];if(featuredColorById.has(String(m.id))){row.style.backgroundColor=featuredColorById.get(String(m.id));row.style.borderRadius='8px';row.classList.add('featured-top-meal')}bindMealSwipe(row,m);
      if(rot&&manualRecipeOrdering){for(const [glyph,dir] of [['↑',-1],['↓',1]]){const btn=document.createElement('button');btn.type='button';btn.className='move';btn.textContent=glyph;btn.title=(dir<0?'Up':'Down')+': tap to move to '+(dir<0?'top':'bottom')+', hold to move one position';bindMasterCategoryMove(btn,m,dir);manualMoves.push(btn)}}
@@ -7660,7 +7668,7 @@ function renderMasterCategories(list){
       }
      }
      row.append(mealInfo,...manualMoves);
-     row.append(recipeSectionMoveButton(m));bindRecipeBulkRow(row,m);
+     if(category)row.append(recipeSectionMoveButton(m));bindRecipeBulkRow(row,m);
      appendScheduledRecipeWeekdays(row,m,scheduledDaysByMeal);
      
      sectionBody.append(row);
@@ -7670,7 +7678,7 @@ function renderMasterCategories(list){
   }
   wrap.append(card);
  }
- if(!cats.length){const empty=document.createElement('div');empty.textContent='No groups yet. Tap + to add one.';wrap.append(empty)}
+ if(!cats.length&&!hasUnassigned){const empty=document.createElement('div');empty.textContent='No groups yet. Tap + to add one.';wrap.append(empty)}
  list.append(wrap);if(recipeBulkMode)updateRecipeBulkUI();else installMasterGroupDragging(wrap,resetOrder);
 }
 function renderList(){if(recipeBulkMode&&(showTop||editId!==null))endRecipeBulk();masterGroupDragCleanup?.();masterGroupDragCleanup=null;reconcileActiveLinkedMeals();rememberCurrentView();
@@ -9091,7 +9099,7 @@ function restoreMealEditorScroll(){
   if(origin.planId!==activePlanId&&mealPlans.some(plan=>plan.id===origin.planId))loadMealPlan(origin.planId,false);
   showTop=origin.view!=='groups';groceryTabActive=origin.view==='grocery';allMealsActive=origin.view==='all';setMasterCategoriesView(!showTop);
   if(cats.includes(origin.activeCategory))active=origin.activeCategory;
-  masterExpansionInitialized=origin.expansionInitialized;masterExpandedCategories.clear();origin.expandedCategories.filter(cat=>cats.includes(cat)).forEach(cat=>masterExpandedCategories.add(cat));
+  masterExpansionInitialized=origin.expansionInitialized;masterExpandedCategories.clear();origin.expandedCategories.filter(cat=>cat===''||cats.includes(cat)).forEach(cat=>masterExpandedCategories.add(cat));
   if(origin.sections){masterSectionExpansion.clear();origin.sections.forEach(([cat,value])=>masterSectionExpansion.set(cat,{...value}));saveMasterSectionExpansion()}
  }
  // Render only after restoring the origin, avoiding a flash of the editor's host page.
@@ -9155,7 +9163,7 @@ function openEditor(n,focusNewMeal=false,navigationOrigin=null){
  // the one shared editor. Recipe-viewer return state remains separate.
  editId=null;setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;
  masterExpansionInitialized=true;masterExpandedCategories.add(selectedMeal.cat);
- setMasterRecipeSectionOpen(selectedMeal.cat,!!selectedMeal.rotation,true);
+ if(selectedMeal.cat)setMasterRecipeSectionOpen(selectedMeal.cat,!!selectedMeal.rotation,true);
  active=selectedMeal.cat;menuCat=null;render();
  editorCategoryBaseline={newMealId:newRecipeDraftId===selectedMeal.id?selectedMeal.id:null,meals:JSON.stringify(meals.filter(meal=>meal.id!==newRecipeDraftId)),id,selections:testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}',labelCatalog:JSON.stringify(recipeLabelCatalog),labelFilters:JSON.stringify(weekdayRecipeFilters),labelPlans:JSON.stringify(mealPlans)};
  editId=selectedMeal.id;
@@ -9167,6 +9175,7 @@ let editorMembershipDraft=categoryMembers().map(record=>({id:String(record.id),c
 if(!editorDraftCategories)editorDraftCategories=[...new Set(categoryMembers().map(x=>x.cat).filter(Boolean))];
 function renderCategoryRows(){
  const holder=$('categoryRows');if(!holder)return;holder.replaceChildren();
+ $('rotation').disabled=!editorDraftCategories.length&&!scheduledMealEditor?.oneTime;
  function refresh(){editorDraftCategories=editorMembershipDraft.filter(d=>d.cat).map(d=>d.cat);renderCategoryRows()}
  const primary=editorMembershipDraft.find(draft=>String(draft.id)===String(m.id));
  for(const draft of [primary,...editorMembershipDraft.filter(d=>d!==primary)]){if(draft!==primary&&draft.removed)continue;const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:7px;margin-bottom:7px';const select=document.createElement('select');select.style.cssText='flex:1;min-width:0';if(draft===primary)select.id='cat';select.setAttribute('aria-label',draft===primary?(scheduledMealEditor?'Meal Group':'Group'):'Additional group');const empty=document.createElement('option');empty.value='';empty.textContent='Choose group…';select.append(empty);
@@ -9182,14 +9191,6 @@ function renderCategoryRows(){
  else action.onclick=()=>{draft.cat='';draft.removed=true;refresh()};row.append(action);holder.append(row)}
 }
 
-function askAddMealCategory(){return new Promise(resolve=>{
-  const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:13010;display:flex;align-items:center;justify-content:center;padding:18px';
-  const dialog=document.createElement('div');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.style.cssText='background:#fff;color:#222;border-radius:14px;max-width:420px;width:100%;padding:22px;box-shadow:0 10px 30px #0004';
-  const question=document.createElement('div');question.style.cssText='font-size:19px;font-weight:600;margin:0 0 20px';question.textContent='Add a meal group?';
-  const buttons=document.createElement('div');buttons.className='meal-unified-actions';buttons.style.cssText='border-top:1px solid #ddd;padding-top:10px';
-  [['save','Yes',true],['cancel','No',false]].forEach(([kind,label,value])=>{const button=document.createElement('button');button.type='button';setIconButton(button,kind,label);button.onclick=()=>{overlay.remove();resolve(value)};buttons.append(button)});
-  dialog.append(question,buttons);overlay.append(dialog);document.body.append(overlay);
-})}
 ['save','delete','cancel'].forEach(k=>{const b=$(k);b.style.cssText='border:0;background:transparent;color:inherit;min-height:44px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer'});renderCategoryRows();
 // Prefer the numeric/decimal keyboard, while providing a reliable ABC/123
 // switch for phones whose numeric keyboard doesn't have a letters key.
@@ -9357,18 +9358,6 @@ $('save').onclick=async()=>{
  if(persistenceEditorSaving)return;
  persistenceEditorSaving=true;
  try{
-  // An uncategorized meal gets a choice before it is saved to Misc.
-  if(!editorDraftCategories.length&&!scheduledMealEditor?.oneTime){
-    const addCategory=await askAddMealCategory();
-    if(addCategory){
-      if(!cats.length){const chosen=await appDialog('New group name','','prompt');if(chosen&&chosen.trim()){const group=createMealGroup(chosen);const primary=editorMembershipDraft.find(d=>d.id===String(m.id));primary.cat=group;editorDraftCategories=[group];renderCategoryRows()}}
-      $('categoryRows').querySelector('select')?.focus();
-      return;
-    }
-    let misc=cats.find(c=>c.toLowerCase()==='misc');
-    if(!misc){misc='Misc';cats.push(misc)}
-    const primary=editorMembershipDraft.find(d=>d.id===String(m.id));primary.cat=misc;editorDraftCategories=[misc];renderCategoryRows();
-  }
   const validatedDraftFingerprint=JSON.stringify(captureEditorRecoveryDraft());
   // Check all time inputs before mutating any stored meal data.
   const prepInput=parseDurationInput($('prep').value);
@@ -9398,8 +9387,8 @@ $('save').onclick=async()=>{
   if(nextMakeAhead.length||Array.isArray(m.makeAheadTasks))next.makeAheadTasks=nextMakeAhead;
   if(nextNeedsTweaking)next.needsTweaking=true;else delete next.needsTweaking;
   if(nextTweakingNote||nextNeedsTweaking||Object.hasOwn(m,'needsTweakingNote'))next.needsTweakingNote=nextTweakingNote;else delete next.needsTweakingNote;
-  const removed=editorMembershipDraft.filter(draft=>draft.id!==null&&!draft.cat).map(draft=>String(draft.id)),scheduled=mealPlans.flatMap(plan=>getDisplayedWeekdayMealsForPlan(plan)).some(entry=>removed.includes(String(entry.meal.id))),referenced=meals.some(record=>(record.linkedMealIds||[]).some(id=>removed.includes(String(id))));
-  if(removed.length&&(scheduled||referenced)&&await appDialog('Remove from group?',null,'tracking-remove',[],'Only this recipe’s selected group memberships will be removed. The recipe remains in its other groups; the groups themselves and other recipes will not be deleted. Scheduled slots and references use the existing replacement and cleanup rules.')!==true)return;
+  const removed=editorMembershipDraft.filter(draft=>draft.id!==null&&!draft.cat&&meals.some(record=>String(record.id)===String(draft.id)&&record.cat)).map(draft=>String(draft.id)),scheduled=mealPlans.flatMap(plan=>getDisplayedWeekdayMealsForPlan(plan)).some(entry=>removed.includes(String(entry.meal.id))),referenced=meals.some(record=>(record.linkedMealIds||[]).some(id=>removed.includes(String(id))));
+  if(removed.length&&(scheduled||referenced)&&await appDialog('Remove from group?',null,'tracking-remove',[],'Only this recipe’s selected group memberships will be removed. The recipe stays in your collection. If it has no groups left, it moves to Unassigned. Scheduled slots and references use the existing replacement and cleanup rules.')!==true)return;
   if(!persistenceEditor.isConnected||editId!==m.id)return;
   if(JSON.stringify(captureEditorRecoveryDraft())!==validatedDraftFingerprint){await showAppMessage('Your draft changed while confirmation was open. Your latest changes are still here; save again to validate them.');return}
   const fields=sharedRecipeChanges(m,next);for(const [field,key]of [['name','name'],['marinate','marinate'],['ingredients','ingredients'],['instructions','recipeInstructions'],['notes','recipeNotes'],['url','url']])if($(key).value===savedEditorDraft[field])delete fields[field];if($('prep').value===savedEditorDraft.prep&&$('totaltime').value===savedEditorDraft.total){delete fields.prep;delete fields.total;delete fields.cook}if(JSON.stringify(serveWithDraft)===savedEditorDraft.serveWith)delete fields.serveWith;if(JSON.stringify(linkedMealDraft)===savedEditorDraft.linked)delete fields.linkedMealIds;if(JSON.stringify(nextMakeAhead)===savedEditorDraft.tasks)delete fields.makeAheadTasks;if($('editNeedsTweaking').checked===savedEditorDraft.adjusting&&$('editNeedsTweakingNote').value===savedEditorDraft.adjustingNote){delete fields.needsTweaking;delete fields.needsTweakingNote}if(!$('recipeIngredientLinks').hasChanges()&&!fields.ingredients&&!fields.instructions)delete fields.ingredientStepLinks;
