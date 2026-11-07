@@ -1,6 +1,6 @@
 # Meal Rotation bug-fix handoff
 
-Latest status: [PR #90](https://github.com/elisabethball19-netizen/meal-rotation/pull/90) contains linked-side restoration, shared full meal creation, occurrence-scoped groceries, scheduled-meal favorites, and consistent weekday-group removal, ready for PR review. This batch is **not authorized to merge or deploy without the user's approval**. That instruction supersedes earlier automatic-merge notes below.
+Latest status: [PR #90](https://github.com/elisabethball19-netizen/meal-rotation/pull/90) was merged into `main` on November 7, 2026 with explicit user approval (merge commit `804139563c095b02e0252c3717f5e1340a971009`). GitHub Pages deployment: https://github.com/elisabethball19-netizen/meal-rotation/actions/runs/42316231287. Earlier approval-required statements below describe the pre-merge review stage.
 
 Date: November 6, 2026
 
@@ -632,3 +632,7 @@ Group updates now clear removed groups' scheduled selections, manual/retained ch
 - Inline JavaScript syntax checks, Python compilation, and identical shared-change checks passed. No JavaScript errors were observed in these browser runs.
 
 The new removal matrix uses synthetic persisted fixtures at mobile width; actual saved meal data was not modified. Physical Android interaction remains for live-device verification after approval and deployment.
+
+## November 7, 2026 — Approved merge and deployment
+
+The user explicitly requested “Merge and deploy PR 90.” GitHub reported the PR mergeable with a clean merge state; no remote check runs or commit statuses were configured for its head. Previously recorded focused tests passed. PR #90 was merged with its exact reviewed head `43a14eda60e033625f21d765e426d7412da2b45b`. Pages deployment for the merge commit is tracked at https://github.com/elisabethball19-netizen/meal-rotation/actions/runs/42316231287. No saved app data was accessed, reset, or replaced.
