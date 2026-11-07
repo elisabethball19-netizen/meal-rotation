@@ -1018,8 +1018,10 @@ button.recipe-tweaking-edit{display:inline-flex;align-items:center;gap:5px;}
 #recipeViewer .recipe-header-icon:focus-visible,#recipeViewer .recipe-scale-option:focus-visible{outline:2px solid #5876ad;outline-offset:2px;}
 #recipeViewer .recipe-scale-wrap{position:relative;flex:none;}
 #recipeViewer .recipe-scale-wrap:has(.recipe-scale-menu:not([hidden])){z-index:3;}
-#recipeViewer .recipe-scale-menu{position:fixed;z-index:3;display:grid;gap:2px;width:100px;max-width:calc(100vw - 40px);max-height:50dvh;overflow-y:auto;overscroll-behavior:contain;padding:6px;border:1px solid #dce2e9;border-radius:10px;background:#fff;box-shadow:0 4px 16px #0002;font-size:15px;}
+#recipeViewer .recipe-scale-menu{position:fixed;z-index:3;display:grid;gap:2px;width:180px;max-width:calc(100vw - 40px);max-height:50dvh;overflow-y:auto;overscroll-behavior:contain;padding:6px;border:1px solid #dce2e9;border-radius:10px;background:#fff;box-shadow:0 4px 16px #0002;font-size:15px;}
 #recipeViewer .recipe-scale-option{min-height:40px;border:0;border-radius:6px;background:transparent;color:#242424;padding:8px 12px;font:inherit;text-align:left;cursor:pointer;touch-action:manipulation;}
+#recipeViewer .recipe-scale-custom{display:grid;gap:6px;padding:8px 6px;font-size:13px;}
+#recipeViewer .recipe-scale-custom input{width:100%;min-height:40px;box-sizing:border-box;font:inherit;font-size:16px;}
 #recipeViewer .recipe-scale-option[aria-checked="true"]{background:#edf3fb;font-weight:600;}
 #recipeViewer .recipe-scale-dismiss{position:fixed;inset:0;z-index:2;touch-action:none;}
 #recipeViewer .recipe-scale-menu[hidden],#recipeViewer .recipe-scale-dismiss[hidden]{display:none;}
@@ -1523,20 +1525,42 @@ const OCCURRENCE_SCALES_KEY='mealRotationOccurrenceScalesV1',RECIPE_SCALES=[.5,1
 let occurrenceScales={version:1,occurrences:{}},scaleStorageInvalid=false;
 function validateOccurrenceScales(value){
  if(!value||value.version!==1||!value.occurrences||typeof value.occurrences!=='object'||Array.isArray(value.occurrences))throw Error('Invalid recipe scaling');
- for(const [key,entry] of Object.entries(value.occurrences))if(!entry||![.5,1,1.5,2,3].includes(entry.multiplier)||!entry.context||!['planId','day','cat','mealId','parentId'].every(k=>typeof entry.context[k]==='string')||key!==cookingOccurrenceKey(entry.context))throw Error('Invalid recipe scale occurrence');
+ for(const [key,entry] of Object.entries(value.occurrences))if(!entry||!validRecipeMultiplier(entry.multiplier)||!entry.context||entry.context.scaleGroupId!==undefined&&typeof entry.context.scaleGroupId!=='string'||!['planId','day','cat','mealId','parentId'].every(k=>typeof entry.context[k]==='string')||(key!==cookingOccurrenceKey(entry.context)&&key!==scaleOccurrenceKey(entry.context)))throw Error('Invalid recipe scale occurrence');
 }
 try{const raw=testStorage.getItem(OCCURRENCE_SCALES_KEY);if(raw){const parsed=JSON.parse(raw);validateOccurrenceScales(parsed);occurrenceScales=parsed}}catch(e){scaleStorageInvalid=true}
 function writeOccurrenceScales(next){
  if(scaleStorageInvalid){showAppMessage('Saved recipe multipliers could not be read. Export a backup before repairing this browser’s data.');return false}
  try{testStorage.setItem(OCCURRENCE_SCALES_KEY,JSON.stringify(next));occurrenceScales=next;return true}catch(e){showAppMessage('The recipe multiplier could not be saved. Existing data has been kept.');return false}
 }
-function occurrenceMultiplier(context){return context?occurrenceScales.occurrences[cookingOccurrenceKey(context)]?.multiplier||1:1}
+function validRecipeMultiplier(value){return typeof value==='number'&&Number.isFinite(value)&&value>0}
+// Keep cooking-progress identities unchanged. Scales distinguish independent group slots.
+function scaleOccurrenceKey(c){return JSON.stringify([...JSON.parse(cookingOccurrenceKey(c)),c.scaleGroupId||groupIdentity(c.cat)||c.cat])}
+function occurrenceMultiplier(context){
+ if(!context)return 1;
+ const exact=occurrenceScales.occurrences[scaleOccurrenceKey(context)];if(exact)return exact.multiplier;
+ const legacy=occurrenceScales.occurrences[cookingOccurrenceKey(context)];
+ // Old saves describe one group, never all copies of a recipe on that day.
+ return legacy&&legacy.context.cat===context.cat?legacy.multiplier:1;
+}
 function clearOccurrenceScales(predicate){const next=JSON.parse(JSON.stringify(occurrenceScales));let changed=false;for(const [key,entry] of Object.entries(next.occurrences))if(predicate(entry.context)){delete next.occurrences[key];changed=true}if(changed)writeOccurrenceScales(next)}
 function setViewedRecipeScale(value){
- const view=recipeViewer;if(!view||!RECIPE_SCALES.includes(value))return;
- if(view.context){const next=JSON.parse(JSON.stringify(occurrenceScales)),key=cookingOccurrenceKey(view.context);if(value===1)delete next.occurrences[key];else next.occurrences[key]={context:{...view.context},multiplier:value};if(!writeOccurrenceScales(next)){renderRecipeViewer();return}view.contentChanged=true}
- else view.previewScale=value;
- renderRecipeViewer();
+ const view=recipeViewer;if(!view||!validRecipeMultiplier(value))return false;
+ if(view.context){
+  if(groceryCheckStorageInvalid){showAppMessage('Saved grocery checks could not be read. No multiplier was changed.');return false}
+  if(!definiteRecipeContext(view.context))return false;
+  const before=captureGroceryCheckStates(),next=JSON.parse(JSON.stringify(occurrenceScales)),context={...view.context,scaleGroupId:groupIdentity(view.context.cat,true)||view.context.cat},key=scaleOccurrenceKey(context);
+  const legacy=cookingOccurrenceKey(context);if(next.occurrences[legacy]?.context.cat===context.cat)delete next.occurrences[legacy];
+  if(value===1)delete next.occurrences[key];else next.occurrences[key]={context,multiplier:value};
+  if(!writeOccurrenceScales(next)){renderRecipeViewer();return false}
+  preserveGroceryCheckStates(before);groceryOccurrenceChecks.quantities??={};
+  for(const source of getGroceryContributions(true)){
+   const prior=before.get(source.id);if(!prior||!source.quantity||!prior.source.quantity)continue;
+   const checked=prior.amount|| (prior.checked?prior.source.quantity:{lo:0,hi:0});
+   groceryOccurrenceChecks.quantities[source.id]={lo:Math.min(checked.lo,source.quantity.lo),hi:Math.min(checked.hi,source.quantity.hi)};
+  }
+  saveGroceryOccurrenceChecks();view.contentChanged=true;
+ }else view.previewScale=value;
+ renderRecipeViewer();return true;
 }
 const recipeFractionValues={'¼':.25,'½':.5,'¾':.75,'⅓':1/3,'⅔':2/3,'⅛':.125,'⅜':.375,'⅝':.625,'⅞':.875};
 const recipeAllFractionValues={...recipeFractionValues,'⅐':1/7,'⅑':1/9,'⅒':.1,'⅕':.2,'⅖':.4,'⅗':.6,'⅘':.8,'⅙':1/6,'⅚':5/6};
@@ -1560,7 +1584,7 @@ function parseRecipeQuantity(line){
 }
 function scaleRecipeIngredient(line,multiplier){
  if(multiplier===1||syncIngredientHeading(line))return String(line);
- const quantity=parseRecipeQuantity(line);if(!quantity)return String(line);
+ const quantity=parseRecipeQuantity(line);if(!quantity||!Number.isFinite(quantity.lo*multiplier)||!Number.isFinite(quantity.hi*multiplier))return String(line);
  return quantity.leading+formatRecipeQuantity(quantity.lo*multiplier)+(quantity.hi!==quantity.lo?'–'+formatRecipeQuantity(quantity.hi*multiplier):'')+' '+quantity.rest;
 }
 const groceryQuantityUnits={cup:'cup',cups:'cup',tbsp:'tbsp',tablespoon:'tbsp',tablespoons:'tbsp',tsp:'tsp',teaspoon:'tsp',teaspoons:'tsp',g:'g',gram:'g',grams:'g',kg:'kg',oz:'oz',ounce:'oz',ounces:'oz',lb:'lb',lbs:'lb',pound:'lb',pounds:'lb',ml:'ml',l:'l',liter:'l',litre:'l',clove:'clove',cloves:'clove',piece:'piece',pieces:'piece',sprig:'sprig',sprigs:'sprig'};
@@ -1575,7 +1599,8 @@ function groceryQuantityParts(line){
 const GROCERY_OCCURRENCE_CHECKS_KEY='mealRotationGroceryOccurrenceChecksV1';
 let groceryOccurrenceChecks={version:1,checks:{}},groceryCheckStorageInvalid=false;
 function validateGroceryOccurrenceChecks(value){
- if(!value||value.version!==1||!value.checks||typeof value.checks!=='object'||Array.isArray(value.checks))throw Error('Invalid grocery occurrence checks');
+ if(!value||value.version!==1||!value.checks||typeof value.checks!=='object'||Array.isArray(value.checks)||value.quantities!==undefined&&(!value.quantities||typeof value.quantities!=='object'||Array.isArray(value.quantities)))throw Error('Invalid grocery occurrence checks');
+ for(const amount of Object.values(value.quantities||{}))if(!amount||!Number.isFinite(amount.lo)||!Number.isFinite(amount.hi)||amount.lo<0||amount.hi<amount.lo)throw Error('Invalid checked grocery quantity');
  for(const [key,checked] of Object.entries(value.checks)){
   let source;try{source=JSON.parse(key)}catch(e){throw Error('Invalid grocery source')}
   if(!Array.isArray(source)||source.length!==3||typeof source[0]!=='string'||typeof source[1]!=='string'||!Number.isSafeInteger(source[2])||source[2]<0||typeof checked!=='boolean')throw Error('Invalid grocery source check');
@@ -1592,12 +1617,18 @@ function groceryOccurrenceIdentity(plan,entry){
  const slot=rotationGroupScheduled(plan,entry.day,entry.cat);
  return JSON.stringify([String(plan.id),entry.day,String(entry.meal.id),(slot||entry.occasional&&!(entry.linkedTo??entry.parentId))?'slot':'linked:'+String(entry.linkedTo??entry.parentId??''),cats.includes(entry.cat)?groupIdentity(entry.cat,true):String(entry.cat||'@day')]);
 }
+function groceryCheckedAmount(source,ledger=groceryOccurrenceChecks,legacy=checkedIngredients){
+ const saved=ledger.quantities?.[source.id];if(saved&&source.quantity)return {lo:Math.min(saved.lo,source.quantity.lo),hi:Math.min(saved.hi,source.quantity.hi)};
+ return source.quantity&&(grocerySourceChecked(source,ledger,legacy)?{lo:source.quantity.lo,hi:source.quantity.hi}:{lo:0,hi:0});
+}
 function grocerySourceChecked(source,ledger=groceryOccurrenceChecks,legacy=checkedIngredients){
+ if(typeof source.segmentChecked==='boolean')return source.segmentChecked;
+ const amount=ledger.quantities?.[source.id];if(amount&&source.quantity)return amount.lo>=source.quantity.lo-1e-8&&amount.hi>=source.quantity.hi-1e-8;
  const stored=ledger?.checks?.[source.id];
  if(typeof stored==='boolean')return stored;if(source.legacyOwner===false)return false;const old=source.legacyId&&ledger.checks[source.legacyId];return typeof old==='boolean'?old:legacy.has(source.baseKey)||source.checkKeys.some(key=>legacy.has(key));
 }
-function captureGroceryCheckStates(){return new Map(getGroceryContributions(true).map(source=>[source.id,{source,checked:grocerySourceChecked(source)}]))}
-function preserveGroceryCheckStates(states){for(const [id,item] of states)groceryOccurrenceChecks.checks[id]=item.checked}
+function captureGroceryCheckStates(){return new Map(getGroceryContributions(true).map(source=>[source.id,{source,checked:grocerySourceChecked(source),amount:groceryCheckedAmount(source)}]))}
+function preserveGroceryCheckStates(states){for(const [id,item] of states){groceryOccurrenceChecks.checks[id]=item.checked;if(item.amount)(groceryOccurrenceChecks.quantities??={})[id]={...item.amount}}}
 function groceryItemChecked(key,item){
  if(item.contributions)return item.contributions.every(source=>grocerySourceChecked(source));
  return checkedIngredients.has(key)||(item.checkGroups?.length?item.checkGroups.every(group=>group.some(k=>checkedIngredients.has(k))):!!item.checkKeys?.length&&item.checkKeys.every(k=>checkedIngredients.has(k)));
@@ -1606,7 +1637,12 @@ function setGroceryItemChecked(key,item,checked){
  if(item.contributions){
   // Materialize legacy states before changing a global key shared with other rows.
   const states=captureGroceryCheckStates();preserveGroceryCheckStates(states);
-  for(const source of item.contributions)groceryOccurrenceChecks.checks[source.id]=checked;
+  for(const source of item.contributions){
+   groceryOccurrenceChecks.checks[source.id]=checked;
+   if(source.quantity){const full=states.get(source.id)?.source,prior=states.get(source.id)?.amount||{lo:0,hi:0},q=source.quantity;
+    (groceryOccurrenceChecks.quantities??={})[source.id]=source.segmentChecked===undefined?{lo:checked?q.lo:0,hi:checked?q.hi:0}:{lo:Math.max(0,Math.min(full.quantity.lo,prior.lo+(checked?1:-1)*q.lo)),hi:Math.max(0,Math.min(full.quantity.hi,prior.hi+(checked?1:-1)*q.hi))};
+   }
+  }
   const all=[...states.values()].map(item=>item.source).filter(source=>source.baseKey===item.baseKey);
   if(all.every(source=>grocerySourceChecked(source)))checkedIngredients.add(item.baseKey);else checkedIngredients.delete(item.baseKey);
   if(!checked){checkedIngredients.delete(key);for(const old of item.checkKeys||[])checkedIngredients.delete(old)}
@@ -1618,13 +1654,15 @@ function reconcileRotatedGroceryChecks(before,affected,restore=null){
  if(hasDependentSideSlots()){coordinateDependentSides(!!restore);saveActiveMealPlan();}
  const reset=new Set(affected.map(item=>{const plan=mealPlans.find(plan=>plan.id===item.planId);return plan?groceryOccurrenceIdentity(plan,{...item,meal:item.meal||{id:item.mealId},linkedTo:item.linkedTo??item.parentId}):''}));
  const restoredLegacy=restore?new Set(restore.checkedIngredients||[]):null;
- const next={version:1,checks:{}};const currentSources=getGroceryContributions(true),visible=new Set(currentSources.map(source=>source.id));
- for(const plan of mealPlans)if(plan.weekSchedule?.linkedGroceryChecks)for(const id of Object.keys(plan.weekSchedule.linkedGroceryChecks)){const occurrence=JSON.parse(JSON.parse(id)[0]);if(affected.some(item=>item.planId===plan.id&&item.day===occurrence[1]&&(item.meal?.linkedMealIds||[]).some(side=>String(side)===occurrence[2])))delete plan.weekSchedule.linkedGroceryChecks[id]}
- for(const [id,item]of before){const source=item.source;if(visible.has(id)||!source?.parentId||[...reset].some(key=>{if(!key)return false;const parts=JSON.parse(key);return parts[0]===String(source.planId)&&parts[1]===source.day&&parts[2]===source.parentId}))continue;const plan=mealPlans.find(p=>p.id===source.planId);if(plan&&getDisplayedWeekdayMealsForPlan(plan).some(entry=>entry.day===source.day&&String(entry.meal.id)===source.parentId)){const state=editableWeekSchedule(plan);state.linkedGroceryChecks={...state.linkedGroceryChecks,[id]:item.checked}}}
+ const next={version:1,checks:{},quantities:{}};const currentSources=getGroceryContributions(true),visible=new Set(currentSources.map(source=>source.id));
+ for(const plan of mealPlans)if(plan.weekSchedule?.linkedGroceryChecks)for(const id of Object.keys(plan.weekSchedule.linkedGroceryChecks)){const occurrence=JSON.parse(JSON.parse(id)[0]);if(affected.some(item=>item.planId===plan.id&&item.day===occurrence[1]&&(item.meal?.linkedMealIds||[]).some(side=>String(side)===occurrence[2]))){delete plan.weekSchedule.linkedGroceryChecks[id];delete plan.weekSchedule.linkedGroceryQuantities?.[id]}}
+ for(const [id,item]of before){const source=item.source;if(visible.has(id)||!source?.parentId||[...reset].some(key=>{if(!key)return false;const parts=JSON.parse(key);return parts[0]===String(source.planId)&&parts[1]===source.day&&parts[2]===source.parentId}))continue;const plan=mealPlans.find(p=>p.id===source.planId);if(plan&&getDisplayedWeekdayMealsForPlan(plan).some(entry=>entry.day===source.day&&String(entry.meal.id)===source.parentId)){const state=editableWeekSchedule(plan);state.linkedGroceryChecks={...state.linkedGroceryChecks,[id]:item.checked};if(item.amount)state.linkedGroceryQuantities={...state.linkedGroceryQuantities,[id]:{...item.amount}}}}
  for(const source of currentSources){
   const was=before.get(source.id)||(source.legacyOwner?before.get(source.legacyId):null);
   if(restore&&reset.has(source.occurrence))next.checks[source.id]=grocerySourceChecked(source,restore.groceryOccurrenceChecks||{version:1,checks:{}},restoredLegacy);
   else next.checks[source.id]=!reset.has(source.occurrence)&&was?was.checked:false;
+  const amount=restore&&reset.has(source.occurrence)?restore.groceryOccurrenceChecks?.quantities?.[source.id]:!reset.has(source.occurrence)&&was?.amount;
+  if(amount&&source.quantity)next.quantities[source.id]={lo:Math.min(amount.lo,source.quantity.lo),hi:Math.min(amount.hi,source.quantity.hi)};
  }
  groceryOccurrenceChecks=next;saveGroceryOccurrenceChecks();saveActiveMealPlan();
 }
@@ -1632,12 +1670,12 @@ function renameGrocerySourceChecks(meal,from,to){
  const oldKey=ingredientKey(compactIngredientFractions(from)),newKey=ingredientKey(compactIngredientFractions(to));
  for(const [id,checked] of Object.entries(groceryOccurrenceChecks.checks)){
   const source=JSON.parse(id),occurrence=JSON.parse(source[0]);
-  if(occurrence[2]===String(meal.id)&&source[1]===oldKey)groceryOccurrenceChecks.checks[JSON.stringify([source[0],newKey,source[2]])]=checked;
+  if(occurrence[2]===String(meal.id)&&source[1]===oldKey){const key=JSON.stringify([source[0],newKey,source[2]]);groceryOccurrenceChecks.checks[key]=checked;const amount=groceryOccurrenceChecks.quantities?.[id];if(amount)(groceryOccurrenceChecks.quantities??={})[key]={...amount}}
  }
 }
 function uncheckGrocerySourceLines(meal,lines){
  const keys=new Set(lines.map(ingredientKey)),ids=new Set(mealLinkedCopies(meal).map(m=>String(m.id)));
- for(const source of getGroceryContributions(true))if(ids.has(String(source.mealId))&&keys.has(ingredientKey(source.original)))groceryOccurrenceChecks.checks[source.id]=false;
+ for(const source of getGroceryContributions(true))if(ids.has(String(source.mealId))&&keys.has(ingredientKey(source.original))){groceryOccurrenceChecks.checks[source.id]=false;delete groceryOccurrenceChecks.quantities?.[source.id]}
 }
 
 function normalizeRecipeText(value){
@@ -1701,13 +1739,13 @@ let cookingScheduleSignature='';
 function reconcileCookingSchedule(){
  const signature=JSON.stringify([meals.map(m=>[m.id,m.cat,m.rotation,m.linkGroup,m.linkedMealIds,m.labels]),cats,mealPlans.map(p=>[p.id,p.weekdayCategories,p.weekdayMealOverrides,p.weekdayRecipeFilters,p.weekSchedule]),activePlanId,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters]);
  if(signature===cookingScheduleSignature)return;cookingScheduleSignature=signature;
- const valid=new Set(),visible=showMealPlanTabs;
+ const valid=new Set(),validScales=new Set(),visible=showMealPlanTabs;
  try{for(const mode of [true,false]){showMealPlanTabs=mode;for(const plan of mealPlans){const current=plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan;
-  const entries=getDisplayedWeekdayMealsForPlan(current).concat(hiddenWeekEntries(current));for(const {day,cat,meal,linkedTo} of entries){valid.add(cookingOccurrenceKey(cookingContext(plan.id,day,cat,meal,linkedTo)));
-   for(const linkedId of meal.linkedMealIds||[]){const child=meals.find(m=>String(m.id)===String(linkedId));if(child)valid.add(cookingOccurrenceKey(cookingContext(plan.id,day,child.cat,child,meal.id)))}
+  const entries=getDisplayedWeekdayMealsForPlan(current).concat(hiddenWeekEntries(current));for(const {day,cat,meal,linkedTo} of entries){valid.add(cookingOccurrenceKey(cookingContext(plan.id,day,cat,meal,linkedTo)));validScales.add(scaleOccurrenceKey(cookingContext(plan.id,day,cat,meal,linkedTo)));
+   for(const linkedId of meal.linkedMealIds||[]){const child=meals.find(m=>String(m.id)===String(linkedId));if(child){valid.add(cookingOccurrenceKey(cookingContext(plan.id,day,child.cat,child,meal.id)));validScales.add(scaleOccurrenceKey(cookingContext(plan.id,day,child.cat,child,meal.id)))}}
   }
  }}}finally{showMealPlanTabs=visible}
- resetCookingContexts(c=>!valid.has(cookingOccurrenceKey(c)));clearOccurrenceScales(c=>!valid.has(cookingOccurrenceKey(c)));
+ resetCookingContexts(c=>!valid.has(cookingOccurrenceKey(c)));clearOccurrenceScales(c=>!validScales.has(scaleOccurrenceKey(c)));
 }
 
 // Presentation cleanup leaves stored source text and progress tokens intact.
@@ -1958,7 +1996,7 @@ function recipeScheduleOrigin(meal,context){
 }
 function definiteRecipeContext(context){
  if(!context)return null;
- const matches=recipePlanEntries(context.planId).filter(e=>e.day===context.day&&String(e.meal.id)===String(context.mealId)&&String(e.linkedTo||'')===String(context.parentId||''));
+ const matches=recipePlanEntries(context.planId).filter(e=>e.day===context.day&&String(e.meal.id)===String(context.mealId)&&String(e.linkedTo||'')===String(context.parentId||'')&&e.cat===context.cat);
  return matches.length===1?cookingContext(context.planId,context.day,matches[0].cat,matches[0].meal,matches[0].linkedTo):null;
 }
 function linkedRecipeContext(source,child){
@@ -1978,7 +2016,7 @@ function viewerRecipeContext(meal,context){
  if(parents.length!==1)return null;const parent=parents[0];
  return linkedRecipeContext({mealId:String(parent.meal.id),context:cookingContext(context.planId,context.day,parent.cat,parent.meal,parent.linkedTo)},meal);
 }
-function recipeTabKey(meal,context){return context?'occurrence:'+cookingOccurrenceKey(context):'preview:'+String(meal.id)}
+function recipeTabKey(meal,context){return context?'occurrence:'+scaleOccurrenceKey(context):'preview:'+String(meal.id)}
 function createRecipeTab(meal,context,mode=recipeViewPrefs.mode,ratio=recipeViewPrefs.ratio){
  return {key:recipeTabKey(meal,context),mealId:String(meal.id),context,mode,ratio,landscapeRatio:recipeViewPrefs.landscapeRatio??.5,previewProgress:{ingredients:[],steps:[]},previewScale:1,coverScroll:0,paneScroll:[0,0],recipeContent:{ingredients:meal.ingredients,instructions:meal.instructions}};
 }
@@ -2199,7 +2237,7 @@ function renderRecipeTabs(view){
 
 function currentRecipeContext(day,category,meal){
  if(!day)return null;
- const entries=getDisplayedWeekdayMeals().filter(e=>e.day===day&&String(e.meal.id)===String(meal.id)),entry=entries.length===1?entries[0]:null;
+ const entries=getDisplayedWeekdayMeals().filter(e=>e.day===day&&e.cat===category&&String(e.meal.id)===String(meal.id)),entry=entries.length===1?entries[0]:null;
  return entry?cookingContext(activePlanId,day,category,meal,entry.linkedTo):null;
 }
 function recipeOriginalUrl(meal){
@@ -2619,6 +2657,12 @@ function buildRecipeTitleHeader(view,meal,multiplier){
   const option=document.createElement('button');option.type='button';option.className='recipe-scale-option';option.textContent=text;option.setAttribute('role','menuitemradio');option.setAttribute('aria-checked',String(value===multiplier));
   option.onclick=()=>{display(false);setViewedRecipeScale(value)};menu.append(option);
  }
+ const custom=document.createElement('label');custom.className='recipe-scale-custom';custom.textContent='Custom multiplier';
+ const input=document.createElement('input');input.type='number';input.inputMode='decimal';input.min='0';input.step='any';input.value=String(multiplier);input.setAttribute('aria-label','Custom multiplier');
+ const apply=document.createElement('button');apply.type='button';apply.className='recipe-scale-option';apply.textContent='Apply multiplier';
+ const commit=()=>{const value=input.value.trim()?Number(input.value):NaN;if(!validRecipeMultiplier(value)){input.setCustomValidity('Enter a number greater than zero.');input.reportValidity();return}input.setCustomValidity('');display(false);setViewedRecipeScale(value)};
+ input.oninput=()=>input.setCustomValidity('');input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();commit()}};apply.onclick=commit;custom.append(input);menu.append(custom,apply);
+ scale.title='Scale Recipe · '+multiplier+'×';
  scale.onclick=()=>display(menu.hidden);
  view.cover.addEventListener('click',e=>{
   if(!menu.hidden&&!wrap.contains(e.target)){e.preventDefault();e.stopImmediatePropagation();display(false)}
@@ -2626,14 +2670,15 @@ function buildRecipeTitleHeader(view,meal,multiplier){
  view.cover.addEventListener('keydown',e=>{
   if(menu.hidden)return;
   if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();display(false)}
-  else if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){
-   e.preventDefault();e.stopImmediatePropagation();const options=[...menu.children],index=options.indexOf(document.activeElement);
+  else if(!e.target.matches('input')&&['ArrowDown','ArrowUp','Home','End'].includes(e.key)){
+   e.preventDefault();e.stopImmediatePropagation();const options=[...menu.querySelectorAll('button,input')],index=options.indexOf(document.activeElement);
    const target=e.key==='Home'?0:e.key==='End'?options.length-1:(index+(e.key==='ArrowDown'?1:-1)+options.length)%options.length;options[target].focus({preventScroll:true});
-  }else if(e.key==='Tab')display(false);
+  }
  },{capture:true,signal:events.signal});
  view.cover.addEventListener('scroll',()=>{if(!menu.hidden)display(false)},{signal:events.signal});
- window.addEventListener('resize',()=>{if(!menu.hidden)display(false)},{signal:events.signal});
- window.visualViewport?.addEventListener('resize',()=>{if(!menu.hidden)display(false)},{signal:events.signal});
+ const resizeScaleMenu=()=>{if(menu.hidden)return;if(document.activeElement!==input){display(false);return}const vv=window.visualViewport,top=(vv?.offsetTop||0)+view.close.parentElement.getBoundingClientRect().height+8,height=(vv?.height||innerHeight)-view.close.parentElement.getBoundingClientRect().height-24;menu.style.top=top+'px';menu.style.maxHeight=Math.max(80,height)+'px';input.scrollIntoView({block:'nearest'})};
+ window.addEventListener('resize',resizeScaleMenu,{signal:events.signal});
+ window.visualViewport?.addEventListener('resize',resizeScaleMenu,{signal:events.signal});
  view.scaleCleanup=()=>events.abort();
  wrap.append(scale,menu);actions.append(recipeFavoriteButton(meal),edit,wrap);header.append(title,actions,dismiss);view.content.append(header);
  return {title,scale};
@@ -2981,7 +3026,7 @@ function reconcileAllCookingData(){
  reconcileCookingSchedule();
 }
 function clearCycledCookingContexts(selected){
- const predicate=c=>selected.some(item=>{const parent=String(item.parentId??item.linkedTo??'');return c.planId===String(item.planId)&&c.day===item.day&&((c.mealId===String(item.meal.id)&&c.parentId===parent)||(!parent&&!item.exact&&c.parentId===String(item.meal.id)&&!rotationGroupScheduled(mealPlans.find(p=>String(p.id)===c.planId),c.day,c.cat)))});resetCookingContexts(predicate);clearOccurrenceScales(predicate);
+ const predicate=c=>selected.some(item=>{const parent=String(item.parentId??item.linkedTo??'');return c.planId===String(item.planId)&&c.day===item.day&&((c.mealId===String(item.meal.id)&&c.parentId===parent)||(!parent&&!item.exact&&c.parentId===String(item.meal.id)&&!rotationGroupScheduled(mealPlans.find(p=>String(p.id)===c.planId),c.day,c.cat)))});resetCookingContexts(predicate);clearOccurrenceScales(c=>predicate(c)&&selected.some(item=>c.planId===String(item.planId)&&c.day===item.day&&(c.cat===item.cat||c.scaleGroupId===groupIdentity(item.cat)||c.parentId===String(item.meal.id)&&!rotationGroupScheduled(mealPlans.find(p=>String(p.id)===c.planId),c.day,c.cat))));
 }
 function clearCookingForSlots(records){
  const selected=[];
@@ -3443,7 +3488,7 @@ const GROUP_IDENTITIES_KEY='mealRotationGroupIdentitiesV1';
 function readGroupIdentities(){const raw=testStorage.getItem(GROUP_IDENTITIES_KEY);if(!raw)return Object.create(null);const value=JSON.parse(raw);if(!value||Array.isArray(value)||typeof value!=='object'||Object.values(value).some(id=>typeof id!=='string'||!id))throw Error('Saved group identities could not be read. Restore a backup before changing side preferences.');return Object.assign(Object.create(null),value)}
 function groupIdentity(name,create=false){const ids=readGroupIdentities();if(!Object.hasOwn(ids,name)&&create){ids[name]='group-'+(crypto.randomUUID?.()||Date.now()+'-'+Math.random().toString(36).slice(2));testStorage.setItem(GROUP_IDENTITIES_KEY,JSON.stringify(ids))}return Object.hasOwn(ids,name)?ids[name]:null}
 function groupNameForIdentity(id){const ids=readGroupIdentities();return cats.find(cat=>Object.hasOwn(ids,cat)&&ids[cat]===id)||null}
-function renameGroupIdentity(oldName,newName){const ids=readGroupIdentities();if(!Object.hasOwn(ids,oldName))return;ids[newName]=ids[oldName];delete ids[oldName];testStorage.setItem(GROUP_IDENTITIES_KEY,JSON.stringify(ids))}
+function renameGroupIdentity(oldName,newName){const ids=readGroupIdentities();if(Object.hasOwn(ids,oldName)){ids[newName]=ids[oldName];delete ids[oldName];testStorage.setItem(GROUP_IDENTITIES_KEY,JSON.stringify(ids))}const next=JSON.parse(JSON.stringify(occurrenceScales));let changed=false;for(const entry of Object.values(next.occurrences))if(entry.context.cat===oldName){entry.context.cat=newName;changed=true}if(changed)writeOccurrenceScales(next)}
 function removeGroupIdentity(name){const ids=readGroupIdentities();if(Object.hasOwn(ids,name)){delete ids[name];testStorage.setItem(GROUP_IDENTITIES_KEY,JSON.stringify(ids))}}
 function renameDependentGroupState(oldName,newName){
  const id=groupIdentity(newName),relevant=mealPlans.some(p=>Object.values(p.sideGroupPairs||{}).some(pairs=>Object.hasOwn(pairs,id)||Object.values(pairs).includes(id)));if(!id||!relevant)return;
@@ -3592,7 +3637,7 @@ function setDayCategories(day,values){
    preserveGroceryCheckStates(groceryBefore);
    for(const source of getGroceryContributions(true))if(!groceryBefore.has(source.id)){
     const token=JSON.parse(source.id),previous=[...groceryBefore.values()].find(item=>item.source.planId===source.planId&&item.source.day===source.day&&String(item.source.mealId)===String(source.mealId)&&JSON.stringify(JSON.parse(item.source.id).slice(1))===JSON.stringify(token.slice(1)));
-    if(previous)groceryOccurrenceChecks.checks[source.id]=previous.checked;
+    if(previous){groceryOccurrenceChecks.checks[source.id]=previous.checked;if(previous.amount)(groceryOccurrenceChecks.quantities??={})[source.id]={...previous.amount}}
    }
    saveGroceryOccurrenceChecks();
   }
@@ -4177,12 +4222,13 @@ function restoreGroupGroceryUndo(saved){
  const meta=saved.groupUndoGrocery,states=captureGroceryCheckStates(),occurrences=new Set(meta.occurrences),ids=new Set(meta.sourceIds),owned=id=>ids.has(id)||occurrences.has(JSON.parse(id)[0]),legacy=new Set(checkedIngredients),oldLegacy=new Set(saved.checkedIngredients),shared=new Set();
  for(const [id,item]of states)if(!owned(id))for(const key of [item.source.baseKey,...item.source.checkKeys])shared.add(key);
  for(const key of meta.legacyKeys)if(!shared.has(key)){if(oldLegacy.has(key))legacy.add(key);else legacy.delete(key)}
- const ledger={...groceryOccurrenceChecks,checks:{...groceryOccurrenceChecks.checks}},empty={checks:{}};
+ const ledger={...groceryOccurrenceChecks,checks:{...groceryOccurrenceChecks.checks},quantities:{...groceryOccurrenceChecks.quantities}},empty={checks:{}};
  for(const [id,item]of states)if(!owned(id)&&typeof ledger.checks[id]!=='boolean'&&grocerySourceChecked(item.source,empty,legacy)!==item.checked)ledger.checks[id]=item.checked;
  for(const id of new Set([...ids,...Object.keys(ledger.checks).filter(owned)])){
   if(Object.hasOwn(saved.groceryOccurrenceChecks.checks,id))ledger.checks[id]=saved.groceryOccurrenceChecks.checks[id];
   else if(Object.hasOwn(meta.checks,id)&&grocerySourceChecked(meta.sources[id],empty,legacy)!==meta.checks[id])ledger.checks[id]=meta.checks[id];
   else delete ledger.checks[id];
+  const amount=saved.groceryOccurrenceChecks.quantities?.[id];if(amount)ledger.quantities[id]={...amount};else delete ledger.quantities[id];
  }
  return {...saved,checkedIngredients:[...legacy],groceryOccurrenceChecks:ledger};
 }
@@ -4194,8 +4240,8 @@ function restoreScheduleUndoState(saved){
  if(meta.restoreOrder){const records=new Map(meals.map(m=>[String(m.id),m]));current.meals=saved.meals.map(m=>records.get(String(m.id))).filter(Boolean).concat(meals.filter(m=>!saved.meals.some(old=>String(old.id)===String(m.id))))}
  // Keep later shopping progress on retained occurrences; recover only sources
  // that entered/left the schedule during this particular change.
- current.groceryOccurrenceChecks={version:1,checks:{...groceryOccurrenceChecks.checks}};
- for(const id of meta.sourceIds){if(Object.hasOwn(meta.checks,id))current.groceryOccurrenceChecks.checks[id]=meta.checks[id];else delete current.groceryOccurrenceChecks.checks[id]}
+ current.groceryOccurrenceChecks={version:1,checks:{...groceryOccurrenceChecks.checks},quantities:{...groceryOccurrenceChecks.quantities}};
+ for(const id of meta.sourceIds){if(Object.hasOwn(meta.checks,id))current.groceryOccurrenceChecks.checks[id]=meta.checks[id];else delete current.groceryOccurrenceChecks.checks[id];const amount=saved.groceryOccurrenceChecks?.quantities?.[id];if(amount)current.groceryOccurrenceChecks.quantities[id]={...amount};else delete current.groceryOccurrenceChecks.quantities[id]}
  if(saved.skippedCookingState)current.skippedCookingState=saved.skippedCookingState;
  return current;
 }
@@ -5208,7 +5254,12 @@ function getGroceryContributions(allPlans=false){
  return result;
 }
 function getMasterGroceryItems(){
- const sources=getGroceryContributions(),states=new Map(),groceries=new Map();
+ const sources=getGroceryContributions().flatMap(source=>{
+  const amount=groceryCheckedAmount(source),q=source.quantity;
+  // Ranges stay whole unless both bounds can be split without inventing a range.
+  if(!q||!amount||amount.lo<=0||amount.hi<=0||grocerySourceChecked(source)||q.hi-amount.hi<q.lo-amount.lo)return [source];
+  return [{...source,quantity:{...q,lo:amount.lo,hi:amount.hi},segmentChecked:true},{...source,quantity:{...q,lo:q.lo-amount.lo,hi:q.hi-amount.hi},segmentChecked:false}];
+ }),states=new Map(),groceries=new Map();
  for(const source of sources){if(!states.has(source.baseKey))states.set(source.baseKey,new Set());states.get(source.baseKey).add(grocerySourceChecked(source))}
  for(const source of sources){
   const {line,quantity,baseKey}=source,checked=grocerySourceChecked(source);
@@ -5954,10 +6005,10 @@ function validateWeekSchedule(value){
  const validKey=key=>typeof key==='string'&&['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].some(day=>key.startsWith(day+'::')&&key.length>day.length+2);
  for(const [key,item] of Object.entries(value.slots)){
   if(!validKey(key)||!object(item)||!['empty','once'].includes(item.kind))throw Error('Invalid temporary meal slot');
-  if('groceryChecks'in item)validateGroceryOccurrenceChecks({version:1,checks:item.groceryChecks});
+  if('groceryChecks'in item)validateGroceryOccurrenceChecks({version:1,checks:item.groceryChecks,quantities:item.groceryQuantities});
   if(item.kind==='once'&&(!object(item.meal)||typeof item.meal.id!=='string'||!item.meal.id.startsWith('once-')||typeof item.meal.name!=='string'||!item.meal.name.trim()||!Array.isArray(item.meal.ingredients)||item.meal.ingredients.some(line=>typeof line!=='string')||item.meal.temporaryMeal!==true))throw Error('Invalid temporary meal');
  }
- if(value.linkedGroceryChecks)validateGroceryOccurrenceChecks({version:1,checks:value.linkedGroceryChecks});
+ if(value.linkedGroceryChecks)validateGroceryOccurrenceChecks({version:1,checks:value.linkedGroceryChecks,quantities:value.linkedGroceryQuantities});
  const ids=Object.values(value.slots).filter(item=>item.kind==='once').map(item=>item.meal.id);if(new Set(ids).size!==ids.length)throw Error('Duplicate temporary meal IDs');
  for(const [day,order] of Object.entries(value.order))if(!validKey(day+'::order')||!Array.isArray(order)||order.some(id=>typeof id!=='string')||new Set(order).size!==order.length)throw Error('Invalid weekday display order');
 }
@@ -6026,12 +6077,13 @@ function hiddenWeekEntries(plan){const base=queueWeekEntries(plan);return base.f
 function heldWeekGroceryChecks(plan){
  const checks={};for(const item of Object.values(weekSchedule(plan).slots))Object.assign(checks,item.groceryChecks||{});return checks;
 }
+function heldWeekGroceryQuantities(plan){const amounts={...weekSchedule(plan).linkedGroceryQuantities};for(const item of Object.values(weekSchedule(plan).slots))Object.assign(amounts,item.groceryQuantities||{});return amounts}
 function updateTemporaryGroceryChecks(plan,previousSlots,before){
  const slots=weekSchedule(plan).slots,base=queueWeekEntries(plan),visible=new Set(getGroceryContributions(true).map(source=>source.id));
- for(const [key,item]of Object.entries(slots))if(previousSlots[key]?.groceryChecks)item.groceryChecks={...previousSlots[key].groceryChecks,...item.groceryChecks};
+ for(const [key,item]of Object.entries(slots))if(previousSlots[key]?.groceryChecks){item.groceryChecks={...previousSlots[key].groceryChecks,...item.groceryChecks};item.groceryQuantities={...previousSlots[key].groceryQuantities,...item.groceryQuantities}};
  for(const [id,item]of before){const source=item.source;if(!source||source.planId!==plan.id||visible.has(id))continue;
   const occurrence=JSON.parse(source.occurrence),entry=base.find(entry=>entry.day===source.day&&String(entry.meal.id)===String(source.mealId))||{day:source.day,cat:source.cat,meal:{id:source.mealId},...(occurrence[3].startsWith('linked:')?{linkedTo:occurrence[3].slice(7)}:{})};
-  const key=temporaryGroceryOwner(plan,entry,base);if(key){slots[key].groceryChecks={...slots[key].groceryChecks,[id]:item.checked}}
+  const key=temporaryGroceryOwner(plan,entry,base);if(key){slots[key].groceryChecks={...slots[key].groceryChecks,[id]:item.checked};if(item.amount)slots[key].groceryQuantities={...slots[key].groceryQuantities,[id]:{...item.amount}}}
  }
 }
 
@@ -6039,11 +6091,11 @@ function changeTemporaryWeek(update){
  if(groceryCheckStorageInvalid||mealPersistence.paused){showAppMessage('Saved data is unavailable. No meal was changed.');return false}
  saveActiveMealPlan();const before=captureGroceryCheckStates(),plan=mealPlans.find(plan=>plan.id===activePlanId),previousSlots=JSON.parse(JSON.stringify(weekSchedule(plan).slots)),undo=JSON.parse(captureState());
  undo.scheduleChangeUndo={sourceIds:[],checks:Object.fromEntries([...before].map(([id,item])=>[id,item.checked])),restoreOrder:false};snapshot(JSON.stringify(undo));
- const remembered=heldWeekGroceryChecks(plan);
+ const rememberedAmounts=heldWeekGroceryQuantities(plan),remembered=heldWeekGroceryChecks(plan);
  // Pin the underlying planner before hiding anything. Temporary IDs never enter
  // its overrides, reservations, linked activation, or Favorites score ledger.
  stabilizeAutomaticWeekSlots();update(plan);updateTemporaryGroceryChecks(plan,previousSlots,before);
- const sameCycle=new Map(before);for(const [id,checked]of Object.entries(remembered))if(!sameCycle.has(id))sameCycle.set(id,{checked});
+ const sameCycle=new Map(before);for(const [id,checked]of Object.entries(remembered))if(!sameCycle.has(id))sameCycle.set(id,{checked,amount:rememberedAmounts[id]});
  saveActiveMealPlan();reconcileRotatedGroceryChecks(sameCycle,[]);persist();renderList();finishScheduleChangeUndo(undo);return true;
 }
 function leaveWeekEmpty(day,cat=null,wholeDay=false){
@@ -7126,7 +7178,11 @@ function preserveBulkEmptySlots(schedules){
 function reparentDeletedBulkChildren(ids,schedules,raw){
  let changed=false;for(const plan of mealPlans){const current=queueWeekEntries(plan);for(const old of schedules.get(plan.id)||[]){if(!rotationGroupScheduled(plan,old.day,old.cat)||!ids.has(String(old.linkedTo))||ids.has(String(old.meal.id)))continue;const found=current.find(e=>e.day===old.day&&e.cat===old.cat&&String(e.meal.id)===String(old.meal.id));if(!found)continue;
   const key=weekdaySlotKey(old.day,old.cat),choice=plan.cycleSlotChoices[key];if(choice)choice.parentId='';const previous=rotationOccurrenceKey({...old,planId:plan.id}),context=cookingContext(plan.id,old.day,old.cat,found.meal),next=cookingOccurrenceKey(context);
-  for(const [target,prior]of [[cookingSessions.occurrences,raw.sessions.occurrences],[occurrenceScales.occurrences,raw.scales.occurrences]]){if(prior[previous]){if(target[next]&&next!==previous)throw Error('A linked side has separate saved progress that cannot be safely merged. No recipes were deleted.');target[next]={...JSON.parse(JSON.stringify(prior[previous])),context:{...context}}}delete target[previous]}
+  for(const [target,prior]of [[cookingSessions.occurrences,raw.sessions.occurrences],[occurrenceScales.occurrences,raw.scales.occurrences]]){
+   for(const [oldKey,record]of Object.entries(prior)){if(cookingOccurrenceKey(record.context)!==previous||record.context.cat!==old.cat)continue;const scoped=target===occurrenceScales.occurrences,updated={...context,...(scoped?{scaleGroupId:groupIdentity(context.cat,true)||context.cat}:{})},newKey=scoped?scaleOccurrenceKey(updated):next;
+    if(target[newKey]&&newKey!==oldKey)throw Error('A linked side has separate saved progress that cannot be safely merged. No recipes were deleted.');target[newKey]={...JSON.parse(JSON.stringify(record)),context:updated};if(newKey!==oldKey)delete target[oldKey];
+   }
+  }
   for(const field of ['occurrences','assignedOn','assignedAt'])if(plan.rotationCalendar?.[field]&&Object.hasOwn(plan.rotationCalendar[field],previous)){plan.rotationCalendar[field][next]=plan.rotationCalendar[field][previous];delete plan.rotationCalendar[field][previous]}
   const timer=JSON.parse(testStorage.getItem(COOKING_TIMER_KEY)||'null');if(timer?.context&&cookingOccurrenceKey(timer.context)===previous){timer.context={...context};testStorage.setItem(COOKING_TIMER_KEY,JSON.stringify(timer))}
   for(const check of Object.keys(plan.makeAheadChecks||{})){const parts=JSON.parse(check);if(parts[0]!==previous)continue;parts[0]=next;plan.makeAheadChecks[JSON.stringify(parts)]=plan.makeAheadChecks[check];delete plan.makeAheadChecks[check]}changed=true;
@@ -7673,7 +7729,7 @@ function hiddenLinkedSides(plan,day,category,parent){
 }
 function restoreHiddenLinkedSide(day,category,parent,sideId){
  const plan=mealPlans.find(p=>p.id===activePlanId),hidden=hiddenLinkedSides(plan,day,category,parent).find(item=>String(item.side.id)===String(sideId));if(!hidden)return false;
- const remembered={...heldWeekGroceryChecks(plan),...(weekSchedule(plan).linkedGroceryChecks||{})},side=hidden.side,cat=hidden.cat,otherHidden=hiddenLinkedSides(plan,day,category,parent).filter(item=>item.cat===cat&&String(item.side.id)!==String(side.id)).map(item=>String(item.side.id));
+ const rememberedAmounts=heldWeekGroceryQuantities(plan),remembered={...heldWeekGroceryChecks(plan),...(weekSchedule(plan).linkedGroceryChecks||{})},side=hidden.side,cat=hidden.cat,otherHidden=hiddenLinkedSides(plan,day,category,parent).filter(item=>item.cat===cat&&String(item.side.id)!==String(side.id)).map(item=>String(item.side.id));
  const previous=readPreviousRotation(),cycled=previous?.cookingCycledContexts||[],oldPlan=previous?.mealPlans.find(item=>item.id===plan.id),sameParent=oldPlan&&getDisplayedWeekdayMealsForPlan(oldPlan,null,previous).some(entry=>entry.day===day&&entry.cat===category&&String(entry.meal.id)===String(parent.id));
  if(previous&&sameParent&&cycled.some(item=>item.planId===plan.id&&item.day===day&&item.cat===cat&&String(item.mealId)===String(side.id))&&!cycled.some(item=>item.planId===plan.id&&item.day===day&&String(item.mealId)===String(parent.id))){for(const [id,checked]of Object.entries(previous.groceryOccurrenceChecks?.checks||{}))if(!Object.hasOwn(remembered,id))remembered[id]=checked}
  previouslyActiveLinkedIds.add(String(side.id));
@@ -7682,7 +7738,7 @@ function restoreHiddenLinkedSide(day,category,parent,sideId){
   current.cycleSlotChoices={...(current.cycleSlotChoices||{}),[key]:{...old,mealId:String(side.id),parentId:String(parent.id),retain:false,substitution:false,empty:false,blockedParents:(old.blockedParents||[]).filter(id=>String(id)!==String(parent.id)),excludedMealIds:[...new Set([...(old.excludedMealIds||[]).filter(id=>String(id)!==String(side.id)),...otherHidden])]}};
   if(rotationGroupScheduled(current,day,cat)){setWeekdayOverride(day,cat,side.id);current.weekdayMealOverrides={...weekdayMealOverrides};current.cycleRetainedSlots={...(current.cycleRetainedSlots||{}),[key]:String(side.id)}}
  });
- if(result){for(const source of getGroceryContributions(true))if(source.planId===plan.id&&source.day===day&&source.cat===cat&&String(source.mealId)===String(side.id)){const saved=remembered[source.id]??remembered[source.legacyId];if(typeof saved==='boolean')groceryOccurrenceChecks.checks[source.id]=saved}saveGroceryOccurrenceChecks();saveActiveMealPlan();renderList()}
+ if(result){for(const source of getGroceryContributions(true))if(source.planId===plan.id&&source.day===day&&source.cat===cat&&String(source.mealId)===String(side.id)){const saved=remembered[source.id]??remembered[source.legacyId];if(typeof saved==='boolean')groceryOccurrenceChecks.checks[source.id]=saved;const amount=rememberedAmounts[source.id];if(amount)(groceryOccurrenceChecks.quantities??={})[source.id]={...amount}}saveGroceryOccurrenceChecks();saveActiveMealPlan();renderList()}
  return result;
 }
 function openTopMealActionMenu(day,category,meal,fromLinkedGroup=false,cookingOverride=null,navigationOrigin=null){
