@@ -1262,7 +1262,7 @@ body.recipe-bulk-select{--recipe-bulk-space:96px;}body.recipe-bulk-select .unifi
 .meal-group-picker-options label{display:flex;align-items:center;gap:10px;padding:9px 4px;margin:0;min-height:40px;font-size:14px;border-bottom:1px solid #eee;box-sizing:border-box;}
 .meal-group-picker-options label:has(input:checked){background:transparent;border-radius:5px;}
 .meal-group-picker-options label:has(input:disabled){color:#888;}
-.meal-group-picker-options input{width:18px;height:18px;flex:0 0 18px;accent-color:#647052;}
+.meal-group-picker-options input{width:18px;height:18px;flex:0 0 18px;accent-color:#315ba8;}
 
 /* Batch 7: photo-free, compact card editing; normal card edging is unchanged. */
 #editor .meal-card-edit-mode{box-shadow:none!important;border:0!important;outline:1px solid #8882;outline-offset:0;margin-bottom:4px;padding:7px 8px 5px;}
@@ -9143,7 +9143,7 @@ function renderCategoryRows(){
   const selected=new Set(editorMembershipDraft.filter(item=>!item.removed&&item.cat).map(item=>item.cat));
   for(const cat of cats){const label=document.createElement('label'),check=document.createElement('input'),text=document.createElement('span');check.type='checkbox';check.value=cat;check.checked=selected.has(cat);text.textContent=cat;label.append(check,text);check.onchange=()=>{if(check.checked)selected.add(cat);else selected.delete(cat)};list.append(label)}
   const actions=document.createElement('div');actions.style.cssText='display:flex;align-items:center;justify-content:center;gap:48px;margin:12px auto 0';
-  const apply=document.createElement('button');apply.type='button';apply.className='iconbtn';setIconButton(apply,'check','Apply selected groups');apply.style.cssText+=';width:44px;height:44px';
+  const apply=document.createElement('button');apply.type='button';apply.className='iconbtn';setIconButton(apply,'save','Apply selected groups');apply.style.cssText+=';width:44px;height:44px';
   apply.onclick=()=>{
    const chosen=[...cats].filter(cat=>selected.has(cat)),existing=editorMembershipDraft.filter(item=>item!==primary&&!item.removed);
    const primaryCat=selected.has(primary.cat)?primary.cat:(chosen[0]||'');
