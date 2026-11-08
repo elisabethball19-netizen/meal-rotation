@@ -7451,13 +7451,32 @@ async function confirmDeleteRecipes(ids){
 }
 async function deleteRecipeBulk(){const ids=await confirmDeleteRecipes(bulkRecipeSelected().map(m=>String(m.id)));if(!ids)return;try{applyRecipeBulk(ids,{delete:true})}catch(error){await showAppMessage('Bulk delete could not be completed: '+error.message)}}
 
+function newMealGroupButton(onCreated){
+ const add=document.createElement('button');add.type='button';add.className='smallbtn';add.textContent='+ New Group';add.style.minHeight='44px';add.setAttribute('aria-haspopup','dialog');
+ add.onclick=()=>{
+  const prompt=recipeBulkDialog('New group');
+  const field=document.createElement('input');field.type='text';field.setAttribute('aria-label','New group name');field.className='recipe-bulk-new-group';
+  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','alert');
+  const buttons=document.createElement('div');buttons.className='meal-unified-actions';
+  const create=document.createElement('button');create.type='button';setIconButton(create,'save','Create group');
+  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Cancel new group');close.onclick=prompt.close;
+  create.onclick=()=>{
+   let group;
+   try{group=createMealGroup(field.value)}
+   catch(problem){error.textContent=problem.message;field.focus({preventScroll:true});return}
+   prompt.close();onCreated(group);
+  };
+  field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();create.click()}};
+  buttons.append(create,close);prompt.panel.append(field,error,buttons);field.focus({preventScroll:true});
+ };
+ return add;
+}
 function chooseBulkValue(title,value,options,onSelect,allowNewGroup=false,returnFocus=null){
  const d=recipeBulkDialog(title,returnFocus),list=document.createElement('div');list.className='recipe-bulk-choice-list';let draft=value;
  function draw(){list.replaceChildren();for(const [key,text]of options()){const label=document.createElement('label');label.className='recipe-bulk-choice';const check=document.createElement('input');check.type='radio';check.name='bulk-choice';check.className='check';check.checked=draft===key;check.value=key;check.onchange=()=>{draft=key};label.append(check,document.createTextNode(text));list.append(label)}}
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button');save.type='button';setIconButton(save,'save','Confirm '+title.toLowerCase());const cancel=document.createElement('button');cancel.type='button';setIconButton(cancel,'cancel','Cancel '+title.toLowerCase());save.onclick=()=>{onSelect(draft);d.close()};cancel.onclick=d.close;actions.append(save,cancel);d.panel.append(list);
- if(allowNewGroup){const add=document.createElement('button');add.type='button';add.className='smallbtn';add.textContent='+ New Group';add.onclick=()=>{
-  const prompt=recipeBulkDialog('New group'),field=document.createElement('input');field.type='text';field.setAttribute('aria-label','New group name');field.className='recipe-bulk-new-group';const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','alert');const buttons=document.createElement('div');buttons.className='meal-unified-actions';const create=document.createElement('button');create.type='button';setIconButton(create,'save','Create group');const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Cancel new group');close.onclick=prompt.close;create.onclick=()=>{try{const group=createMealGroup(field.value);prompt.close();onSelect(group);d.close();bulkRecipeRender()}catch(e){error.textContent=e.message;field.focus({preventScroll:true})}};field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();create.click()}};buttons.append(create,close);prompt.panel.append(field,error,buttons);field.focus({preventScroll:true});
- };d.panel.append(add)}d.panel.append(actions);draw();cancel.focus({preventScroll:true});
+ if(allowNewGroup)d.panel.append(newMealGroupButton(group=>{onSelect(group);d.close();bulkRecipeRender()}));
+ d.panel.append(actions);draw();cancel.focus({preventScroll:true});
 }
 function bulkChoiceField(parent,label,options,onChange,allowNewGroup=false){
  const wrapper=document.createElement('div');wrapper.className='recipe-bulk-field';const title=document.createElement('span');title.textContent=label;const button=document.createElement('button');button.type='button';button.className='recipe-bulk-value';button.setAttribute('aria-label',label);button.setAttribute('aria-haspopup','dialog');let value='';const field={get value(){return value}};
@@ -7587,14 +7606,16 @@ function appendRotationSetupPrompt(parent){
 function chooseGroupForFirstMeal(meal,previous=null){
  const d=recipeBulkDialog('Choose a meal group for '+meal.name),list=document.createElement('div');
  list.className='meal-group-picker-options';list.setAttribute('role','group');list.setAttribute('aria-label','Meal groups');
+ const pick=category=>{d.close();openRotationSetup(meal,{category,previous})};
  for(const category of cats){
   const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';
   label.append(check,document.createTextNode(category));list.append(label);
-  check.onchange=()=>{if(check.checked){d.close();openRotationSetup(meal,{category,previous})}};
+  check.onchange=()=>{if(check.checked)pick(category)};
  }
- if(!cats.length)list.textContent='Add a meal group in Meal Groups, then return here.';
+ const add=newMealGroupButton(category=>{d.close();bulkRecipeRender();openRotationSetup(meal,{category,previous})});
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close setup');close.style.minHeight='44px';close.onclick=d.close;
- d.panel.append(list,close);close.focus({preventScroll:true});
+ if(cats.length)d.panel.append(list);
+ d.panel.append(add,close);close.focus({preventScroll:true});
 }
 function showFirstRotationTip(day,plan,category){
  const button=document.querySelector('.rotation-heading-actions button[aria-label="Rotate Meals"]'),header=button?.closest('.rotation-compact-header');
