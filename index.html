@@ -471,9 +471,9 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 #list .rotation-compact-header .view-page-title{flex:0 0 auto;border:0!important;}
 #list .rotation-heading-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
 #list .rotation-heading-actions .rotation-standalone-action{flex:0 0 auto;}
-#list .first-recipe-prompt{margin:10px 0 18px;padding:16px;border:1px solid #cbd6e1;border-top:2px solid #b7c8da;border-radius:14px;background:#fff;box-shadow:0 5px 15px #263b5524;}
-#list .first-recipe-prompt p{margin:0 0 12px;font-weight:700;}
-#list .first-recipe-prompt .first-recipe-add{background:#e9eef5;color:#30445b;border-color:#a7b8cc;font-weight:600;}
+body:has(.first-recipe-dialog) .first-recipe-launcher{visibility:hidden;}
+.first-recipe-launcher{align-self:flex-start;min-height:44px;}
+.first-recipe-dialog .first-recipe-add{background:#e9eef5;color:#30445b;border-color:#a7b8cc;font-weight:600;}
 #list .first-rotation-tip{position:relative;margin:12px 0 10px;padding:9px 12px;border:1px solid #c3d0df;border-radius:10px;background:#f4f7fb;color:#30445b;font-size:.9em;line-height:1.4;}
 #list .first-rotation-tip::before{content:'';position:absolute;top:-6px;left:var(--tip-arrow,28px);width:10px;height:10px;transform:translateX(-50%) rotate(45deg);background:inherit;border-top:inherit;border-left:inherit;}
 
@@ -1267,10 +1267,11 @@ body.recipe-bulk-select{--recipe-bulk-space:96px;}body.recipe-bulk-select .unifi
 #editor .meal-editor-segmented button[aria-pressed="true"]{background:#fff;border-color:#aaa;box-shadow:0 1px 3px #0002;color:#242424;font-weight:600;}
 #editor .meal-group-picker-button{flex:1;min-width:0;text-align:left;white-space:normal;overflow-wrap:anywhere;}
 .meal-group-picker-options{max-height:min(50dvh,360px);overflow-y:auto;margin:10px 0;}
-.meal-group-picker-options label{display:flex;align-items:center;gap:10px;padding:9px 4px;margin:0;min-height:40px;font-size:14px;border-bottom:1px solid #eee;box-sizing:border-box;}
+.meal-group-picker-options label,.first-meal-new-group{display:flex;align-items:center;gap:10px;padding:9px 4px;margin:0;min-height:40px;font-size:14px;border-bottom:1px solid #eee;box-sizing:border-box;}
 .meal-group-picker-options label:has(input:checked){background:transparent;border-radius:5px;}
 .meal-group-picker-options label:has(input:disabled){color:#888;}
-.meal-group-picker-options input{width:18px;height:18px;flex:0 0 18px;accent-color:#315ba8;}
+.meal-group-picker-options input,.first-meal-new-group input[type="checkbox"]{width:18px;height:18px;flex:0 0 18px;accent-color:#315ba8;}
+.first-meal-new-group .recipe-bulk-new-group{flex:1;min-width:0;width:auto;font-size:16px;box-sizing:border-box;}
 
 .meal-group-editor-heading{display:flex!important;align-items:center;width:100%;max-width:100%;box-sizing:border-box;gap:9px;min-height:40px;font-size:inherit;font-weight:700!important}#editor .meal-group-editor-heading{font-size:1em!important;font-weight:700!important}.meal-group-editor-heading .meal-group-picker-button{width:40px;height:40px;min-width:40px;min-height:40px;margin:0 0 0 auto;flex:0 0 40px;position:relative;right:-1px}.meal-group-assigned-list{font-size:.82em;font-weight:400;color:#777;line-height:1.3;overflow-wrap:anywhere;min-width:0}.meal-group-assigned-list.is-unassigned{color:#888}
 /* Linked recipes are edited in a separate row, matching Meal Groups; the saved meal card is unchanged. */
@@ -7612,10 +7613,22 @@ function chooseGroupForFirstMeal(meal,previous=null){
   label.append(check,document.createTextNode(category));list.append(label);
   check.onchange=()=>{if(check.checked)pick(category)};
  }
- const add=newMealGroupButton(category=>{d.close();bulkRecipeRender();openRotationSetup(meal,{category,previous})});
+ const row=document.createElement('div');row.className='first-meal-new-group';
+ const check=document.createElement('input');check.type='checkbox';check.setAttribute('aria-label','Create and choose new group');
+ const field=document.createElement('input');field.type='text';field.className='recipe-bulk-new-group';field.placeholder='New group name';field.setAttribute('aria-label',field.placeholder);
+ const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','alert');error.hidden=true;
+ check.onchange=()=>{
+  if(!check.checked)return;
+  let category;
+  try{category=createMealGroup(field.value)}
+  catch(problem){check.checked=false;error.textContent=problem.message;error.hidden=false;field.setAttribute('aria-invalid','true');field.focus({preventScroll:true});return}
+  d.close();bulkRecipeRender();openRotationSetup(meal,{category,previous});
+ };
+ field.oninput=()=>{error.hidden=true;field.removeAttribute('aria-invalid')};
+ row.append(check,field);
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close setup');close.style.minHeight='44px';close.onclick=d.close;
  if(cats.length)d.panel.append(list);
- d.panel.append(add,close);close.focus({preventScroll:true});
+ d.panel.append(row,error,close);close.focus({preventScroll:true});
 }
 function showFirstRotationTip(day,plan,category){
  const button=document.querySelector('.rotation-heading-actions button[aria-label="Rotate Meals"]'),header=button?.closest('.rotation-compact-header');
@@ -7670,24 +7683,33 @@ function openRotationSetup(recipe=null,groupChoice=null){
 }
 function renderEmptyMealGroups(list){
  const section=document.createElement('section');section.className='master-categories empty-meal-groups';section.setAttribute('aria-label','Meal Groups');const title=document.createElement('h2');title.textContent='Meal Groups';
- const text=document.createElement('p');text.textContent='Add your first recipes to get started. You can import a recipe collection or write a recipe yourself.';
- section.append(title,text,recipeStartActions());list.append(section);
+ section.append(title,recipeStartActions());list.append(section);
 }
-function recipeStartActions(addFirst=false){
+function recipeStartActions(startupDialog=null){
  const actions=document.createElement('div');actions.style.cssText='display:flex;flex-wrap:wrap;gap:12px';
  const buttons=[['Import Recipes',openRecipeImportSourcePicker],['Add Recipe',()=>addRecipeToGroup('')]];
- if(addFirst)buttons.reverse();
+ if(startupDialog)buttons.reverse();
  for(const [label,action]of buttons){
-  const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=label;button.style.cssText='min-height:44px;padding:10px 14px';button.onclick=action;
-  if(addFirst&&label==='Add Recipe')button.classList.add('first-recipe-add');
+  const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=label;button.style.cssText='min-height:44px;padding:10px 14px';button.onclick=()=>{startupDialog?.close();action()};
+  if(startupDialog&&label==='Add Recipe')button.classList.add('first-recipe-add');
   actions.append(button);
  }
  return actions;
 }
+let firstRecipePromptShown=false;
 function appendFirstRecipePrompt(parent){
- const section=document.createElement('section');section.className='first-recipe-prompt';section.setAttribute('aria-label','Get started');
- const text=document.createElement('p');text.textContent='Add or import your first recipe.';
- section.append(text,recipeStartActions(true));parent.append(section);
+ const title='Add or import your first recipe.';
+ const launch=document.createElement('button');launch.type='button';launch.className='smallbtn first-recipe-launcher';launch.textContent=title;launch.setAttribute('aria-haspopup','dialog');
+ launch.onclick=()=>{
+  firstRecipePromptShown=true;
+  const d=recipeBulkDialog(title,()=>launch);d.overlay.classList.add('first-recipe-dialog');
+  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Dismiss startup prompt');close.style.minHeight='44px';close.onclick=d.close;
+  d.panel.append(recipeStartActions(d),close);close.focus({preventScroll:true});
+ };
+ parent.append(launch);
+ if(!firstRecipePromptShown)requestAnimationFrame(()=>{
+  if(launch.isConnected&&!firstRecipePromptShown&&!meals.length&&!document.querySelector('[aria-modal="true"]')){launch.focus({preventScroll:true});launch.click()}
+ });
 }
 function renderMasterCategories(list){
  if(!meals.length){renderEmptyMealGroups(list);return}
