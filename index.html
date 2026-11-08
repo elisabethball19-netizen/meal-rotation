@@ -474,8 +474,14 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 body:has(.first-recipe-dialog) .first-recipe-launcher{visibility:hidden;}
 .first-recipe-launcher{align-self:flex-start;min-height:44px;}
 .first-recipe-dialog .first-recipe-add{background:#e9eef5;color:#30445b;border-color:#a7b8cc;font-weight:600;}
-#list .first-rotation-tip{position:relative;margin:12px 0 10px;padding:9px 12px;border:1px solid #c3d0df;border-radius:10px;background:#f4f7fb;color:#30445b;font-size:.9em;line-height:1.4;}
-#list .first-rotation-tip::before{content:'';position:absolute;top:-6px;left:var(--tip-arrow,28px);width:10px;height:10px;transform:translateX(-50%) rotate(45deg);background:inherit;border-top:inherit;border-left:inherit;}
+.first-recipe-dialog .first-recipe-close{align-self:center;width:44px;height:44px;}
+.first-recipe-dialog strong:focus{outline:none;}
+#list .first-rotation-tip{position:relative;display:flex;align-items:flex-start;gap:2px;margin:19px 0 12px;padding:6px 5px 6px 12px;border:1px solid #c3d0df;border-radius:10px;background:#f4f7fb;color:#30445b;box-shadow:0 3px 9px #263b5529;font-size:.9em;line-height:1.4;}
+#list .first-rotation-tip p{flex:1;margin:3px 0;}
+#list .first-rotation-tip .first-rotation-close{flex:0 0 44px;width:44px;height:44px;}
+#list .first-rotation-arrow{position:absolute;top:-17px;left:var(--tip-arrow);width:18px;height:18px;transform:translateX(-50%);color:#426184;pointer-events:none;}
+/* Keep the arrow above the header shadow at rest, and below the header as it sticks. */
+#list .rotation-compact-header:not(.is-stuck) + .first-rotation-tip .first-rotation-arrow{z-index:36;}
 
 #list .meal-plan-grocery .grocery-compact-header{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;border-bottom:1px solid #dedede;}
 #list .meal-plan-grocery .grocery-compact-header > h2{flex:0 0 auto;}
@@ -7638,10 +7644,13 @@ function chooseGroupForFirstMeal(meal,previous=null){
 function showFirstRotationTip(day,plan,category){
  const button=document.querySelector('.rotation-heading-actions button[aria-label="Rotate Meals"]'),header=button?.closest('.rotation-compact-header');
  if(!header)return;
- const tip=document.createElement('aside');tip.className='first-rotation-tip';tip.setAttribute('role','status');
+ const tip=document.createElement('aside');tip.className='first-rotation-tip';
+ tip.innerHTML='<svg class="first-rotation-arrow" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 16V3m-5 5 5-5 5 5"/></svg>';
+ const message=document.createElement('p');message.setAttribute('role','status');
  const group=document.createElement('strong');group.textContent=category+' group';
- tip.append('When you rotate '+day+'’s '+plan.name.toLocaleLowerCase()+', the next recipe from the ',group,' will take its place on your weekly meal plan.');
- header.after(tip);
+ message.append('When you rotate '+day+'’s '+plan.name.toLocaleLowerCase()+', the next recipe from the ',group,' will take its place on your weekly meal plan.');
+ const close=document.createElement('button');close.type='button';close.className='iconbtn first-rotation-close';setIconButton(close,'cancel','Dismiss rotation tip');close.onclick=()=>{tip.remove();button.focus({preventScroll:true})};
+ tip.append(message,close);header.after(tip);
  const anchor=button.getBoundingClientRect(),bounds=tip.getBoundingClientRect();
  tip.style.setProperty('--tip-arrow',Math.max(14,Math.min(bounds.width-14,anchor.left+anchor.width/2-bounds.left))+'px');
  button.addEventListener('click',()=>tip.remove(),{once:true});
@@ -7708,8 +7717,9 @@ function appendFirstRecipePrompt(parent){
  launch.onclick=()=>{
   firstRecipePromptShown=true;
   const d=recipeBulkDialog(title,()=>launch);d.overlay.classList.add('first-recipe-dialog');
-  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Dismiss startup prompt');close.style.minHeight='44px';close.onclick=d.close;
-  d.panel.append(recipeStartActions(d),close);close.focus({preventScroll:true});
+  const close=document.createElement('button');close.type='button';close.className='iconbtn first-recipe-close';setIconButton(close,'cancel','Dismiss startup prompt');close.onclick=d.close;
+  const heading=d.panel.firstElementChild;heading.tabIndex=-1;
+  d.panel.append(recipeStartActions(d),close);heading.focus({preventScroll:true});
  };
  parent.append(launch);
  if(!firstRecipePromptShown)requestAnimationFrame(()=>{

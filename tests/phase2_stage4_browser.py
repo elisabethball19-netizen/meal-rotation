@@ -104,12 +104,22 @@ def empty_collection(b,name,width,groups):
  planner.get_by_role('button',name='Tuesday',exact=True).tap()
  tip=p.locator('.first-rotation-tip')
  expect(tip).to_have_text('When you rotate Tuesday’s dinner, the next recipe from the '+('Rice' if groups else 'My recipes')+' group will take its place on your weekly meal plan.')
- expect(tip.locator('svg,button')).to_have_count(0)
+ arrow=tip.locator('.first-rotation-arrow')
+ expect(arrow).to_be_visible()
+ rotate=p.get_by_role('button',name='Rotate Meals',exact=True)
+ anchor,pointer=rotate.bounding_box(),arrow.bounding_box()
+ assert abs(anchor['x']+anchor['width']/2-pointer['x']-pointer['width']/2)<=2
+ assert anchor['y']+anchor['height']<=pointer['y']
+ assert tip.evaluate("(tip)=>getComputedStyle(tip).boxShadow")!='none'
  expect(p.get_by_role('dialog')).to_have_count(0)
  assert tip.evaluate("(tip)=>tip.previousElementSibling.querySelector('.rotation-labeled-button')?.textContent==='Rotate Meals'")
  expect(p.locator('[data-schedule-day="Tuesday"]').get_by_text('First recipe',exact=True)).to_be_visible()
  plan=next(plan for plan in s2.plans(p) if plan['id']=='original')
  assert plan['weekdayCategories']['Tuesday']==['Rice' if groups else 'My recipes']
+ tip.get_by_role('button',name='Dismiss rotation tip',exact=True).tap()
+ expect(tip).to_have_count(0)
+ expect(rotate).to_be_focused()
+ expect(p.locator('[data-schedule-day="Tuesday"]').get_by_text('First recipe',exact=True)).to_be_visible()
  p.locator('#undo').tap()
  assert not next(plan for plan in s2.plans(p) if plan['id']=='original')['weekdayCategories']
  p.get_by_role('button',name='Set Up Your Rotation',exact=True).tap()
@@ -180,7 +190,11 @@ def fresh_install(b,name):
  expect(start.get_by_role('button',name='Create Recipe',exact=True)).to_be_visible()
  expect(p.locator('#list > .view-page-title')).to_have_text('My Rotation')
  expect(p.get_by_role('button',name='Rotate Meals',exact=True)).to_have_count(0)
- start.get_by_role('button',name='Dismiss startup prompt',exact=True).tap()
+ close=start.get_by_role('button',name='Dismiss startup prompt',exact=True)
+ assert 44<=close.bounding_box()['width']<=48 and close.bounding_box()['height']>=44
+ assert close.evaluate("(button)=>getComputedStyle(button).borderTopWidth")=='0px'
+ expect(start.locator('strong')).to_be_focused()
+ close.tap()
  expect(start).to_have_count(0)
  launch=p.get_by_role('button',name='Create or import your first recipe.',exact=True)
  expect(launch).to_be_focused()
