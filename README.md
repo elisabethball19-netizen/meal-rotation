@@ -1,5 +1,5 @@
 # meal-rotation
-personal meal rotation app
+Personal meal rotation app
 
 ## Read and cook recipes
 
