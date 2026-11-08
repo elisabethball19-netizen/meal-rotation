@@ -79,7 +79,7 @@ def empty_collection(b,name,width,groups):
  section=p.get_by_role('region',name='Meal Groups',exact=True)
  expect(section.get_by_role('button',name='Import Recipes',exact=True)).to_be_visible()
  assert not p.locator('.master-expansion-controls,.master-category-card,.master-order-reset').count()
- add=section.get_by_role('button',name='Add Recipe',exact=True)
+ add=section.get_by_role('button',name='Create Recipe',exact=True)
  assert add.bounding_box()['height']>=44
  add.focus();p.keyboard.press('Enter')
  expect(p.locator('#editor .editor')).to_be_visible()
@@ -176,13 +176,13 @@ def fresh_install(b,name):
  source=(stage.f.ROOT/name).read_text().replace('resumeRecipeViewer();})();','resumeRecipeViewer();'+stage.f.HOOK.replace('localStorage','testStorage' if prefix else 'localStorage')+'})();')
  if prefix:p.add_init_script("localStorage.setItem('mealRotationDataV1','WORKING SENTINEL')")
  p.route('http://stage4.test/**',lambda r:r.fulfill(content_type='text/html',body=source) if r.request.url.endswith(name) else r.fulfill(body=''));p.route('https://**/*',lambda r:r.fulfill(body=''));p.goto('http://stage4.test/'+name);assert [plan['name'] for plan in s2.plans(p)]==['Breakfast','Lunch','Dinner'];assert records(p)==[]
- start=p.get_by_role('dialog',name='Add or import your first recipe.',exact=True)
- expect(start.get_by_role('button',name='Add Recipe',exact=True)).to_be_visible()
+ start=p.get_by_role('dialog',name='Create or import your first recipe.',exact=True)
+ expect(start.get_by_role('button',name='Create Recipe',exact=True)).to_be_visible()
  expect(p.locator('#list > .view-page-title')).to_have_text('My Rotation')
  expect(p.get_by_role('button',name='Rotate Meals',exact=True)).to_have_count(0)
  start.get_by_role('button',name='Dismiss startup prompt',exact=True).tap()
  expect(start).to_have_count(0)
- launch=p.get_by_role('button',name='Add or import your first recipe.',exact=True)
+ launch=p.get_by_role('button',name='Create or import your first recipe.',exact=True)
  expect(launch).to_be_focused()
  launch.tap()
  start.get_by_role('button',name='Import Recipes',exact=True).tap()
@@ -192,12 +192,18 @@ def fresh_install(b,name):
  assert not p.locator('.meal-tutorial-hint').count() and records(p)==[]
  p.get_by_role('button',name='Meal Groups',exact=True).tap()
  expect(start).to_have_count(0)
- assert p.get_by_role('button',name='Add Recipe',exact=True).is_visible() and p.get_by_role('button',name='Import Recipes',exact=True).is_visible()
+ assert p.get_by_role('button',name='Create Recipe',exact=True).is_visible() and p.get_by_role('button',name='Import Recipes',exact=True).is_visible()
  assert not p.locator('.master-category-card,.master-expansion-controls').count()
- p.reload()
+ if prefix:
+  p.once('dialog',lambda dialog:dialog.accept())
+  with p.expect_navigation():
+   p.get_by_role('button',name='Reset Test App',exact=True).tap()
+ else:
+  p.reload()
+ expect(p.locator('#list > .view-page-title')).to_have_text('My Rotation')
+ expect(start).to_be_visible()
  assert [plan['name'] for plan in s2.plans(p)]==['Breakfast','Lunch','Dinner'] and records(p)==[]
- p.locator('button[data-destination="top"]').tap()
- start.get_by_role('button',name='Add Recipe',exact=True).tap()
+ start.get_by_role('button',name='Create Recipe',exact=True).tap()
  expect(p.locator('#editor .editor')).to_be_visible()
  expect(p.get_by_role('dialog',name='Add Recipe',exact=True)).to_have_count(0)
  p.locator('#name').fill('First recipe')
@@ -217,11 +223,13 @@ def fresh_install(b,name):
  next_step.tap()
  groups=p.get_by_role('dialog',name='Choose a meal group for First recipe',exact=True)
  expect(groups.get_by_role('checkbox').first).to_be_visible()
- field=groups.get_by_role('textbox',name='New group name',exact=True)
+ field=groups.get_by_role('textbox',name='New group',exact=True)
  create=groups.get_by_role('checkbox',name='Create and choose new group',exact=True)
  expect(field).to_be_visible()
  expect(create).to_be_visible()
  assert abs(create.bounding_box()['x']-groups.get_by_role('checkbox').first.bounding_box()['x'])<=1
+ last_group=groups.locator('.meal-group-picker-options label').last.bounding_box()
+ assert 0<=field.bounding_box()['y']-last_group['y']-last_group['height']<=8
  create.tap()
  expect(groups.get_by_role('alert')).to_have_text('Enter a group name.')
  field.fill('Discarded group')
