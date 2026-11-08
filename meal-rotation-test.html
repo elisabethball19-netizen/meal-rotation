@@ -474,8 +474,14 @@ body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
 body:has(.first-recipe-dialog) .first-recipe-launcher{visibility:hidden;}
 .first-recipe-launcher{align-self:flex-start;min-height:44px;}
 .first-recipe-dialog .first-recipe-add{background:#e9eef5;color:#30445b;border-color:#a7b8cc;font-weight:600;}
-#list .first-rotation-tip{position:relative;margin:12px 0 10px;padding:9px 12px;border:1px solid #c3d0df;border-radius:10px;background:#f4f7fb;color:#30445b;font-size:.9em;line-height:1.4;}
-#list .first-rotation-tip::before{content:'';position:absolute;top:-6px;left:var(--tip-arrow,28px);width:10px;height:10px;transform:translateX(-50%) rotate(45deg);background:inherit;border-top:inherit;border-left:inherit;}
+.first-recipe-dialog .first-recipe-close{align-self:center;width:44px;height:44px;}
+.first-recipe-dialog strong:focus{outline:none;}
+#list .first-rotation-tip{position:relative;display:flex;align-items:flex-start;gap:2px;margin:19px 0 12px;padding:6px 5px 6px 12px;border:1px solid #c3d0df;border-radius:10px;background:#f4f7fb;color:#30445b;box-shadow:0 3px 9px #263b5529;font-size:.9em;line-height:1.4;}
+#list .first-rotation-tip p{flex:1;margin:3px 0;}
+#list .first-rotation-tip .first-rotation-close{flex:0 0 44px;width:44px;height:44px;}
+#list .first-rotation-arrow{position:absolute;top:-17px;left:var(--tip-arrow);width:18px;height:18px;transform:translateX(-50%);color:#426184;pointer-events:none;}
+/* Keep the arrow above the header shadow at rest, and below the header as it sticks. */
+#list .rotation-compact-header:not(.is-stuck) + .first-rotation-tip .first-rotation-arrow{z-index:36;}
 
 #list .meal-plan-grocery .grocery-compact-header{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;border-bottom:1px solid #dedede;}
 #list .meal-plan-grocery .grocery-compact-header > h2{flex:0 0 auto;}
@@ -7353,9 +7359,9 @@ function openRecipeBulkScopes(){
  const options=[];if(focus){if(focus.cat)options.push(['Select '+focus.cat+' · '+(focus.rotation?'In Rotation':'Ideas'),meals.filter(m=>m.cat===focus.cat&&!!m.rotation===focus.rotation).map(m=>String(m.id))]);options.push(['Select all in '+(focus.cat||'Unassigned'),meals.filter(m=>m.cat===focus.cat).map(m=>String(m.id))])}options.push(['Select expanded sections',visible],['Select all recipes across all groups',meals.map(m=>String(m.id))]);
  for(const [name,ids]of options){const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=name+' ('+ids.length+')';b.onclick=()=>{ids.forEach(id=>recipeBulkIds.add(id));updateRecipeBulkUI();d.close()};d.panel.append(b)}const none=document.createElement('button');none.type='button';none.className='smallbtn';none.textContent='Deselect all';none.onclick=()=>{recipeBulkIds.clear();updateRecipeBulkUI();d.close()};const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close selection options');close.onclick=d.close;d.panel.append(none,close);close.focus({preventScroll:true});
 }
-function validateRecipeBulkChange(ids,patch,allowEmpty=false){
+function validateRecipeBulkChange(ids,patch,allowEmpty=false,groups=cats){
  for(const key of ['rotation','favorite','adjusting','delete'])if(Object.hasOwn(patch,key)&&typeof patch[key]!=='boolean')throw Error('Invalid '+key+' change.');for(const key of ['addLabels','removeLabels'])if(patch[key]!==undefined&&(!Array.isArray(patch[key])||patch[key].some(label=>typeof label!=='string'||!label.trim())))throw Error('Invalid recipe labels.');
- if((!ids.length&&!allowEmpty)||ids.some(id=>!meals.some(m=>String(m.id)===id)))throw Error('The recipe selection changed. Select the recipes again.');if(patch.category&&!cats.includes(patch.category))throw Error('Choose an existing meal group.');
+ if((!ids.length&&!allowEmpty)||ids.some(id=>!meals.some(m=>String(m.id)===id)))throw Error('The recipe selection changed. Select the recipes again.');if(patch.category&&!groups.includes(patch.category))throw Error('Choose an existing meal group.');
  if(patch.rotation===true&&!patch.category&&meals.some(meal=>meal.cat===''&&ids.includes(String(meal.id))))throw Error('Choose a meal group before adding unassigned recipes to rotation.');
  if((patch.addLabels||[]).some(label=>(patch.removeLabels||[]).some(other=>labelKey(label)===labelKey(other))))throw Error('A label cannot be added and removed in the same update.');
  if(patch.category){const groups=new Map();for(const m of meals){if(!m.linkGroup)continue;const cat=ids.includes(String(m.id))?patch.category:m.cat,key=JSON.stringify([m.linkGroup,cat]);if(groups.has(key)){const other=groups.get(key);if(ids.includes(String(m.id))&&m.cat!==patch.category||ids.includes(String(other.id))&&other.cat!==patch.category)throw Error('Shared copies of the same recipe cannot occupy the same group. Choose a different destination; no recipes were moved.')}groups.set(key,m)}}
@@ -7433,11 +7439,13 @@ function recipeBulkOperationId(ids,patch,options){
  return 'bulk:'+JSON.stringify(ordered({type:options.dependentRole?'dependent-role':'bulk-edit',targets:[...ids].map(String).sort(),patch,dependentRole:options.dependentRole||null,firstMealPlan:options.firstMealPlan||undefined}));
 }
 function applyRecipeBulk(ids,patch,options={}){
- validateRecipeBulkChange(ids,patch,!!options.dependentRole||!!options.createScheduledRecipe);if(recipeBulkBusy)throw Error('A bulk update is already in progress.');if(groceryCheckStorageInvalid||cookingStorageInvalid||scaleStorageInvalid)throw Error('Saved recipe progress or groceries could not be read. Export a backup before making bulk changes.');
+ const newGroup=options.firstMealPlan?.newGroup?validateNewMealGroupName(options.firstMealPlan.category):null;
+ const groups=newGroup?[...cats,newGroup]:cats;
+ validateRecipeBulkChange(ids,patch,!!options.dependentRole||!!options.createScheduledRecipe,groups);if(recipeBulkBusy)throw Error('A bulk update is already in progress.');if(groceryCheckStorageInvalid||cookingStorageInvalid||scaleStorageInvalid)throw Error('Saved recipe progress or groceries could not be read. Export a backup before making bulk changes.');
  const beforeStorage=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(beforeStorage);const before=JSON.parse(captureState()),memory={id,cats,meals,mealPlans,weekdayCategories,weekdayMealOverrides,cookingSessions,occurrenceScales,groceryOccurrenceChecks,recipeLabelCatalog,excluded:masterGroceryExcludedMealKeys,linked:new Set(previouslyActiveLinkedIds),recipeStates:new Map(cookingRecipeStates),signature:cookingScheduleSignature};
  const raw=JSON.parse(JSON.stringify({sessions:cookingSessions,scales:occurrenceScales}));const selected=new Set(ids),removed=new Set(patch.delete?ids:[]),transaction={selected,removed,allowedDays:[],promotion:null,promotionMealId:null};let result=false;recipeBulkBusy=true;
  try{
-  bulkRecipeStorageDraft=new Map(Array.from({length:mealBulkStorageBase.length},(_,i)=>{const key=mealBulkStorageBase.key(i);return [key,mealBulkStorageBase.getItem(key)]}));if(options.createScheduledRecipe)cats=[...cats];meals=JSON.parse(JSON.stringify(meals));mealPlans=JSON.parse(JSON.stringify(mealPlans));weekdayMealOverrides={...weekdayMealOverrides};cookingSessions=JSON.parse(JSON.stringify(cookingSessions));occurrenceScales=JSON.parse(JSON.stringify(occurrenceScales));groceryOccurrenceChecks=JSON.parse(JSON.stringify(groceryOccurrenceChecks));recipeLabelCatalog=[...recipeLabelCatalog];masterGroceryExcludedMealKeys=new Set(masterGroceryExcludedMealKeys);
+  bulkRecipeStorageDraft=new Map(Array.from({length:mealBulkStorageBase.length},(_,i)=>{const key=mealBulkStorageBase.key(i);return [key,mealBulkStorageBase.getItem(key)]}));if(newGroup||options.createScheduledRecipe)cats=[...groups];meals=JSON.parse(JSON.stringify(meals));mealPlans=JSON.parse(JSON.stringify(mealPlans));weekdayMealOverrides={...weekdayMealOverrides};cookingSessions=JSON.parse(JSON.stringify(cookingSessions));occurrenceScales=JSON.parse(JSON.stringify(occurrenceScales));groceryOccurrenceChecks=JSON.parse(JSON.stringify(groceryOccurrenceChecks));recipeLabelCatalog=[...recipeLabelCatalog];masterGroceryExcludedMealKeys=new Set(masterGroceryExcludedMealKeys);
   saveActiveMealPlan();const schedules=new Map(mealPlans.map(p=>[p.id,queueWeekEntries(p)])),grocery=captureGroceryCheckStates();preserveOtherMealPlanChoices(null,null,schedules);
   const departing=new Set();transaction.departing=departing;transaction.schedules=schedules;
   const sharedIds=new Set(selectedSharedRecipeIds(ids));for(const meal of meals){if(selected.has(String(meal.id))){if(patch.category)meal.cat=patch.category;if(patch.rotation!==undefined){if(!patch.rotation&&meal.rotation)departing.add(String(meal.id));meal.rotation=patch.rotation;if(!meal.rotation)delete meal.rotationPromotionPriority}}if(!sharedIds.has(String(meal.id)))continue;if(patch.favorite!==undefined){if(patch.favorite)meal.favorite=true;else delete meal.favorite}if(patch.adjusting!==undefined){if(patch.adjusting)meal.needsTweaking=true;else{delete meal.needsTweaking;delete meal.needsTweakingNote}}if(patch.addLabels?.length||patch.removeLabels?.length){const remove=new Set((patch.removeLabels||[]).map(labelKey));meal.labels=(Array.isArray(meal.labels)?[...meal.labels]:[]).filter(label=>!remove.has(labelKey(label)));for(const label of patch.addLabels||[])if(!meal.labels.some(old=>labelKey(old)===labelKey(label)))meal.labels.push(label)}}
@@ -7641,9 +7649,9 @@ function chooseGroupForFirstMeal(meal,previous=null){
  check.onchange=()=>{
   if(!check.checked)return;
   let category;
-  try{category=createMealGroup(field.value)}
+  try{category=validateNewMealGroupName(field.value)}
   catch(problem){check.checked=false;error.textContent=problem.message;error.hidden=false;field.setAttribute('aria-invalid','true');field.focus({preventScroll:true});return}
-  d.close();bulkRecipeRender();openRotationSetup(meal,{category,previous});
+  d.close();openRotationSetup(meal,{category,previous,newGroup:true});
  };
  field.oninput=()=>{error.hidden=true;field.removeAttribute('aria-invalid')};
  row.append(check,field);
@@ -7653,13 +7661,16 @@ function chooseGroupForFirstMeal(meal,previous=null){
  choices.append(row);
  d.panel.append(choices,error,close);close.focus({preventScroll:true});
 }
-function showFirstRotationTip(day,plan,category){
+function showFirstRotationTip(day,category){
  const button=document.querySelector('.rotation-heading-actions button[aria-label="Rotate Meals"]'),header=button?.closest('.rotation-compact-header');
  if(!header)return;
- const tip=document.createElement('aside');tip.className='first-rotation-tip';tip.setAttribute('role','status');
- const group=document.createElement('strong');group.textContent=category+' group';
- tip.append('When you rotate '+day+'’s '+plan.name.toLocaleLowerCase()+', the next recipe from the ',group,' will take its place on your weekly meal plan.');
- header.after(tip);
+ const tip=document.createElement('aside');tip.className='first-rotation-tip';
+ tip.innerHTML='<svg class="first-rotation-arrow" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 16V3m-5 5 5-5 5 5"/></svg>';
+ const message=document.createElement('p');message.setAttribute('role','status');
+ const group=document.createElement('strong');group.textContent=category;
+ message.append('The ',group,' group is scheduled for '+day+'. Tap Rotate Meals to pick the next recipe from this group.');
+ const close=document.createElement('button');close.type='button';close.className='iconbtn first-rotation-close';setIconButton(close,'cancel','Dismiss rotation tip');close.onclick=()=>{tip.remove();button.focus({preventScroll:true})};
+ tip.append(message,close);header.after(tip);
  const anchor=button.getBoundingClientRect(),bounds=tip.getBoundingClientRect();
  tip.style.setProperty('--tip-arrow',Math.max(14,Math.min(bounds.width-14,anchor.left+anchor.width/2-bounds.left))+'px');
  button.addEventListener('click',()=>tip.remove(),{once:true});
@@ -7692,13 +7703,13 @@ function openRotationSetup(recipe=null,groupChoice=null){
     const keepDay=previous?.planId===plan.id&&previous.day===day;
     if(rotationWeekEntries(plan).some(entry=>entry.day===day&&!(keepDay&&entry.occasional&&(entry.meal.id===meal.id||String(entry.linkedTo)===String(meal.id)))))throw Error(day+' already has a plan. Choose another day.');
     if(category&&Object.hasOwn(plan.weekdayCategories||{},day))throw Error(day+' already has a group. Choose another day.');
-    if(groupChoice)applyRecipeBulk([String(meal.id)],{category,rotation:true},{render:false,firstMealPlan:{planId:plan.id,day,category,previous}});
+    if(groupChoice)applyRecipeBulk([String(meal.id)],{category,rotation:true},{render:false,firstMealPlan:{planId:plan.id,day,category,previous,newGroup:groupChoice.newGroup}});
     else scheduleMealFromGroups(meal.id,{planId:plan.id,day,category,occasional:false,startGroup:true});
    }catch(problem){error.textContent=problem.message;error.hidden=false;return}
    d.close();navigateAfterSettings(()=>{
     if(activePlanId!==plan.id)loadMealPlan(plan.id,false);
     showTop=true;allMealsActive=false;groceryTabActive=false;render();
-    showFirstRotationTip(day,plan,category);
+    showFirstRotationTip(day,category);
    });
   };days.append(button)
  }
@@ -7726,8 +7737,9 @@ function appendFirstRecipePrompt(parent){
  launch.onclick=()=>{
   firstRecipePromptShown=true;
   const d=recipeBulkDialog(title,()=>launch);d.overlay.classList.add('first-recipe-dialog');
-  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Dismiss startup prompt');close.style.minHeight='44px';close.onclick=d.close;
-  d.panel.append(recipeStartActions(d),close);close.focus({preventScroll:true});
+  const close=document.createElement('button');close.type='button';close.className='iconbtn first-recipe-close';setIconButton(close,'cancel','Dismiss startup prompt');close.onclick=d.close;
+  const heading=d.panel.firstElementChild;heading.tabIndex=-1;
+  d.panel.append(recipeStartActions(d),close);heading.focus({preventScroll:true});
  };
  parent.append(launch);
  if(!firstRecipePromptShown)requestAnimationFrame(()=>{
