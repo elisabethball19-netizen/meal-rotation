@@ -790,6 +790,13 @@ function emptyWeekEntries(plan){
 }
 function queueWeekEntries(plan){return getDisplayedWeekdayMealsForPlan(plan,null,null,null,true)}
 function rotationWeekEntries(plan,saved=null){return getDisplayedWeekdayMealsForPlan(plan,null,saved).concat(emptyWeekEntries(plan))}
+function rotationSelectionEntries(plan,saved=null){
+ const entries=getDisplayedWeekdayMealsForPlan(plan,null,saved).concat(emptyWeekEntries(plan));
+ for(const day of weekdays){const raw=plan.weekdayCategories?.[day];for(const cat of Array.isArray(raw)?raw:[raw]){
+  if(!cats.includes(cat)||entries.some(item=>item.day===day&&(item.cat===cat||item.cat==='@day')))continue;
+  entries.push({day,cat,scheduleOnly:true,emptyWeek:true,emptyAssigned:true,meal:{id:'empty:'+plan.id+':'+weekdaySlotKey(day,cat),name:'—',cat,ingredients:[]}});
+ }}return entries;
+}
 function rotationAdvancesRecipe(item,plan,entries=[]){
  const parent=pairedMainGroup(plan,item.day,item.cat);if(parent&&plan.cycleSlotChoices?.[weekdaySlotKey(item.day,parent)]?.preserveSideQueue===true)return false;
  return !item.scheduleOnly&&!manualWeekdayMealChoice(plan,item.day,item.cat,item.meal.id)&&!entries.some(parent=>parent.day===item.day&&String(parent.meal.id)===String(item.linkedTo)&&(parent.scheduleOnly||parent.meal.temporaryMeal||manualWeekdayMealChoice(plan,parent.day,parent.cat,parent.meal.id)));
@@ -1362,7 +1369,7 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  // automatic queue changes retain their existing manual-choice protections.
  const selected=[];
  for(const plan of scope){
-  for(const item of prior.get(plan.id)||[]){
+  for(const item of rotationSelectionEntries(plan)){
    const key=allTabs?plan.id+'||'+weekdaySlotKey(item.day,item.cat):weekdaySlotKey(item.day,item.cat);
    if(rotationSelectable(item,plan)&&(!selectedSlots||selectedSlots.has(key)))selected.push({...item,planId:plan.id});
   }
@@ -1397,7 +1404,7 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  const beforeIds=new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)));
  snapshot(JSON.stringify(undoBefore));
  rotationRecord.favoriteRotationTurns=[];for(const item of selected.filter(item=>rotationAdvancesRecipe(item,mealPlans.find(p=>p.id===item.planId),prior.get(item.planId)||[]))){const plan=mealPlans.find(p=>p.id===item.planId),source=dependentSideAutomatic(plan,item,prior.get(plan.id)||[])?item.meal.cat:item.cat,signature=plan&&advanceFavoriteRotation(plan,source,item.meal);if(signature)rotationRecord.favoriteRotationTurns.push({planId:plan.id,day:item.day,cat:source,slotCat:item.cat,mealId:String(item.meal.id),labels:[],signature})}
- const cookedResult=markCooked?recordRotatedMealsCooked(affected.filter(item=>!item.scheduleOnly),calendars,rotationNow):{updates:[],skipped:[]};rotationRecord.cookedDateUpdates=cookedResult.updates;
+
  for(const meal of meals)if(linkedIds.has(String(meal.id)))delete meal.rotationPromotionPriority;
  const byCategory={};
  for(const m of meals){
@@ -1445,6 +1452,11 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
    const assigned=plan.weekdayCategories?.[hidden.day];
    if((Array.isArray(assigned)?assigned:[assigned])[0]===hidden.cat)delete overrides[hidden.day];
    choices[key]={parentId:'',blockedParents:old?.blockedParents||[]};
+  }
+  for(const item of planSelected.filter(item=>item.emptyAssigned)){
+   const key=weekdaySlotKey(item.day,item.cat);delete overrides[key];delete pins[key];
+   const raw=plan.weekdayCategories?.[item.day];if((Array.isArray(raw)?raw:[raw])[0]===item.cat)delete overrides[item.day];
+   choices[key]={parentId:'',blockedParents:choices[key]?.blockedParents||[]};
   }
   plan.weekdayMealOverrides=overrides;
   if(Object.keys(pins).length||plan.cycleRetainedSlots)plan.cycleRetainedSlots=pins;
@@ -1529,6 +1541,8 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  }
  const activePlan=mealPlans.find(plan=>plan.id===activePlanId);
  weekdayMealOverrides={...(activePlan?.weekdayMealOverrides||{})};
+ const rotatedOut=affected.filter(item=>!item.scheduleOnly&&!getDisplayedWeekdayMealsForPlan(mealPlans.find(plan=>plan.id===item.planId)).some(next=>next.day===item.day&&next.cat===item.cat&&String(next.meal.id)===String(item.meal.id)));
+ const cookedResult=markCooked?recordRotatedMealsCooked(rotatedOut,calendars,rotationNow):{updates:[],skipped:[]};rotationRecord.cookedDateUpdates=cookedResult.updates;
  advanceRotationCalendars(calendars,affected,rotationNow,selectedSlots===null);
  saveWeekdayMealOverrides();
  clearCycledCookingContexts(affected.concat(hiddenRotated));
@@ -1622,16 +1636,14 @@ function cookedDateForWeekday(day,weekStart=null,now=new Date()){
 function recordRotatedMealsCooked(selected,calendars=new Map(),now=new Date()){
  const groups=new Map(),skipped=[],identity=meal=>meal.linkGroup?'linked:'+meal.linkGroup:'meal:'+meal.id;
  for(const item of selected){
-  const calendar=calendars.get(item.planId),key=rotationOccurrenceKey(item),date=calendar?.version===2?parseCookingLocalDate(calendar.occurrences?.[key]):null;
-  if(!date){skipped.push(item.meal.name||'Untitled meal');continue}
-  if(cookingLocalDate(date)>cookingLocalDate(now))continue;
+  const key=rotationOccurrenceKey(item),date=now;
   const id=identity(item.meal);if(!groups.has(id))groups.set(id,[]);groups.get(id).push({key,date:cookingLocalDate(date)});
  }
  const updates=[];
  for(const meal of meals){
   const events=groups.get(identity(meal));if(!events?.length)continue;
   const date=parseCookingLocalDate(events.map(event=>event.date).sort().at(-1)),existing=meal.lastCooked?new Date(meal.lastCooked):null;
-  if(!existing||Number.isNaN(existing.getTime())||date>existing){const before=meal.lastCooked??null,after=date.toISOString();meal.lastCooked=after;updates.push({mealId:String(meal.id),before,after,events})}
+  if(!existing||Number.isNaN(existing.getTime())||cookingLocalDate(existing)!==cookingLocalDate(date)){const before=meal.lastCooked??null,after=date.toISOString();meal.lastCooked=after;updates.push({mealId:String(meal.id),before,after,events})}
  }
  return {updates,skipped:[...new Set(skipped)]};
 }
@@ -1681,26 +1693,24 @@ function restoredRotationCookedDates(previous,keys=null){
 }
 function applyRestoredCookedDates(records,dates){for(const meal of records)if(dates.has(String(meal.id))){const value=dates.get(String(meal.id));if(value===null)delete meal.lastCooked;else meal.lastCooked=value}}
 function editMealCookedDate(meal,onChanged=null){
- const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:11000;display:flex;align-items:center;justify-content:center;padding:18px';
- const panel=document.createElement('div');panel.style.cssText='background:white;color:#222;border-radius:16px;padding:22px 22px 16px;width:100%;max-width:440px';
- const title=document.createElement('h3');title.textContent='Edit last cooked date';title.style.margin='0 0 12px';panel.append(title);
+ const d=recipeBulkDialog('Edit last cooked date'),overlay=d.overlay,panel=d.panel;
  const name=document.createElement('div');name.textContent=meal.name||'Meal';name.style.marginBottom='12px';panel.append(name);
  const field=document.createElement('input');field.type='date';field.setAttribute('aria-label','Choose last cooked date');
- field.style.cssText='position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px';
+ field.style.cssText='width:100%;min-width:0;min-height:44px;border:0;background:transparent;color:inherit;font-size:16px';
  if(meal.lastCooked){const d=new Date(meal.lastCooked);if(!Number.isNaN(d.getTime())){const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);field.value=local.toISOString().slice(0,10)}}
  const dateWrap=document.createElement('div');dateWrap.style.cssText='position:relative;border:1px solid #aaa;border-radius:9px;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;min-height:52px';
- const dateText=document.createElement('span');dateText.style.cssText='font-size:18px';
+ const dateText=document.createElement('span');dateText.hidden=true;
  const showDate=()=>{dateText.textContent=field.value?new Date(field.value+'T12:00:00').toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'}):'Select a date'};
  showDate();field.addEventListener('change',showDate);
  dateWrap.append(dateText);const calendarIcon=document.createElement('span');calendarIcon.innerHTML='<svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 10h18"/></svg>';dateWrap.append(calendarIcon,field);
- dateWrap.onclick=()=>{try{field.showPicker()}catch(e){field.focus()}};panel.append(dateWrap);
+ dateWrap.onclick=event=>{if(event.target===field)return;try{field.showPicker()}catch(e){field.focus()}};panel.append(dateWrap);
  const actions=document.createElement('div');actions.className='meal-unified-actions';actions.style.marginTop='10px';
  const button=(label,type,fn)=>{const el=document.createElement('button');el.type='button';setIconButton(el,type,label);el.style.width='52px';el.style.height='48px';el.onclick=fn;actions.append(el)};
- button('Save','save',()=>{if(!field.value)return;const date=new Date(field.value+'T12:00:00');if(Number.isNaN(date.getTime()))return;snapshot();for(const m of meals)if(m.id===meal.id||(meal.linkGroup&&m.linkGroup===meal.linkGroup))m.lastCooked=date.toISOString();persist();overlay.remove();renderList();onChanged?.()});
- button('Clear date','delete',async()=>{if(await appDialog('Are you sure you want to delete '+(meal.lastCooked?lastCookedLabel(meal).replace(/^Last cooked /,''):'this date')+'?',null,'yesno')!==true)return;snapshot();for(const m of meals)if(m.id===meal.id||(meal.linkGroup&&m.linkGroup===meal.linkGroup))delete m.lastCooked;persist();overlay.remove();renderList();onChanged?.()});
- button('Cancel','cancel',()=>overlay.remove()); panel.append(actions);overlay.append(panel);
- overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
- overlay.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();overlay.remove()}});
+ button('Save','save',()=>{if(!field.value)return;const date=new Date(field.value+'T12:00:00');if(Number.isNaN(date.getTime()))return;snapshot();for(const m of meals)if(m.id===meal.id||(meal.linkGroup&&m.linkGroup===meal.linkGroup))m.lastCooked=date.toISOString();persist();d.close();renderList();onChanged?.()});
+ button('Clear date','delete',async()=>{if(await appDialog('Are you sure you want to delete '+(meal.lastCooked?lastCookedLabel(meal).replace(/^Last cooked /,''):'this date')+'?',null,'yesno')!==true)return;snapshot();for(const m of meals)if(m.id===meal.id||(meal.linkGroup&&m.linkGroup===meal.linkGroup))delete m.lastCooked;persist();d.close();renderList();onChanged?.()});
+ button('Cancel','cancel',()=>d.close()); panel.append(actions);overlay.append(panel);
+ overlay.addEventListener('click',e=>{if(e.target===overlay)d.close()});
+ overlay.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();d.close()}});
  document.body.append(overlay);
 }
 // Rotate-out menu: keep the cooking-date choice between uses.
@@ -1723,8 +1733,8 @@ function openRotateOptions(allTabs=false){
  overlay.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();overlay.remove()}});document.body.append(overlay);
 }
 function openMoveMealChooser(allTabs=false,markCooked=false){
- const shown=(allTabs?(saveActiveMealPlan(),mealPlans.flatMap(plan=>rotationWeekEntries(plan).map(x=>({...x,planId:plan.id,planName:plan.name})))):rotationWeekEntries({...mealPlans.find(p=>p.id===activePlanId),weekdayCategories,weekdayMealOverrides})).filter(item=>rotationSelectable(item,mealPlans.find(plan=>plan.id===(item.planId??activePlanId))));
- if(!shown.length)return;const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10002;display:flex;align-items:center;justify-content:center;padding:16px';const box=document.createElement('div');box.style.cssText='background:white;color:#222;border-radius:14px;padding:18px 18px 12px;max-width:520px;width:100%;max-height:82vh;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr) auto;gap:10px 8px;box-shadow:0 8px 30px #0004';const title=document.createElement('h3');title.textContent='Select meals to rotate out';title.style.cssText='margin:0;min-width:0;align-self:center;overflow-wrap:break-word;grid-column:1;grid-row:1';const hint=document.createElement('p');hint.textContent='Select the meals you want to advance. Unselected meals will stay where they are.';hint.style.cssText='font-size:14px;color:#666;margin:0 0 10px';const list=document.createElement('div');list.style.cssText='overflow-y:auto;min-height:0;grid-column:1/-1;grid-row:2';const boxes=[];shown.forEach(({day,cat,meal,planId,planName})=>{const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid #eee;font-size:16px';const cb=document.createElement('input');cb.type='checkbox';cb.checked=true;cb.setAttribute('aria-label',(allTabs?planName+' · ':'')+day+' · '+cat+' — '+meal.name);cb.style.cssText='width:20px;height:20px;flex:0 0 20px';boxes.push({day,cat,planId,cb});const text=document.createElement('span');text.textContent=meal.name;const tint=colorForDay(day);label.style.background=tint;label.style.borderRadius='8px';label.style.padding='10px 8px';label.style.marginBottom='5px';label.append(cb,text);list.append(label)});const selectRow=document.createElement('div');selectRow.style.cssText='display:flex;align-items:center;gap:4px;grid-column:2;grid-row:1;align-self:start';const selectAll=document.createElement('button');selectAll.type='button';selectAll.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m7 12 3 3 7-7"/></svg>';selectAll.title='Select all';selectAll.setAttribute('aria-label','Select all');selectAll.style.cssText='border:0;background:transparent;color:#555;padding:5px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center';selectAll.onclick=()=>boxes.forEach(x=>x.cb.checked=true);const selectNone=document.createElement('button');selectNone.type='button';selectNone.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8"/></svg>';selectNone.title='Deselect all';selectNone.setAttribute('aria-label','Deselect all');selectNone.style.cssText='border:0;background:transparent;color:#555;padding:5px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center';selectNone.onclick=()=>boxes.forEach(x=>x.cb.checked=false);selectRow.append(selectAll,selectNone);const actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:14px;grid-column:1/-1;grid-row:3';const apply=document.createElement('button');apply.type='button';apply.textContent='Move selected';apply.style.cssText='flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:#e8eefb;color:#222';apply.onclick=()=>{const slots=new Set(boxes.filter(x=>x.cb.checked).map(x=>(allTabs?x.planId+'||':'')+weekdaySlotKey(x.day,x.cat)));overlay.remove();if(slots.size)moveDisplayedMealsToBottom(slots,allTabs,markCooked,new Set(boxes.filter(x=>!x.cb.checked).map(x=>(allTabs?x.planId+'||':'')+weekdaySlotKey(x.day,x.cat))))};const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.style.cssText='flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:white;color:#222';cancel.onclick=()=>overlay.remove();setIconButton(apply,'save','Move selected');setIconButton(cancel,'cancel','Cancel');apply.style.minWidth=cancel.style.minWidth='44px';apply.style.minHeight=cancel.style.minHeight='44px';actions.append(apply,cancel);box.append(title,selectRow,list,actions);overlay.append(box);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay)}
+ const shown=(allTabs?(saveActiveMealPlan(),mealPlans.flatMap(plan=>rotationSelectionEntries(plan).map(x=>({...x,planId:plan.id,planName:plan.name})))):rotationSelectionEntries({...mealPlans.find(p=>p.id===activePlanId),weekdayCategories,weekdayMealOverrides})).filter(item=>rotationSelectable(item,mealPlans.find(plan=>plan.id===(item.planId??activePlanId))));
+ if(!shown.length)return;const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10002;display:flex;align-items:center;justify-content:center;padding:16px';const box=document.createElement('div');box.style.cssText='background:white;color:#222;border-radius:14px;padding:18px 18px 12px;max-width:520px;width:100%;max-height:82vh;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr) auto;gap:10px 8px;box-shadow:0 8px 30px #0004';const title=document.createElement('h3');title.textContent='Select meals to rotate out';title.style.cssText='margin:0;min-width:0;align-self:center;overflow-wrap:break-word;grid-column:1;grid-row:1';const hint=document.createElement('p');hint.textContent='Select the meals you want to advance. Unselected meals will stay where they are.';hint.style.cssText='font-size:14px;color:#666;margin:0 0 10px';const list=document.createElement('div');list.style.cssText='overflow-y:auto;min-height:0;grid-column:1/-1;grid-row:2';const boxes=[];shown.forEach(({day,cat,meal,planId,planName})=>{const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid #eee;font-size:16px';const cb=document.createElement('input');cb.type='checkbox';cb.checked=true;cb.setAttribute('aria-label',(allTabs?planName+' · ':'')+day+' · '+cat+' — '+(meal.name==='—'||meal.id.toString().startsWith('empty:')?'—':meal.name));cb.style.cssText='width:20px;height:20px;flex:0 0 20px';boxes.push({day,cat,planId,cb});const text=document.createElement('span');text.style.cssText='display:flex;flex-direction:column;gap:4px;min-width:0';const weekday=document.createElement('span');weekday.className='section';weekday.style.cssText='margin:0;font-size:12px;letter-spacing:.09em;color:#777';weekday.textContent=day.slice(0,3).toUpperCase();const recipeName=document.createElement('span');recipeName.textContent=meal.id.toString().startsWith('empty:')?'—':meal.name;text.append(weekday,recipeName);const tint=colorForDay(day);label.style.background=tint;label.style.borderRadius='8px';label.style.padding='10px 8px';label.style.marginBottom='5px';label.append(cb,text);list.append(label)});const selectRow=document.createElement('div');selectRow.style.cssText='display:flex;align-items:center;gap:4px;grid-column:2;grid-row:1;align-self:start';const selectAll=document.createElement('button');selectAll.type='button';selectAll.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m7 12 3 3 7-7"/></svg>';selectAll.title='Select all';selectAll.setAttribute('aria-label','Select all');selectAll.style.cssText='border:0;background:transparent;color:#555;padding:5px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center';selectAll.onclick=()=>boxes.forEach(x=>x.cb.checked=true);const selectNone=document.createElement('button');selectNone.type='button';selectNone.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8"/></svg>';selectNone.title='Deselect all';selectNone.setAttribute('aria-label','Deselect all');selectNone.style.cssText='border:0;background:transparent;color:#555;padding:5px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center';selectNone.onclick=()=>boxes.forEach(x=>x.cb.checked=false);selectRow.append(selectAll,selectNone);const actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:14px;grid-column:1/-1;grid-row:3';const apply=document.createElement('button');apply.type='button';apply.textContent='Move selected';apply.style.cssText='flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:#e8eefb;color:#222';apply.onclick=()=>{const slots=new Set(boxes.filter(x=>x.cb.checked).map(x=>(allTabs?x.planId+'||':'')+weekdaySlotKey(x.day,x.cat)));overlay.remove();if(slots.size)moveDisplayedMealsToBottom(slots,allTabs,markCooked,new Set(boxes.filter(x=>!x.cb.checked).map(x=>(allTabs?x.planId+'||':'')+weekdaySlotKey(x.day,x.cat))))};const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.style.cssText='flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:white;color:#222';cancel.onclick=()=>overlay.remove();setIconButton(apply,'save','Move selected');setIconButton(cancel,'cancel','Cancel');apply.style.minWidth=cancel.style.minWidth='44px';apply.style.minHeight=cancel.style.minHeight='44px';actions.append(apply,cancel);box.append(title,selectRow,list,actions);overlay.append(box);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay)}
 // Swipe right opens a choice rather than deleting the meal immediately.
 function openMealSwipeMenu(meal){
  if(!meals.some(item=>item.id===meal.id))return;
