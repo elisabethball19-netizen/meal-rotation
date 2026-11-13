@@ -285,7 +285,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
   const weekGroup=makeSettingsGroup('weekdays','Weekday Setup');
   weekGroup.details.classList.toggle('hidden',!showTop);
   topPanel.append(weekGroup.details);
-  const hint=document.createElement('div');hint.textContent='Choose one or more groups for each day. Removing a weekday assignment does not delete its group or recipes. Each day has one color for all its meals.';
+  const hint=document.createElement('div');hint.textContent='Choose one or more groups for each day. Removing a weekday assignment does not delete its group or recipes.';
   hint.className='weekday-setup-hint';weekGroup.content.append(hint);
   orderedDays().forEach(day=>{
     const outer=document.createElement('div');outer.className='weekday-assignment';
@@ -411,7 +411,7 @@ let closeSettings=document.createElement('button');closeSettings.textContent='Cl
  const planCheck=document.createElement('input');planCheck.type='checkbox';planCheck.checked=showMealPlanTabs;
  planCheck.onchange=()=>{showMealPlanTabs=planCheck.checked;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs));renderList()};
  const planCopy=document.createElement('span');planCopy.className='settings-display-option-copy';
- const planLabel=document.createElement('span');planLabel.id='mealPlanTabsLabel';planLabel.textContent='Show meal-plan tabs in My Rotation';
+ const planLabel=document.createElement('span');planLabel.id='mealPlanTabsLabel';planLabel.textContent='Tabs';
  const planHint=document.createElement('small');planHint.id='mealPlanTabsHint';planHint.className='settings-display-option-help';planHint.textContent='Hide tabs to focus on your currently selected meal plan. Other plans are preserved.';
  planCheck.setAttribute('aria-labelledby',planLabel.id);planCheck.setAttribute('aria-describedby',planHint.id);
  planCopy.append(planLabel,planHint);planOption.append(planCheck,planCopy);planGroup.content.append(planOption);
@@ -2415,7 +2415,7 @@ function renderList(){if(recipeBulkMode&&(showTop||editId!==null))endRecipeBulk(
   tab.append(name);tabBar.append(tab);
 
  }
- const add=document.createElement('button');add.type='button';add.className='meal-plan-add';add.textContent='+';add.title='Add meal plan';add.setAttribute('aria-label','Add meal plan');add.onclick=openAddMealTabDialog;add.setAttribute('aria-label','Add meal tab');add.title='Add meal tab';add.style.minWidth=add.style.minHeight='44px';tabBar.append(add);
+ const add=document.createElement('button');add.type='button';add.className='meal-plan-add';add.textContent='+';add.onclick=openAddMealTabDialog;add.setAttribute('aria-label','Add meal tab');add.title='Add meal tab';add.style.minWidth=add.style.minHeight='44px';tabBar.append(add);
  list.append(tabBar);
  if(splitPlanSettings()&&categoryRow)tabBar.after(categoryRow);
  if(activeTabMenuId&&mealPlans.some(p=>p.id===activeTabMenuId)){
@@ -2457,7 +2457,8 @@ const topControls=document.createElement('div');topControls.className='top-contr
 if(!allMealsActive&&!groceryTabActive){
  const pageHeading=document.createElement('h2');
  pageHeading.className='view-page-title';
- pageHeading.textContent='My Rotation';
+ const tabName=mealPlans.find(plan=>plan.id===activePlanId)?.name?.trim();
+ pageHeading.textContent=tabName?`My ${tabName} Rotation`:'My Rotation';
  list.append(pageHeading);
  appendOnboardingHint(list);
  if(!meals.length)appendFirstRecipePrompt(list);

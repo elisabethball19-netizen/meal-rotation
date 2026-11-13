@@ -352,10 +352,10 @@ function stage2FormField(parent,label,control){const wrap=document.createElement
 function stage2Select(items){const select=document.createElement('select');for(const [value,label]of items){const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option)}return select}
 function openAddMealTabDialog(){
  if(editId!==null){showAppMessage('Save or cancel the open recipe first.');return}
- const d=recipeBulkDialog('Add Meal Tab'),field=document.createElement('input');field.type='text';field.placeholder='Custom tab name';
+ const d=recipeBulkDialog('Add Meal Tab'),field=document.createElement('input');field.type='text';field.placeholder='Tab name';
  const suggestions=document.createElement('div');suggestions.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
  for(const name of ['Breakfast','Lunch','Dinner'])if(!mealPlans.some(plan=>plan.name.trim().toLowerCase()===name.toLowerCase())){const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=name;button.style.minHeight='44px';button.onclick=()=>{field.value=name;field.focus()};suggestions.append(button)}
- d.panel.append(suggestions);stage2FormField(d.panel,'Meal tab name',field);const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');d.panel.append(error);
+ d.panel.append(suggestions);stage2FormField(d.panel,'Tab name',field);field.previousElementSibling.remove();const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');d.panel.append(error);
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Add tab');setIconButton(cancel,'cancel','Cancel');cancel.onclick=d.close;
  save.onclick=()=>{const name=field.value.trim();if(!name){error.textContent='Enter a tab name.';field.focus();return}if(mealPlans.some(plan=>plan.name.trim().toLowerCase()===name.toLowerCase())){error.textContent='A meal tab with that name already exists.';return}d.close();navigateAfterSettings(()=>createMealPlan(name))};
  field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save.click()}};actions.append(save,cancel);d.panel.append(actions);field.focus();
