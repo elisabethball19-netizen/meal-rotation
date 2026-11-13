@@ -1,11 +1,11 @@
 /* Bump this version when changing the offline app shell. */
-const SHELL_VERSION = 'v124';
+const SHELL_VERSION = 'v125';
 const CACHE_PREFIX = `meal-rotation-shell:${self.registration.scope}:`;
 const CACHE_NAME = CACHE_PREFIX + SHELL_VERSION;
 const SHELL_FILES = [
   './', './index.html', './meal-rotation-test.html', './pwa.js',
   './styles.css', './state.js', './import-export.js', './recipes.js',
-  './rotation.js', './grocery.js', './ui.js',
+  './rotation.js', './grocery.js', './onboarding.js', './ui.js',
   './manifest.webmanifest', './manifest-test.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
   './icons/test-icon-192.png', './icons/test-icon-512.png', './icons/test-apple-touch-icon.png',

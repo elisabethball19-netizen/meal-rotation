@@ -341,7 +341,7 @@ function validateSavedRecords(data,requireCore=false){
  const history=parsed.mealRotationLastRotationBeforeV1;if(history!==undefined&&history!==null){if(!object(history)||!Array.isArray(history.meals)||!Array.isArray(history.mealPlans))throw Error('Invalid rotation history');validateBackupCore(startupCore({...history,mealPlans:{plans:history.mealPlans,...(typeof history.activePlanId==='string'?{activeId:history.activePlanId}:{})}}))}
  return parsed;
 }
-let bulkRecipeStorageDraft=null;const localStorage=bulkRecipeStorageBridge(mealBulkStorageBase);let cats=['Chicken','Pasta','Soup'],active='Chicken',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
+let bulkRecipeStorageDraft=null;const localStorage=bulkRecipeStorageBridge(mealBulkStorageBase);let cats=[],active='',menuCat=null,editId=null,showTop=true,checkedIngredients=new Set(),id=1,history=[],redoHistory=[];try{const savedChecks=JSON.parse(localStorage.getItem('mealRotationCheckedIngredientsV1')||'[]');if(Array.isArray(savedChecks))checkedIngredients=new Set(savedChecks)}catch(e){}// Cooking and marinating time visibility is independent in My Rotation and category pages.
 // Version 2 backups capture every app-owned persistent key, including grocery selections.
 // Preserve the original fields for compatibility with older backup readers.
 function captureBackupStorage(){

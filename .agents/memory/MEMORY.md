@@ -1,3 +1,4 @@
 - [Vanilla compatibility](vanilla-compatibility.md) — preserve the no-build app, existing data format, styling, and storage compatibility.
 - [Classic-script initialization](classic-script-initialization.md) — moving out of one closure removes cross-file function hoisting; protect startup ordering.
 - [Recovery durability](recovery-durability.md) — destructive resets are deletion-only; journals are optional and must never block quota recovery.
+- [Browser fixture lifecycle](browser-fixture-lifecycle.md) — use disposable browser data; autosave can restore stale memory after storage is cleared.

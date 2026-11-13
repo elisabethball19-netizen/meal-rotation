@@ -295,6 +295,152 @@ body.overview-without-category-pins #categoryButtons{display:none!important;}
 .all-meals-meal-row{display:flex;align-items:center;}
 .all-meals-plan-label{align-self:auto;text-align:left;}
 .all-meals-empty{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;min-height:42px;}
+
+/* Inline onboarding: compact welcome card that belongs to the existing rotation UI. */
+.onboarding-welcome{
+  position:relative;
+  min-width:0;
+  margin:10px 0 16px;
+  padding:22px 20px 20px;
+  border:1px solid #dce4ec;
+  border-radius:16px;
+  background:#fff;
+  box-shadow:0 2px 10px rgba(42,65,91,.055);
+  color:#28323b;
+  overflow-wrap:anywhere;
+}
+.onboarding-eyebrow{
+  margin:0 0 8px;
+  color:#5876a1;
+  font-size:11px;
+  font-weight:650;
+  letter-spacing:.11em;
+  line-height:1.4;
+  text-transform:uppercase;
+}
+.onboarding-title{
+  max-width:15ch;
+  margin:0;
+  color:#283647;
+  font-size:clamp(25px,6vw,32px);
+  font-weight:650;
+  letter-spacing:-.045em;
+  line-height:1.12;
+  text-wrap:balance;
+}
+.onboarding-copy{
+  max-width:46ch;
+  margin:10px 0 18px;
+  color:#66717d;
+  font-size:15px;
+  line-height:1.55;
+}
+.onboarding-actions{
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+  width:100%;
+  min-width:0;
+}
+.onboarding-actions button,
+.onboarding-primary,
+.onboarding-secondary{
+  min-width:0;
+  max-width:100%;
+  min-height:46px;
+  padding:10px 15px;
+  border:1px solid transparent;
+  border-radius:11px;
+  font:600 15px/1.3 system-ui,-apple-system,sans-serif;
+  text-align:center;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  cursor:pointer;
+  touch-action:manipulation;
+  transition:background-color .16s ease,border-color .16s ease,color .16s ease,transform .16s ease,box-shadow .16s ease;
+}
+.onboarding-primary{
+  background:#315ba8;
+  border-color:#315ba8;
+  color:#fff;
+  box-shadow:0 2px 5px rgba(49,91,168,.16);
+}
+.onboarding-secondary{
+  background:#fff;
+  border-color:#cbd6e2;
+  color:#42556d;
+}
+.onboarding-status{
+  margin:14px 0 0;
+  color:#58715f;
+  font-size:13px;
+  line-height:1.45;
+}
+.onboarding-hint{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  min-width:0;
+  margin-top:15px;
+  padding:11px 10px 11px 12px;
+  border:1px solid #e0e8f0;
+  border-radius:11px;
+  background:#f5f8fb;
+  color:#5c6875;
+  font-size:13px;
+  line-height:1.45;
+}
+.onboarding-hint-copy{
+  flex:1 1 auto;
+  min-width:0;
+  margin:0;
+  overflow-wrap:anywhere;
+}
+.onboarding-dismiss{
+  display:grid;
+  flex:0 0 44px;
+  place-items:center;
+  width:44px;
+  min-width:44px;
+  min-height:44px;
+  margin:-7px -5px -7px 0;
+  padding:0;
+  border:0;
+  border-radius:9px;
+  background:transparent;
+  color:#687687;
+  font:400 21px/1 system-ui,-apple-system,sans-serif;
+  cursor:pointer;
+  touch-action:manipulation;
+  transition:background-color .16s ease,color .16s ease,transform .16s ease;
+}
+.onboarding-actions button:focus-visible,
+.onboarding-primary:focus-visible,
+.onboarding-secondary:focus-visible,
+.onboarding-dismiss:focus-visible{
+  outline:3px solid rgba(76,115,174,.42);
+  outline-offset:2px;
+}
+@media (hover:hover){
+  .onboarding-primary:hover{background:#294e91;border-color:#294e91;box-shadow:0 3px 8px rgba(49,91,168,.2);}
+  .onboarding-secondary:hover{background:#f3f7fb;border-color:#aabbd0;color:#344c68;}
+  .onboarding-dismiss:hover{background:#e8eef5;color:#344c68;}
+}
+.onboarding-actions button:active,
+.onboarding-dismiss:active{transform:translateY(1px);}
+@media (min-width:560px){
+  .onboarding-welcome{padding:25px 26px 24px;}
+  .onboarding-actions{flex-direction:row;align-items:stretch;}
+  .onboarding-actions button{flex:1 1 0;}
+}
+@media (max-width:420px){
+  .onboarding-welcome{padding:19px 16px 17px;}
+  .onboarding-title{font-size:clamp(24px,7vw,29px);}
+}
+@media (prefers-reduced-motion:reduce){
+  .onboarding-actions button,
+  .onboarding-dismiss{transition:none;}
+}
 .all-meals-empty strong{align-self:auto;text-align:left;}
 .all-meals-empty span{flex:1;min-width:0;text-align:left;}
 /* Overview divider belongs below the toolbar, not below meal-plan filters. */

@@ -857,9 +857,19 @@ function openRecipeImportFilePicker(){
   catch(e){recipeImportNotice('Could not read the recipe export. '+(e.message||'No meals were changed.')+' No meals were changed.')}
  };input.click();
 }
-async function restoreVersion2Backup(backup){
+function openBackupRestorePicker(onError=error=>showAppMessage(error.message),canRestore=null){
+ const input=document.createElement('input');input.type='file';input.accept='.json,application/json,*/*';
+ input.onchange=async()=>{
+  const file=input.files?.[0];if(!file)return;
+  try{const backup=JSON.parse(await file.text());await restoreVersion2Backup(backup,canRestore)}
+  catch(error){onError(error)}
+ };
+ input.click();
+}
+async function restoreVersion2Backup(backup,canRestore=null){
  const replacement=normalizeImportedBackup(backup);validateBackupStorage(replacement);
  const preparation=await prepareOptionalBackupPhotos(backup);if(preparation.cancelled)return;
+ if(canRestore&&!canRestore())throw Error('Your library changed while the backup was being read. Nothing was restored.');
  const finish=()=>{restoreBackupStorage(replacement);recipePhotoNotice(preparation.warnings);mealPersistence.reload()};
  restoreBackupStorage(replacement,{id:'backup-restore',kind:'backup-restore',ownerId:null,retry:finish});
  recipePhotoNotice(preparation.warnings);mealPersistence.reload();

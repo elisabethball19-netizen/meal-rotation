@@ -2380,6 +2380,7 @@ function renderMasterCategories(list){
  list.append(wrap);if(recipeBulkMode)updateRecipeBulkUI();else installMasterGroupDragging(wrap,resetOrder);
 }
 function renderList(){if(recipeBulkMode&&(showTop||editId!==null))endRecipeBulk();masterGroupDragCleanup?.();masterGroupDragCleanup=null;reconcileActiveLinkedMeals();rememberCurrentView();
+ if(isOnboardingZeroState()){renderOnboardingWelcome();return}
  if(lowerSettingsVisible){
   const old=document.getElementById('planSettingsPanel');
   if(old)lowerOpenGroups=new Set([...old.querySelectorAll('details[data-settings-group][open]')].map(d=>d.dataset.settingsGroup));
@@ -2458,6 +2459,7 @@ if(!allMealsActive&&!groceryTabActive){
  pageHeading.className='view-page-title';
  pageHeading.textContent='My Rotation';
  list.append(pageHeading);
+ appendOnboardingHint(list);
  if(!meals.length)appendFirstRecipePrompt(list);
 }
 list.append(topControls);placeViewToolbar(topControls);

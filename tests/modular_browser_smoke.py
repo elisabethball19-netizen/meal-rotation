@@ -46,8 +46,8 @@ def send(sock, message):
     sock.sendall(header + mask + bytes(v ^ mask[i % 4] for i, v in enumerate(data)))
 
 
-def run(url, flows=False):
-    with tempfile.TemporaryDirectory(prefix="meal-smoke-") as profile:
+def run(url, flows=False, checks=None):
+    with tempfile.TemporaryDirectory(prefix="meal-smoke-", ignore_cleanup_errors=True) as profile:
         process = subprocess.Popen([
             shutil.which("chromium") or "chromium", "--headless", "--no-sandbox",
             "--disable-gpu", "--disable-dev-shm-usage",
@@ -108,7 +108,7 @@ def run(url, flows=False):
             assert not errors, "Browser JavaScript errors were reported"
             assert result.get("recovery") is None, "App unexpectedly entered recovery"
             assert result.get("tabs", 0) > 0, "App did not render its navigation"
-            if flows:
+            if flows or checks:
                 sequence = 10
 
                 def command(method, params=None):
@@ -150,6 +150,11 @@ def run(url, flows=False):
                             pass  # Reloads briefly destroy the old execution context.
                         time.sleep(0.1)
                     raise AssertionError("Timed out: " + expression)
+
+                if checks:
+                    checks(evaluate, command, wait_for, errors)
+                    if not flows:
+                        return
 
                 evaluate("""(()=>{window.localStorage.setItem('mealRotationDataV1','{broken');
                     window.localStorage.setItem('mealRotationRecoveryJournalV1','{broken');

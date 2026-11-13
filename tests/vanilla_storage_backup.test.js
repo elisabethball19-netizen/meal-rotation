@@ -6,7 +6,7 @@ const state=fs.readFileSync('state.js','utf8');
 const imports=fs.readFileSync('import-export.js','utf8');
 const journalKey='mealRotationRecoveryJournalV1';
 const persistence=state.slice(state.indexOf('function createMealPersistence('),state.indexOf('\nconst mealPersistence='))
- .replace('return {storage,inspect,','return {testWriteJournal:writeJournal,testReplace:replace,storage,inspect,');
+ .replace('return {storage,inspect,','return {testWriteJournal:saveJournal,testReplace:replace,storage,inspect,');
 function environment(initial={}){
  const records=new Map(Object.entries(initial)),writes=[];
  let fail=()=>false,reloads=0;
@@ -19,7 +19,7 @@ function environment(initial={}){
  const context=vm.createContext({
   window:{addEventListener(){},dispatchEvent(){}},
   document:{querySelectorAll:()=>[]},
-  location:{reload(){reloads++}},Event:class{},setTimeout,clearTimeout
+  location:{reload(){reloads++}},Event:class{},Blob,setTimeout,clearTimeout
  });
  vm.runInContext(persistence,context);
  const controller=context.createMealPersistence(()=>base);
@@ -42,10 +42,11 @@ const snapshot={version:1,originalStorage:{mealRotationDataV1:'old'},replacement
 }
 {
  const e=environment();
- e.controller.testWriteJournal({...snapshot,previousAttempts:Array.from({length:12},(_,i)=>({...snapshot,createdAt:String(i)}))});
+ const {previousAttempts,...previous}=snapshot;
+ e.controller.testWriteJournal({...snapshot,previousAttempts:Array.from({length:12},(_,i)=>({...previous,createdAt:String(i)}))});
  const saved=JSON.parse(e.base.getItem(journalKey));
- assert.ok(saved.previousAttempts.length<=5);
- assert.ok(e.base.getItem(journalKey).length*2<=48000);
+ assert.ok(saved.previousAttempts.length<=6);
+ assert.ok(new Blob([e.base.getItem(journalKey)]).size<=50*1024);
  assert.ok(saved.previousAttempts.every(item=>!item.previousAttempts));
 }
 {
@@ -63,7 +64,7 @@ const snapshot={version:1,originalStorage:{mealRotationDataV1:'old'},replacement
  assert.equal(e.writes.length,2,'Only one retry is allowed');
  assert.equal(e.base.getItem(journalKey),null);
  e.writes.length=0;
- e.controller.testWriteJournal({...snapshot,originalStorage:{mealRotationDataV1:'x'.repeat(50000)}});
+ e.controller.testWriteJournal({...snapshot,originalStorage:{mealRotationDataV1:'x'.repeat(60*1024)}});
  assert.equal(e.writes.length,0,'Oversized snapshots must be skipped, not truncated');
 }
 {
@@ -79,6 +80,8 @@ const context=vm.createContext({
  recipeImportTrelloBoard:()=>[]
 });
 vm.runInContext(imports.slice(imports.indexOf('function recipeImportItems('),imports.indexOf('function recipeImportMinutes(')),context);
+vm.runInContext(state.slice(state.indexOf('function startupCore('),state.indexOf('function validateStartupStorage(')),context);
+vm.runInContext(state.slice(state.indexOf('function validateBackupCore('),state.indexOf('function validateBackupStorage(')),context);
 vm.runInContext(state.slice(state.indexOf('function normalizeImportedBackup('),state.indexOf('function restoreBackupStorage(')),context);
 const backup={
  version:2,cats:['Dinner'],active:'Dinner',
@@ -93,7 +96,7 @@ const items=context.recipeImportItems(backup);
 assert.equal(items.length,1);
 assert.equal(items[0].name,'Backup pasta');
 assert.equal(JSON.stringify(context.recipeImportTags(items[0])),JSON.stringify(['Dinner']));
-assert.equal(JSON.stringify(context.recipeImportTags({cat:['Dinner','Quick'],tags:['Easy']})),JSON.stringify(['Easy','Dinner','Quick']));
+assert.equal(JSON.stringify([...context.recipeImportTags({cat:['Dinner','Quick'],tags:['Easy']})].sort()),JSON.stringify(['Dinner','Easy','Quick']));
 assert.equal(context.recipeImportItems({meals:backup.meals}).length,1);
 const normalized=context.normalizeImportedBackup(backup);
 for(const [field,key]of Object.entries({
