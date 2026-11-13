@@ -1176,12 +1176,12 @@ function setMakeAheadComplete(item,checked){
  const plan=mealPlans.find(plan=>plan.id===item.plan.id);if(!plan)return;
  if(!scheduledMakeAheadTasks().some(current=>current.plan.id===plan.id&&current.key===item.key)){renderTodayTodo();return}
  snapshot();plan.makeAheadChecks={...(plan.makeAheadChecks||{}),[item.key]:checked};saveActiveMealPlan();
- for(const row of document.querySelectorAll('[data-make-ahead-key]')){const current=mealPlans.find(plan=>String(plan.id)===row.dataset.planId),complete=current?.makeAheadChecks?.[row.dataset.makeAheadKey]===true;row.querySelector('input[type="checkbox"]').checked=complete;row.classList.toggle('make-ahead-complete',complete)}renderTodayTodo();
+ for(const row of document.querySelectorAll('[data-make-ahead-key]')){const current=mealPlans.find(plan=>String(plan.id)===row.dataset.planId),complete=current?makeAheadTaskComplete(current,row.dataset.makeAheadKey):false;row.querySelector('input[type="checkbox"]').checked=complete;row.classList.toggle('make-ahead-complete',complete)}renderTodayTodo();
 }
 function renderTodayTodo(){
  const old=document.getElementById('todaysTodo'),header=document.querySelector('#list>.rotation-compact-header');
  if(!header||!showTop||allMealsActive||groceryTabActive||!makeAheadDisplayPrefs.showMakeAheadReminders){old?.remove();return}
- const today=cookingLocalDate(new Date()),seen=new Set(),items=scheduledMakeAheadTasks().filter(item=>{const id=JSON.stringify([item.plan.id,item.key]);if(item.due!==today||seen.has(id))return false;seen.add(id);return true}).sort((a,b)=>Number(a.complete)-Number(b.complete));
+ const today=cookingLocalDate(new Date()),seen=new Set(),items=scheduledMakeAheadTasks().filter(item=>{const id=JSON.stringify([item.plan.id,item.key]);if((item.due!==today&&!(item.due<today&&!item.complete))||seen.has(id))return false;seen.add(id);return true}).sort((a,b)=>Number(a.complete)-Number(b.complete));
  if(!items.length){old?.remove();return}
  const section=document.createElement('section');section.id='todaysTodo';section.setAttribute('aria-labelledby','todaysTodoHeading');const heading=document.createElement('div');heading.className='today-todo-heading';const title=document.createElement('h3');title.id='todaysTodoHeading';title.textContent="Today's To-Do";
  const eye=document.createElement('button');eye.type='button';eye.className='iconbtn';eye.setAttribute('aria-pressed',String(makeAheadDisplayPrefs.showCompletedToday));eye.title=makeAheadDisplayPrefs.showCompletedToday?'Hide completed tasks':'Show completed tasks';eye.setAttribute('aria-label',eye.title);eye.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'+(makeAheadDisplayPrefs.showCompletedToday?'':'<path d="m3 3 18 18"/>')+'</svg>';eye.onclick=()=>{makeAheadDisplayPrefs.showCompletedToday=!makeAheadDisplayPrefs.showCompletedToday;saveMakeAheadDisplayPrefs();renderTodayTodo();document.querySelector('#todaysTodo .today-todo-heading button')?.focus({preventScroll:true})};heading.append(title,eye);section.append(heading);
@@ -1225,24 +1225,42 @@ function buildMakeAheadEditor(meal){
  box.validDraft=()=>[...body.querySelectorAll('.make-ahead-task-editor')].every(row=>row.validDraft());
 }
 function makeAheadWeekStart(){const plan=mealPlans.find(p=>p.id===activePlanId);return parseCookingLocalDate(plan?.rotationCalendar?.weekStart)||cookingPlanningWeekStart()}
-function scheduledMakeAheadTasks(){
- const start=makeAheadWeekStart(),rows=[],seen=new Set();
- for(const plan of mealPlans){const current=plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan,entries=getDisplayedWeekdayMealsForPlan(current),calendar=rotationCalendarForPlan(current,entries);
-  for(const entry of entries){const occurrence=rotationOccurrenceKey({...entry,planId:plan.id}),stored=calendar.occurrences?.[occurrence],scheduled=parseCookingLocalDate(stored)||cookingDateInWeek(entry.day,parseCookingLocalDate(calendar.weekStart)||start);if(!scheduled)continue;
-   for(const task of recipeMakeAheadTasks(entry.meal)){const due=new Date(scheduled);if(task.hoursBefore!==undefined)due.setTime(due.getTime()-task.hoursBefore*3600000);else if(Number.isInteger(task.daysBefore))due.setDate(due.getDate()-task.daysBefore);else due.setTime(due.getTime()-task.daysBefore*86400000);const key=JSON.stringify([occurrence,cookingLocalDate(scheduled),calendar.assignedAt?.[occurrence]||'',task.id]);const identity=JSON.stringify([plan.id,key]);if(seen.has(identity))continue;seen.add(identity);rows.push({plan,entry,task,key,due:cookingLocalDate(due),scheduled:cookingLocalDate(scheduled),complete:plan.makeAheadChecks?.[key]===true})}
+function makeAheadTaskComplete(plan,key){
+ if(Object.hasOwn(plan.makeAheadChecks||{},key))return plan.makeAheadChecks[key]===true;
+ const target=JSON.parse(key);return Object.entries(plan.makeAheadChecks||{}).some(([saved,checked])=>{try{const parts=JSON.parse(saved);return checked&&(parts[2]==='preview'||target[2]==='preview')&&parts[0]===target[0]&&parts[1]===target[1]&&parts[3]===target[3]}catch(_){return false}});
+}
+function scheduledMakeAheadTasks(includeUpcoming=true,upcoming=null){
+ const start=cookingPlanningWeekStart(),rows=[],seen=new Set(),current=mealPlans.map(plan=>({plan:plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan,entries:null}));
+ for(const source of current.concat(includeUpcoming?(upcoming||previewNextWeekPlans()):[])){
+  const plan=source.plan,entries=source.entries||getDisplayedWeekdayMealsForPlan(plan),calendar=rotationCalendarForPlan(plan,entries),real=mealPlans.find(item=>item.id===plan.id)||plan;
+  for(const entry of entries){const occurrence=rotationOccurrenceKey({...entry,planId:plan.id}),scheduled=parseCookingLocalDate(calendar.occurrences?.[occurrence])||cookingDateInWeek(entry.day,parseCookingLocalDate(calendar.weekStart)||start);if(!scheduled)continue;
+   for(const task of recipeMakeAheadTasks(entry.meal)){
+    const due=new Date(scheduled);if(task.hoursBefore!==undefined)due.setTime(due.getTime()-task.hoursBefore*3600000);else if(Number.isInteger(task.daysBefore))due.setDate(due.getDate()-task.daysBefore);else due.setTime(due.getTime()-task.daysBefore*86400000);
+    const key=JSON.stringify([occurrence,cookingLocalDate(scheduled),source.preview?'preview':calendar.assignedAt?.[occurrence]||'',task.id]),identity=JSON.stringify([plan.id,occurrence,cookingLocalDate(scheduled),task.id]);if(seen.has(identity))continue;seen.add(identity);
+    rows.push({plan:real,entry,task,key,due:cookingLocalDate(due),scheduled:cookingLocalDate(scheduled),complete:makeAheadTaskComplete(real,key)});
+   }
   }
  }
+ for(const plan of mealPlans)for(const item of plan.makeAheadPending||[]){if(!item||typeof item.key!=='string'||!item.entry?.meal||!item.task)continue;const parts=JSON.parse(item.key),identity=JSON.stringify([plan.id,parts[0],item.scheduled,item.task.id]);if(seen.has(identity)||makeAheadTaskComplete(plan,item.key))continue;seen.add(identity);rows.push({...item,plan,complete:false})}
  return rows;
+}
+function retainDueMakeAheadTasks(){
+ const today=cookingLocalDate(new Date());for(const item of scheduledMakeAheadTasks()){
+  if(item.complete||item.due>today)continue;const plan=mealPlans.find(plan=>plan.id===item.plan.id);if(!plan)continue;
+  const pending=(plan.makeAheadPending||[]).filter(saved=>!makeAheadTaskComplete(plan,saved.key));
+  if(!pending.some(saved=>saved.key===item.key))pending.push({key:item.key,due:item.due,scheduled:item.scheduled,task:{...item.task},entry:{day:item.entry.day,cat:item.entry.cat,meal:{id:item.entry.meal.id,name:item.entry.meal.name}}});plan.makeAheadPending=pending;
+ }
 }
 function makeAheadReminderRow(item,today=false){
  const label=document.createElement('label');label.className='make-ahead-reminder'+(item.complete?' make-ahead-complete':'');label.dataset.makeAheadKey=item.key;label.dataset.planId=String(item.plan.id);const check=document.createElement('input');check.type='checkbox';check.className='check';check.checked=item.complete;
  const text=document.createElement('span');text.textContent=item.task.description+' · for '+item.entry.day+"'s "+(item.entry.meal.name||'meal')+(today?' · '+item.plan.name:'');check.setAttribute('aria-label',text.textContent);
  check.onchange=()=>setMakeAheadComplete(item,check.checked);label.append(check,text);return label;
 }
-function appendMakeAheadDay(card,day,rows){const due=cookingLocalDate(cookingDateInWeek(day,makeAheadWeekStart()));for(const item of rows.filter(x=>x.due===due))card.append(makeAheadReminderRow(item))}
-function appendOutsideMakeAhead(section,rows){
- const start=cookingLocalDate(makeAheadWeekStart()),endDate=new Date(makeAheadWeekStart());endDate.setDate(endDate.getDate()+6);const end=cookingLocalDate(endDate);
- for(const [title,filter]of [['Preparation before this week',x=>x.due<start],['Preparation after this week',x=>x.due>end]]){const outside=rows.filter(filter).sort((a,b)=>a.due.localeCompare(b.due));if(!outside.length)continue;const box=document.createElement('div');box.className='make-ahead-outside';const heading=document.createElement('strong');heading.textContent=title;box.append(heading);for(const item of outside){const row=makeAheadReminderRow(item),date=document.createElement('small');date.textContent=item.due+' · '+item.plan.name;row.append(date);box.append(row)}section.append(box)}
+function appendMakeAheadDay(card,day,rows,start=makeAheadWeekStart()){const due=cookingLocalDate(cookingDateInWeek(day,start));for(const item of rows.filter(x=>x.due===due))card.append(makeAheadReminderRow(item))}
+function appendOutsideMakeAhead(section,rows,start=makeAheadWeekStart()){
+ const today=cookingLocalDate(new Date()),before=cookingLocalDate(start),overdue=rows.filter(item=>!item.complete&&item.due<today&&item.due<before).sort((a,b)=>a.due.localeCompare(b.due));if(!overdue.length)return;
+ const box=document.createElement('details');box.className='make-ahead-outside';box.open=true;const heading=document.createElement('summary');heading.textContent='Overdue preparation';box.append(heading);
+ for(const item of overdue){const row=makeAheadReminderRow(item),date=document.createElement('small');date.textContent=item.due+' · '+item.plan.name;row.append(date);box.append(row)}section.append(box);
 }
 function makeAheadIndicator(meal){if(!makeAheadDisplayPrefs.showMakeAheadReminders||!recipeMakeAheadTasks(meal).length)return null;const b=document.createElement('button');b.type='button';b.className='recipe-personal-icon';setRecipeToolbarIcon(b,'prep','Make ahead: '+(meal.name||'Recipe'));b.onclick=e=>{e.preventDefault();e.stopPropagation();openMakeAheadTasks(meal)};for(const event of ['pointerdown','pointerup','touchstart','touchend','dblclick'])b.addEventListener(event,e=>e.stopPropagation());return b}
 function openMakeAheadTasks(meal){
