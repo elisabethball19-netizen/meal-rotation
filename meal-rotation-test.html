@@ -1378,6 +1378,27 @@ function createMealPersistence(provider){
   if(firstError){const error=Error(firstError.message||'Saved data could not be read');error.readableRecords=result;error.unreadableKeys=unreadable;throw error}return result;
  }
  function parseJournal(raw){const value=JSON.parse(raw);if(value?.version!==1||!value.originalStorage||Array.isArray(value.originalStorage)||typeof value.originalStorage!=='object'||Object.values(value.originalStorage).some(v=>typeof v!=='string'))throw Error('Unreadable recovery journal');return value}
+ // Journaling is optional: never trim the current rollback snapshot to make it fit.
+ // Keep the complete current attempt in memory even when durable storage is full.
+ function saveJournal(value){
+  journal=value;
+  value.previousAttempts=Array.isArray(value.previousAttempts)?value.previousAttempts.slice(-6):[];
+  const encode=()=>JSON.stringify(value),fits=text=>new Blob([text]).size<=50*1024;
+  try{
+   let encoded=encode();
+   while(!fits(encoded)&&value.previousAttempts.length){value.previousAttempts.shift();encoded=encode()}
+   if(!fits(encoded))return false;
+   try{base.setItem(JOURNAL_KEY,encoded)}
+   catch(error){
+    if(error.name!=='QuotaExceededError'&&error.code!==22&&error.code!==1014)return false;
+    // Retry once with the oldest half discarded (all when only one remains).
+    value.previousAttempts.splice(0,Math.ceil(value.previousAttempts.length/2));
+    encoded=encode();base.setItem(JOURNAL_KEY,encoded);
+   }
+   if(base.getItem(JOURNAL_KEY)!==encoded)return false;
+   journalRaw=encoded;return true;
+  }catch(error){return false}
+ }
  function matchesRecords(actual,expected){return !!expected&&typeof expected==='object'&&!Array.isArray(expected)&&actual.size===Object.keys(expected).length&&Object.entries(expected).every(([key,value])=>typeof value==='string'&&actual.get(key)===value)}
  try{base=provider()}catch(e){readError=e;recovery=true}
  if(base){
@@ -1426,8 +1447,12 @@ function createMealPersistence(provider){
    if(journal.replacementCommitted!==true){
     if(!matchesRecords(original,journal.replacement))throw Error('Recovery replacement is incomplete. Original records and earlier recovery information remain available for export or another restore.');
     // Durable proof permits a later startup after normalization or cleanup was interrupted.
-    const verified={...journal,replacementCommitted:true},encoded=JSON.stringify(verified);
-    base.setItem(JOURNAL_KEY,encoded);if(base.getItem(JOURNAL_KEY)!==encoded)throw Error('Recovery completion could not be secured. Original recovery information is retained.');journal=verified;journalRaw=encoded;
+    if(!saveJournal({...journal,replacementCommitted:true})){
+     // Retire stale completion metadata before migrations can change the verified records.
+     base.removeItem(JOURNAL_KEY);
+     if(base.getItem(JOURNAL_KEY)!==null)throw Error('The old recovery journal could not be retired. Saving remains paused.');
+     journalRaw=null;
+    }
    }
    journalReplacementVerified=true;
   }
@@ -1462,23 +1487,44 @@ function createMealPersistence(provider){
   finally{retrying=false}
  }
  function reload(){if(hasDrafts())throw Error('Unsaved editor changes are still open. Save or cancel them before reloading.');suspended=true;window.dispatchEvent(new Event('mealRotationBeforeStorageReset'));location.reload()}
+ function startFresh(){
+  // Explicitly confirmed destruction is deletion-only, even at quota or with a bad journal.
+  suspended=true;
+  window.dispatchEvent(new Event('mealRotationBeforeStorageReset'));
+  try{
+   const remove=new Set([JOURNAL_KEY]);
+   for(let i=0;i<base.length;i++){const key=base.key(i);if(owned(key))remove.add(key)}
+   for(const key of remove)base.removeItem(key);
+   for(const key of remove)if(base.getItem(key)!==null)throw Error('Browser storage did not delete '+key);
+   for(let i=0;i<base.length;i++)if(owned(base.key(i)))throw Error('Some app records could not be deleted.');
+   original.clear();pending.clear();failures.clear();journal=null;journalRaw=null;
+   journalCleanupPending=false;journalReplacementVerified=false;readError=null;recovery=false;strict=false;
+   warning?.remove();warning=null;location.reload();
+  }catch(error){recovery=true;readError=error;throw Error('Start Fresh could not finish deleting saved data. Automatic saving remains paused. '+error.message)}
+ }
  function replace(data){
   startupValidator(data);
   if(hasDrafts())throw Error('An unsaved editor is still open. Export its draft and explicitly cancel it before replacing saved data.');
   let before,priorJournalRaw;
   // Export may use a partial snapshot; replacement and rollback must never do so.
   try{before=readRaw();priorJournalRaw=base.getItem(JOURNAL_KEY)}catch(error){readError=error;recovery=true;showRecovery();throw Error('Original saved data could not be completely read. No replacement was attempted. '+error.message)}
-  let priorJournal=null;if(priorJournalRaw!==null)try{priorJournal=parseJournal(priorJournalRaw)}catch(_){}
+  let priorJournal=journal;if(!priorJournal&&priorJournalRaw!==null)try{priorJournal=parseJournal(priorJournalRaw)}catch(_){}
   // Keep earlier attempts flat and intact, including pending writes, proposals, and drafts.
   const previousAttempts=Array.isArray(priorJournal?.previousAttempts)?[...priorJournal.previousAttempts]:[];
   if(priorJournal){const previous={...priorJournal};if(Array.isArray(previous.previousAttempts))delete previous.previousAttempts;previousAttempts.push(previous)}
   const nextJournal={version:1,replacementCommitted:false,previousJournalRaw:priorJournal?undefined:priorJournalRaw,previousAttempts,createdAt:new Date().toISOString(),originalStorage:priorJournal?.originalStorage||Object.fromEntries(before),beforeReplacement:Object.fromEntries(before),replacement:data,pendingWrites:Object.fromEntries(pending),failedTransactions:[...failures.values()].map(f=>copy(f.record)),editorDrafts:editorDrafts()};
-  const encoded=JSON.stringify(nextJournal);base.setItem(JOURNAL_KEY,encoded);if(base.getItem(JOURNAL_KEY)!==encoded)throw Error('The original data could not be secured for recovery. No replacement was attempted.');journal=nextJournal;journalRaw=encoded;
+  if(!saveJournal(nextJournal)){
+   // An older journal must not describe this new replacement after a reload.
+   try{base.removeItem(JOURNAL_KEY);if(base.getItem(JOURNAL_KEY)!==null)throw Error('Journal was not removed');journalRaw=null}
+   catch(error){throw Error('The previous recovery journal could not be retired. No replacement was attempted. '+error.message)}
+  }
   try{
    for(const [key,value]of Object.entries(data).sort(([a],[b])=>(a==='mealRotationDataV1')-(b==='mealRotationDataV1')))base.setItem(key,value);
    for(const key of before.keys())if(!Object.hasOwn(data,key))base.removeItem(key);
    const actual=Object.fromEntries(readRaw());if(Object.keys(actual).length!==Object.keys(data).length||Object.entries(data).some(([key,value])=>actual[key]!==value))throw Error('Replacement could not be verified.');startupValidator(actual);
-  }catch(e){let failed=false;for(const key of new Set([...before.keys(),...Object.keys(data)]))try{if(before.has(key))base.setItem(key,before.get(key));else base.removeItem(key)}catch(_){failed=true}throw Error('Recovery could not be saved. '+(failed?'Storage prevented complete rollback. The original snapshot is retained in the recovery journal.':'Original records were restored; the recovery journal is retained. Please retry.'))}
+  }catch(e){let failed=false;for(const key of new Set([...before.keys(),...Object.keys(data)]))try{if(before.has(key))base.setItem(key,before.get(key));else base.removeItem(key)}catch(_){failed=true}throw Error('Recovery could not be saved. '+(failed?'Storage prevented complete rollback.':'Original records were restored.')+' The original snapshot is retained '+(journalRaw?'in the recovery journal.':'in memory; keep this page open and export recovery data.'))}
+  saveJournal({...nextJournal,replacementCommitted:true});
+  original=new Map(Object.entries(data));pending.clear();failures.clear();
   reload();
  }
  function finishStartup(){
@@ -1495,8 +1541,8 @@ function createMealPersistence(provider){
   cover=document.createElement('section');cover.id='mealDataRecovery';cover.setAttribute('role','alertdialog');cover.setAttribute('aria-modal','true');cover.setAttribute('aria-labelledby','mealRecoveryTitle');cover.style.cssText='position:fixed;inset:0;z-index:50000;background:#fff;color:#242424;overflow:auto;padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start';
   const panel=document.createElement('div');panel.style.cssText='width:100%;max-width:520px;margin-block:auto;flex-shrink:0';const title=document.createElement('h1');title.id='mealRecoveryTitle';title.textContent='Saved data needs recovery';title.style.fontSize='24px';const detail=document.createElement('p');detail.textContent='Meal Rotation could not read its saved data. Automatic saving is paused to protect recoverable information. Export your data before restoring a backup or starting fresh.';const status=document.createElement('p');status.id='mealRecoveryStatus';status.setAttribute('role','status');status.style.overflowWrap='anywhere';status.textContent=readError?.message||'';
   const controls=document.createElement('div');controls.style.cssText='display:flex;gap:10px;flex-wrap:wrap';
-  const restore=button('Restore Backup',()=>{const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=async()=>{const file=input.files?.[0];if(!file)return;restore.disabled=fresh.disabled=true;try{const backup=JSON.parse(await file.text()),data=recoveryActions.normalize(backup);recoveryActions.validateCore(backup);recoveryActions.validate(data);const photoWarnings=await recipePhotoStorage.restore(backup);replace(data);recipePhotoNotice(photoWarnings)}catch(e){status.textContent='Backup was not restored: '+e.message}finally{restore.disabled=fresh.disabled=false}};input.click()});
-  const fresh=button('Start Fresh',()=>{if(panel.querySelector('[data-start-fresh-confirm]'))return;const confirmation=document.createElement('div');confirmation.dataset.startFreshConfirm='true';const text=document.createElement('p');text.textContent='Starting fresh will delete this app’s saved recipes, plans, and settings in this browser. Export Data for Recovery first if you may need them.';confirmation.append(text,button('Confirm Start Fresh',()=>{try{replace({})}catch(e){status.textContent=e.message}}),button('Cancel Start Fresh',()=>confirmation.remove()));panel.append(confirmation)});
+  const restore=button('Restore Backup',()=>{const input=document.createElement('input');input.type='file';input.accept='.json,application/json,*/*';input.onchange=async()=>{const file=input.files?.[0];if(!file)return;restore.disabled=fresh.disabled=true;try{const backup=JSON.parse(await file.text()),data=recoveryActions.normalize(backup);recoveryActions.validateCore(backup);recoveryActions.validate(data);const photoWarnings=await recipePhotoStorage.restore(backup);replace(data);recipePhotoNotice(photoWarnings)}catch(e){status.textContent='Backup was not restored: '+e.message}finally{restore.disabled=fresh.disabled=false}};input.click()});
+  const fresh=button('Start Fresh',()=>{if(panel.querySelector('[data-start-fresh-confirm]'))return;const confirmation=document.createElement('div');confirmation.dataset.startFreshConfirm='true';const text=document.createElement('p');text.textContent='Starting fresh will delete this app’s saved recipes, plans, and settings in this browser. Export Data for Recovery first if you may need them.';confirmation.append(text,button('Confirm Start Fresh',()=>{try{startFresh()}catch(e){status.textContent=e.message}}),button('Cancel Start Fresh',()=>confirmation.remove()));panel.append(confirmation)});
   controls.append(restore,button('Export Data for Recovery',exportRecovery),fresh);
   if(hasDrafts())controls.append(button('Cancel Open Drafts',()=>{
    if(panel.querySelector('[data-cancel-drafts-confirm]'))return;
@@ -1505,7 +1551,7 @@ function createMealPersistence(provider){
   }));panel.append(title,detail,status,controls);cover.append(panel);document.body.append(cover);for(const el of document.body.children)if(el!==cover)el.inert=true;restore.focus();
  }
  window.addEventListener('beforeunload',event=>{if(unresolved()){event.preventDefault();event.returnValue=''}});
- return {storage,inspect,transaction,offerRetry,resolve,cancelOwner,notify,showRecovery,finishStartup,failStartup,reload,editorDrafts,get recovery(){return recovery},get unsaved(){return unresolved()},get paused(){return suspended||recovery}};
+ return {storage,inspect,transaction,offerRetry,resolve,cancelOwner,notify,showRecovery,finishStartup,failStartup,reload,startFresh,editorDrafts,get recovery(){return recovery},get unsaved(){return unresolved()},get paused(){return suspended||recovery}};
 }
 
 const mealPersistence=createMealPersistence(()=>testStorage);
@@ -1586,14 +1632,17 @@ function validateBackupStorage(data){
  validateSavedRecords(data,true);
 }
 function normalizeImportedBackup(d){
+ if(!d||typeof d!=='object'||Array.isArray(d))throw Error('Invalid backup');
+ if(d.storage!==undefined&&(!d.storage||typeof d.storage!=='object'||Array.isArray(d.storage)))throw Error('Invalid backup storage');
+ if('cats'in d||'meals'in d)validateBackupCore(startupCore(d));
  // Test-only records can be present in older exports. Never import them as app data.
  const cleaned={};
  for(const [key,value] of Object.entries(d.storage||{})){
-  if(key.startsWith('mealRotationTestSandboxV1:')||key.startsWith('mealRotationTESTONLY__'))continue;
+  if(key==='mealRotationRecoveryJournalV1'||key.startsWith('mealRotationTestSandboxV1:')||key.startsWith('mealRotationTESTONLY__'))continue;
   cleaned[key]=value;
  }
  // The top-level recipe collection is authoritative for this backup format.
- cleaned.mealRotationDataV1=JSON.stringify({cats:d.cats,active:d.active,meals:d.meals});
+ if('cats'in d||'meals'in d)cleaned.mealRotationDataV1=JSON.stringify({cats:d.cats,active:d.active,meals:d.meals});
  if(d.mealPlans)cleaned.mealRotationPlansV1=JSON.stringify(d.mealPlans);
  if(d.weekdayCategories)cleaned.mealRotationWeekdayCategoriesV1=JSON.stringify(d.weekdayCategories);
  if(d.weekdayMealOverrides)cleaned.mealRotationWeekdayMealOverridesV1=JSON.stringify(d.weekdayMealOverrides);
@@ -1602,6 +1651,9 @@ function normalizeImportedBackup(d){
  if(d.pinnedCats)cleaned.mealRotationPinnedCategoriesV1=JSON.stringify(d.pinnedCats);
  if(d.expandedCats)cleaned.mealRotationExpandedCategoriesV1=JSON.stringify(d.expandedCats);
  if(typeof d.showMealPlanTabs==='boolean')cleaned.mealRotationShowPlanTabsV1=String(d.showMealPlanTabs);
+ // Explicit top-level fields override storage; absent fields preserve storage verbatim.
+ for(const [field,key]of Object.entries({cookSessions:'mealRotationCookingSessionsV1',checkedIngredients:'mealRotationCheckedIngredientsV1',timeDisplayPrefs:'mealRotationTimeVisibilityV1'}))if(Object.hasOwn(d,field))cleaned[key]=JSON.stringify(d[field]);
+ for(const [field,key]of Object.entries({masterOpenMode:'mealRotationMasterOpenModeV1',masterPinsOverride:'mealRotationMasterPinsOverrideV1',autoPinTopCategories:'mealRotationAutoPinTopCategoriesV1',applyPinsToAllTabs:'mealRotationApplyPinsAllTabsV1'}))if(Object.hasOwn(d,field))cleaned[key]=String(d[field]);
  return cleaned;
 }
 function restoreBackupStorage(data,operation=null){
@@ -3643,10 +3695,11 @@ async function enrichImportedRecipes(ids){
 }
 function requestRecipeImportResume(){if(recipeImportResumeTimer!==null)return;recipeImportResumeTimer=setTimeout(()=>{recipeImportResumeTimer=null;resumeRecipeImports()},0)}
 function resumeRecipeImports(){
- if(recipePageLeaving||navigator.onLine===false||recipeBackgroundWritesBlocked())return;
+ if(document.readyState==='loading'||mealPersistence.paused||recipePageLeaving||navigator.onLine===false||recipeBackgroundWritesBlocked())return;
  enrichImportedRecipes(meals.filter(m=>m.recipeImportPending&&(!m.recipeImportRetryAt||m.recipeImportRetryAt<=Date.now())).map(m=>m.id));
 }
 window.addEventListener('online',resumeRecipeImports);
+window.addEventListener('DOMContentLoaded',resumeRecipeImports,{once:true});
 new MutationObserver(requestRecipeImportResume).observe(document.body,{childList:true});
 async function acquireRecipeWakeLock(){
  const view=recipeViewer;
@@ -4879,17 +4932,16 @@ function recipeImportItems(json){
  if(!json.name&&!json.title){if(json.recipe&&typeof json.recipe==='object')return recipeImportItems(json.recipe);if(json.data&&typeof json.data==='object')return recipeImportItems(json.data);if(json.recipes&&!Array.isArray(json.recipes)&&typeof json.recipes==='object')return recipeImportItems(Object.values(json.recipes));}
  if(Array.isArray(json.cards)&&Array.isArray(json.lists))return recipeImportTrelloBoard(json);
  const resolveInstructions=recipeInstructionReferenceResolver(json);
- const raw=Array.isArray(json)?json:Array.isArray(json.recipes)?json.recipes:Array.isArray(json['@graph'])?json['@graph']:Array.isArray(json.items)?json.items:[json];
+ const raw=Array.isArray(json)?json:json.version===2&&Array.isArray(json.meals)?json.meals:Array.isArray(json.recipes)?json.recipes:json.recipes===undefined&&Array.isArray(json.meals)?json.meals:Array.isArray(json['@graph'])?json['@graph']:Array.isArray(json.items)?json.items:[json];
  return raw.filter(x=>x&&typeof x==='object'&&!Array.isArray(x)).flatMap(r=>{
   if(r['@graph'])return recipeImportItems(r);
   const name=String(r.name||r.title||r.recipeName||'').trim();if(!name)return [];
   if(r['@type']&&!String(Array.isArray(r['@type'])?r['@type'].join(' '):r['@type']).toLowerCase().includes('recipe'))return [];
-  return [{...r,name,recipeInstructions:resolveInstructions(recipeImportInstructionValue(r)),recipeCategory:r.recipeCategory??r.categories??r.labels??r.tags??r.keywords??[],recipeIngredient:r.recipeIngredient??r.ingredients??[],prepTime:r.prepTime??r.prep_time??r.preparationTime??'',cookTime:r.cookTime??r.cook_time??'',totalTime:r.totalTime??r.total_time??'',url:r.url||r.recipeUrl||r.link||r.source_url||r.sourceUrl||'',identifier:r.identifier||r.id||r.uid||r.uuid||'',linkedRecipes:r.linkedRecipes??r.linkedMeals??r.linkedRecipeIds??r.linkedMealIds??r.relatedRecipes??r.relatedMeals??[],importSourceId:r.importSourceId||(r.uid?'paprika:'+r.uid:r.title&&r.id?'mela:'+r.id:'')}];
+  return [{...r,name,recipeInstructions:resolveInstructions(recipeImportInstructionValue(r)),recipeCategory:recipeImportTags(r),recipeIngredient:r.recipeIngredient??r.ingredients??[],prepTime:r.prepTime??r.prep_time??r.preparationTime??'',cookTime:r.cookTime??r.cook_time??'',totalTime:r.totalTime??r.total_time??'',url:r.url||r.recipeUrl||r.link||r.source_url||r.sourceUrl||'',identifier:r.identifier||r.id||r.uid||r.uuid||'',linkedRecipes:r.linkedRecipes??r.linkedMeals??r.linkedRecipeIds??r.linkedMealIds??r.relatedRecipes??r.relatedMeals??[],importSourceId:r.importSourceId||(r.uid?'paprika:'+r.uid:r.title&&r.id?'mela:'+r.id:'')}];
  });
 }
 function recipeImportTags(r){
- const values=r.recipeCategory??r.labels??r.keywords??r.categories??[];
- return [...new Set((Array.isArray(values)?values:typeof values==='string'?values.split(/[,;|]/):[])
+ return [...new Set([r.recipeCategory,r.categories,r.cat,r.tags,r.labels,r.keywords].flatMap(values=>Array.isArray(values)?values:typeof values==='string'?values.split(/[,;|]/):[])
   .map(x=>typeof x==='string'?x.trim():x&&typeof x==='object'?String(x.name||x.label||'').trim():'').filter(Boolean))];
 }
 function recipeImportMinutes(value){
@@ -5261,7 +5313,7 @@ function buildRecipeSageRefresh(backup){
  const title=document.createElement('strong');title.textContent='Refresh Recipes from RecipeSage';
  const explanation=document.createElement('p');explanation.style.margin='0';explanation.textContent='Choose a RecipeSage export to refresh matching recipes. Your customizations and personal notes stay intact. A complete safety backup is saved and downloaded automatically first. Incomplete or uncertain matches are skipped.';
  const choose=document.createElement('button');choose.type='button';choose.textContent='Choose RecipeSage export file';
- const input=document.createElement('input');input.type='file';input.accept='.json,.jsonld,.zip,application/json,application/zip';input.hidden=true;
+ const input=document.createElement('input');input.type='file';input.accept='.json,.jsonld,.zip,application/json,application/zip,*/*';input.hidden=true;
  const apply=document.createElement('button');apply.type='button';apply.textContent='Refresh Recipes';apply.disabled=true;
  const result=document.createElement('p');result.style.margin='0';result.setAttribute('role','status');result.setAttribute('aria-live','polite');
  box.append(title,explanation,choose,input,apply,result);let items=null,generation=0;
@@ -5290,11 +5342,18 @@ function buildRecipeSageRefresh(backup){
  return box;
 }
 function openRecipeImportFilePicker(){
- const input=document.createElement('input');input.type='file';input.accept='.jsonld,.json,.csv,.html,.htm,.zip,.paprikarecipes,.melarecipe,.melarecipes,.paprikarecipe,application/json,text/csv,application/zip';
+ const input=document.createElement('input');input.type='file';input.accept='.jsonld,.json,.csv,.html,.htm,.zip,.paprikarecipes,.melarecipe,.melarecipes,.paprikarecipe,application/json,text/csv,application/zip,*/*';
  input.onchange=async()=>{const file=input.files?.[0];if(!file)return;
   try{const items=await recipeImportReadFile(file);if(!items.length){recipeImportNotice('No recipes were found in this export. Check that the file contains recipe information.');return}showRecipeImportSelection(items,file.name)}
   catch(e){recipeImportNotice('Could not read the recipe export. '+(e.message||'No meals were changed.')+' No meals were changed.')}
  };input.click();
+}
+async function restoreVersion2Backup(backup){
+ const replacement=normalizeImportedBackup(backup);validateBackupStorage(replacement);
+ const preparation=await prepareOptionalBackupPhotos(backup);if(preparation.cancelled)return;
+ const finish=()=>{restoreBackupStorage(replacement);recipePhotoNotice(preparation.warnings);mealPersistence.reload()};
+ restoreBackupStorage(replacement,{id:'backup-restore',kind:'backup-restore',ownerId:null,retry:finish});
+ recipePhotoNotice(preparation.warnings);mealPersistence.reload();
 }
 function openRecipeImportSourcePicker(){
  const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;z-index:16100;display:flex;align-items:center;justify-content:center;background:#0008;padding:18px';
@@ -5878,7 +5937,48 @@ sizeSelect.onchange=()=>{mealTextSize=sizeSelect.value;testStorage.setItem(mealT
 sizeWrap.append(sizeLabel,sizeSelect);displayGroup.content.prepend(sizeWrap);
 panel.append(displayGroup.details);
 recipeBulkBackupAPI={capture:captureBackupStorage,validate:validateBackupStorage,restore:restoreBackupStorage};
-let exportBtn=document.createElement('button');exportBtn.textContent='Export backup';exportBtn.onclick=()=>{persist();saveActiveMealPlan();saveTimeDisplayPrefs();return exportRecipeBackup({version:2,cats,active,meals,weekdayCategories,weekdayMealOverrides,weekdayColors,categoryColors,timeDisplayPrefs,masterOpenMode,masterPinsOverride,autoPinTopCategories,applyPinsToAllTabs,pinnedCats,expandedCats,mealPlans:{plans:mealPlans,activeId:activePlanId},showMealPlanTabs,storage:captureBackupStorage()})};let restoreBtn=document.createElement('button');restoreBtn.textContent='Restore backup';restoreBtn.onclick=()=>{let input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=()=>{let file=input.files&&input.files[0];if(!file)return;let reader=new FileReader();reader.onload=async()=>{try{let d=JSON.parse(reader.result);validateBackupCore(startupCore(d));if(d.version>=2){if(!d.storage)throw new Error('Missing backup storage');const replacement=normalizeImportedBackup(d);validateBackupStorage(replacement);const preparation=await prepareOptionalBackupPhotos(d);if(preparation.cancelled)return;const photoWarnings=preparation.warnings;restoreBackupStorage(replacement,{id:'backup-restore',kind:'backup-restore',ownerId:null,retry:()=>{restoreBackupStorage(replacement);recipePhotoNotice(photoWarnings);mealPersistence.reload()}});recipePhotoNotice(photoWarnings);backupRestoreReloadPending=true;location.reload();return;}const legacyPreparation=await prepareOptionalBackupPhotos(d);if(legacyPreparation.cancelled)return;const legacyPhotoWarnings=legacyPreparation.warnings;snapshot();if(!writeMasterGroupOrder(null,false))throw Error('Group order could not be reset');cats=d.cats;meals=d.meals;if(d.weekdayCategories&&typeof d.weekdayCategories==='object')weekdayCategories=d.weekdayCategories;if(typeof d.autoPinTopCategories==='boolean'){autoPinTopCategories=true;testStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}if(typeof d.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=d.applyPinsToAllTabs;testStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(d.masterOpenMode))masterOpenMode=d.masterOpenMode;if(typeof d.masterPinsOverride==='boolean')masterPinsOverride=d.masterPinsOverride;saveMasterOpeningPrefs();if(Array.isArray(d.pinnedCats)){pinnedCats=d.pinnedCats.filter(c=>cats.includes(c));testStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats))}if(Array.isArray(d.expandedCats)){expandedCats=d.expandedCats.filter(c=>cats.includes(c));testStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}if(d.weekdayMealOverrides&&typeof d.weekdayMealOverrides==='object')weekdayMealOverrides=d.weekdayMealOverrides;if(d.mealPlans)restoreMealPlansFromBackup(d.mealPlans);if(typeof d.showMealPlanTabs==='boolean'){showMealPlanTabs=d.showMealPlanTabs;testStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))};saveWeekdayCategories();saveWeekdayMealOverrides();if(d.categoryColors&&typeof d.categoryColors==='object'&&!Array.isArray(d.categoryColors)){categoryColors=Object.fromEntries(Object.entries(d.categoryColors).filter(([c,color])=>typeof c==='string'&&/^#[0-9a-fA-F]{6}$/.test(color)));saveCategoryColors()}weekdayColors=d.weekdayColors&&typeof d.weekdayColors==='object'&&!Array.isArray(d.weekdayColors)?Object.fromEntries(Object.entries(d.weekdayColors).filter(([day,color])=>weekdays.includes(day)&&/^#[0-9a-fA-F]{6}$/.test(color))):deriveWeekdayColors(categoryColors);saveWeekdayColors();if(d.timeDisplayPrefs){setTimeDisplayPrefs(d.timeDisplayPrefs);saveTimeDisplayPrefs()}active=cats.includes(d.active)?d.active:(cats[0]||'Soup');id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;testStorage.removeItem(COOKING_SESSIONS_KEY);cookingSessions={version:1,occurrences:{}};cookingStorageInvalid=false;testStorage.removeItem(OCCURRENCE_SCALES_KEY);occurrenceScales={version:1,occurrences:{}};scaleStorageInvalid=false;persist();render();panel.classList.add('hidden');settings.setAttribute('aria-expanded','false');if(legacyPhotoWarnings.length)showAppMessage(legacyPhotoWarnings.join(' '))}catch(e){alert('Backup rejected or restore failed: '+e.message+'. No changes were made if validation failed.')}};reader.readAsText(file)};input.click()};let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=async()=>{await finishSettings('ask');render()};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipe files or Trello boards into Ideas';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=displayGroup;
+let exportBtn=document.createElement('button');exportBtn.textContent='Export backup';exportBtn.onclick=()=>{persist();saveActiveMealPlan();saveTimeDisplayPrefs();return exportRecipeBackup({version:2,cats,active,meals,weekdayCategories,weekdayMealOverrides,weekdayColors,categoryColors,timeDisplayPrefs,masterOpenMode,masterPinsOverride,autoPinTopCategories,applyPinsToAllTabs,pinnedCats,expandedCats,mealPlans:{plans:mealPlans,activeId:activePlanId},showMealPlanTabs,storage:captureBackupStorage()})};
+let restoreBtn=document.createElement('button');restoreBtn.textContent='Restore backup';
+restoreBtn.onclick=()=>{
+ const input=document.createElement('input');input.type='file';input.accept='.json,application/json,*/*';
+ input.onchange=async()=>{
+  const file=input.files?.[0];if(!file)return;
+  try{
+   const d=JSON.parse(await file.text());
+   if(d.version>=2){
+    const replacement=normalizeImportedBackup(d);validateBackupStorage(replacement);
+    const preparation=await prepareOptionalBackupPhotos(d);if(preparation.cancelled)return;
+    const photoWarnings=preparation.warnings;
+    restoreBackupStorage(replacement,{id:'backup-restore',kind:'backup-restore',ownerId:null,retry:()=>{restoreBackupStorage(replacement);recipePhotoNotice(photoWarnings);mealPersistence.reload()}});
+    recipePhotoNotice(photoWarnings);backupRestoreReloadPending=true;location.reload();return;
+   }
+   validateBackupCore(startupCore(d));
+   const legacyPreparation=await prepareOptionalBackupPhotos(d);if(legacyPreparation.cancelled)return;
+   const legacyPhotoWarnings=legacyPreparation.warnings;snapshot();
+   if(!writeMasterGroupOrder(null,false))throw Error('Group order could not be reset');
+   cats=d.cats;meals=d.meals;
+   if(d.weekdayCategories&&typeof d.weekdayCategories==='object')weekdayCategories=d.weekdayCategories;
+   if(typeof d.autoPinTopCategories==='boolean'){autoPinTopCategories=true;testStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}
+   if(typeof d.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=d.applyPinsToAllTabs;testStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}
+   if(['all','current','across','none'].includes(d.masterOpenMode))masterOpenMode=d.masterOpenMode;
+   if(typeof d.masterPinsOverride==='boolean')masterPinsOverride=d.masterPinsOverride;saveMasterOpeningPrefs();
+   if(Array.isArray(d.pinnedCats)){pinnedCats=d.pinnedCats.filter(c=>cats.includes(c));testStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats))}
+   if(Array.isArray(d.expandedCats)){expandedCats=d.expandedCats.filter(c=>cats.includes(c));testStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}
+   if(d.weekdayMealOverrides&&typeof d.weekdayMealOverrides==='object')weekdayMealOverrides=d.weekdayMealOverrides;
+   if(d.mealPlans)restoreMealPlansFromBackup(d.mealPlans);
+   if(typeof d.showMealPlanTabs==='boolean'){showMealPlanTabs=d.showMealPlanTabs;testStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))}
+   saveWeekdayCategories();saveWeekdayMealOverrides();
+   if(d.categoryColors&&typeof d.categoryColors==='object'&&!Array.isArray(d.categoryColors)){categoryColors=Object.fromEntries(Object.entries(d.categoryColors).filter(([c,color])=>typeof c==='string'&&/^#[0-9a-fA-F]{6}$/.test(color)));saveCategoryColors()}
+   weekdayColors=d.weekdayColors&&typeof d.weekdayColors==='object'&&!Array.isArray(d.weekdayColors)?Object.fromEntries(Object.entries(d.weekdayColors).filter(([day,color])=>weekdays.includes(day)&&/^#[0-9a-fA-F]{6}$/.test(color))):deriveWeekdayColors(categoryColors);saveWeekdayColors();
+   if(d.timeDisplayPrefs){setTimeDisplayPrefs(d.timeDisplayPrefs);saveTimeDisplayPrefs()}
+   active=cats.includes(d.active)?d.active:(cats[0]||'Soup');id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;
+   testStorage.removeItem(COOKING_SESSIONS_KEY);cookingSessions={version:1,occurrences:{}};cookingStorageInvalid=false;
+   testStorage.removeItem(OCCURRENCE_SCALES_KEY);occurrenceScales={version:1,occurrences:{}};scaleStorageInvalid=false;
+   persist();render();panel.classList.add('hidden');settings.setAttribute('aria-expanded','false');if(legacyPhotoWarnings.length)showAppMessage(legacyPhotoWarnings.join(' '));
+  }catch(e){alert('Backup rejected or restore failed: '+e.message+'. No changes were made if validation failed.')}
+ };input.click();
+};
+let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=async()=>{await finishSettings('ask');render()};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipe files or Trello boards into Ideas';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=displayGroup;
  const planOption=document.createElement('label');planOption.className='settings-display-option settings-display-option-with-help';
  const planCheck=document.createElement('input');planCheck.type='checkbox';planCheck.checked=showMealPlanTabs;
  planCheck.onchange=()=>{showMealPlanTabs=planCheck.checked;testStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs));renderList()};
@@ -9777,7 +9877,7 @@ document.addEventListener('click',e=>{
  })().catch(err=>{console.error('Could not complete outside action',err)});
 },true);
 
-mealPersistence.showRecovery({normalize:normalizeImportedBackup,validate:validateBackupStorage,validateCore:d=>validateBackupCore(startupCore(d))});
+mealPersistence.showRecovery({normalize:normalizeImportedBackup,validate:validateBackupStorage,validateCore:d=>validateBackupStorage(normalizeImportedBackup(d))});
 if(mealPersistence.recovery)return;
 try{rotationCalendarTrackingReady=true;render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');syncCookingTimer();syncMakeAheadLocalDay()}catch(error){mealPersistence.failStartup(error);return}showRecipePhotoRestoreNotice();resumeRecipeViewer();})();
 </script><script>

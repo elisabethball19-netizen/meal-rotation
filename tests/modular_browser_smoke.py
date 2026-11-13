@@ -221,8 +221,8 @@ def run(url, flows=False):
                         Object.defineProperty(this,'files',{value:[new File([text],'qa-backup.json',{type:'application/json'})]});
                         this.dispatchEvent(new Event('change'));
                     };
-                    openRecipeImportSourcePicker();
-                    [...document.querySelectorAll('button')].find(b=>b.textContent.startsWith('Choose recipe export file')).click();
+                    document.getElementById('settings').click();
+                    [...document.querySelectorAll('button')].find(b=>b.textContent==='Restore backup').click();
                 })()""".replace("BACKUP", json.dumps(json.dumps(backup))))
                 wait_for("document.readyState==='complete'&&typeof meals!=='undefined'&&meals.some(m=>m.id===102)&&activePlanId==='qa-week'&&!document.getElementById('mealDataRecovery')")
                 restored = evaluate("""({
@@ -265,6 +265,6 @@ def run(url, flows=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default="https://" + os.environ.get("REPLIT_DEV_DOMAIN", "localhost"))
-    parser.add_argument("--flows", action="store_true", help="Exercise quota recovery and full JSON import in an isolated browser")
+    parser.add_argument("--flows", action="store_true", help="Exercise quota recovery and full JSON restore in an isolated browser")
     args = parser.parse_args()
     run(args.url, args.flows)

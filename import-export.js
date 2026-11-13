@@ -441,7 +441,7 @@ function recipeImportItems(json){
  if(!json.name&&!json.title){if(json.recipe&&typeof json.recipe==='object')return recipeImportItems(json.recipe);if(json.data&&typeof json.data==='object')return recipeImportItems(json.data);if(json.recipes&&!Array.isArray(json.recipes)&&typeof json.recipes==='object')return recipeImportItems(Object.values(json.recipes));}
  if(Array.isArray(json.cards)&&Array.isArray(json.lists))return recipeImportTrelloBoard(json);
  const resolveInstructions=recipeInstructionReferenceResolver(json);
- const raw=Array.isArray(json)?json:json.version===2&&Array.isArray(json.meals)?json.meals:Array.isArray(json.recipes)?json.recipes:Array.isArray(json.meals)&&json.recipes===undefined?json.meals:Array.isArray(json['@graph'])?json['@graph']:Array.isArray(json.items)?json.items:[json];
+ const raw=Array.isArray(json)?json:json.version===2&&Array.isArray(json.meals)?json.meals:Array.isArray(json.recipes)?json.recipes:json.recipes===undefined&&Array.isArray(json.meals)?json.meals:Array.isArray(json['@graph'])?json['@graph']:Array.isArray(json.items)?json.items:[json];
  return raw.filter(x=>x&&typeof x==='object'&&!Array.isArray(x)).flatMap(r=>{
   if(r['@graph'])return recipeImportItems(r);
   const name=String(r.name||r.title||r.recipeName||'').trim();if(!name)return [];
@@ -450,8 +450,7 @@ function recipeImportItems(json){
  });
 }
 function recipeImportTags(r){
- const values=[r.recipeCategory,r.labels,r.keywords,r.categories,r.tags,r.cat].flatMap(value=>Array.isArray(value)?value:typeof value==='string'?value.split(/[,;|]/):[]);
- return [...new Set(values
+ return [...new Set([r.recipeCategory,r.categories,r.cat,r.tags,r.labels,r.keywords].flatMap(values=>Array.isArray(values)?values:typeof values==='string'?values.split(/[,;|]/):[])
   .map(x=>typeof x==='string'?x.trim():x&&typeof x==='object'?String(x.name||x.label||'').trim():'').filter(Boolean))];
 }
 function recipeImportMinutes(value){
@@ -823,7 +822,7 @@ function buildRecipeSageRefresh(backup){
  const title=document.createElement('strong');title.textContent='Refresh Recipes from RecipeSage';
  const explanation=document.createElement('p');explanation.style.margin='0';explanation.textContent='Choose a RecipeSage export to refresh matching recipes. Your customizations and personal notes stay intact. A complete safety backup is saved and downloaded automatically first. Incomplete or uncertain matches are skipped.';
  const choose=document.createElement('button');choose.type='button';choose.textContent='Choose RecipeSage export file';
- const input=document.createElement('input');input.type='file';input.accept='.json,application/json,*/*';input.hidden=true;
+ const input=document.createElement('input');input.type='file';input.accept='.json,.jsonld,.zip,application/json,application/zip,*/*';input.hidden=true;
  const apply=document.createElement('button');apply.type='button';apply.textContent='Refresh Recipes';apply.disabled=true;
  const result=document.createElement('p');result.style.margin='0';result.setAttribute('role','status');result.setAttribute('aria-live','polite');
  box.append(title,explanation,choose,input,apply,result);let items=null,generation=0;
@@ -852,24 +851,13 @@ function buildRecipeSageRefresh(backup){
  return box;
 }
 function openRecipeImportFilePicker(){
- const input=document.createElement('input');input.type='file';input.accept='.json,application/json,*/*';
+ const input=document.createElement('input');input.type='file';input.accept='.jsonld,.json,.csv,.html,.htm,.zip,.paprikarecipes,.melarecipe,.melarecipes,.paprikarecipe,application/json,text/csv,application/zip,*/*';
  input.onchange=async()=>{const file=input.files?.[0];if(!file)return;
-  try{
-   if(/\.json$/i.test(file.name)||file.type==='application/json'){
-    const backup=JSON.parse(await file.text());
-    if(backup?.version===2&&Array.isArray(backup.meals)&&Array.isArray(backup.cats)){
-     const replacement=normalizeImportedBackup(backup);validateBackupCore(startupCore(backup));validateBackupStorage(replacement);
-     if(confirm('This is a full Meal Rotation backup. Restore all recipes, plans and settings? This replaces the app data in this browser. Export a backup first if you need to keep it.'))await restoreVersion2Backup(backup);
-     return;
-    }
-   }
-   const items=await recipeImportReadFile(file);if(!items.length){recipeImportNotice('No recipes were found in this export. Check that the file contains recipe information.');return}showRecipeImportSelection(items,file.name)
-  }
+  try{const items=await recipeImportReadFile(file);if(!items.length){recipeImportNotice('No recipes were found in this export. Check that the file contains recipe information.');return}showRecipeImportSelection(items,file.name)}
   catch(e){recipeImportNotice('Could not read the recipe export. '+(e.message||'No meals were changed.')+' No meals were changed.')}
  };input.click();
 }
 async function restoreVersion2Backup(backup){
- validateBackupCore(startupCore(backup));
  const replacement=normalizeImportedBackup(backup);validateBackupStorage(replacement);
  const preparation=await prepareOptionalBackupPhotos(backup);if(preparation.cancelled)return;
  const finish=()=>{restoreBackupStorage(replacement);recipePhotoNotice(preparation.warnings);mealPersistence.reload()};

@@ -1,27 +1,5 @@
-/* Recovery must run before migrations or autosave. */
-// Optional immutable images. This layer never writes recipe/localStorage data.
-const recipePhotoStorage=(()=>{
- // Legacy backup/restore compatibility only; no recipe-photo display, resizing or upload UI.
- const test=typeof TEST_PREFIX==='string'&&TEST_PREFIX==='mealRotationTestSandboxV1:',name=test?'mealRotationTestRecipePhotosV1':'mealRotationRecipePhotosV1',limit=256*1024,budget=40*1024*1024;
- const valid=id=>typeof id==='string'&&/^rp1-[a-f0-9]{64}$/.test(id);let connection=null;
- function deadline(work,message,ms=5000,abort=()=>{}){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{abort();reject(Error(message))},ms);Promise.resolve(work).then(value=>{clearTimeout(timer);resolve(value)},error=>{clearTimeout(timer);reject(error)})})}
- function open(){if(connection)return connection;connection=new Promise((resolve,reject)=>{let request,expired=false;const timer=setTimeout(()=>{expired=true;reject(Error('Photo storage did not respond.'))},3500);try{if(!window.indexedDB)throw Error('Photo storage is unavailable.');request=indexedDB.open(name,1);request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains('photos'))request.result.createObjectStore('photos')};request.onblocked=()=>{clearTimeout(timer);expired=true;reject(Error('Photo storage is busy. Close other copies of this app and try again.'))};request.onerror=()=>{clearTimeout(timer);reject(Error('Photo storage is unavailable.'))};request.onsuccess=()=>{clearTimeout(timer);if(expired){request.result.close();return}const db=request.result;db.onclose=()=>{connection=null};db.onversionchange=()=>{db.close();connection=null};resolve(db)}}catch(error){clearTimeout(timer);reject(error)}}).catch(error=>{connection=null;throw error});return connection}
- async function read(id){if(!valid(id))return null;const db=await open();let tx;const value=await deadline(new Promise((resolve,reject)=>{tx=db.transaction('photos','readonly');const r=tx.objectStore('photos').get(id);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(Error('Photo could not be read.'));tx.onabort=()=>reject(Error('Photo read was interrupted.'))}),'Photo read did not complete.',5000,()=>{try{tx?.abort()}catch(e){}});return value instanceof Blob&&value.type==='image/jpeg'&&value.size<=limit&&await idFor(value)===id?value:null}
- // Portable SHA-256 keeps references usable on offline/non-HTTPS origins too.
- function sha256(bytes){const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2],h=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];const data=new Uint8Array(Math.ceil((bytes.length+9)/64)*64);data.set(bytes);data[bytes.length]=128;const view=new DataView(data.buffer);view.setUint32(data.length-8,Math.floor(bytes.length/0x20000000));view.setUint32(data.length-4,(bytes.length*8)>>>0);const r=(v,n)=>(v>>>n)|(v<<(32-n)),w=new Int32Array(64);for(let offset=0;offset<data.length;offset+=64){for(let i=0;i<16;i++)w[i]=view.getInt32(offset+i*4);for(let i=16;i<64;i++){const a=w[i-15],b=w[i-2];w[i]=(w[i-16]+(r(a,7)^r(a,18)^(a>>>3))+w[i-7]+(r(b,17)^r(b,19)^(b>>>10)))|0}let[a,b,c,d,e,f,g,z]=h;for(let i=0;i<64;i++){const t=(z+(r(e,6)^r(e,11)^r(e,25))+((e&f)^(~e&g))+K[i]+w[i])|0,u=((r(a,2)^r(a,13)^r(a,22))+((a&b)^(a&c)^(b&c)))|0;z=g;g=f;f=e;e=(d+t)|0;d=c;c=b;b=a;a=(t+u)|0}for(const [i,v]of [a,b,c,d,e,f,g,z].entries())h[i]=(h[i]+v)|0}return h.map(v=>(v>>>0).toString(16).padStart(8,'0')).join('')}
- async function idFor(blob){const bytes=new Uint8Array(await deadline(blob.arrayBuffer(),'Photo bytes could not be read.'));return 'rp1-'+(globalThis.crypto?.subtle?Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join(''):sha256(bytes))}
- async function put(items){for(const item of items)if(!valid(item.id)||!(item.blob instanceof Blob)||item.blob.type!=='image/jpeg'||item.blob.size>limit||await idFor(item.blob)!==item.id)throw Error('Photo could not be verified.');const db=await open();let tx;await deadline(new Promise((resolve,reject)=>{tx=db.transaction('photos','readwrite');tx.oncomplete=resolve;tx.onabort=()=>reject(Error('Photo write was interrupted or storage is full.'));tx.onerror=()=>{try{tx.abort()}catch(e){}};try{for(const item of items)tx.objectStore('photos').put(item.blob,item.id)}catch(error){try{tx.abort()}catch(e){}reject(error)}}),'Photo write did not complete.',5000,()=>{try{tx?.abort()}catch(e){}})}
- async function image(blob){const url=URL.createObjectURL(blob),img=new Image();try{await deadline(new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('This image could not be decoded.'));img.src=url}),'Image decoding timed out.',8000);if(!img.naturalWidth||!img.naturalHeight)throw Error('This image has no usable dimensions.');return {img,close:()=>URL.revokeObjectURL(url)}}catch(e){URL.revokeObjectURL(url);throw e}}
- function refs(data){const ids=new Set(),seen=new Set();function root(value,depth=0){if(!value||depth>64)return;if(typeof value==='string'){if(seen.has(value))return;seen.add(value);try{value=JSON.parse(value)}catch(e){return}}if(!value||typeof value!=='object')return;for(const m of Array.isArray(value.meals)?value.meals:[])if(valid(m?.recipePhotoId))ids.add(m.recipePhotoId);if(value.lastRotationBefore)root(value.lastRotationBefore,depth+1)}function storage(values){if(!values||typeof values!=='object')return;root(values.mealRotationDataV1);root(values.mealRotationLastRotationBeforeV1)}root(data);for(const key of ['storage','originalStorage','unsaved'])storage(data?.[key]);for(const tx of Array.isArray(data?.failedTransactions)?data.failedTransactions:[]){storage(tx?.baseStorage);for(const p of Array.isArray(tx?.proposals)?tx.proposals:[])storage(p?.storage)}return ids}
- function base64(bytes){let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(text)}
- async function appendBackup(data){const ids=[...refs(data)];if(!ids.length)return data;const photos={version:1,items:[],missing:[],warnings:[]};let size=0,unavailable=false;for(const id of ids){try{if(unavailable)throw Error('Photo storage is unavailable.');if(photos.items.length>=4096)throw Error('Photo bundle limit reached.');const blob=await read(id);if(!blob)throw Error('An image is missing.');if(size+blob.size>budget)throw Error('Photo bundle size limit reached.');if(await idFor(blob)!==id)throw Error('An image could not be verified.');photos.items.push({id,type:'image/jpeg',data:base64(new Uint8Array(await blob.arrayBuffer()))});size+=blob.size}catch(e){photos.missing.push(id);if(!photos.warnings.includes(e.message))photos.warnings.push(e.message);if(/storage|respond|busy|read|complete/i.test(e.message))unavailable=true}}return {...data,photos}}
- async function restore(data){const used=refs(data),warnings=[],manifest=data?.photos;if(!manifest){if(used.size)warnings.push('This backup has photo references without image files. Recipe photo display is no longer used.');return warnings}if(manifest.version!==1||!Array.isArray(manifest.items)){return ['Optional photo data was not recognized. Recipes can still be restored.']}if(manifest.items.some(item=>valid(item?.id)&&used.has(item.id)))try{await open()}catch(e){return ['Optional photo storage is unavailable. Recipe content remains usable.']}const items=[],seen=new Set();let total=0;for(const item of manifest.items.slice(0,4096)){try{if(!item||!valid(item.id)||!used.has(item.id)||seen.has(item.id))continue;if(item.type!=='image/jpeg'||typeof item.data!=='string'||item.data.length>Math.ceil(limit/3)*4||!/^[A-Za-z0-9+/]*={0,2}$/.test(item.data))throw Error('Invalid optional photo data.');const raw=atob(item.data),bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));if(bytes.length>limit||total+bytes.length>budget)throw Error('Optional photo bundle exceeds its size limit.');if(bytes[0]!==255||bytes[1]!==216||bytes[2]!==255||bytes.at(-2)!==255||bytes.at(-1)!==217)throw Error('Optional photo is not a JPEG.');const blob=new Blob([bytes],{type:'image/jpeg'});if(await idFor(blob)!==item.id)throw Error('Optional photo checksum did not match.');const decoded=await image(blob);try{if(Math.max(decoded.img.naturalWidth,decoded.img.naturalHeight)>1024)throw Error('Optional photo dimensions exceed their limit.')}finally{decoded.close()}items.push({id:item.id,blob});seen.add(item.id);total+=blob.size}catch(e){if(!warnings.includes(e.message))warnings.push(e.message)}}if(manifest.items.length>4096)warnings.push('Some optional photos exceeded the entry limit.');if(items.length)try{await put(items)}catch(e){warnings.push('Photo storage was not available: '+e.message)}if([...used].some(id=>!seen.has(id)))warnings.push('Some photo files are missing. Recipe content remains usable.');return warnings}
- async function clear(){const db=await open();let tx;await deadline(new Promise((resolve,reject)=>{tx=db.transaction('photos','readwrite');tx.objectStore('photos').clear();tx.oncomplete=resolve;tx.onabort=tx.onerror=()=>reject(Error('Test photos could not be cleared.'))}),'Test photo reset timed out.',5000,()=>{try{tx?.abort()}catch(e){}})}
- if(test)window.mealRotationClearTestPhotos=clear;
- return {valid,name,limit,idFor,sha256,read,put,refs,appendBackup,restore:async data=>{try{return await restore(data)}catch(e){return ['Optional photo restoration failed. Recipe content remains usable.']}},test};
-})();
-function recipePhotoNotice(warnings){if(!warnings?.length)return;try{sessionStorage.setItem(recipePhotoStorage.test?'mealRotationTestPhotoNotice':'mealRotationPhotoNotice','Recipes restored. '+warnings.join(' '))}catch(e){}}
-
+/* Shared inline in both apps: recovery must run before migrations or autosave. */
+// These migration helpers must be defined before rotation.js initializes saved meals.
 function compactIngredientFractions(value){
   const glyphs={'1/2':'½','1/3':'⅓','2/3':'⅔','1/4':'¼','3/4':'¾','1/8':'⅛','3/8':'⅜','5/8':'⅝','7/8':'⅞'};
   let result=String(value??'');
@@ -35,7 +13,8 @@ function compactIngredientFractions(value){
   return result.replace(/(^|[^\w/])(\d+)\s+(1\/2|1\/3|2\/3|1\/4|3\/4|1\/8|3\/8|5\/8|7\/8)(?=$|[^\w/])/g,(all,pre,whole,frac)=>pre+whole+glyphs[frac])
     .replace(/(^|[^\w/])(1\/2|1\/3|2\/3|1\/4|3\/4|1\/8|3\/8|5\/8|7\/8)(?=$|[^\w/])/g,(all,pre,frac)=>pre+glyphs[frac]);
 }
-// Run before recipes are read so existing fraction and grocery matching stays unchanged.
+// One-time, non-destructive migration for ingredients saved before fraction formatting.
+// Preserve grocery selection matches by migrating the associated stored strings too.
 function migrateSavedIngredientFractions(){
  const flag='mealRotationCompactFractionsMigratedV2';
  if(localStorage.getItem(flag)==='true')return;
@@ -81,6 +60,7 @@ function migrateSavedIngredientFractions(){
     if(JSON.stringify(normalized)!==JSON.stringify(checks))updates.mealRotationCheckedIngredientsV1=JSON.stringify(normalized);
    }
   }
+  // Save a rollback copy before changing existing records.
   if(Object.keys(updates).length){
    const originals={};for(const key of Object.keys(updates))originals[key]=localStorage.getItem(key);
    localStorage.setItem('mealRotationFractionMigrationBackupV2',JSON.stringify(originals));
@@ -89,6 +69,29 @@ function migrateSavedIngredientFractions(){
   localStorage.setItem(flag,'true');
  }catch(e){ /* Leave the migration pending if storage is unavailable. */ }
 }
+// Optional immutable images. This layer never writes recipe/localStorage data.
+const recipePhotoStorage=(()=>{
+ // Legacy backup/restore compatibility only; no recipe-photo display, resizing or upload UI.
+ const test=typeof TEST_PREFIX==='string'&&TEST_PREFIX==='mealRotationTestSandboxV1:',name=test?'mealRotationTestRecipePhotosV1':'mealRotationRecipePhotosV1',limit=256*1024,budget=40*1024*1024;
+ const valid=id=>typeof id==='string'&&/^rp1-[a-f0-9]{64}$/.test(id);let connection=null;
+ function deadline(work,message,ms=5000,abort=()=>{}){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{abort();reject(Error(message))},ms);Promise.resolve(work).then(value=>{clearTimeout(timer);resolve(value)},error=>{clearTimeout(timer);reject(error)})})}
+ function open(){if(connection)return connection;connection=new Promise((resolve,reject)=>{let request,expired=false;const timer=setTimeout(()=>{expired=true;reject(Error('Photo storage did not respond.'))},3500);try{if(!window.indexedDB)throw Error('Photo storage is unavailable.');request=indexedDB.open(name,1);request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains('photos'))request.result.createObjectStore('photos')};request.onblocked=()=>{clearTimeout(timer);expired=true;reject(Error('Photo storage is busy. Close other copies of this app and try again.'))};request.onerror=()=>{clearTimeout(timer);reject(Error('Photo storage is unavailable.'))};request.onsuccess=()=>{clearTimeout(timer);if(expired){request.result.close();return}const db=request.result;db.onclose=()=>{connection=null};db.onversionchange=()=>{db.close();connection=null};resolve(db)}}catch(error){clearTimeout(timer);reject(error)}}).catch(error=>{connection=null;throw error});return connection}
+ async function read(id){if(!valid(id))return null;const db=await open();let tx;const value=await deadline(new Promise((resolve,reject)=>{tx=db.transaction('photos','readonly');const r=tx.objectStore('photos').get(id);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(Error('Photo could not be read.'));tx.onabort=()=>reject(Error('Photo read was interrupted.'))}),'Photo read did not complete.',5000,()=>{try{tx?.abort()}catch(e){}});return value instanceof Blob&&value.type==='image/jpeg'&&value.size<=limit&&await idFor(value)===id?value:null}
+ // Portable SHA-256 keeps references usable on offline/non-HTTPS origins too.
+ function sha256(bytes){const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2],h=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];const data=new Uint8Array(Math.ceil((bytes.length+9)/64)*64);data.set(bytes);data[bytes.length]=128;const view=new DataView(data.buffer);view.setUint32(data.length-8,Math.floor(bytes.length/0x20000000));view.setUint32(data.length-4,(bytes.length*8)>>>0);const r=(v,n)=>(v>>>n)|(v<<(32-n)),w=new Int32Array(64);for(let offset=0;offset<data.length;offset+=64){for(let i=0;i<16;i++)w[i]=view.getInt32(offset+i*4);for(let i=16;i<64;i++){const a=w[i-15],b=w[i-2];w[i]=(w[i-16]+(r(a,7)^r(a,18)^(a>>>3))+w[i-7]+(r(b,17)^r(b,19)^(b>>>10)))|0}let[a,b,c,d,e,f,g,z]=h;for(let i=0;i<64;i++){const t=(z+(r(e,6)^r(e,11)^r(e,25))+((e&f)^(~e&g))+K[i]+w[i])|0,u=((r(a,2)^r(a,13)^r(a,22))+((a&b)^(a&c)^(b&c)))|0;z=g;g=f;f=e;e=(d+t)|0;d=c;c=b;b=a;a=(t+u)|0}for(const [i,v]of [a,b,c,d,e,f,g,z].entries())h[i]=(h[i]+v)|0}return h.map(v=>(v>>>0).toString(16).padStart(8,'0')).join('')}
+ async function idFor(blob){const bytes=new Uint8Array(await deadline(blob.arrayBuffer(),'Photo bytes could not be read.'));return 'rp1-'+(globalThis.crypto?.subtle?Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join(''):sha256(bytes))}
+ async function put(items){for(const item of items)if(!valid(item.id)||!(item.blob instanceof Blob)||item.blob.type!=='image/jpeg'||item.blob.size>limit||await idFor(item.blob)!==item.id)throw Error('Photo could not be verified.');const db=await open();let tx;await deadline(new Promise((resolve,reject)=>{tx=db.transaction('photos','readwrite');tx.oncomplete=resolve;tx.onabort=()=>reject(Error('Photo write was interrupted or storage is full.'));tx.onerror=()=>{try{tx.abort()}catch(e){}};try{for(const item of items)tx.objectStore('photos').put(item.blob,item.id)}catch(error){try{tx.abort()}catch(e){}reject(error)}}),'Photo write did not complete.',5000,()=>{try{tx?.abort()}catch(e){}})}
+ async function image(blob){const url=URL.createObjectURL(blob),img=new Image();try{await deadline(new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('This image could not be decoded.'));img.src=url}),'Image decoding timed out.',8000);if(!img.naturalWidth||!img.naturalHeight)throw Error('This image has no usable dimensions.');return {img,close:()=>URL.revokeObjectURL(url)}}catch(e){URL.revokeObjectURL(url);throw e}}
+ function refs(data){const ids=new Set(),seen=new Set();function root(value,depth=0){if(!value||depth>64)return;if(typeof value==='string'){if(seen.has(value))return;seen.add(value);try{value=JSON.parse(value)}catch(e){return}}if(!value||typeof value!=='object')return;for(const m of Array.isArray(value.meals)?value.meals:[])if(valid(m?.recipePhotoId))ids.add(m.recipePhotoId);if(value.lastRotationBefore)root(value.lastRotationBefore,depth+1)}function storage(values){if(!values||typeof values!=='object')return;root(values.mealRotationDataV1);root(values.mealRotationLastRotationBeforeV1)}root(data);for(const key of ['storage','originalStorage','unsaved'])storage(data?.[key]);for(const tx of Array.isArray(data?.failedTransactions)?data.failedTransactions:[]){storage(tx?.baseStorage);for(const p of Array.isArray(tx?.proposals)?tx.proposals:[])storage(p?.storage)}return ids}
+ function base64(bytes){let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(text)}
+ async function appendBackup(data){const ids=[...refs(data)];if(!ids.length)return data;const photos={version:1,items:[],missing:[],warnings:[]};let size=0,unavailable=false;for(const id of ids){try{if(unavailable)throw Error('Photo storage is unavailable.');if(photos.items.length>=4096)throw Error('Photo bundle limit reached.');const blob=await read(id);if(!blob)throw Error('An image is missing.');if(size+blob.size>budget)throw Error('Photo bundle size limit reached.');if(await idFor(blob)!==id)throw Error('An image could not be verified.');photos.items.push({id,type:'image/jpeg',data:base64(new Uint8Array(await blob.arrayBuffer()))});size+=blob.size}catch(e){photos.missing.push(id);if(!photos.warnings.includes(e.message))photos.warnings.push(e.message);if(/storage|respond|busy|read|complete/i.test(e.message))unavailable=true}}return {...data,photos}}
+ async function restore(data){const used=refs(data),warnings=[],manifest=data?.photos;if(!manifest){if(used.size)warnings.push('This backup has photo references without image files. Recipe photo display is no longer used.');return warnings}if(manifest.version!==1||!Array.isArray(manifest.items)){return ['Optional photo data was not recognized. Recipes can still be restored.']}if(manifest.items.some(item=>valid(item?.id)&&used.has(item.id)))try{await open()}catch(e){return ['Optional photo storage is unavailable. Recipe content remains usable.']}const items=[],seen=new Set();let total=0;for(const item of manifest.items.slice(0,4096)){try{if(!item||!valid(item.id)||!used.has(item.id)||seen.has(item.id))continue;if(item.type!=='image/jpeg'||typeof item.data!=='string'||item.data.length>Math.ceil(limit/3)*4||!/^[A-Za-z0-9+/]*={0,2}$/.test(item.data))throw Error('Invalid optional photo data.');const raw=atob(item.data),bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));if(bytes.length>limit||total+bytes.length>budget)throw Error('Optional photo bundle exceeds its size limit.');if(bytes[0]!==255||bytes[1]!==216||bytes[2]!==255||bytes.at(-2)!==255||bytes.at(-1)!==217)throw Error('Optional photo is not a JPEG.');const blob=new Blob([bytes],{type:'image/jpeg'});if(await idFor(blob)!==item.id)throw Error('Optional photo checksum did not match.');const decoded=await image(blob);try{if(Math.max(decoded.img.naturalWidth,decoded.img.naturalHeight)>1024)throw Error('Optional photo dimensions exceed their limit.')}finally{decoded.close()}items.push({id:item.id,blob});seen.add(item.id);total+=blob.size}catch(e){if(!warnings.includes(e.message))warnings.push(e.message)}}if(manifest.items.length>4096)warnings.push('Some optional photos exceeded the entry limit.');if(items.length)try{await put(items)}catch(e){warnings.push('Photo storage was not available: '+e.message)}if([...used].some(id=>!seen.has(id)))warnings.push('Some photo files are missing. Recipe content remains usable.');return warnings}
+ async function clear(){const db=await open();let tx;await deadline(new Promise((resolve,reject)=>{tx=db.transaction('photos','readwrite');tx.objectStore('photos').clear();tx.oncomplete=resolve;tx.onabort=tx.onerror=()=>reject(Error('Test photos could not be cleared.'))}),'Test photo reset timed out.',5000,()=>{try{tx?.abort()}catch(e){}})}
+ if(test)window.mealRotationClearTestPhotos=clear;
+ return {valid,name,limit,idFor,sha256,read,put,refs,appendBackup,restore:async data=>{try{return await restore(data)}catch(e){return ['Optional photo restoration failed. Recipe content remains usable.']}},test};
+})();
+function recipePhotoNotice(warnings){if(!warnings?.length)return;try{sessionStorage.setItem(recipePhotoStorage.test?'mealRotationTestPhotoNotice':'mealRotationPhotoNotice','Recipes restored. '+warnings.join(' '))}catch(e){}}
+
 function createMealPersistence(provider){
  const JOURNAL_KEY='mealRotationRecoveryJournalV1';
  let base,readError=null,recovery=false,strict=false,suspended=false,recoveryActions=null,startupValidator=null;
@@ -101,27 +104,26 @@ function createMealPersistence(provider){
   if(firstError){const error=Error(firstError.message||'Saved data could not be read');error.readableRecords=result;error.unreadableKeys=unreadable;throw error}return result;
  }
  function parseJournal(raw){const value=JSON.parse(raw);if(value?.version!==1||!value.originalStorage||Array.isArray(value.originalStorage)||typeof value.originalStorage!=='object'||Object.values(value.originalStorage).some(v=>typeof v!=='string'))throw Error('Unreadable recovery journal');return value}
- // A journal is optional recovery assistance, not a prerequisite for freeing storage.
- // Never truncate the current recipe snapshot to make it fit.
- function writeJournal(value){
-  const next={...value,previousJournalRaw:undefined,previousAttempts:(value.previousAttempts||[]).slice(-5).map(entry=>({...entry,previousAttempts:undefined,previousJournalRaw:undefined}))};
+ // Journaling is optional: never trim the current rollback snapshot to make it fit.
+ // Keep the complete current attempt in memory even when durable storage is full.
+ function saveJournal(value){
   journal=value;
+  value.previousAttempts=Array.isArray(value.previousAttempts)?value.previousAttempts.slice(-6):[];
+  const encode=()=>JSON.stringify(value),fits=text=>new Blob([text]).size<=50*1024;
   try{
-   let encoded=JSON.stringify(next);
-   while(encoded.length*2>48000&&next.previousAttempts.length){next.previousAttempts.shift();encoded=JSON.stringify(next)}
-   if(encoded.length*2<=48000){
-    for(let attempt=0;attempt<2;attempt++){
-     try{base.setItem(JOURNAL_KEY,encoded);if(base.getItem(JOURNAL_KEY)===encoded){journal=next;journalRaw=encoded;return true}}
-     catch(_){}
-     // Retry once with only the current attempt; older entries are expendable.
-     next.previousAttempts=[];encoded=JSON.stringify(next);
-    }
+   let encoded=encode();
+   while(!fits(encoded)&&value.previousAttempts.length){value.previousAttempts.shift();encoded=encode()}
+   if(!fits(encoded))return false;
+   try{base.setItem(JOURNAL_KEY,encoded)}
+   catch(error){
+    if(error.name!=='QuotaExceededError'&&error.code!==22&&error.code!==1014)return false;
+    // Retry once with the oldest half discarded (all when only one remains).
+    value.previousAttempts.splice(0,Math.ceil(value.previousAttempts.length/2));
+    encoded=encode();base.setItem(JOURNAL_KEY,encoded);
    }
-  }catch(_){}
-  // Do not leave a stale replacement marker behind when this attempt cannot fit.
-  try{base.removeItem(JOURNAL_KEY)}catch(_){}
-  journalRaw=null;
-  return false;
+   if(base.getItem(JOURNAL_KEY)!==encoded)return false;
+   journalRaw=encoded;return true;
+  }catch(error){return false}
  }
  function matchesRecords(actual,expected){return !!expected&&typeof expected==='object'&&!Array.isArray(expected)&&actual.size===Object.keys(expected).length&&Object.entries(expected).every(([key,value])=>typeof value==='string'&&actual.get(key)===value)}
  try{base=provider()}catch(e){readError=e;recovery=true}
@@ -171,7 +173,12 @@ function createMealPersistence(provider){
    if(journal.replacementCommitted!==true){
     if(!matchesRecords(original,journal.replacement))throw Error('Recovery replacement is incomplete. Original records and earlier recovery information remain available for export or another restore.');
     // Durable proof permits a later startup after normalization or cleanup was interrupted.
-    writeJournal({...journal,replacementCommitted:true});
+    if(!saveJournal({...journal,replacementCommitted:true})){
+     // Retire stale completion metadata before migrations can change the verified records.
+     base.removeItem(JOURNAL_KEY);
+     if(base.getItem(JOURNAL_KEY)!==null)throw Error('The old recovery journal could not be retired. Saving remains paused.');
+     journalRaw=null;
+    }
    }
    journalReplacementVerified=true;
   }
@@ -207,20 +214,19 @@ function createMealPersistence(provider){
  }
  function reload(){if(hasDrafts())throw Error('Unsaved editor changes are still open. Save or cancel them before reloading.');suspended=true;window.dispatchEvent(new Event('mealRotationBeforeStorageReset'));location.reload()}
  function startFresh(){
-  // This explicitly destructive action must work even when every setItem fails.
-  // Suspend autosave, remove only app-owned records, then reset via a clean reload.
+  // Explicitly confirmed destruction is deletion-only, even at quota or with a bad journal.
   suspended=true;
+  window.dispatchEvent(new Event('mealRotationBeforeStorageReset'));
   try{
-   base.removeItem(JOURNAL_KEY);
-   const remove=[];
-   for(let i=0;i<base.length;i++){const key=base.key(i);if(owned(key))remove.push(key)}
+   const remove=new Set([JOURNAL_KEY]);
+   for(let i=0;i<base.length;i++){const key=base.key(i);if(owned(key))remove.add(key)}
    for(const key of remove)base.removeItem(key);
+   for(const key of remove)if(base.getItem(key)!==null)throw Error('Browser storage did not delete '+key);
+   for(let i=0;i<base.length;i++)if(owned(base.key(i)))throw Error('Some app records could not be deleted.');
    original.clear();pending.clear();failures.clear();journal=null;journalRaw=null;
    journalCleanupPending=false;journalReplacementVerified=false;readError=null;recovery=false;strict=false;
-   warning?.remove();warning=null;
-   window.dispatchEvent(new Event('mealRotationBeforeStorageReset'));
-   location.reload();
-  }catch(error){suspended=false;throw error}
+   warning?.remove();warning=null;location.reload();
+  }catch(error){recovery=true;readError=error;throw Error('Start Fresh could not finish deleting saved data. Automatic saving remains paused. '+error.message)}
  }
  function replace(data){
   startupValidator(data);
@@ -228,20 +234,24 @@ function createMealPersistence(provider){
   let before,priorJournalRaw;
   // Export may use a partial snapshot; replacement and rollback must never do so.
   try{before=readRaw();priorJournalRaw=base.getItem(JOURNAL_KEY)}catch(error){readError=error;recovery=true;showRecovery();throw Error('Original saved data could not be completely read. No replacement was attempted. '+error.message)}
-  let priorJournal=null;if(priorJournalRaw!==null)try{priorJournal=parseJournal(priorJournalRaw)}catch(_){}
+  let priorJournal=journal;if(!priorJournal&&priorJournalRaw!==null)try{priorJournal=parseJournal(priorJournalRaw)}catch(_){}
   // Keep earlier attempts flat and intact, including pending writes, proposals, and drafts.
   const previousAttempts=Array.isArray(priorJournal?.previousAttempts)?[...priorJournal.previousAttempts]:[];
   if(priorJournal){const previous={...priorJournal};if(Array.isArray(previous.previousAttempts))delete previous.previousAttempts;previousAttempts.push(previous)}
   const nextJournal={version:1,replacementCommitted:false,previousJournalRaw:priorJournal?undefined:priorJournalRaw,previousAttempts,createdAt:new Date().toISOString(),originalStorage:priorJournal?.originalStorage||Object.fromEntries(before),beforeReplacement:Object.fromEntries(before),replacement:data,pendingWrites:Object.fromEntries(pending),failedTransactions:[...failures.values()].map(f=>copy(f.record)),editorDrafts:editorDrafts()};
-   writeJournal(nextJournal);
+  if(!saveJournal(nextJournal)){
+   // An older journal must not describe this new replacement after a reload.
+   try{base.removeItem(JOURNAL_KEY);if(base.getItem(JOURNAL_KEY)!==null)throw Error('Journal was not removed');journalRaw=null}
+   catch(error){throw Error('The previous recovery journal could not be retired. No replacement was attempted. '+error.message)}
+  }
   try{
    for(const [key,value]of Object.entries(data).sort(([a],[b])=>(a==='mealRotationDataV1')-(b==='mealRotationDataV1')))base.setItem(key,value);
    for(const key of before.keys())if(!Object.hasOwn(data,key))base.removeItem(key);
    const actual=Object.fromEntries(readRaw());if(Object.keys(actual).length!==Object.keys(data).length||Object.entries(data).some(([key,value])=>actual[key]!==value))throw Error('Replacement could not be verified.');startupValidator(actual);
-   }catch(e){let failed=false;for(const key of new Set([...before.keys(),...Object.keys(data)]))try{if(before.has(key))base.setItem(key,before.get(key));else base.removeItem(key)}catch(_){failed=true}throw Error('Recovery could not be saved. '+(failed?'Storage prevented complete rollback. Keep this page open and export the original recovery snapshot.':'Original records were restored. Keep this page open, export recovery data, and retry.'))}
-   writeJournal({...nextJournal,replacementCommitted:true});
-   original=new Map(Object.entries(data));pending.clear();failures.clear();
-   reload();
+  }catch(e){let failed=false;for(const key of new Set([...before.keys(),...Object.keys(data)]))try{if(before.has(key))base.setItem(key,before.get(key));else base.removeItem(key)}catch(_){failed=true}throw Error('Recovery could not be saved. '+(failed?'Storage prevented complete rollback.':'Original records were restored.')+' The original snapshot is retained '+(journalRaw?'in the recovery journal.':'in memory; keep this page open and export recovery data.'))}
+  saveJournal({...nextJournal,replacementCommitted:true});
+  original=new Map(Object.entries(data));pending.clear();failures.clear();
+  reload();
  }
  function finishStartup(){
   if(!journalRaw||recovery)return;
@@ -267,7 +277,7 @@ function createMealPersistence(provider){
   }));panel.append(title,detail,status,controls);cover.append(panel);document.body.append(cover);for(const el of document.body.children)if(el!==cover)el.inert=true;restore.focus();
  }
  window.addEventListener('beforeunload',event=>{if(unresolved()){event.preventDefault();event.returnValue=''}});
-  return {storage,inspect,transaction,offerRetry,resolve,cancelOwner,notify,showRecovery,finishStartup,failStartup,reload,startFresh,editorDrafts,get recovery(){return recovery},get unsaved(){return unresolved()},get paused(){return suspended||recovery}};
+ return {storage,inspect,transaction,offerRetry,resolve,cancelOwner,notify,showRecovery,finishStartup,failStartup,reload,startFresh,editorDrafts,get recovery(){return recovery},get unsaved(){return unresolved()},get paused(){return suspended||recovery}};
 }
 
 const mealPersistence=createMealPersistence(()=>window.localStorage);
@@ -365,15 +375,17 @@ function validateBackupStorage(data){
  validateSavedRecords(data,true);
 }
 function normalizeImportedBackup(d){
- // Test-only records can be present in older exports. Never import them as app data.
+ if(!d||typeof d!=='object'||Array.isArray(d))throw Error('Invalid backup');
  if(d.storage!==undefined&&(!d.storage||typeof d.storage!=='object'||Array.isArray(d.storage)))throw Error('Invalid backup storage');
+ if('cats'in d||'meals'in d)validateBackupCore(startupCore(d));
+ // Test-only records can be present in older exports. Never import them as app data.
  const cleaned={};
  for(const [key,value] of Object.entries(d.storage||{})){
   if(key==='mealRotationRecoveryJournalV1'||key.startsWith('mealRotationTestSandboxV1:')||key.startsWith('mealRotationTESTONLY__'))continue;
   cleaned[key]=value;
  }
  // The top-level recipe collection is authoritative for this backup format.
- cleaned.mealRotationDataV1=JSON.stringify({cats:d.cats,active:d.active,meals:d.meals});
+ if('cats'in d||'meals'in d)cleaned.mealRotationDataV1=JSON.stringify({cats:d.cats,active:d.active,meals:d.meals});
  if(d.mealPlans)cleaned.mealRotationPlansV1=JSON.stringify(d.mealPlans);
  if(d.weekdayCategories)cleaned.mealRotationWeekdayCategoriesV1=JSON.stringify(d.weekdayCategories);
  if(d.weekdayMealOverrides)cleaned.mealRotationWeekdayMealOverridesV1=JSON.stringify(d.weekdayMealOverrides);
@@ -381,10 +393,10 @@ function normalizeImportedBackup(d){
  if(d.categoryColors)cleaned.mealRotationCategoryColorsV1=JSON.stringify(d.categoryColors);
  if(d.pinnedCats)cleaned.mealRotationPinnedCategoriesV1=JSON.stringify(d.pinnedCats);
  if(d.expandedCats)cleaned.mealRotationExpandedCategoriesV1=JSON.stringify(d.expandedCats);
- if(d.cookSessions!==undefined)cleaned.mealRotationCookingSessionsV1=JSON.stringify(d.cookSessions);
- if(d.checkedIngredients!==undefined)cleaned.mealRotationCheckedIngredientsV1=JSON.stringify(d.checkedIngredients);
- if(d.timeDisplayPrefs!==undefined)cleaned.mealRotationTimeVisibilityV1=JSON.stringify(d.timeDisplayPrefs);
  if(typeof d.showMealPlanTabs==='boolean')cleaned.mealRotationShowPlanTabsV1=String(d.showMealPlanTabs);
+ // Explicit top-level fields override storage; absent fields preserve storage verbatim.
+ for(const [field,key]of Object.entries({cookSessions:'mealRotationCookingSessionsV1',checkedIngredients:'mealRotationCheckedIngredientsV1',timeDisplayPrefs:'mealRotationTimeVisibilityV1'}))if(Object.hasOwn(d,field))cleaned[key]=JSON.stringify(d[field]);
+ for(const [field,key]of Object.entries({masterOpenMode:'mealRotationMasterOpenModeV1',masterPinsOverride:'mealRotationMasterPinsOverrideV1',autoPinTopCategories:'mealRotationAutoPinTopCategoriesV1',applyPinsToAllTabs:'mealRotationApplyPinsAllTabsV1'}))if(Object.hasOwn(d,field))cleaned[key]=String(d[field]);
  return cleaned;
 }
 function restoreBackupStorage(data,operation=null){

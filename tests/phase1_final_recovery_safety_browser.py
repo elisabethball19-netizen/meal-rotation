@@ -82,7 +82,10 @@ def unreadable_snapshot_edges(browser,name):
   c,p,errors,prefix,_=t.bare(browser,name,originals);before=t.native(p,prefix)
   p.evaluate("""blocked=>{const get=Storage.prototype.getItem,key=Storage.prototype.key,wrapper=typeof testStorage==='undefined'?null:testStorage,wrapperKey=wrapper?.key;window.restoreFinalReads=()=>{Storage.prototype.getItem=get;Storage.prototype.key=key;if(wrapper)wrapper.key=wrapperKey};Storage.prototype.getItem=function(k){if(k.endsWith(blocked))throw Error('Injected required read failure');return get.call(this,k)};if(blocked==='enumeration'){const fail=()=>{throw Error('Injected enumeration failure')};if(wrapper)wrapper.key=fail;else Storage.prototype.key=fail}}""",blocked)
   s.upload_backup(p,backup());expect(p.locator('#mealRecoveryStatus')).to_contain_text('No replacement was attempted');assert t.native(p,prefix)==before
-  p.locator('#mealDataRecovery').get_by_role('button',name='Start Fresh',exact=True).click();p.get_by_role('button',name='Confirm Start Fresh',exact=True).click();expect(p.locator('#mealRecoveryStatus')).to_contain_text('No replacement was attempted');assert t.native(p,prefix)==before
+  p.locator('#mealDataRecovery').get_by_role('button',name='Start Fresh',exact=True).click();p.get_by_role('button',name='Confirm Start Fresh',exact=True).click();expect(p.locator('#mealRecoveryStatus')).to_contain_text('Start Fresh could not finish')
+  # Explicit destruction no longer requires a readable snapshot. Enumeration fails before
+  # deletion; denied verification reads may fail after deletion and must report that honestly.
+  assert t.native(p,prefix)==(before if blocked=='enumeration' else {})
   p.evaluate('restoreFinalReads()');s.upload_backup(p,backup());p.wait_for_function('!document.getElementById("mealDataRecovery")');assert not errors,errors;c.close()
  # The journal must remain exportable even if a different app record is denied at startup.
  journal={'version':1,'originalStorage':{'mealRotationDataV1':'ORIGINAL JOURNALED BYTES'},'replacement':{},'editorDrafts':[{'raw':'EARLIER RAW DRAFT'}]}
@@ -101,8 +104,9 @@ def journal_history(browser,name):
   text=json.dumps(export);assert all(marker in text for marker in ['FIRST PENDING','FIRST FAILED PROPOSAL','FIRST RAW DRAFT','SECOND PENDING','SECOND RAW DRAFT'])
   assert export['originalStorage']==originals
   p.reload();expect(p.locator('#mealDataRecovery')).to_be_visible()
- # A failed journal write must leave the entire previously persisted journal untouched.
- before=t.native(p,prefix);t.fail_writes(p,['mealRotationRecoveryJournalV1'],True);s.upload_backup(p,backup());expect(p.locator('#mealRecoveryStatus')).to_contain_text('not restored');assert t.native(p,prefix)==before
+ # Optional journaling retries once at quota rather than blocking a valid restore.
+ t.fail_writes(p,['mealRotationRecoveryJournalV1'],True);s.upload_backup(p,backup());p.wait_for_function('!document.getElementById("mealDataRecovery")')
+ assert json.loads(p.evaluate('k=>localStorage.getItem(k)',prefix+'mealRotationDataV1'))['meals']==t.CORE['meals']
  assert not errors,errors;c.close()
  # Even malformed journal bytes are archived rather than replaced without a recovery copy.
  c,p,errors,prefix,_=t.bare(browser,name,{**originals,'mealRotationRecoveryJournalV1':'{UNREADABLE OLD JOURNAL'})
@@ -140,10 +144,9 @@ def completion_marker_durability(browser,name):
    p.reload();expect(p.locator('#mealSaveWarning')).to_be_visible();assert not p.locator('#mealDataRecovery').count()
    p.evaluate('restoreCompletionStorage()');p.locator('#mealSaveWarning').get_by_role('button',name='Retry Save',exact=True).click();expect(p.locator('#mealSaveWarning')).to_have_count(0);assert p.evaluate('k=>localStorage.getItem(k)',prefix+'mealRotationRecoveryJournalV1') is None
   else:
-   expect(p.locator('#mealDataRecovery')).to_be_visible();after=t.native(p,prefix)
-   assert {k:v for k,v in after.items() if not k.endswith('mealRotationRecoveryJournalV1')}=={k:v for k,v in before.items() if not k.endswith('mealRotationRecoveryJournalV1')},'unverified marker permitted startup writes'
-   if failure=='marker-write':assert after==before
-   else:assert json.loads(after[prefix+'mealRotationRecoveryJournalV1'])['replacementCommitted'] is True
+   assert not p.locator('#mealDataRecovery').count()
+   assert p.evaluate('k=>localStorage.getItem(k)',prefix+'mealRotationRecoveryJournalV1') is None
+   p.evaluate('restoreCompletionStorage()');p.reload();assert not p.locator('#mealDataRecovery').count()
   assert not errors,errors;c.close()
 
 
