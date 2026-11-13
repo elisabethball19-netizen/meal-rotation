@@ -3580,9 +3580,14 @@ function reviewPhotoIngredients(text,originalText,kind='ingredients'){
 const RECIPE_EDITOR_SECTIONS_KEY='mealRotationEditorSectionsV1';
 let recipeEditorSections={ingredients:false,instructions:false},recipeEditorReturn=null;
 function addRecipeEditorSourceLink(field){
- const link=document.createElement('a');link.textContent='Open original recipe';link.target='_blank';link.rel='noopener noreferrer';
- const update=()=>{let url;try{url=new URL(field.value.trim())}catch(_){}const valid=url&&['http:','https:'].includes(url.protocol);link.hidden=!valid;if(valid)link.href=url.href;else link.removeAttribute('href')};
- field.after(link);field.addEventListener('input',update);update();return link;
+ const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px';
+ const link=document.createElement('a');link.textContent='Original recipe';link.target='_blank';link.rel='noopener noreferrer';
+ const edit=document.createElement('button');edit.type='button';edit.className='ingredient-tool';edit.style.cssText='width:30px;height:30px;flex:0 0 30px;padding:5px';setRecipeToolbarIcon(edit,'edit','Edit recipe URL');edit.querySelector('svg').style.cssText='width:18px;height:18px';
+ field.before(row);row.append(link,edit);field.hidden=true;if(field.parentElement.tagName==='LABEL')field.parentElement.querySelector('span')?.setAttribute('hidden','');
+ const previous=row.previousElementSibling;if(previous?.tagName==='LABEL')previous.hidden=true;
+ edit.onclick=()=>{field.hidden=!field.hidden;if(!field.hidden)field.focus({preventScroll:true})};
+ const update=()=>{let url;try{url=new URL(field.value.trim())}catch(_){}const valid=url&&['http:','https:'].includes(url.protocol);link.hidden=!valid;edit.setAttribute('aria-label',valid?'Edit recipe URL':'Add recipe URL');edit.title=edit.getAttribute('aria-label');if(valid)link.href=url.href;else link.removeAttribute('href')};
+ field.addEventListener('input',update);update();return link;
 }
 function collapseRecipeEditorField(field,title){
  const label=field.parentElement,details=document.createElement('details'),summary=document.createElement('summary');
