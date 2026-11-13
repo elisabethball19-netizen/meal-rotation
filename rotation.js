@@ -1006,20 +1006,11 @@ const appIconSvg={settings:'<path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l
     if(word.length>3&&word.endsWith('s')&&!/(ss|us|is)$/.test(word))return word.slice(0,-1);
     return word;
   }
-function mealMatchesSearch(m,query,ordered=false){
+function mealMatchesSearch(m,query){
  const q=normalizeSearchText(query),queryWords=searchWords(q);
       const mealName=normalizeSearchText(m.name);
       const mealWords=searchWords(mealName);
       const wordMatches=(word,candidate)=>candidate.includes(word)||singularSearchWord(candidate)===singularSearchWord(word);
-      if(ordered){
-        let nextIndex=0;
-        return queryWords.length>0&&queryWords.every(word=>{
-          while(nextIndex<mealWords.length&&!wordMatches(word,mealWords[nextIndex]))nextIndex++;
-          if(nextIndex===mealWords.length)return false;
-          nextIndex++;
-          return true;
-        });
-      }
       return queryWords.length>0&&queryWords.every(word=>mealWords.some(candidate=>wordMatches(word,candidate)));
 }
 function openMealSearch(saved=null){
@@ -1046,13 +1037,19 @@ function openMealSearch(saved=null){
   input.autocomplete='off';
   input.value=saved?.query||'';
   input.style.cssText='width:100%;min-height:46px;padding:9px 12px;border:1px solid #ccc;border-radius:9px;background:#fff;color:#242424;font-size:16px';
-  const orderLabel=document.createElement('label');
-  orderLabel.style.cssText='display:flex;align-items:center;gap:9px;font-size:15px;cursor:pointer';
-  const matchWordOrder=document.createElement('input');
-  matchWordOrder.type='checkbox';
-  matchWordOrder.checked=saved?.matchWordOrder===true;
-  matchWordOrder.style.cssText='width:19px;height:19px;margin:0;flex:0 0 19px';
-  orderLabel.append(matchWordOrder,document.createTextNode('Match word order'));
+  const selectedGroups=new Set((Array.isArray(saved?.groups)?saved.groups:[]).filter(group=>cats.includes(group)));
+  const groupFilter=document.createElement('fieldset');
+  groupFilter.style.cssText='margin:0;padding:8px;border:1px solid #ccc;border-radius:9px;max-height:150px;overflow-y:auto;flex-shrink:0';
+  const legend=document.createElement('legend');legend.textContent='Meal groups';groupFilter.append(legend);
+  const clearGroups=document.createElement('button');clearGroups.type='button';clearGroups.className='smallbtn';clearGroups.textContent='Clear groups';
+  clearGroups.onclick=()=>{selectedGroups.clear();groupFilter.querySelectorAll('input').forEach(check=>check.checked=false);updateResults()};
+  groupFilter.append(clearGroups);
+  for(const group of cats){
+    const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:8px;min-height:44px;font-size:15px;cursor:pointer';
+    const check=document.createElement('input');check.type='checkbox';check.className='check';check.checked=selectedGroups.has(group);
+    check.onchange=()=>{if(check.checked)selectedGroups.add(group);else selectedGroups.delete(group);updateResults()};
+    label.append(check,document.createTextNode(group));groupFilter.append(label);
+  }
   const results=document.createElement('div');
   results.setAttribute('aria-live','polite');
   results.style.cssText='overflow-y:auto;min-height:100px;flex:1;overscroll-behavior:contain';
@@ -1073,16 +1070,15 @@ function openMealSearch(saved=null){
   function chooseMeal(mealId){
     input.blur();closeSearch();
     const meal=meals.find(m=>String(m.id)===String(mealId));
-    if(meal){const search={query:input.value,matchWordOrder:matchWordOrder.checked,scroll:results.scrollTop};openTopMealActionMenu(null,meal.cat,meal,false,null,{...navigationOrigin,resumeDialog:()=>openMealSearch(search)})}
+    if(meal){const search={query:input.value,groups:[...selectedGroups],scroll:results.scrollTop};openTopMealActionMenu(null,meal.cat,meal,false,null,{...navigationOrigin,resumeDialog:()=>openMealSearch(search)})}
   }
   function updateResults(){
     results.replaceChildren();
     const q=normalizeSearchText(input.value);
-    if(!q)return;
-    const queryWords=searchWords(q);
+    if(!q&&!selectedGroups.size)return;
     const seen=new Set();
     const matches=meals.filter(m=>{
-      return mealMatchesSearch(m,q,matchWordOrder.checked);
+      return (!selectedGroups.size||selectedGroups.has(m.cat))&&(!q||mealMatchesSearch(m,q));
     }).filter(m=>{
       const key=m.linkGroup?'linked:'+m.linkGroup:'single:'+m.id;
       if(seen.has(key))return false;
@@ -1117,7 +1113,6 @@ function openMealSearch(saved=null){
   closeButton.onclick=closeSearch;
   shade.onclick=event=>{if(event.target===shade)closeSearch()};
   input.oninput=updateResults;
-  matchWordOrder.onchange=updateResults;
   input.onkeydown=event=>{
     if(event.key==='Enter'){
       const first=results.querySelector('button');
@@ -1125,7 +1120,7 @@ function openMealSearch(saved=null){
     }
   };
   header.append(title,closeButton);
-  panel.append(header,input,orderLabel,results);
+  panel.append(header,input,groupFilter,results);
   shade.append(panel);
   document.body.append(shade);
   document.addEventListener('keydown',onKeyDown);
