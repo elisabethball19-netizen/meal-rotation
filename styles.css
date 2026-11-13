@@ -1336,7 +1336,7 @@ body.recipe-bulk-select{--recipe-bulk-space:96px;}body.recipe-bulk-select .unifi
 #editor .ingredients-panel{margin-top:0;min-width:0;}
 #editor textarea,#editor input[type=search]{width:100%;min-width:0;box-sizing:border-box;}
 #editor input[type=search]{appearance:none;-webkit-appearance:none;min-height:42px;border:1px solid #ccc;border-radius:8px;padding:9px;background:#fff;color:inherit;font:inherit;}
-#editor input:focus-visible,#editor textarea:focus-visible{outline:2px solid #8a9271;outline-offset:1px;}
+#editor input:focus-visible,#editor textarea:focus-visible{outline:2px solid #888;outline-offset:1px;}
 #editor .meal-editor-linked-row{align-items:center!important;gap:8px!important;padding:6px 2px!important;min-width:0;}
 #editor .meal-editor-linked-row input{flex:0 0 20px;width:20px;height:20px;}
 #editor .meal-editor-linked-row span{flex:1;min-width:0;overflow-wrap:anywhere;}
@@ -1462,4 +1462,14 @@ body.recipe-bulk-select{--recipe-bulk-space:96px;}body.recipe-bulk-select .unifi
 .search-filter-toggle.active{color:#315ba8;background:#e9eef5;border-radius:9px;box-shadow:inset 0 0 0 1px #9baec8;}
 #recipeViewer>.recipe-current-step{position:fixed;left:max(16px,calc((100vw - 760px)/2 + 16px));bottom:calc(80px + env(safe-area-inset-bottom,0px));z-index:5;width:44px;height:44px;border:1px solid #dce2e9;border-radius:10px;background:#fff;color:#444;box-shadow:0 2px 7px #0002;}
 #recipeViewer>.recipe-current-step[hidden]{display:none;}
-body input:is([type=text],[type=url],[type=search],[type=number],:not([type])):focus,body textarea:focus,#editor input:is([type=text],[type=url],[type=search],[type=number],:not([type])):focus,#editor textarea:focus,#editor .meal-card-name-field input:focus,#editor .meal-card-time-field input:focus{outline:1px solid #8a9271;outline-offset:0;box-shadow:none;border-color:#8a9271;}
+body input:is([type=text],[type=url],[type=search],[type=number],:not([type])):focus,body textarea:focus,#editor input:is([type=text],[type=url],[type=search],[type=number],:not([type])):focus,#editor textarea:focus,#editor .meal-card-name-field input:focus,#editor .meal-card-time-field input:focus{outline:1px solid #888;outline-offset:0;box-shadow:none;border-color:#888;}
+
+/* Batch 4B: bounded selection summaries and standard labeled bulk actions. */
+.recipe-bulk-count,.recipe-bulk-selected-names{max-height:64px;overflow:auto;overflow-wrap:anywhere;overscroll-behavior:contain;}
+.recipe-bulk-actions .recipe-bulk-labeled-action{display:flex!important;flex-direction:column;gap:2px;font-size:12px;}
+#editor .meal-group-editor-heading{flex-wrap:wrap;}
+#editor .meal-group-editor-heading .meal-group-assigned-list{white-space:normal!important;overflow:auto!important;max-height:64px;text-overflow:clip!important;}
+#editor .meal-editor-linked-list{max-height:180px;overflow:auto;min-width:0;}
+#editor .meal-editor-linked-list label{display:flex;gap:8px;align-items:flex-start;min-width:0;overflow-wrap:anywhere;}
+#editor .meal-editor-linked-list .master-category-meal-name,#editor .meal-editor-linked-list .master-meal-info{min-width:0;overflow-wrap:anywhere;}
+[aria-label="Clear selected groups"][hidden]{display:none!important;}

@@ -472,6 +472,9 @@ function writeMasterGroupOrder(next,recordHistory=true){
 function restoreMasterGroupOrder(next){const value=validMasterGroupOrder(next)?next:null;return JSON.stringify(value)===JSON.stringify(masterGroupOrder)||writeMasterGroupOrder(value,false)}
 function renameMasterGroupOrder(old,next){return masterGroupOrder===null||!masterGroupOrder.includes(old)||writeMasterGroupOrder(masterGroupOrder.map(c=>c===old?next:c),false)}
 function removeMasterGroupOrder(category){return masterGroupOrder===null||!masterGroupOrder.includes(category)||writeMasterGroupOrder(masterGroupOrder.filter(c=>c!==category),false)}
+function weekdayOrderedGroups(){return [...new Set(orderedDays().flatMap(day=>masterDisplayCategories(day)))].filter(group=>cats.includes(group))}
+function weekdayGroupOrderNeedsReset(){const assigned=weekdayOrderedGroups(),set=new Set(assigned);return JSON.stringify(masterOrderedGroups(masterDisplayOrder()).filter(group=>set.has(group)))!==JSON.stringify(assigned)}
+function resetWeekdayGroupOrder(){const assigned=weekdayOrderedGroups(),set=new Set(assigned);return writeMasterGroupOrder([...assigned,...masterOrderedGroups(masterDisplayOrder()).filter(group=>!set.has(group))])}
 function currentMasterGroupOrder(){const shown=[...document.querySelectorAll('#list .master-category-card')].map(card=>card.dataset.category).filter(category=>cats.includes(category));return shown.length===cats.length?shown:masterOrderedGroups(masterDisplayOrder())}
 function installMasterGroupDragging(wrap,reset){
  const events=new AbortController(),signal=events.signal;let gesture=null,suppressClick=false;
@@ -494,7 +497,7 @@ function installMasterGroupDragging(wrap,reset){
    const final=accepted?drag.order:drag.before,top=drag.card.getBoundingClientRect().top;
    for(const category of final){const card=drag.nodes.find(card=>card.dataset.category===category);if(card){card.style.removeProperty('order');card.style.removeProperty('--group-closed-height');wrap.append(card)}}
    wrap.classList.remove('master-group-drag-active');drag.card.classList.remove('master-group-dragging');drag.ghost?.remove();
-   reset.hidden=masterGroupOrder===null;
+   reset.hidden=!weekdayGroupOrderNeedsReset();
    if(accepted&&changed){window.scrollBy({top:drag.card.getBoundingClientRect().top-top,behavior:'instant'})}else window.scrollTo({top:drag.originalScroll,behavior:'instant'});
    drag.focus?.isConnected&&drag.focus.focus({preventScroll:true});
   }
@@ -1041,9 +1044,9 @@ function openMealSearch(saved=null){
   const groupFilter=document.createElement('fieldset');
   groupFilter.style.cssText='margin:0;padding:8px;border:1px solid #ccc;border-radius:9px;max-height:150px;overflow-y:auto;flex-shrink:0';
   const legend=document.createElement('legend');legend.textContent='Meal groups';groupFilter.append(legend);
-  const clearGroups=document.createElement('button');clearGroups.type='button';clearGroups.className='smallbtn';clearGroups.textContent='Clear groups';
+  const clearGroups=document.createElement('button');clearGroups.type='button';clearGroups.className='iconbtn';setIconButton(clearGroups,'cancel','Clear selected groups');clearGroups.style.cssText='width:30px;height:30px;min-width:30px;min-height:30px;padding:4px;margin-left:auto';
   clearGroups.onclick=()=>{selectedGroups.clear();groupFilter.querySelectorAll('input').forEach(check=>check.checked=false);updateResults()};
-  groupFilter.append(clearGroups);
+  legend.style.cssText='display:flex;align-items:center;gap:8px;width:100%';legend.append(clearGroups);
   for(const group of cats){
     const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:8px;min-height:44px;font-size:15px;cursor:pointer';
     const check=document.createElement('input');check.type='checkbox';check.className='check';check.checked=selectedGroups.has(group);
@@ -1057,6 +1060,9 @@ function openMealSearch(saved=null){
   const results=document.createElement('div');
   results.setAttribute('aria-live','polite');
   results.style.cssText='overflow-y:auto;min-height:100px;flex:1;overscroll-behavior:contain';
+  const selectedRecipes=new Set();const bulk=document.createElement('button');bulk.type='button';bulk.className='smallbtn';bulk.hidden=true;bulk.setAttribute('aria-label','Bulk actions for selected recipes');
+  const updateSelection=()=>{bulk.hidden=!selectedRecipes.size;bulk.textContent='Bulk actions ('+selectedRecipes.size+')'};
+  bulk.onclick=()=>{if(!selectedRecipes.size)return;closeSearch();setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;recipeBulkMode=true;recipeBulkIds=new Set(selectedRecipes);render()};
   function fitSearch(){
     const vv=window.visualViewport;
     if(!vv)return;
@@ -1077,6 +1083,7 @@ function openMealSearch(saved=null){
     if(meal){const search={query:input.value,groups:[...selectedGroups],scroll:results.scrollTop};openTopMealActionMenu(null,meal.cat,meal,false,null,{...navigationOrigin,resumeDialog:()=>openMealSearch(search)})}
   }
   function updateResults(){
+    clearGroups.hidden=!selectedGroups.size;
     filterButton.classList.toggle('active',selectedGroups.size>0);filterButton.title=selectedGroups.size?'Meal group filters ('+selectedGroups.size+' active)':'Meal group filters';
     results.replaceChildren();
     const q=normalizeSearchText(input.value);
@@ -1111,7 +1118,8 @@ function openMealSearch(saved=null){
       button.append(name,meta);
       button.dataset.mealId=String(meal.id);
       button.onclick=()=>chooseMeal(meal.id);
-      results.append(button);
+      const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px';
+      const check=document.createElement('input');check.type='checkbox';check.className='check';check.setAttribute('aria-label','Select '+(meal.name||'Untitled meal'));check.checked=selectedRecipes.has(String(meal.id));check.onchange=()=>{if(check.checked)selectedRecipes.add(String(meal.id));else selectedRecipes.delete(String(meal.id));updateSelection()};row.append(check,button);results.append(row);
     });
   }
   function onKeyDown(event){if(event.key==='Escape'){event.preventDefault();closeSearch()}}
@@ -1125,7 +1133,7 @@ function openMealSearch(saved=null){
     }
   };
   header.append(title,closeButton);
-  panel.append(header,searchRow,groupFilter,results);
+  panel.append(header,searchRow,groupFilter,results,bulk);
   shade.append(panel);
   document.body.append(shade);
   document.addEventListener('keydown',onKeyDown);
