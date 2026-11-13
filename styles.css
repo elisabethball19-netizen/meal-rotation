@@ -1,0 +1,1313 @@
+
+:root{font-family:system-ui,-apple-system,sans-serif;color:#242424;background:#fff}*{box-sizing:border-box}body{margin:0;padding:16px 14px 88px;max-width:760px;margin-inline:auto}button,input,select{font:inherit}html,body,.meal,.mealbody,.section,.tabs,.tab-actions,.catmenu,.editor,.editor label,.times{ -webkit-user-select:none;user-select:none;-webkit-touch-callout:none} .mealname,.tab,.addcat,.iconbtn,.move,.smallbtn,.arrow{ -webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;-webkit-user-drag:none; }input,textarea,select{ -webkit-user-select:text;user-select:text;-webkit-touch-callout:default}button{cursor:pointer}.topicons{display:none}.iconbtn{border:0!important;background:transparent!important;padding:4px!important;width:36px;height:36px;display:grid;place-items:center;color:#333}.iconbtn svg{width:25px;height:25px;stroke:currentColor;stroke-width:1.8;fill:none}.iconbtn.active{color:#315ba8}.tabs{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}.tab-actions{display:flex;align-items:center;gap:2px;width:100%;margin-top:0}.tab{border:1px solid #ccc;border-radius:12px;background:#fff;padding:10px 14px;font-size:18px}.category-fold-icon{align-self:center;flex:0 0 36px}.category-fold-icon svg{width:28px;height:28px}.addcat{align-self:center;flex:0 0 36px;border:0!important;background:transparent!important;border-radius:0;padding:5px 8px;font-size:27px;line-height:1;min-width:36px;display:grid;place-items:center;color:#222}.tab.active{border-color:#5876ad;box-shadow:0 2px 7px rgba(44,68,112,.24),0 0 0 1px rgba(74,105,160,.28);font-weight:600}.catmenu{display:flex;align-items:center;gap:7px;flex-wrap:wrap;border:1px solid #ccc;border-radius:12px;padding:10px;margin:8px 0 16px;background:#f7f7f7}.arrow{width:42px;height:42px;min-width:42px;padding:5px;border:0!important;border-radius:0;background:transparent!important;display:grid;place-items:center}.arrow svg{width:20px;height:20px;display:block;stroke:#222;stroke-width:2;fill:none}.smallbtn{border:1px solid #ccc;border-radius:9px;background:#fff;padding:8px 10px;font-size:15px}body:has(.editor) .add-meal-floating{display:none!important}.add-meal-floating{position:fixed!important;right:max(16px,calc((100vw - 760px)/2 + 16px));bottom:16px;z-index:1000;box-shadow:0 3px 10px rgba(0,0,0,.16)!important;background:#fff!important;width:50px;height:50px;padding:0!important;display:grid;place-items:center;font-size:27px!important;font-weight:400;line-height:1;border-radius:12px!important}.section{font-size:12px;letter-spacing:.09em;color:#777;margin:20px 0 6px}.meal{touch-action:pan-y;display:flex;gap:10px;align-items:center;min-height:57px;padding:12px 2px;border-bottom:1px solid #ddd;margin-inline:-3px}.meal:has(.move){min-height:57px;padding-block:12px;padding-inline:2px;gap:2px}.move,.check{flex:0 0 32px;width:32px;height:32px}.move{border:0!important;border-radius:0;background:transparent!important;font-size:27px;line-height:1;color:#333;padding:0;display:grid;place-items:center}.meal:has(.move) .move{flex-basis:22px;width:22px;min-width:22px}.check{appearance:none;-webkit-appearance:none;flex:0 0 24px;width:24px;height:24px;border:1.5px solid #777;border-radius:5px;background:#fff;margin:0 4px;cursor:pointer}.check:checked{background:#333;border-color:#333;position:relative}.check:checked:after{content:"✓";display:block;color:#fff;font-size:17px;line-height:21px;text-align:center}.mealbody{min-width:0;flex:1}.mealname{user-select:none;-webkit-user-select:none;touch-action:manipulation;padding:0;border:0;background:transparent;text-align:left;font-size:18px;line-height:1.3;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}.tab,.addcat,.iconbtn,.move{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}.times{font-size:12px;color:#777;margin-top:3px}.editor{border:1px solid #ccc;border-radius:12px;padding:12px;margin:12px 0;background:#f7f7f7}.editor label{display:block;font-size:14px;margin:8px 0 4px}.editor input[type=text],.editor input[type=number],.editor select{width:100%;padding:9px;border:1px solid #ccc;border-radius:8px;background:#fff}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:7px;margin-top:12px}.actions button{flex:1;padding:8px 4px;border:1px solid #ccc;border-radius:9px;background:white}.muted{color:#777;font-size:12px}.ingredients-panel{margin-top:8px}#toggleIngredients{margin-top:8px}.ingredients-input{width:100%;min-height:120px;padding:9px;border:1px solid #ccc;border-radius:8px;background:#fff;font:inherit;user-select:text;-webkit-user-select:text}.settings-panel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px;margin:8px 0 12px;border:1px solid #ddd;border-radius:10px;background:#f7f7f7}.settings-panel button{border:1px solid #ccc;border-radius:8px;background:white;padding:8px 10px;font-size:14px}.shopmeal{display:flex;align-items:center;gap:10px;padding:8px 2px}.shopmeal input{width:20px;height:20px;flex:0 0 20px}.hidden{display:none!important}.ingredients-input{width:100%;min-height:120px;padding:9px;border:1px solid #ccc;border-radius:8px;background:#fff;font:inherit;resize:vertical}.shopmeal{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid #ddd;font-size:17px}.shopmeal input{width:22px;height:22px}.shopgroup{font-size:12px;letter-spacing:.09em;color:#777;margin:20px 0 6px}
+/* My Rotation: each category label + meal row occupies the same 57px interval
+   as one regular meal row, so divider-to-divider spacing matches. */
+#list.top-summary .section{margin:8px 0 0;padding-top:8px;border-top:1px solid #ddd;line-height:15px;height:auto;min-height:23px;font-size:12px}
+#list.top-summary > .top-controls{border-bottom:0;padding-bottom:10px;margin-bottom:0}
+#list.top-summary .section:not(:first-child){margin-top:8px}
+#list.top-summary .meal{touch-action:pan-y;display:flex;gap:10px;align-items:center;height:34px;min-height:34px;padding:5px 2px;border-bottom:0;margin-inline:-3px}
+#list.top-summary .mealname{display:block;font-size:18px;line-height:1.3;margin:0;padding:0 0 12px}#list.top-summary .top-recipe-wrap > .meal{padding-left:14px!important;margin-left:0!important}
+#list.top-summary .top-recipe-wrap:has(.top-recipe-ingredients) > .meal{border-bottom:0}
+#list.top-summary .top-recipe-ingredients{border-bottom:0!important}
+#list.top-summary .top-ingredient-arrow svg{width:20px;height:20px;display:block;stroke:#555;stroke-width:2;fill:none}
+/* When cooking times are shown, keep My Rotation as compact as category rows.
+   Scope these changes to timed My Rotation, leaving untimed rows untouched. */
+#list.top-summary .meal:has(.times){height:auto;min-height:44px;padding:3px 2px 4px}
+#list.top-summary .top-recipe-wrap .meal:has(.top-inline-linked){height:auto!important;min-height:56px!important;padding-top:6px!important;padding-bottom:6px!important;align-items:center}
+#list.top-summary .top-recipe-wrap .meal:has(.top-inline-linked) .mealname{padding-bottom:0!important;margin-bottom:0!important}
+/* Match the weekday-to-meal spacing for cards with an inline linked recipe. */
+#list.top-summary .section:has(+ .top-recipe-wrap .top-inline-linked){padding-bottom:3px!important;padding-top:7px!important;min-height:0!important;}
+#list.top-summary .section + .top-recipe-wrap:has(.top-inline-linked) > .meal{padding-top:0!important;padding-bottom:5px!important;min-height:43px!important;}
+/* Inline linked recipes stay inside their weekday card, directly beneath the main meal. */
+#list.top-summary .meal:has(.top-inline-linked){height:auto;min-height:49px;padding-top:3px;padding-bottom:5px}
+#list.top-summary .meal:has(.top-inline-linked) .mealname{padding-bottom:0}
+#list.top-summary .top-inline-linked{margin-top:2px!important;line-height:1.25}
+#list.top-summary .top-inline-linked button{text-decoration:none!important}
+
+#list.top-summary .meal:has(.times) .mealname{padding-bottom:0}
+#list.top-summary .meal:has(.times) .times{margin-top:3px;line-height:1.2}
+#list.top-summary:has(.meal .times) .section{padding:5px 12px!important;min-height:0}
+.tab, #list .section, .shopgroup, .top-groceries > button { text-transform: uppercase; }
+/* Keep the ingredient-import and rotation checkboxes precisely aligned. */
+.editor .meal-checkbox-option{display:flex;align-items:center;gap:8px;margin:10px 0 6px;font-size:14px}
+.editor .meal-checkbox-option input[type="checkbox"]{width:19px;height:19px;flex:0 0 19px;margin:0}
+
+/* Ingredient entry: compact collapsed control and adjacent import buttons. */
+.ingredient-toolrow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:8px 0 10px}
+.ingredient-toolrow #hideIngredients{margin:0}
+.ingredient-tool{width:40px;height:40px;flex:0 0 40px;border:1px solid #ccc;border-radius:9px;background:#fff;color:#333;padding:7px;display:grid;place-items:center}
+.ingredient-tool svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+#ingredientsClosed{margin-top:8px}
+#ingredientsClosed #toggleIngredients{margin-top:0}
+#ingredientsPanel{margin-top:4px}
+#ingredientsPanel #ingredientsLabel{margin-top:6px}
+#ingredientsPanel .ingredients-input{display:block}
+/* Keep Prep, Total, and Marinate times together even on a narrow phone. */
+.time-editor-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.time-editor-grid .time-prep{grid-column:auto}
+.time-editor-grid > div{min-width:0}
+.time-editor-grid label{font-size:12px;white-space:nowrap}
+.time-editor-grid input{min-width:0;width:100%;padding:9px 6px;font-size:16px}
+.time-editor-grid input::placeholder{font-size:13px}
+.time-keyboard-tools{display:flex;justify-content:flex-end;margin-top:4px}
+.time-keyboard-tools button{border:1px solid #ccc;border-radius:7px;background:#fff;color:#444;font-size:12px;padding:3px 10px;min-height:26px}
+
+/* Multiple meal categories share the weekday color, with room for their labels. */
+#list.top-summary .meal.multi-category-meal{height:auto!important;min-height:56px!important;padding:7px 2px!important;}
+#list.top-summary .meal.multi-category-meal .mealname{padding:0!important;}
+#list.top-summary .top-recipe-wrap:has(.multi-category-meal){padding-bottom:2px;}
+/* Align meal names in multi-category days with single-category weekdays. */
+#list.top-summary .top-recipe-wrap > .meal.multi-category-meal{padding-left:14px!important;padding-right:2px!important;}
+/* Short settings sections do not need a separate expand action. */
+.settings-flat-group{border:1px solid #ddd;border-radius:10px;background:#f7f7f7;width:100%;padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+.settings-flat-group>strong{font-size:15px;font-weight:600;}
+.settings-flat-content{display:flex;flex-direction:column;gap:9px;}
+.meal-plan-menu{margin:0 2px 10px;}
+#planSettingsPanel{margin:4px 2px 14px;}
+/* Compact, independently collapsible Settings sections. */
+.settings-sections{display:flex;flex-direction:column;gap:8px;width:100%;}
+.settings-group{border:1px solid #ddd;border-radius:10px;background:#f7f7f7;width:100%;overflow:hidden;}
+.settings-group > summary{list-style:none;display:flex;align-items:center;gap:8px;cursor:pointer;padding:12px 14px;font-weight:600;font-size:15px;user-select:none;-webkit-user-select:none;}
+.settings-group > summary::-webkit-details-marker{display:none;}
+.settings-group > summary::marker{content:"";}
+.settings-group > summary .settings-chevron{width:24px;height:24px;display:block;flex:0 0 24px;margin-left:auto;stroke:#555;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:transform .12s ease;}
+.settings-group[open] > summary .settings-chevron{transform:rotate(180deg);}
+.settings-group-content{display:flex;flex-direction:column;gap:8px;padding:0 12px 12px;min-width:0;}
+.settings-group-content > .weekday-assignment{flex:0 0 auto;}
+.settings-backup-controls{display:flex;flex-wrap:wrap;gap:8px;}
+
+
+.meal-plan-tabs{display:flex;align-items:stretch;gap:5px;overflow-x:auto;max-width:100%;padding:6px 2px 0;margin:2px 0 12px;border-bottom:1px solid #ccc;scrollbar-width:thin;}
+.meal-plan-tab{display:flex;align-items:center;gap:1px;flex:0 0 auto;background:#f1f1f1;border:1px solid #d6d6d6;border-radius:11px 11px 0 0;border-bottom:0;min-height:41px;padding:0 3px;}
+.meal-plan-tab.selected{background:#fff;border-color:#c7cdd3;box-shadow:inset 0 2px 0 #a3b4c5;}
+.meal-plan-tab.selected .meal-plan-tab-name{font-weight:600;color:#28323b;}
+.meal-plan-tab-name{border:0;background:transparent;min-height:39px;padding:6px 8px;font-size:14px;max-width:135px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.meal-plan-tab-action{border:0;background:transparent;color:#555;font-size:19px;min-width:26px;min-height:34px;padding:0 3px;}
+.meal-plan-add{font-size:27px;border:0;background:transparent;min-width:40px;flex:0 0 40px;}
+.settings-footer{position:sticky;bottom:0;z-index:5;background:#f7f7f7;width:100%;display:flex;justify-content:space-around;align-items:center;gap:12px;margin-top:12px;padding:12px 2px 0;border-top:0;}
+.settings-footer button{flex:1;border:0!important;background:transparent!important;color:#333;min-height:46px;display:grid;place-items:center;}
+.settings-footer button svg{width:28px;height:28px;}
+.category-button-row{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 14px;width:100%;}
+#tabs{display:flex;flex-direction:column;align-items:stretch;gap:0;}
+#tabs>.tab-actions{order:0;}#tabs>#settingsPanel{order:1;}#tabs>.category-button-row{order:2;}
+#list>.category-button-row{margin:1px 0 12px;}
+.category-button-row>.catmenu{width:100%;}
+.master-grocery-list{overflow-y:auto;min-height:0;flex:1;padding-right:3px;}
+.master-grocery-item{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid #eee;font-size:16px;}
+.master-grocery-item input{width:21px;height:21px;margin:1px 0 0;flex:0 0 21px;}
+
+/* The My Rotation/Category switch is a recognizable raised button. */
+.tab-actions .view-switch{border:1px solid #b9c7d8!important;background:#edf3fa!important;border-radius:10px!important;box-shadow:0 2px 5px rgba(37,56,85,.27)!important;width:43px;height:41px;padding:5px!important;margin-right:5px;}
+.tab-actions .view-switch:active{background:#dbe6f5!important;box-shadow:inset 0 1px 3px #a9bad3!important;}
+.meal-plan-grocery{margin:12px 3px 35px;}
+.meal-plan-grocery h2{font-size:20px;margin:4px 0 10px;}
+ .meal-plan-grocery .master-grocery-list{overflow:visible;max-height:none;}
+.master-grocery-plan-filters{display:flex;flex-wrap:wrap;gap:8px 17px;margin:10px 0 14px;padding:12px 0;border-bottom:1px solid #dedede;}
+.master-grocery-plan-filters strong{display:block;flex:0 0 100%;font-size:14px;}
+.meal-plan-grocery > .top-controls{display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:0;border:0;background:transparent;}
+.meal-plan-grocery > .top-controls .iconbtn{flex:0 0 36px;}
+.master-grocery-plan-filters label{display:inline-flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;}
+.master-grocery-plan-filters input{width:19px;height:19px;margin:0;}
+.master-grocery-fab svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+/* Two distinct floating view switches. Grocery occupies the usual + button spot. */
+body:has(#list.top-summary) .master-grocery-fab{bottom:calc(16px + env(safe-area-inset-bottom,0px));}
+body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inset-bottom,0px));}
+.all-meals-fab svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.all-meals-fab.active{color:#315ba8;border-color:#8da3bc;background:#edf3fa!important;}
+.master-grocery-fab.active{color:#315ba8;border-color:#8da3bc;background:#edf3fa!important;}
+
+.category-delete-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;align-items:center;justify-content:stretch!important;width:100%!important;}
+.category-delete-actions>button{width:100%!important;min-width:0!important;height:52px!important;display:grid!important;place-items:center!important;margin:0!important;border:0!important;background:transparent!important;}
+/* Match the minimal upper toolbar: no separate card, border, or shadow. */
+#list.top-summary > .top-controls{
+ position:static!important;
+ transform:none!important;
+ width:100%;max-width:none;
+ z-index:auto;margin:6px 0 8px!important;
+ padding:0!important;
+ border:0!important;
+ background:transparent!important;
+ box-shadow:none!important;
+ border-radius:0!important;
+ display:flex;flex-wrap:nowrap!important;
+ align-items:center;
+ justify-content:flex-start!important;gap:2px!important;
+ overflow-x:auto;scrollbar-width:none;
+}
+#list.top-summary > .top-controls::-webkit-scrollbar{display:none}
+#list.top-summary > .top-controls > button{flex-shrink:0}
+#list.top-summary{padding-bottom:5px;}
+.all-meals-overview{margin:10px 2px 90px;}
+.all-meals-overview h2{font-size:20px;}
+.all-meals-day{border-radius:11px;margin:0 0 12px;overflow:hidden;padding:12px 14px 10px;}
+.all-meals-day h3{text-transform:uppercase;font-size:12px;font-weight:500;letter-spacing:.08em;color:#666;margin:0 0 6px;}
+.all-meals-entry{border-bottom:1px solid rgba(60,60,60,.12);padding:9px 0;}
+.all-meals-entry:last-child{border-bottom:0;}
+.all-meals-meal-row{display:flex;gap:10px;align-items:center;min-height:42px;}
+.all-meals-plan-label{font-size:13px;color:#59606c;font-weight:550;flex:0 0 77px;overflow-wrap:anywhere;}
+.all-meals-meal-content{min-width:0;flex:1;}
+.all-meals-meal-content .mealname{font-size:16px;text-align:left;line-height:1.28;}
+.all-meals-meal-content .times{margin-top:4px;}
+.all-meals-expand{flex:0 0 30px;width:30px;height:36px;border:0;background:transparent;display:grid;place-items:center;color:#555;padding:0;}
+.all-meals-expand svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.all-meals-empty{display:flex;gap:10px;align-items:center;color:#777;font-size:14px;}
+.all-meals-empty strong{flex:0 0 77px;color:#59606c;font-size:13px;font-weight:550;}
+.all-meals-ingredients{padding:5px 3px 4px 86px;}
+.all-meals-ingredient{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:14px;color:#555;}
+.all-meals-ingredient input{width:20px;height:20px;flex:0 0 20px;margin:0;}
+#list.top-summary .meal-plan-grocery{margin-bottom:95px;}
+
+/* Category view shows one color-coordinated dropdown, never the pinned tabs. */
+.category-picker-row{align-items:center;flex-wrap:wrap;gap:8px;margin:9px 0 13px;}
+.category-picker{flex:1 1 170px;min-width:0;max-width:100%;height:45px;border:1px solid #b8bec6;border-radius:11px;padding:7px 34px 7px 13px;font:600 17px system-ui,-apple-system,sans-serif;color:#242424;box-shadow:0 1px 3px rgba(0,0,0,.07);cursor:pointer;}
+.category-picker option{font-weight:400;}
+.category-picker-row .category-manage{flex:0 0 38px;width:38px;height:40px;}
+.category-picker-row .addcat{flex:0 0 36px;margin-left:0;}
+.category-picker-row .catmenu{flex:0 0 100%;margin:0 0 4px;}
+/* Keep My Rotation pinned buttons in their own view only. */
+
+/* Category management: direct rename/delete actions and compact master view. */
+.category-picker-row .category-direct-action{flex:0 0 38px;width:38px;height:42px;}
+.top-add-category{font-size:27px!important;line-height:1;font-weight:400;}
+/* Larger, easier-to-tap Add Group button beside meal-plan tabs. */
+.tab-actions .top-add-group{width:36px!important;min-width:36px;height:36px!important;padding:4px!important;font-size:28px!important;font-weight:400;line-height:1;display:grid;place-items:center;touch-action:manipulation;}
+.master-categories{display:flex;flex-direction:column;gap:10px;padding-bottom:80px;}
+.master-categories-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.master-categories-heading h2{font-size:19px;font-weight:650;}
+.master-expansion-controls{display:flex;align-items:center;gap:4px}.master-add-group{font-size:28px!important;font-weight:400;line-height:1}.master-expansion-controls .iconbtn{width:35px;height:35px;min-width:35px;}
+.master-hidden-categories-toggle{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin:14px 0;padding:13px;border:1px solid #d4d4d4;border-radius:12px;background:#fff;color:#333;font:inherit;cursor:pointer;}
+.master-hidden-categories-toggle svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round;}
+.master-categories-actions{display:flex;gap:5px;flex-wrap:wrap;}
+.master-categories-actions button{background:#fff;border:1px solid #d1d1d1;border-radius:8px;font-size:13px;padding:6px 8px;}
+.master-category-card{border:1px solid #d8dce1;border-radius:12px;overflow:clip;background:#fff;}
+
+/* Group drags keep the held node attached; expansion state is never changed. */
+.master-category-card{touch-action:pan-y pinch-zoom;}
+.master-group-drag-active{overflow-anchor:none;}
+.master-group-drag-active>.master-category-card{height:var(--group-closed-height);overflow:hidden;flex-shrink:0;}
+.master-group-drag-active>.master-category-card>.master-category-header{position:relative;top:auto;}
+.master-group-dragging{opacity:.35;}
+.master-group-drag-ghost{box-shadow:0 3px 12px #0003;outline:1px solid #9bacc5;}
+.master-order-reset{align-self:flex-start;min-height:44px;margin:-6px 2px 0;padding:6px 2px;border:0;background:transparent;color:#637080;font:12px/1.4 system-ui;text-decoration:underline;cursor:pointer;}
+.master-order-reset[hidden]{display:none;}
+
+.master-category-card>.master-category-header{position:sticky;top:0;z-index:8;border-radius:11px 11px 0 0;}
+.master-category-header{display:flex;align-items:center;gap:4px;padding:6px 6px 6px 10px;min-height:50px;}
+.master-category-title{display:flex;align-items:center;gap:10px;min-width:0;flex:1;text-align:left;background:transparent;border:0;padding:5px 1px;color:inherit;}
+.master-category-title svg{width:18px;height:18px;flex:0 0 18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.master-category-title strong{font-size:16px;overflow-wrap:anywhere;}
+.master-category-count{color:#646a74;font-size:12px;white-space:nowrap;}
+.master-category-meals{padding:0 12px 10px;border-top:1px solid #e2e2e2;}
+.master-category-group-label{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;margin:10px 0 0;padding:8px 10px;border:0;border-radius:7px;background:#f2f3f1;color:#555;font-size:13px;font-weight:600;letter-spacing:.02em;text-align:left;touch-action:manipulation;}
+.master-recipe-section[data-recipe-section="ideas"]>.master-category-group-label{margin-top:16px;}
+.master-category-group-label svg{width:16px;height:16px;flex:0 0 16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.master-recipe-section-name{flex:1;min-width:0;overflow-wrap:anywhere;}
+.master-recipe-section-count{margin-left:auto;font-size:12px;font-weight:500;color:#69717a;}
+.master-recipe-section[data-recipe-section="rotation"] .master-category-meal:last-child{border-bottom:1px solid #eee;}
+.master-category-meal{display:flex;gap:5px;align-items:center;border-bottom:1px solid #eee;min-height:45px;padding:5px 0;}
+.master-category-meal:last-child{border-bottom:0;}
+.recipe-section-move{margin-block:-5px;flex:0 0 44px;width:44px;height:44px;min-width:44px;padding:0;border:0;background:transparent;color:#777;display:grid;place-items:center;touch-action:manipulation;}
+.recipe-section-move svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.master-category-meal .recipe-section-move{margin-left:auto;}
+.master-category-meal .recipe-section-move+.master-meal-weekdays{margin-left:0;}
+.master-category-meal.featured-top-meal .recipe-section-move[aria-label$=" to Ideas"] svg{transform:translateX(5px);}
+.master-category-meal.featured-top-meal{padding-left:13px;}
+.master-category-meal-name{min-width:0;flex:1;text-align:left;background:none;border:0;font-size:15px;color:#242424;padding:5px 0;overflow-wrap:anywhere;}
+.master-category-meal .check{width:20px;height:20px;flex:0 0 20px;margin:0 5px 0 0;}
+.master-category-meal .iconbtn{flex:0 0 32px;width:32px;height:34px;min-width:32px;}
+.master-category-meal .iconbtn svg{width:21px;height:21px;}
+.master-category-meal .move{flex:0 0 19px;width:19px;min-width:19px;padding:0;border:0;background:transparent;font-size:24px;line-height:1.1;}
+.master-category-header{transition:background-color .1s;}
+.master-category-reorder{display:flex;align-items:center;gap:2px;flex:0 0 auto}.master-category-reorder .iconbtn{width:34px;height:36px}.master-category-reorder .iconbtn svg{width:23px;height:23px}
+/* Fixed badge widths align arrows while retaining every scheduled weekday. */
+.master-category-meal .master-meal-weekdays{font-size:11px;font-weight:600;letter-spacing:.02em;color:#5c6670;white-space:normal;flex:0 0 2.6em;width:2.6em;text-align:right;margin-left:auto;margin-right:8px;align-self:center;}
+.master-category-meal .master-weekday-token{display:block;}
+.master-category-meal .master-weekday-separator{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
+.master-category-meal .master-meal-weekdays + .linked-meal-dot{margin-left:0;}
+.master-category-meal .linked-meal-dot{font-size:21px;color:#697383;padding:0 2px;}
+/* Inset shared-recipe markers from the right edge without moving other controls. */
+.master-category-meal .linked-meal-dot{margin-right:14px;flex:0 0 auto;}
+.master-categories-actions{display:flex;gap:3px;}
+.master-categories-actions .iconbtn svg{width:26px;height:26px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+/* Keep Expand All and Collapse All aligned in one horizontal row. */
+.master-categories-actions{flex-wrap:nowrap;align-items:center;flex-shrink:0;}
+.master-categories-actions .iconbtn{flex:0 0 36px;width:36px;height:36px;}
+
+/* Meal Groups: keep the existing Home action accessible as a floating button. */
+body:has(.master-categories) #summary{
+ position:fixed!important;
+ right:max(16px,calc((100vw - 760px)/2 + 16px));
+ bottom:calc(16px + env(safe-area-inset-bottom,0px));
+ z-index:1000;
+ width:50px;height:50px;
+ border:1px solid #b9c7d8!important;
+ border-radius:12px!important;
+ background:#fff!important;
+ box-shadow:0 3px 10px rgba(0,0,0,.16)!important;
+ padding:10px!important;
+}
+body:has(.master-categories) #summary svg{width:28px;height:28px;}
+body:has(.master-categories):has(.editor) #summary{display:none!important;}
+/* Floating navigation in both views, above the optional My Rotation view buttons. */
+body:has(#list.top-summary) #summary{position:fixed!important;right:max(16px,calc((100vw - 760px)/2 + 16px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:1001;width:50px;height:50px;border:1px solid #8fa9cb!important;border-radius:12px!important;background:#edf3fa!important;box-shadow:0 4px 12px rgba(37,56,85,.27)!important;padding:10px!important;margin:0!important;}
+body:has(#list.top-summary) #summary svg{width:28px;height:28px;}
+body:has(#list.top-summary):has(.master-grocery-fab) #summary{bottom:calc(138px + env(safe-area-inset-bottom,0px));}
+body:has(#list.top-summary):has(.editor) #summary{display:none!important;}
+body:has(.master-categories) #summary{background:#edf3fa!important;border-color:#8fa9cb!important;box-shadow:0 4px 12px rgba(37,56,85,.27)!important;}
+
+/* Align the floating navigation vertically, with Home at the top. */
+body:has(.master-categories) #summary,
+body:has(.master-categories) .all-meals-fab,
+body:has(.master-categories) .master-grocery-fab,
+body:has(#list.top-summary) .overview-home-fab,
+body:has(#list.top-summary) .all-meals-fab,
+body:has(#list.top-summary) .master-grocery-fab{
+ right:max(16px,calc((100vw - 760px)/2 + 16px))!important;
+ width:50px!important;height:50px!important;
+}
+body:has(.master-categories) #summary{bottom:calc(138px + env(safe-area-inset-bottom,0px))!important;}
+body:has(.master-categories) .all-meals-fab{bottom:calc(77px + env(safe-area-inset-bottom,0px))!important;}
+body:has(.master-categories) .master-grocery-fab{bottom:calc(16px + env(safe-area-inset-bottom,0px))!important;}
+body:has(#list.top-summary) .overview-home-fab{bottom:calc(138px + env(safe-area-inset-bottom,0px))!important;}
+body:has(#list.top-summary) .all-meals-fab{bottom:calc(77px + env(safe-area-inset-bottom,0px))!important;}
+body:has(#list.top-summary) .master-grocery-fab{bottom:calc(16px + env(safe-area-inset-bottom,0px))!important;}
+/* Keep each complete time value and label together when wrapping. */
+.times .time-segment{display:inline-block;white-space:nowrap}
+.times .time-separator{white-space:normal}
+/* Keep all floating view controls stacked in each view. */
+body:has(.master-categories) .master-grocery-fab{bottom:calc(77px + env(safe-area-inset-bottom,0px))}
+body:has(.master-categories) .all-meals-fab{bottom:calc(138px + env(safe-area-inset-bottom,0px))}
+body:has(#list.top-summary) .overview-home-fab{bottom:calc(199px + env(safe-area-inset-bottom,0px));background:#edf3fa!important;border:1px solid #8fa9cb!important;color:#315ba8}
+body:has(#list.top-summary):has(.overview-home-fab) #summary{display:none!important}
+.all-meals-plan-label[role=link],.all-meals-meal-content .mealname{cursor:pointer}
+
+/* Unified four-button floating navigation across all four views. */
+#summary{display:none!important}
+.unified-nav-fab{right:max(14px,calc((100vw - 760px)/2 + 14px))!important;width:44px!important;height:44px!important;border:1px solid #cbd2d9!important;background:#fff!important;box-shadow:0 2px 6px #0002!important;border-radius:11px!important;padding:9px!important;color:#333!important;z-index:1002!important}
+.unified-nav-fab svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+body:has(.editor) .unified-nav-fab{display:none!important}
+.unified-nav-fab.current-view{background:#edf3fa!important;border-color:#7294c2!important;color:#315ba8!important;box-shadow:0 2px 7px rgba(49,91,168,.22),inset 0 0 0 1px #7294c2!important}
+.all-meals-entry{padding:5px 0!important}.all-meals-meal-row{min-height:32px!important}.all-meals-day{padding-top:10px!important;padding-bottom:7px!important}.all-meals-day h3{margin-bottom:3px!important}
+/* Overview pages do not display pinned category shortcuts. */
+body.overview-without-category-pins #categoryButtons{display:none!important;}
+/* Vertically center each plan label and meal without centering text horizontally. */
+.all-meals-entry{display:block;}
+.all-meals-meal-row{display:flex;align-items:center;}
+.all-meals-plan-label{align-self:auto;text-align:left;}
+.all-meals-empty{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;min-height:42px;}
+.all-meals-empty strong{align-self:auto;text-align:left;}
+.all-meals-empty span{flex:1;min-width:0;text-align:left;}
+/* Overview divider belongs below the toolbar, not below meal-plan filters. */
+.meal-plan-grocery .master-grocery-plan-filters{border-bottom:0;margin-bottom:4px;padding-bottom:4px;}
+.meal-plan-grocery > .top-controls{border-bottom:1px solid #dedede!important;padding-bottom:12px!important;margin-bottom:12px!important;}
+body:has(.all-meals-overview) #list > .top-controls{border-bottom:1px solid #dedede!important;padding-bottom:12px!important;margin-bottom:12px!important;}
+/* Keep plan labels and recipe names on the same vertical centerline. */
+.all-meals-day .all-meals-entry{display:flex!important;align-items:center!important;min-height:48px!important;padding:4px 0!important;}
+.all-meals-day .all-meals-meal-row{width:100%;min-height:40px!important;display:flex!important;align-items:center!important;}
+.all-meals-day .all-meals-meal-content{display:flex;flex-direction:column;justify-content:center;align-self:stretch;}
+.all-meals-day .all-meals-meal-content .mealname{margin:0!important;padding:0!important;align-self:stretch;text-align:left!important;}
+.all-meals-day .all-meals-empty{width:100%;min-height:40px!important;align-items:center!important;}
+/* Allow the last category and its controls to scroll clear of the four floating navigation buttons. */
+body{padding-bottom:calc(310px + env(safe-area-inset-bottom, 0px));}
+
+/* Shared heading and toolbar layout for both overview pages. */
+.meal-plan-grocery,.all-meals-overview{margin:12px 3px 90px;}
+.meal-plan-grocery > h2,.all-meals-overview > h2{font-size:20px;line-height:1.3;margin:4px 0 10px;text-align:left;font-weight:700;}
+.meal-plan-grocery > .top-controls,.all-meals-overview > .top-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 12px!important;padding:0 0 12px!important;border:0!important;border-bottom:1px solid #dedede!important;background:transparent;}
+.meal-plan-grocery > .top-controls .iconbtn,.all-meals-overview > .top-controls .iconbtn{flex:0 0 36px;}
+.meal-plan-grocery .master-grocery-plan-filters{margin:0 0 10px;padding:0;border:0;}
+.meal-last-cooked{font-size:12px;color:#69717a;margin-top:4px;line-height:1.35;cursor:pointer;display:block;max-width:max-content}
+.meal-last-cooked:focus-visible{outline:2px solid #6484b5;border-radius:3px}
+.master-meal-info{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+.master-category-meal:not(.featured-top-meal)>.master-meal-info{padding-left:13px;}
+.master-meal-info .master-category-meal-name{max-width:100%;text-align:left}
+.master-meal-info>.times{max-width:100%;line-height:1.35;}
+.master-meal-info>.times .time-segment{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+
+.recipe-related-buttons{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:6px 0 16px}
+.recipe-related-buttons .smallbtn{margin:0!important;min-height:44px;display:inline-flex;align-items:center;text-align:left;padding:9px 12px}
+.settings-group-content>.settings-display-option{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;margin:0;padding:8px 6px;font-size:14px;line-height:1.4}
+.settings-display-option input[type=checkbox]{flex:0 0 auto;margin:0;width:19px;height:19px}
+/* Compact Display rows retain their existing 44px label touch targets. */
+.settings-group[data-settings-group="display"]>.settings-group-content{gap:0}
+.settings-group[data-settings-group="display"] .meal-text-size-setting{padding-bottom:4px}
+.settings-group-content>.settings-display-option-with-help{align-items:flex-start}
+.settings-display-option-with-help input[type=checkbox]{margin-top:2px}
+.settings-display-option-copy{flex:1;min-width:0}
+.settings-display-option-help{display:block;margin-top:4px;font-size:12px;line-height:1.4;color:#666}
+
+.settings-group>summary{min-height:56px}
+
+/* Unified confirmation actions throughout the app. */
+.meal-unified-actions{display:flex!important;align-items:center!important;justify-content:space-evenly!important;gap:16px!important;}
+.meal-unified-actions>button{border:0!important;background:transparent!important;box-shadow:none!important;border-radius:0!important;min-width:44px!important;min-height:44px!important;padding:6px!important;display:grid!important;place-items:center!important;color:inherit!important;}
+
+/* Compact group navigation replaces the retired shortcut row. */
+.clickable-group-heading{display:block;width:max-content;max-width:100%;border:0;background:transparent;padding:0 3px 0 0;margin:0 0 3px;color:#666;font:inherit;font-size:12px;letter-spacing:.04em;text-transform:uppercase;text-align:left;cursor:pointer;touch-action:manipulation}
+.clickable-group-heading:focus-visible{outline:2px solid #6f8aab;outline-offset:3px;border-radius:2px}
+#categoryButtons{display:none!important}
+
+/* Unified headings and separators across the app views. */
+#list .view-page-title,#list .master-categories-heading h2,#list .meal-plan-grocery > h2,#list .all-meals-overview > h2{font-size:20px;line-height:1.3;font-weight:700;text-align:left;}
+#list .master-categories-heading{border-bottom:1px solid #dedede;}
+#list .top-controls:has(.rotation-action-pair){border-bottom:1px solid #dedede;padding-bottom:12px;margin-bottom:14px!important;}
+
+/* Accessible text-size preference. Icons and navigation geometry stay unchanged. */
+body[data-meal-text-size="large"]{--meal-text-factor:1.13}
+body[data-meal-text-size="extra"]{--meal-text-factor:1.27}
+body[data-meal-text-size="normal"]{--meal-text-factor:1}
+body[data-meal-text-size] .mealname,
+body[data-meal-text-size] .top-recipe-name,
+body[data-meal-text-size] .top-meal-name,
+body[data-meal-text-size] .top-recipe-wrap .mealname,
+body[data-meal-text-size] .grocery-item,
+body[data-meal-text-size] .shopmeal,
+body[data-meal-text-size] .tab,
+body[data-meal-text-size] .meal-plan-tab,
+body[data-meal-text-size] .category-name,
+body[data-meal-text-size] .weekday-meal-name{font-size:calc(18px * var(--meal-text-factor))!important}
+body[data-meal-text-size] .top-inline-linked,
+body[data-meal-text-size] .times,
+body[data-meal-text-size] .section,
+body[data-meal-text-size] .muted,
+body[data-meal-text-size] .weekday-day-label{font-size:calc(13px * var(--meal-text-factor))!important}
+body[data-meal-text-size] .editor label,
+body[data-meal-text-size] .settings-group-content,
+body[data-meal-text-size] .settings-display-option,
+body[data-meal-text-size] .shopgroup{font-size:calc(14px * var(--meal-text-factor))!important}
+body[data-meal-text-size] .editor input,
+body[data-meal-text-size] .editor select,
+body[data-meal-text-size] .editor textarea,
+body[data-meal-text-size] .smallbtn:not(.iconbtn),
+body[data-meal-text-size] .meal-plan-grocery label,
+body[data-meal-text-size] .top-recipe-wrap{font-size:calc(16px * var(--meal-text-factor))!important}
+body[data-meal-text-size] .view-page-title,
+body[data-meal-text-size] .master-categories-heading h2{font-size:calc(20px * var(--meal-text-factor))!important}
+.meal-text-size-setting{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:5px 6px 10px}
+.meal-text-size-setting label{font-weight:600}
+.meal-text-size-setting select{min-height:42px;padding:8px 12px;border:1px solid #ccc;border-radius:9px;background:white;font:inherit}
+
+/* Consistent page hierarchy: toolbar, title, controls, divider, content. */
+#list.top-summary > .top-controls:has(.rotation-action-pair){border-bottom:0!important;padding-bottom:0!important;margin-bottom:4px!important;}
+#list .view-page-title + .top-controls{border:0!important;}
+#list .view-page-title{border-bottom:1px solid #dedede;}
+#list .meal-plan-grocery{margin-top:12px;}
+#list .meal-plan-grocery > h2{margin:4px 0 12px!important;}
+#list .meal-plan-grocery .master-grocery-plan-filters{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;row-gap:8px;padding-bottom:12px!important;border-bottom:1px solid #dedede!important;margin-bottom:14px!important;}
+#list .meal-plan-grocery .master-grocery-plan-filters .grocery-choose-meals{flex:0 0 auto;white-space:nowrap;}
+#list .meal-plan-grocery .master-grocery-plan-filters .grocery-inline-actions{display:flex!important;align-items:center!important;flex:0 0 auto;gap:6px!important;flex-wrap:nowrap!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;}
+#list .all-meals-overview{margin-top:12px;}
+#list .all-meals-overview > h2{border-bottom:1px solid #dedede;}
+body:has(.all-meals-overview) #list > .top-controls{border:0!important;padding-bottom:0!important;margin-bottom:4px!important;}
+
+/* Optional, compact source recipe labels on the consolidated grocery list. */
+.master-grocery-item .grocery-item-details{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
+.master-grocery-item .grocery-ingredient-name{border:0;background:none;padding:0;margin:0;color:inherit;font:inherit;text-align:left;cursor:pointer;width:100%;}
+.master-grocery-item .grocery-ingredient-name:focus-visible{outline:2px solid currentColor;outline-offset:3px;}
+.master-grocery-item .grocery-recipe-source[hidden]{display:none;}
+.master-grocery-item .grocery-recipe-source{font-size:.78em;line-height:1.35;color:#777;overflow-wrap:anywhere;}
+.grocery-recipe-visibility[aria-pressed="true"]{background:#e9eff5;border-radius:7px;}
+
+/* Complete text-size coverage across all four views; leave icon dimensions fixed. */
+body[data-meal-text-size] .meal-plan-tab-name,
+body[data-meal-text-size] .settings-group > summary,
+body[data-meal-text-size] .settings-flat-group > strong,
+body[data-meal-text-size] .master-category-title strong,
+body[data-meal-text-size] .master-category-meal-name,
+body[data-meal-text-size] .all-meals-meal-content .mealname,
+body[data-meal-text-size] .all-meals-ingredient,
+body[data-meal-text-size] .all-meals-empty,
+body[data-meal-text-size] .master-grocery-item,
+body[data-meal-text-size] .master-grocery-plan-filters label,
+body[data-meal-text-size] .master-categories-actions button,
+body[data-meal-text-size] .clickable-group-heading,
+body[data-meal-text-size] .empty-weekday-meal,
+body[data-meal-text-size] .weekday-assignment strong,
+body[data-meal-text-size] .all-meals-plan-label,
+body[data-meal-text-size] .master-category-count,
+body[data-meal-text-size] .master-category-group-label,
+body[data-meal-text-size] .all-meals-day h3,
+body[data-meal-text-size] .all-meals-empty strong,
+body[data-meal-text-size] .top-inline-linked,
+body[data-meal-text-size] .meal-plan-grocery > h2,
+body[data-meal-text-size] .all-meals-overview > h2 {
+ font-size:calc(var(--text-base-size, 15px) * var(--meal-text-factor))!important;
+}
+body[data-meal-text-size] .meal-plan-tab-name{--text-base-size:14px;max-width:min(38vw,190px)}
+body[data-meal-text-size] .master-category-title strong{--text-base-size:16px}
+body[data-meal-text-size] .master-category-meal-name{--text-base-size:15px}
+body[data-meal-text-size] .master-category-count,
+body[data-meal-text-size] .all-meals-day h3{--text-base-size:12px}
+body[data-meal-text-size] .master-category-group-label{--text-base-size:13px}
+body[data-meal-text-size] .all-meals-plan-label,
+body[data-meal-text-size] .all-meals-empty strong,
+body[data-meal-text-size] .top-inline-linked{--text-base-size:13px}
+body[data-meal-text-size] .all-meals-ingredient,
+body[data-meal-text-size] .all-meals-empty,
+body[data-meal-text-size] .master-grocery-plan-filters label,
+body[data-meal-text-size] .weekday-assignment strong{--text-base-size:14px}
+body[data-meal-text-size] .master-grocery-item,
+body[data-meal-text-size] .all-meals-meal-content .mealname,
+body[data-meal-text-size] .empty-weekday-meal{--text-base-size:16px}
+body[data-meal-text-size] .clickable-group-heading{--text-base-size:12px}
+body[data-meal-text-size] .meal-plan-grocery > h2,
+body[data-meal-text-size] .all-meals-overview > h2{--text-base-size:20px}
+
+
+/* Compact, responsive page headers: controls wrap only when space requires it. */
+#list .rotation-compact-header{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;border-bottom:1px solid #dedede;}
+#list .rotation-compact-header .view-page-title{flex:0 0 auto;border:0!important;}
+#list .rotation-heading-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
+#list .rotation-heading-actions .rotation-standalone-action{flex:0 0 auto;}
+body:has(.first-recipe-dialog) .first-recipe-launcher{visibility:hidden;}
+.first-recipe-launcher{align-self:flex-start;min-height:44px;}
+.first-recipe-dialog .first-recipe-add{background:#e9eef5;color:#30445b;border-color:#a7b8cc;font-weight:600;}
+.first-recipe-dialog .first-recipe-close{align-self:center;width:44px;height:44px;}
+.first-recipe-dialog strong:focus{outline:none;}
+#list .first-rotation-tip{position:relative;display:flex;align-items:flex-start;gap:2px;margin:19px 0 12px;padding:6px 5px 6px 12px;border:1px solid #c3d0df;border-radius:10px;background:#f4f7fb;color:#30445b;box-shadow:0 3px 9px #263b5529;font-size:.9em;line-height:1.4;}
+#list .first-rotation-tip p{flex:1;margin:3px 0;}
+#list .first-rotation-tip .first-rotation-close{flex:0 0 44px;width:44px;height:44px;}
+#list .first-rotation-arrow{position:absolute;top:-17px;left:var(--tip-arrow);width:18px;height:18px;transform:translateX(-50%);color:#426184;pointer-events:none;}
+/* Keep the arrow above the header shadow at rest, and below the header as it sticks. */
+#list .rotation-compact-header:not(.is-stuck) + .first-rotation-tip .first-rotation-arrow{z-index:36;}
+
+#list .meal-plan-grocery .grocery-compact-header{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;border-bottom:1px solid #dedede;}
+#list .meal-plan-grocery .grocery-compact-header > h2{flex:0 0 auto;}
+#list .meal-plan-grocery .grocery-compact-header .master-grocery-plan-filters{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0!important;padding:0!important;border:0!important;flex:0 1 auto;min-width:0;}
+#list .meal-plan-grocery .grocery-compact-header .grocery-inline-actions{display:flex!important;gap:6px!important;flex:0 0 auto;}
+
+/* Keep each page's title and its associated actions visible while scrolling.
+   Only the page-specific header sticks; the global toolbar and plan tabs scroll away. */
+#list .rotation-compact-header,
+#list .meal-plan-grocery .grocery-compact-header,
+#list .master-categories-heading,
+#list .all-meals-overview > h2{
+ position:sticky!important;
+ top:0;
+ z-index:35;
+ background:#fff;
+}
+#list .rotation-compact-header,
+#list .meal-plan-grocery .grocery-compact-header,
+#list .master-categories-heading{isolation:isolate;}
+#list .master-category-card{scroll-margin-top:88px;}
+
+/* Header refinement: Meal Groups scrolls normally; My Rotation remains opaque
+   across the full content width, covering colored weekday cards underneath. */
+#list .master-categories-heading{position:static!important;top:auto!important;z-index:auto!important;}
+#list .rotation-compact-header{
+  margin-left:0!important;
+  margin-right:0!important;
+  padding-left:3px;
+  padding-right:3px;
+  background:#fff!important;
+  box-shadow:0 0 0 14px #fff;
+}
+
+/* Primary rotation actions: clearly labeled, compact, responsive buttons. */
+#list .rotation-compact-header .rotation-heading-actions{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-width:0;flex:0 1 auto;}
+#list .rotation-heading-actions .rotation-labeled-button.iconbtn{
+  display:inline-flex!important;align-items:center;justify-content:center;gap:5px;
+  width:auto!important;height:auto!important;min-height:38px;flex:0 0 auto;
+  padding:7px 10px!important;border:1px solid #d5dbe2!important;
+  border-radius:9px!important;background:#f1f3f6!important;
+  color:#303b49!important;white-space:nowrap;
+  font-size:calc(13px * var(--meal-text-factor, 1));font-weight:600;line-height:1.2;
+}
+#list .rotation-heading-actions .rotation-labeled-button svg{width:18px;height:18px;flex:0 0 18px;}
+#list .rotation-heading-actions .rotation-labeled-button:focus-visible{outline:2px solid #5076b5;outline-offset:2px;}
+
+/* Refined primary actions: visible button surfaces and natural responsive wrapping. */
+#list .rotation-compact-header{column-gap:10px!important;align-items:center!important;}
+#list .rotation-compact-header .rotation-heading-actions{display:flex!important;flex-wrap:wrap!important;gap:7px!important;flex:0 1 auto!important;}
+#list .rotation-compact-header .rotation-heading-actions button.rotation-labeled-button.iconbtn{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  gap:4px!important;flex:0 0 auto!important;width:auto!important;min-width:0!important;
+  height:40px!important;min-height:40px!important;padding:7px 9px!important;
+  border:1px solid #cbd2da!important;border-radius:9px!important;
+  background:#eef1f5!important;box-shadow:none!important;color:#344255!important;
+  font-size:calc(12px * var(--meal-text-factor, 1))!important;
+  font-weight:600!important;white-space:nowrap!important;
+}
+#list .rotation-compact-header .rotation-heading-actions button.rotation-labeled-button.iconbtn svg{width:18px!important;height:18px!important;flex:0 0 18px!important;}
+#list .rotation-compact-header .rotation-heading-actions button.rotation-labeled-button.iconbtn:active{background:#dce5ee!important;}
+#list.top-summary > .top-controls:has(.rotation-action-pair){margin-bottom:0!important;padding-bottom:0!important;}
+#list .rotation-compact-header .rotation-heading-actions button.rotation-labeled-button.iconbtn{border:1px solid #b9c5d2!important;background:#e9eef5!important;box-shadow:0 1px 2px rgba(0,0,0,.09)!important;padding:7px 10px!important;min-height:40px!important;border-radius:9px!important;}
+#list .rotation-compact-header .rotation-heading-actions button.rotation-labeled-button.iconbtn:active{background:#d8e3f0!important;}
+/* Compact weekday cards: single-group labels share the weekday line. */
+#list.top-summary .section.weekday-single-group{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0;padding-bottom:10px!important;}
+#list.top-summary .weekday-inline-group{border:0;background:transparent;color:inherit;opacity:.88;font:inherit;letter-spacing:normal;text-transform:uppercase;cursor:pointer;text-align:right;padding:0;min-width:0;overflow-wrap:anywhere;}
+#list.top-summary .section.weekday-single-group + .top-recipe-wrap > .meal{padding-top:0!important;}
+#list.top-summary .top-recipe-wrap .top-meal-category{margin-bottom:1px!important;}
+
+/* Sticky page headers: comfortable top clearance and an opaque scroll mask.
+   Meal Groups intentionally remains non-sticky. */
+#list .rotation-compact-header,
+#list .meal-plan-grocery .grocery-compact-header,
+#list .all-meals-overview > h2 {
+  background:#fff!important;
+  background-clip:padding-box;
+}
+#list .rotation-compact-header {
+  box-shadow:-14px 0 #fff,14px 0 #fff,0 14px #fff!important;
+}
+#list .meal-plan-grocery .grocery-compact-header {
+  box-shadow:-10px 0 #fff,10px 0 #fff!important;
+}
+#list .all-meals-overview > h2 {
+  box-shadow:-10px 0 #fff,10px 0 #fff!important;
+}
+
+/* Compact weekday identifiers beside the Meal Groups controls. */
+/* Weekday labels sit at the top of their corresponding color segments. */
+.master-category-header{position:sticky;}
+.master-category-weekdays{position:absolute;top:8px;left:0;right:0;display:flex;align-items:flex-start;pointer-events:none;color:#555f64;font-size:10px;font-weight:600;letter-spacing:.025em;line-height:1.2;z-index:1;}
+.master-category-weekdays span{flex:1 1 0;min-width:0;text-align:center;padding-right:0;white-space:nowrap;}
+.master-category-weekdays.single span{text-align:center;padding-right:0;}
+@media(max-width:390px){.master-category-header{gap:2px}.master-category-title{gap:6px}.master-category-weekdays{font-size:9px}.master-category-weekdays.single span{padding-right:0}}
+
+/* Every scheduled meal displays its group beside the meal name, not beside the weekday. */
+#list.top-summary .top-meal-title-line{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0;width:100%;}
+#list.top-summary .top-meal-title-line .mealname{flex:1 1 auto;min-width:0;text-align:left;padding-bottom:0!important;}
+#list.top-summary .top-meal-title-line .top-meal-inline-category{flex:0 1 auto;min-width:0;margin:0!important;padding:0!important;white-space:normal;text-align:right;align-self:baseline;line-height:1.3;}
+#list.top-summary .top-recipe-wrap > .meal{padding-right:14px!important;}
+/* Keep multi-meal weekdays as compact as the single-meal cards. */
+#list.top-summary .top-recipe-wrap > .meal.multi-category-meal{
+  min-height:44px!important;
+  height:auto!important;
+  padding:5px 16px 5px 14px!important;
+  align-items:center!important;
+}
+#list.top-summary .top-recipe-wrap:has(> .meal.multi-category-meal){padding-bottom:0!important;}
+#list.top-summary .top-meal-title-line{align-items:center!important;gap:12px!important;}
+#list.top-summary .top-meal-title-line .top-meal-inline-category{
+  margin-right:0!important;
+  padding-right:0!important;
+  flex-shrink:0!important;
+  max-width:38%;
+}
+/* Scheduled names and group labels share the full card width, including empty slots. */
+#list.top-summary .top-recipe-wrap > .meal{margin-right:0!important;}
+#list.top-summary .top-meal-title-line{display:grid!important;grid-template-columns:minmax(0,1fr) fit-content(38%);width:100%;}
+#list.top-summary .top-meal-title-line .mealname{overflow-wrap:anywhere;white-space:normal;}
+#list.top-summary .top-meal-title-line .top-meal-inline-category{max-width:none;justify-self:end;overflow-wrap:anywhere;font:400 12px/1.3 system-ui,-apple-system,sans-serif;color:#666;letter-spacing:.04em;text-transform:uppercase;text-align:right;}
+.recipe-timer-dialog.compact-meal-dialog>div{gap:10px;}
+.compact-meal-dialog .meal-quick-actions{display:flex;align-items:center;flex-wrap:wrap;gap:2px;color:#707782;margin:0;}
+.compact-meal-dialog .meal-quick-actions button{border:0;background:transparent;color:#707782;text-decoration:none;min-height:44px;min-width:44px;padding:8px 6px;font-size:14px;}
+.compact-meal-dialog .meal-quick-actions button:first-child{padding-left:0;}
+.compact-meal-dialog button.meal-full-action{display:block;width:100%;min-height:44px;padding:10px 12px;text-align:center;white-space:normal;overflow-wrap:anywhere;margin:0;}
+.compact-meal-dialog .meal-quick-actions + .meal-options-last-cooked{margin:2px 0 12px!important;}
+.recipe-timer-dialog button.smallbtn{ text-align:center; }
+#list.top-summary .empty-weekday-meal{touch-action:pan-y;cursor:pointer;}
+#list.top-summary .empty-weekday-meal .mealname{color:#777;}
+/* Shared recipe indicator stays beside the recipe name, leaving weekdays fixed. */
+.shared-meal-name-line{display:flex;align-items:center;gap:5px;max-width:100%;min-width:0}
+.shared-meal-name-line .master-category-meal-name{flex:0 1 auto;min-width:0}
+.shared-meal-link-button{border:0;background:transparent;color:#65717e;display:inline-grid;place-items:center;padding:5px;min-width:29px;min-height:32px;flex:0 0 auto;cursor:pointer}
+.related-meal-indicator{border:0;background:transparent;color:#65717e;font-size:17px;line-height:1;display:inline-grid;place-items:center;padding:5px;min-width:29px;min-height:32px;flex:0 0 auto;cursor:pointer}
+.shared-meal-link-button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.shared-groups-shade{position:fixed;inset:0;background:#0008;z-index:20020;display:flex;align-items:center;justify-content:center;padding:18px}
+.shared-groups-panel{background:white;color:#242424;border-radius:16px;box-shadow:0 12px 36px #0003;padding:22px;width:100%;max-width:460px;max-height:85vh;overflow:auto}
+.shared-groups-panel h3{margin:0 0 8px;font-size:19px}.shared-groups-panel p{margin:0 0 14px;color:#66717c;font-size:14px}
+.shared-groups-choice{display:block;width:100%;background:transparent;color:inherit;border:0;border-bottom:1px solid #e6e6e6;padding:14px 8px;text-align:left;font:inherit;cursor:pointer}
+.shared-groups-close{display:block;margin:18px auto 0;padding:10px 24px;border:1px solid #ccd0d5;border-radius:9px;background:#f6f7f9;color:#242424;font:inherit}
+
+/* Vertically balance My Rotation meals beneath their fixed weekday headings.
+   Treat the parent recipe and its inline linked sides as one centered unit. */
+#list.top-summary .section + .top-recipe-wrap,
+#list.top-summary .top-recipe-wrap + .top-recipe-wrap {
+  display:flex;
+  align-items:center;
+  min-height:55px;
+}
+#list.top-summary .top-recipe-wrap > .meal {
+  width:100%;
+  height:auto!important;
+  min-height:44px!important;
+  padding-top:7px!important;
+  padding-bottom:7px!important;
+  align-items:center!important;
+}
+#list.top-summary .top-recipe-wrap .mealname {padding-bottom:0!important;}
+#list.top-summary .top-recipe-wrap .meal:has(.top-inline-linked) {
+  height:auto!important;
+  min-height:55px!important;
+  padding-top:7px!important;
+  padding-bottom:7px!important;
+}
+#list.top-summary .top-recipe-wrap > .meal.multi-category-meal {
+  height:auto!important;
+  min-height:48px!important;
+  padding-top:7px!important;
+  padding-bottom:7px!important;
+}
+
+
+/* Keep linked-recipe actions attached to the last word, not pushed to the weekday column. */
+.master-category-meal .shared-meal-name-line{display:block;width:100%;max-width:100%;min-width:0;line-height:1.45}
+.master-category-meal .shared-meal-name-line .master-category-meal-name{display:inline;flex:none;width:auto;max-width:100%;min-width:0;vertical-align:baseline;line-height:inherit}
+.master-category-meal .shared-meal-name-line .related-meal-indicator,
+.master-category-meal .shared-meal-name-line .shared-meal-link-button{display:inline-flex;vertical-align:middle;margin-left:3px;min-width:24px;min-height:26px;padding:2px 3px}
+
+/* Compact weekday cards while keeping the meal block vertically balanced. */
+#list.top-summary .section + .top-recipe-wrap,
+#list.top-summary .top-recipe-wrap + .top-recipe-wrap{min-height:40px!important;}
+#list.top-summary .top-recipe-wrap > .meal{min-height:37px!important;padding-top:3px!important;padding-bottom:3px!important;}
+#list.top-summary .top-recipe-wrap .meal:has(.top-inline-linked){min-height:43px!important;padding-top:3px!important;padding-bottom:4px!important;}
+#list.top-summary .section{padding-top:5px!important;min-height:19px!important;}
+/* Keep the final word and its linked-meal action together, even on narrow screens. */
+.master-category-meal .shared-meal-name-line .linked-name-ending{display:inline-flex;align-items:baseline;white-space:nowrap;vertical-align:baseline;}
+.master-category-meal .shared-meal-name-line .linked-name-ending .master-category-meal-name{white-space:nowrap;}
+.master-category-meal .shared-meal-name-line .linked-name-ending .related-meal-indicator{display:inline-flex;vertical-align:baseline;min-height:22px;min-width:20px;padding:0 2px;margin-left:2px;}
+
+/* Keep weekday headings and meals close together, matching the earlier compact cards. */
+#list.top-summary .section + .top-recipe-wrap,
+#list.top-summary .top-recipe-wrap + .top-recipe-wrap{
+  display:block!important;min-height:0!important;
+}
+#list.top-summary .top-recipe-wrap > .meal{
+  height:auto!important;min-height:34px!important;
+  padding-top:2px!important;padding-bottom:7px!important;
+}
+#list.top-summary .section{padding-bottom:0!important;}
+#list.top-summary .top-recipe-wrap .meal:has(.top-inline-linked){
+  min-height:48px!important;padding-top:2px!important;padding-bottom:7px!important;
+}
+/* Natural wrapping, with a compact third line if a linked recipe needs one. */
+.master-category-meal .shared-meal-name-line{
+  line-height:1.22!important;overflow-wrap:normal!important;
+}
+.master-category-meal .shared-meal-name-line .master-category-meal-name{
+  line-height:1.22!important;padding-top:1px!important;padding-bottom:1px!important;
+  overflow-wrap:normal!important;
+}
+.master-category-meal .shared-meal-name-line .linked-name-ending{
+  display:inline-flex!important;align-items:center!important;
+  vertical-align:baseline!important;white-space:nowrap!important;
+}
+.master-category-meal .shared-meal-name-line .linked-name-ending .related-meal-indicator{
+  min-height:20px!important;line-height:1!important;padding:0 2px!important;
+}
+
+/* Quiet weekly-rotation indicator; weekday colors remain on individual meals. */
+.master-category-card.master-category-this-week{box-shadow:0 2px 7px rgba(35,48,60,.12);}
+.master-category-active-label{font-size:11px;font-weight:600;letter-spacing:0;color:#536b7b;background:#e9eef2;border-radius:999px;padding:3px 7px;white-space:nowrap;margin-left:auto;}
+.master-category-title{flex-wrap:wrap;}
+
+/* Soft elevation for meal-plan tabs and Weekly Overview day cards. */
+.meal-plan-tab{box-shadow:0 1px 3px rgba(35,48,60,.08);}
+.meal-plan-tab.selected{box-shadow:0 2px 7px rgba(35,48,60,.17),inset 0 2px 0 #a3b4c5;}
+.all-meals-day{box-shadow:0 2px 7px rgba(35,48,60,.11);}
+
+/* Visual refinement: soft weekday elevation, clean tabs, clearer active groups. */
+.meal-plan-tabs{border-bottom:0!important;}
+.meal-plan-tab.selected{box-shadow:0 2px 7px rgba(35,48,60,.17)!important;}
+/* Match Weekly Overview's soft elevation without a shadow between weekday heading and meal. */
+#list.top-summary .section:has(+ .top-recipe-wrap),
+#list.top-summary .section:has(+ .empty-weekday-meal){box-shadow:0 -2px 6px rgba(35,48,60,.075),2px 0 5px rgba(35,48,60,.055),-2px 0 5px rgba(35,48,60,.055);}
+#list.top-summary .top-recipe-wrap:has(+ .section),
+#list.top-summary .top-recipe-wrap:last-child,
+#list.top-summary .empty-weekday-meal{box-shadow:0 3px 7px rgba(35,48,60,.11),2px 0 5px rgba(35,48,60,.055),-2px 0 5px rgba(35,48,60,.055);}
+/* Slightly more elevation for active groups; inactive groups stay flat. */
+.master-category-card.master-category-this-week{box-shadow:0 3px 10px rgba(35,48,60,.19),0 1px 3px rgba(35,48,60,.09)!important;border-color:#c7cdd4!important;}
+
+/* Page headers: remove decorative horizontal separators without affecting list rows. */
+#list .rotation-compact-header,
+#list .meal-plan-grocery .grocery-compact-header,
+#list .master-categories-heading,
+#list .all-meals-overview > h2,
+body:has(.all-meals-overview) #list > .top-controls {border-bottom:0!important;}
+
+/* Weekday cards: remove internal heading/meal separator, retain card elevation. */
+#list.top-summary .section:has(+ .top-recipe-wrap),
+#list.top-summary .section:has(+ .empty-weekday-meal){border-top:0!important;}
+/* Meal-plan tabs: continuous baseline except under the active tab. */
+#list .meal-plan-tabs{border-bottom:1px solid #cfd1d4!important;overflow-x:auto;overflow-y:hidden;padding-bottom:0!important;}
+#list .meal-plan-tab{position:relative;border-bottom:1px solid #cfd1d4!important;margin-bottom:-1px;z-index:1;}
+#list .meal-plan-tab.selected{border-bottom:1px solid #fff!important;background:#fff!important;z-index:2;}
+
+/* Tab baseline indicates selection: selected tab opens into the page. */
+#list .meal-plan-tabs{border-bottom:1px solid #cfd1d4!important;overflow-y:hidden!important;}
+#list .meal-plan-tab{border-bottom:1px solid #cfd1d4!important;margin-bottom:-1px;}
+#list .meal-plan-tab.selected{border-bottom:1px solid #fff!important;box-shadow:0 2px 7px rgba(35,48,60,.13)!important;}
+/* My Rotation cards are one continuous surface, without internal divider lines. */
+#list.top-summary .section:has(+ .top-recipe-wrap),
+#list.top-summary .section:has(+ .empty-weekday-meal){border:0!important;box-shadow:none!important;}
+#list.top-summary .top-recipe-wrap > .meal,
+#list.top-summary .top-recipe-wrap .meal,
+#list.top-summary .top-recipe-wrap .top-recipe-ingredients{border-top:0!important;border-bottom:0!important;box-shadow:none!important;}
+
+/* Final tab indicator: the baseline is interrupted only by the selected tab.
+   Keep the tab's bottom edge open; other tabs retain their bottom borders. */
+#list .meal-plan-tabs{position:relative;border-bottom:1px solid #cfd1d4!important;overflow-x:auto;overflow-y:hidden;isolation:isolate;}
+#list .meal-plan-tab{border-bottom:1px solid #cfd1d4!important;position:relative;z-index:1;}
+#list .meal-plan-tab.selected{border-bottom:1px solid #fff!important;background:#fff!important;z-index:3;box-shadow:0 1px 5px rgba(35,48,60,.12)!important;}
+#list .meal-plan-tab.selected::after{content:"";position:absolute;bottom:0;left:0;right:0;height:3px;background:#fff;pointer-events:none;}
+/* Remove shadows and rules at internal weekday/meal joins; retain the
+   existing outer weekday-card elevation. */
+#list.top-summary .section + .top-recipe-wrap,
+#list.top-summary .top-recipe-wrap + .top-recipe-wrap{border-top:0!important;}
+#list.top-summary .top-recipe-wrap:not(:has(+ .section)):not(:last-child){box-shadow:none!important;}
+#list.top-summary .top-recipe-wrap > .meal{border:0!important;}
+#list.top-summary .section{border-bottom:0!important;}
+
+/* No interior strokes or inset shadows within My Rotation weekday cards.
+   Preserve the soft outer elevation at the bottom of each day. */
+#list.top-summary .section,
+#list.top-summary .top-recipe-wrap,
+#list.top-summary .top-recipe-wrap > .meal {
+  border-top:0!important;border-bottom:0!important;
+  background-image:none!important;
+}
+#list.top-summary .section,
+#list.top-summary .top-recipe-wrap {box-shadow:none!important;}
+#list.top-summary .top-recipe-wrap:has(+ .section),
+#list.top-summary .top-recipe-wrap:last-child {
+  box-shadow:0 4px 7px -5px rgba(35,48,60,.20)!important;
+}
+
+/* Tab baseline gap correction: selected tab covers the shared rule inside the scroll viewport. */
+#list .meal-plan-tabs{padding-bottom:2px!important;border-bottom:1px solid #cfd1d4!important;}
+#list .meal-plan-tab{margin-bottom:-2px!important;}
+#list .meal-plan-tab.selected{border-bottom-color:#fff!important;z-index:4!important;}
+#list .meal-plan-tab.selected::after{bottom:0!important;height:5px!important;background:#fff!important;z-index:5;}
+
+/* Selected meal-plan tab interrupts the baseline; no extra inset line. */
+#list .meal-plan-tabs{border-bottom:0!important;padding-bottom:0!important;background:linear-gradient(to bottom,transparent calc(100% - 1px),#cfd1d4 calc(100% - 1px))!important;}
+#list .meal-plan-tab{margin-bottom:0!important;border-bottom:1px solid #cfd1d4!important;}
+#list .meal-plan-tab.selected{border-bottom-color:#fff!important;background:#fff!important;z-index:5!important;}
+#list .meal-plan-tab.selected::after{bottom:-1px!important;height:3px!important;background:#fff!important;}
+
+/* Shared page spacing, using Grocery List's 12px approach and 3px inset.
+   Page-specific headers retain their controls, sizing and sticky behavior. */
+#list{
+ --page-heading-before:12px;
+ --page-heading-inset:3px;
+ --page-heading-controls-gap:8px;
+ --page-heading-content-gap:8px;
+ --page-heading-stuck-inset:14px;
+ --group-card-gap:10px;
+ --page-heading-line-height:calc(20px * var(--meal-text-factor,1) * 1.3);
+}
+/* Empty per-view toolbars must not add another margin above the title. */
+#list > .top-controls:empty{display:none!important;margin:0!important;padding:0!important;}
+#list .meal-plan-grocery,
+#list .all-meals-overview,
+#list .master-categories{margin-top:var(--page-heading-before)!important;}
+#list .rotation-compact-header{
+ flex-direction:column;align-items:flex-start!important;
+ margin-top:var(--page-heading-before)!important;
+ margin-bottom:var(--page-heading-content-gap)!important;
+ padding-top:var(--page-heading-inset)!important;padding-bottom:0!important;
+ row-gap:var(--page-heading-controls-gap)!important;
+}
+#list .rotation-compact-header .view-page-title,
+#list .master-categories-heading h2{
+ margin:0!important;padding:0!important;border:0!important;
+ min-width:0;max-width:100%;overflow-wrap:anywhere;line-height:1.3;
+}
+#list .meal-plan-grocery .grocery-compact-header{
+ --inline-controls-rise:max(0px,(40px - var(--page-heading-line-height)) / 2);
+ align-items:flex-start;
+ margin-bottom:var(--page-heading-content-gap)!important;
+ padding-top:var(--page-heading-inset)!important;padding-bottom:0!important;
+ row-gap:calc(var(--page-heading-controls-gap) + var(--inline-controls-rise));
+}
+#list .meal-plan-grocery .grocery-compact-header .master-grocery-plan-filters{
+ margin-top:calc(-1 * var(--inline-controls-rise))!important;
+}
+#list .meal-plan-grocery .grocery-compact-header > h2{
+ margin:0!important;padding:0!important;min-width:0;max-width:100%;overflow-wrap:anywhere;line-height:1.3;
+}
+#list .all-meals-overview > h2{
+ margin:0 0 var(--page-heading-content-gap)!important;
+ padding:var(--page-heading-inset) 0 0!important;
+}
+#list .master-categories{gap:var(--group-card-gap);}
+#list .master-categories-heading{
+ align-items:flex-start;
+ margin:0 2px calc(var(--page-heading-content-gap) - var(--group-card-gap))!important;
+ padding:var(--page-heading-inset) 0 0!important;
+}
+/* Align inline icons with the title's first line without shifting that line down.
+   Their existing touch targets keep their full height. */
+#list .master-categories-heading .master-expansion-controls{
+ flex-shrink:0;
+ margin-top:calc(-1 * max(0px,(42px - var(--page-heading-line-height)) / 2));
+}
+#list .master-order-reset:not([hidden]){
+ margin:0 2px calc(var(--page-heading-content-gap) - var(--group-card-gap));
+}
+#list .rotation-compact-header,
+#list .meal-plan-grocery .grocery-compact-header,
+#list .all-meals-overview > h2{top:var(--page-heading-sticky-top,0px);}
+#list .rotation-compact-header.is-stuck,
+#list .meal-plan-grocery .grocery-compact-header.is-stuck,
+#list .all-meals-overview > h2.is-stuck{padding-top:var(--page-heading-stuck-inset)!important;}
+
+/* Shared-recipe and linked-meal dialogs use identical button choices and bottom X. */
+.shared-groups-panel .shared-groups-choice{display:block;width:100%;border:1px solid #cbd0d6;border-radius:11px;background:#f5f6f8;box-shadow:0 2px 5px rgba(0,0,0,.08);padding:12px 14px;margin:10px 0;text-align:left;font:inherit;color:#242424;min-height:48px;cursor:pointer;}
+.shared-groups-panel .shared-groups-choice:active{background:#e7edf5;}
+.shared-groups-panel .shared-groups-close{display:grid;place-items:center;margin:22px auto 0;padding:0;border:0;background:transparent;box-shadow:none;width:48px;height:48px;min-height:48px;font-size:36px;line-height:1;font-weight:300;color:#333;cursor:pointer;}
+/* Repair My Rotation regressions without changing rotation behavior. */
+#list.top-summary > .top-controls .top-action-icon[title="Rotate out recipes"]{display:none!important;}
+#list.top-summary .section:has(+ .empty-weekday-meal),
+#list.top-summary .empty-weekday-meal{border:0!important;border-top:0!important;border-bottom:0!important;box-shadow:none!important;background-image:none!important;}
+#list.top-summary .section + .top-recipe-wrap,
+#list.top-summary .top-recipe-wrap + .top-recipe-wrap{min-height:40px!important;}
+#list.top-summary .top-recipe-wrap > .meal{min-height:37px!important;padding-top:3px!important;padding-bottom:3px!important;}
+#list.top-summary .top-recipe-wrap > .meal.multi-category-meal{min-height:37px!important;padding-top:3px!important;padding-bottom:3px!important;}
+#list.top-summary .top-recipe-wrap .meal:has(.top-inline-linked){min-height:43px!important;padding-top:3px!important;padding-bottom:4px!important;}
+
+/* Bring meals closer to weekday headings without adding space below them. */
+#list.top-summary > .section:has(+ .top-recipe-wrap > .meal){padding-bottom:0!important;}
+
+/* Full-width weekday targets stay inside their own row, above recipe actions. */
+#list.top-summary > button.section.weekday-heading[role="button"]{display:flex;align-items:center;justify-content:flex-start;width:100%;box-sizing:border-box;border:0!important;text-align:left;touch-action:manipulation;}
+
+/* Match the single-meal body minimum only on empty days; keep existing padding. */
+#list.top-summary > .empty-weekday-meal{min-height:40px;padding:3px 16px 3px 14px!important;display:flex;align-items:center;}
+/* Give the first rounded weekday edge clearance beneath the sticky cycle controls. */
+#list.top-summary > .weekday-heading:not(.weekday-heading ~ .weekday-heading){margin-top:14px!important;}
+
+/* Single-action dialogs: close in the title row; multi-action footers stay unchanged. */
+.shared-groups-panel{position:relative;padding-top:22px;padding-right:65px}
+.shared-groups-panel .shared-groups-close{position:absolute;right:15px;top:12px;margin:0;width:44px;height:44px;min-height:44px;font-size:0}
+.shared-groups-panel .shared-groups-close svg{width:25px;height:25px}
+/* Compact chooser rows and group headings mirror expanded Meal Groups. */
+.weekday-meal-picker .master-category-title{background:#f5f5f5;}
+.weekday-meal-picker .weekday-meal-choice{position:relative;}
+.weekday-meal-picker .weekday-meal-choice:not(:last-child)::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;border-radius:0;background:#eee;pointer-events:none;}
+.weekday-meal-picker .master-meal-weekdays{display:block;margin-top:3px;font-size:11px;font-weight:600;letter-spacing:.02em;color:#5c6670;white-space:normal;}
+/* Internal recipe reading stays separate from the existing rotation and grocery views. */
+#recipeViewer{position:fixed;inset:0;max-width:100vw;max-height:100dvh;z-index:30000;background:#fff;color:#242424;overflow-y:auto;overscroll-behavior:contain;}
+#recipeViewer .recipe-viewer-content{max-width:760px;margin:0 auto;padding:0 20px calc(32px + env(safe-area-inset-bottom,0px));}
+#recipeViewer .recipe-viewer-bar{position:sticky;top:0;z-index:1;display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;padding:calc(12px + env(safe-area-inset-top,0px)) 0 12px;border-bottom:1px solid #e5e8eb;}
+#recipeViewer .recipe-reset{border:0;color:#637080;background:transparent;font-size:13px;padding:8px 2px;}
+#recipeViewer h1{font-size:calc(26px * var(--meal-text-factor,1));line-height:1.25;overflow-wrap:anywhere;margin:22px 0 18px;}
+#recipeViewer h2{font-size:calc(20px * var(--meal-text-factor,1));margin:26px 0 10px;}
+#recipeViewer h3{font-size:calc(17px * var(--meal-text-factor,1));margin:20px 0 8px;}
+#recipeViewer .recipe-viewer-times{display:flex;flex-wrap:wrap;gap:12px 24px;margin:12px 0 18px;}
+#recipeViewer dt{font-size:calc(12px * var(--meal-text-factor,1));color:#637080;}#recipeViewer dd{margin:3px 0 0;font-size:calc(15px * var(--meal-text-factor,1));}
+#recipeViewer .recipe-viewer-ingredients{list-style:none;padding:0;margin:0;}
+#recipeViewer .recipe-viewer-steps{padding-left:28px;margin:0;}
+#recipeViewer li{padding:0;overflow-wrap:anywhere;}
+#recipeViewer .cooking-item{display:block;width:100%;padding:10px 2px;text-align:left;border:0;border-radius:7px;background:transparent;color:#242424;font:inherit;font-size:calc(17px * var(--meal-text-factor,1));line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;transition:color .15s,background-color .15s;}
+#recipeViewer button.cooking-item{touch-action:manipulation;cursor:pointer;}
+#recipeViewer button.cooking-item:active{background:#eef2f5;}
+#recipeViewer button.cooking-item:focus-visible{outline:2px solid #5876ad;outline-offset:2px;}
+#recipeViewer .cooking-complete{color:#6f7780;}
+#recipeViewer .recipe-numbered-source{list-style:none;}
+#recipeViewer .recipe-viewer-notes{font-size:calc(16px * var(--meal-text-factor,1));white-space:pre-wrap;line-height:1.6;overflow-wrap:anywhere;}
+#recipeViewer .recipe-linked-link{display:block;border:0;background:transparent;color:#315ba8;text-align:left;font:inherit;padding:10px 0;cursor:pointer;}
+/* Recipe tracking stays inline with existing names and never changes row highlighting. */
+button.needs-tweaking-icon{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;width:44px;height:44px;min-width:44px;min-height:44px;padding:12px;margin:-2px 0;border:0;background:transparent;color:#b07808;line-height:1;cursor:pointer;touch-action:manipulation;flex:0 0 auto;}
+.needs-tweaking-icon svg,.recipe-needs-tweaking svg{width:16px;height:16px;flex:none;fill:#fff3c4;stroke:#b07808;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+.needs-tweaking-icon:focus-visible{outline:2px solid #b07808;outline-offset:1px;border-radius:50%;}
+#recipeViewer .recipe-needs-tweaking{display:flex;align-items:center;width:fit-content;max-width:100%;min-height:44px;margin:12px 0 0;padding:6px 8px;border:1px solid #ccc;border-radius:9px;background:#fff;color:#65717e;font:inherit;font-size:13px;text-align:left;cursor:pointer;}
+.recipe-tweaking-name-ending{display:inline-flex;align-items:baseline;white-space:nowrap;}
+.recipe-name-with-tweak{display:inline-flex;align-items:baseline;gap:3px;min-width:0;max-width:100%;}
+#list.top-summary .top-meal-title-line>.recipe-name-with-tweak{flex:1 1 auto;}
+#list.top-summary .recipe-name-with-tweak>.mealname{flex:0 1 auto;}
+.weekday-meal-choice-name{border:0;background:transparent;color:inherit;font:inherit;text-align:left;padding:0;cursor:pointer;}
+
+#recipeViewer .recipe-tweaking-status{flex:none;margin:0 0 10px;padding:4px 10px;border-left:2px solid #dbb052;font-size:14px;line-height:1.4;}
+.recipe-tweaking-heading{display:flex;align-items:center;gap:6px;font-weight:600;}
+.recipe-tweaking-heading svg{width:18px;height:18px;fill:#fff3c4;stroke:#b07808;stroke-width:1.9;stroke-linecap:round;}
+.recipe-tweaking-note{margin:4px 0;white-space:pre-wrap;overflow-wrap:anywhere;max-height:min(18dvh,140px);overflow:auto;}
+.recipe-tweaking-actions{display:flex;align-items:center;flex-wrap:wrap;gap:4px;}
+button.recipe-tweaking-action{border:0;background:transparent;color:#65717e;font:inherit;font-size:14px;padding:6px 0;min-height:36px;text-align:left;cursor:pointer;}
+.recipe-tweaking-header{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.recipe-tweaking-popup{font-size:14px;line-height:1.4;}
+.recipe-tweaking-popup .recipe-tweaking-note{max-height:35dvh;}
+button.recipe-tweaking-edit{display:inline-flex;align-items:center;gap:5px;}
+.recipe-tweaking-edit svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+.editor-tweaking-note{display:block;width:100%;min-height:90px;resize:vertical;font:inherit;font-size:16px;margin:6px 0;border:1px solid #ccc;border-radius:8px;padding:10px;}
+#recipeViewer .recipe-original{display:inline-block;margin:30px 0 10px;color:#315ba8;}
+#recipeViewer .recipe-needs-tweaking + .recipe-original{margin-top:8px;}
+
+
+/* Compact Weekday Setup; controls keep their normal typography and touch size. */
+#topSettingsPanel [data-settings-group="weekdays"]>.settings-group-content{gap:0;container-type:inline-size;container-name:weekday-settings}
+#topSettingsPanel .weekday-setup-hint{font-size:12px;color:#666;width:100%;margin-bottom:4px}
+#topSettingsPanel .weekday-assignment{width:100%;display:grid;grid-template-columns:minmax(98px,max-content) minmax(80px,1fr) 44px;gap:2px 4px;align-items:center;padding:3px 0;border-bottom:1px solid #e1e1e1;min-width:0}
+#topSettingsPanel .weekday-radio-label{grid-column:1;grid-row:1;display:flex;align-items:center;gap:6px;min-height:44px;margin:0;white-space:nowrap;cursor:pointer}
+#topSettingsPanel .weekday-radio-label input{margin:0;width:18px;height:18px;flex:0 0 18px}
+#topSettingsPanel .weekday-radio-label strong{font-size:14px}
+#topSettingsPanel .weekday-group-row{grid-column:2/4;display:flex;align-items:center;gap:4px;min-width:0}
+#topSettingsPanel .weekday-group-first{grid-column:2;grid-row:1}
+#topSettingsPanel .weekday-group-row select{flex:1;width:100%;min-width:0;min-height:44px;padding:7px;border:1px solid #ccc;border-radius:8px;background:white}
+#topSettingsPanel .weekday-add,#topSettingsPanel .weekday-remove{width:44px;height:44px;min-width:44px;min-height:44px;flex:0 0 44px;padding:4px;border:0;background:transparent}
+#topSettingsPanel .weekday-add{grid-column:3;grid-row:1}
+#topSettingsPanel .weekday-add:disabled{opacity:.4;cursor:default}
+#topSettingsPanel .weekday-remove{font-size:25px}
+@container weekday-settings (max-width:16.5em){
+ #topSettingsPanel .weekday-assignment{grid-template-columns:minmax(0,1fr) 0 44px}
+ #topSettingsPanel .weekday-radio-label{grid-column:1/3}
+ #topSettingsPanel .weekday-group-row{grid-column:1/4;margin-left:24px}
+ #topSettingsPanel .weekday-group-first{grid-row:2;padding-right:48px}
+}
+/* Recipe-only compact layout and optional independent scrolling panes. */
+#recipeViewer .cooking-item{padding:4px 2px;min-height:40px;line-height:1.5;}
+#recipeViewer .recipe-viewer-ingredients li+li{margin-top:2px;}
+#recipeViewer .recipe-viewer-ingredients .cooking-item{padding:1px 2px;min-height:31px;}
+#recipeViewer .recipe-viewer-steps li+li{margin-top:12px;}
+#recipeViewer .recipe-viewer-steps .cooking-item{padding:4px 2px;}
+#recipeViewer .cooking-complete{color:#8a8a8a;}
+#recipeViewer h3{margin:22px 0 10px;}
+#recipeViewer .recipe-view-mode{font-size:13px;padding:8px;white-space:nowrap;}
+#recipeViewer .recipe-viewer-bar{gap:6px;flex-wrap:wrap;}
+#recipeViewer .recipe-viewer-bar button.smallbtn{font-size:14px!important;min-height:40px;padding:6px;}
+#recipeViewer .recipe-divider{display:none;}
+#recipeViewer.recipe-split{overflow:hidden;}
+#recipeViewer.recipe-split .recipe-viewer-content{height:100%;height:100dvh;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px);}
+#recipeViewer.recipe-split .recipe-viewer-bar{flex:none;}
+#recipeViewer.recipe-split article{flex:1;min-height:0;display:flex;flex-direction:column;}
+#recipeViewer.recipe-split h1{flex:none;font-size:22px;margin:12px 0;max-height:20dvh;overflow:auto;}
+#recipeViewer.recipe-split .recipe-panes{flex:1;min-height:0;display:flex;flex-direction:column;}
+#recipeViewer.recipe-split .recipe-pane{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;}
+#recipeViewer.recipe-split .recipe-ingredients-pane{flex:none;height:calc((100% - 44px) * var(--recipe-split-ratio,.4));}
+#recipeViewer.recipe-split .recipe-instructions-pane{flex:1;}
+#recipeViewer.recipe-split .recipe-pane>h2:first-child{margin-top:8px;}
+#recipeViewer.recipe-split .recipe-divider{display:flex;flex:none;position:relative;height:44px;align-items:center;justify-content:center;touch-action:none;cursor:row-resize;user-select:none;border:0;background:transparent;}
+#recipeViewer .recipe-divider::before{content:'';box-sizing:border-box;position:absolute;left:0;right:0;top:17px;height:10px;border-block:1px solid #e5e8eb;background:#f7f8fa;pointer-events:none;}
+#recipeViewer .recipe-divider::after{content:'';position:relative;width:44px;height:3px;border-radius:4px;background:#929ca8;}
+#recipeViewer .recipe-divider:focus-visible{outline:2px solid #5876ad;outline-offset:-2px;}
+
+#recipeViewer .recipe-sync-relevant{background:#edf3fb;}
+#recipeViewer .recipe-pane:focus-visible{outline:2px solid #5876ad;outline-offset:-2px;}
+#recipeIngredientLinks{margin:12px 0;padding:10px;border:1px solid #ddd;border-radius:9px;}
+/* Compact touch-screen landscape uses pane widths; desktop/portrait stay stacked. */
+#recipeViewer.recipe-split.recipe-landscape .recipe-viewer-content{max-width:none;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));}
+#recipeViewer.recipe-split.recipe-landscape .recipe-header{margin:6px 0;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-header h1{max-height:2.5em;overflow:auto;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-panes{flex-direction:row;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-pane{min-width:0;height:100%;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-ingredients-pane{height:100%;width:calc((100% - 44px) * var(--recipe-split-ratio,.5));}
+#recipeViewer.recipe-split.recipe-landscape .recipe-instructions-pane{min-width:0;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-divider{width:44px;height:auto;align-self:stretch;cursor:col-resize;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-divider::before{top:0;bottom:0;left:17px;right:auto;width:10px;height:auto;border-block:0;border-inline:1px solid #e5e8eb;}
+#recipeViewer.recipe-split.recipe-landscape .recipe-divider::after{width:3px;height:44px;}
+
+#recipeIngredientLinks summary{cursor:pointer;font-size:14px;}
+#recipeIngredientLinks .recipe-link-choices{max-height:240px;overflow-y:auto;}
+#recipeIngredientLinks .recipe-link-choices label{display:flex;align-items:center;gap:8px;min-height:32px;margin:0;padding:0;}
+#recipeIngredientLinks input[type="checkbox"]{width:20px;height:20px;flex:none;margin:0;}
+
+/* Recipe toolbar only: fixed positions, invisible 44px targets, and decorative SVGs. */
+#recipeViewer .recipe-viewer-bar{display:grid;grid-template-columns:repeat(3,minmax(44px,1fr));gap:6px;}
+#recipeViewer .recipe-viewer-bar button.recipe-toolbar-icon{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border:0;border-radius:8px;background:transparent;color:#333;display:grid;place-items:center;cursor:pointer;touch-action:manipulation;}
+#recipeViewer .recipe-toolbar-icon:first-child{grid-column:1;justify-self:start;}
+#recipeViewer .recipe-toolbar-icon.recipe-reset{grid-column:2;justify-self:center;}
+#recipeViewer .recipe-toolbar-icon.recipe-view-mode{grid-column:3;justify-self:end;}
+#recipeViewer .recipe-viewer-bar button.recipe-toolbar-icon[hidden]{display:none;}
+#recipeViewer .recipe-toolbar-icon,#recipeViewer .recipe-header-icon{-webkit-tap-highlight-color:transparent;}
+#recipeViewer .recipe-toolbar-icon svg{width:25px;height:25px;pointer-events:none;}
+#recipeViewer .recipe-toolbar-icon:focus-visible{outline:2px solid #5876ad;outline-offset:2px;}
+
+#recipeViewer .recipe-cooking-settings{flex:none;margin:2px 0 0;font-size:13px;color:#52657e;}
+#recipeViewer .recipe-auto-complete{display:flex;align-items:center;gap:9px;min-height:44px;padding:4px 0;}
+#recipeViewer .recipe-auto-complete input{width:20px;height:20px;flex:none;margin:0;}
+
+#recipeViewer .recipe-header{display:flex;align-items:center;gap:8px;margin:22px 0 18px;flex:none;}
+#recipeViewer.recipe-split .recipe-header{margin:12px 0;}
+#recipeViewer .recipe-header h1{flex:1;min-width:0;margin:0;max-height:none;overflow:visible;}
+#recipeViewer .recipe-title-actions{display:flex;align-items:center;gap:4px;flex:none;}
+#recipeViewer .recipe-header-icon{display:grid;place-items:center;width:44px;height:44px;min-width:44px;min-height:44px;border:0;padding:0;border-radius:8px;background:transparent;color:#333;cursor:pointer;touch-action:manipulation;}
+#recipeViewer .recipe-header-icon svg{width:25px;height:25px;pointer-events:none;}
+#recipeViewer .recipe-header-icon:focus-visible,#recipeViewer .recipe-scale-option:focus-visible{outline:2px solid #5876ad;outline-offset:2px;}
+#recipeViewer .recipe-scale-wrap{position:relative;flex:none;}
+#recipeViewer .recipe-scale-wrap:has(.recipe-scale-menu:not([hidden])){z-index:3;}
+#recipeViewer .recipe-scale-menu{position:fixed;z-index:3;display:grid;gap:2px;width:180px;max-width:calc(100vw - 40px);max-height:50dvh;overflow-y:auto;overscroll-behavior:contain;padding:6px;border:1px solid #dce2e9;border-radius:10px;background:#fff;box-shadow:0 4px 16px #0002;font-size:15px;}
+#recipeViewer .recipe-scale-option{min-height:40px;border:0;border-radius:6px;background:transparent;color:#242424;padding:8px 12px;font:inherit;text-align:left;cursor:pointer;touch-action:manipulation;}
+#recipeViewer .recipe-scale-custom{display:grid;gap:6px;padding:8px 6px;font-size:13px;}
+#recipeViewer .recipe-scale-custom input{width:100%;min-height:40px;box-sizing:border-box;font:inherit;font-size:16px;}
+#recipeViewer .recipe-scale-option[aria-checked="true"]{background:#edf3fb;font-weight:600;}
+#recipeViewer .recipe-scale-dismiss{position:fixed;inset:0;z-index:2;touch-action:none;}
+#recipeViewer .recipe-scale-menu[hidden],#recipeViewer .recipe-scale-dismiss[hidden]{display:none;}
+#recipeViewer:has(.recipe-scale-menu:not([hidden])) .recipe-viewer-bar{z-index:4;}
+#editorIngredientsSection,#editorInstructionsSection{margin-top:0;}
+
+#recipeViewer .recipe-viewer-bar{grid-template-columns:repeat(4,minmax(44px,1fr));}
+#recipeViewer .recipe-toolbar-icon.recipe-view-mode{justify-self:center;}
+#recipeViewer .recipe-toolbar-icon.recipe-settings-toggle{grid-column:4;justify-self:end;}
+#recipeViewer .recipe-viewer-bar>button.recipe-toolbar-icon{justify-self:center;}
+#recipeViewer .recipe-cooking-settings{position:fixed;top:calc(77px + env(safe-area-inset-top,0px));right:max(20px,calc((100vw - 720px)/2));width:min(320px,calc(100vw - 40px));z-index:3;margin:0;padding:8px 12px;border:1px solid #dce2e9;border-radius:10px;background:#f7f9fc;max-height:40dvh;overflow-y:auto;overscroll-behavior:contain;}
+#recipeViewer .recipe-settings-close{display:grid;place-items:center;width:44px;height:44px;min-width:44px;min-height:44px;margin:8px auto 0;padding:0;border:0;border-radius:8px;background:transparent;color:#333;cursor:pointer;touch-action:manipulation;}
+#recipeViewer .recipe-settings-dismiss{position:fixed;inset:0;z-index:2;touch-action:none;}
+#recipeViewerSettings[hidden]+.recipe-settings-dismiss{display:none;}
+#recipeViewer:has(#recipeViewerSettings:not([hidden])) .recipe-viewer-bar{z-index:4;}
+#editorNotesSection{margin-top:12px;}
+/* Briefly locate the exact recipe without changing its category color. */
+#list .meal-editor-located{outline:2px solid #8caaca;outline-offset:2px;border-radius:8px;box-shadow:0 0 0 4px #e7f0fa;}
+
+/* Ingredient-link drafts stay inline and separate from cooking progress. */
+#recipeViewer .recipe-link-selected{background:#edf3fb;}
+#recipeViewer .recipe-link-ingredient{display:flex;align-items:center;gap:8px;cursor:pointer;touch-action:manipulation;}
+#recipeViewer .recipe-link-ingredient input{width:20px;height:20px;flex:0 0 20px;margin:0;}
+#recipeViewer .recipe-link-ingredient span{min-width:0;}
+#recipeViewer .recipe-link-automatic{display:block;border:0;background:transparent;color:#52657e;padding:6px 0;min-height:32px;font:13px/1.4 system-ui,sans-serif;cursor:pointer;}
+#recipeViewer .recipe-link-automatic[aria-pressed="true"]{font-weight:600;}
+#recipeViewer .recipe-link-message{font-size:13px;line-height:1.4;color:#52657e;margin:4px 0 8px;}
+#recipeViewer .recipe-link-edit-bar{position:fixed;top:calc(100dvh - 64px - env(safe-area-inset-bottom,0px));bottom:auto;left:max(0px,calc((100vw - 760px)/2));right:auto;width:min(100vw,760px);height:calc(64px + env(safe-area-inset-bottom,0px));padding:8px 20px calc(8px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;justify-items:center;background:#fff;border-top:1px solid #dce2e9;z-index:6;}
+#recipeViewer.recipe-link-editing:not(.recipe-split) .recipe-viewer-content{padding-bottom:calc(104px + env(safe-area-inset-bottom,0px));}
+#recipeViewer.recipe-link-editing.recipe-split .recipe-viewer-content{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px));}
+/* Import cleanup review uses the app's existing typography and controls. */
+.recipe-import-review{position:fixed;inset:0;z-index:31010;background:#0008;padding:16px;display:flex;align-items:center;justify-content:center;}
+.recipe-import-review>section{width:100%;max-width:600px;max-height:90dvh;min-height:0;display:flex;flex-direction:column;gap:10px;background:#fff;color:#242424;border-radius:14px;padding:18px;}
+.recipe-import-review h2,.recipe-import-review h3,.recipe-import-review h4,.recipe-import-review p{margin:0;font-size:inherit;}
+.recipe-import-review h2{font-size:21px;}.recipe-import-review h3{font-size:18px;margin-bottom:8px;}.recipe-import-review h4{margin:14px 0 6px;}
+.recipe-import-review p,.recipe-import-review summary{font-size:14px;line-height:1.5;}
+.recipe-import-review-content{overflow:auto;min-height:0;overscroll-behavior:contain;}
+.recipe-import-review-content>section+section{border-top:1px solid #ddd;margin-top:16px;padding-top:16px;}
+.recipe-import-review pre{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.5 system-ui,sans-serif;max-height:200px;overflow:auto;background:#f7f8fa;padding:10px;}
+.recipe-import-review textarea{min-height:160px;margin:8px 0;}
+.recipe-import-reference{display:flex;align-items:flex-start;gap:9px;padding:8px 0;font-size:15px;line-height:1.5;overflow-wrap:anywhere;}
+.recipe-import-reference input{width:20px;height:20px;flex:none;margin:2px 0 0;}
+.recipe-import-review .meal-unified-actions{flex:none;border-top:1px solid #ddd;padding-top:8px;}
+/* Viewer tabs retain occurrence-specific state without changing the four toolbar actions. */
+#recipeViewer .recipe-tab-strip{display:flex;gap:5px;overflow-x:auto;overflow-y:hidden;flex:none;min-width:0;position:sticky;top:var(--recipe-toolbar-height,77px);z-index:1;background:linear-gradient(to bottom,#fff calc(100% - 1px),#cfd1d4 calc(100% - 1px));padding:4px 2px 0;margin:0;overscroll-behavior-x:contain;scrollbar-width:thin;touch-action:none;}
+#recipeViewer .recipe-tab-strip[hidden]{display:none;}
+#recipeViewer.recipe-split .recipe-tab-strip{position:relative;top:auto;}
+#recipeViewer .recipe-tab{display:flex;flex:none;align-items:center;min-width:0;gap:1px;background:#f1f1f1;border:1px solid #d6d6d6;border-bottom-color:#cfd1d4;border-radius:11px 11px 0 0;padding:0 3px;box-shadow:0 1px 3px rgba(35,48,60,.08);}
+#recipeViewer .recipe-tab.active{background:#fff;border-color:#c7cdd3;border-bottom-color:#fff;box-shadow:0 1px 5px rgba(35,48,60,.12);}
+#recipeViewer .recipe-tab button{background:transparent;border:0;color:#555;min-height:44px;font:inherit;cursor:pointer;touch-action:none;}
+#recipeViewer .recipe-tab [role="tab"]{display:block;min-width:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 8px;font-size:calc(14px * var(--meal-text-factor,1));text-align:left;touch-action:none;}
+#recipeViewer .recipe-tab.active [role="tab"]{color:#28323b;font-weight:600;}
+#recipeViewer .recipe-tabs-abbreviated [role="tab"]{max-width:calc(var(--recipe-tabs-width) - 60px);}
+#recipeViewer .recipe-tabs-abbreviated .recipe-tab-anchor [role="tab"]{max-width:calc(var(--recipe-tabs-width) - 12px);}
+#recipeViewer .recipe-tab .recipe-tab-close{display:grid;place-items:center;min-width:44px;width:44px;padding:0;}
+#recipeViewer .recipe-tab-dragging{opacity:.4;}
+#recipeViewer .recipe-tab-drag-preview{box-shadow:0 3px 10px #0003;outline:1px solid #9bacc5;}
+#recipeViewer .recipe-tab-close svg{width:17px;height:17px;pointer-events:none;}
+#recipeViewer .recipe-tab button:focus-visible{outline:2px solid #5876ad;outline-offset:-2px;}
+#recipeViewer .recipe-occurrence-notice{font-size:13px;color:#637080;line-height:1.4;margin:0 0 10px;}
+/* Timer controls are siblings of step completion buttons, never nested inside them. */
+#recipeViewer li.recipe-timed-step{position:relative;padding-right:42px;}
+#recipeViewer button.recipe-timer-icon,.recipe-timer-dialog button.recipe-timer-icon{width:40px;min-width:40px;min-height:44px;padding:8px;border:0;border-radius:7px;background:transparent;color:#637080;display:grid;place-items:center;touch-action:manipulation;}
+#recipeViewer .recipe-timer-icon svg,.recipe-timer-dialog .recipe-timer-icon svg{width:20px;height:20px;}
+#recipeViewer .recipe-step-timer{position:absolute;right:0;top:2px;}
+#recipeViewer .recipe-timer-strip,#cookingTimerControlsDialog .recipe-timer-strip{grid-column:1/-1;display:flex;align-items:center;gap:6px;padding:0;border:0;min-width:0;flex-wrap:nowrap;}
+#recipeViewer .recipe-timer-readout,#cookingTimerControlsDialog .recipe-timer-readout{flex:1;min-width:0;font-size:28px;font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;}
+#recipeViewer .recipe-timer-controls,#cookingTimerControlsDialog .recipe-timer-controls{display:flex;flex:none;}
+#recipeViewer .recipe-timer-finished,#cookingTimerControlsDialog .recipe-timer-finished{color:#315ba8;}
+#recipeViewer .recipe-timer-announcement,#cookingTimerControlsDialog .recipe-timer-announcement{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
+.recipe-timer-dialog{position:fixed;inset:0;z-index:36000;background:#0008;display:flex;align-items:center;justify-content:center;padding:18px;}
+.recipe-timer-dialog>div{display:flex;flex-direction:column;gap:12px;background:#fff;color:#242424;padding:20px;border-radius:16px;width:100%;max-width:480px;max-height:85dvh;overflow:auto;}
+.recipe-timer-dialog strong{font-size:19px;}
+.recipe-timer-dialog .smallbtn{text-align:left;min-height:44px;overflow-wrap:anywhere;}
+.recipe-timer-dialog .recipe-timer-icon{align-self:center;}
+
+/* Global alarm preference, accessed from the existing recipe settings panel. */
+#recipeViewer .recipe-timer-volume{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;border-top:1px solid #dce2e9;margin:6px 0;padding:10px 0 4px;align-items:center;}
+#recipeViewer .recipe-timer-volume input[type="range"]{grid-column:1;width:100%;min-height:36px;margin:0;accent-color:#637080;}
+#recipeViewer .recipe-timer-volume .recipe-timer-test-sound{grid-column:2;grid-row:2;min-width:40px;min-height:40px;}
+#recipeViewer .recipe-timer-volume-output{font-variant-numeric:tabular-nums;}
+#recipeViewer .recipe-tweaking-status [hidden]{display:none!important;}
+#recipeViewer .recipe-tweaking-toggle{display:grid;place-items:center;width:36px;min-width:36px;min-height:36px;margin-left:auto;padding:7px;border:0;background:transparent;color:#65717e;touch-action:manipulation;}
+#recipeViewer .recipe-tweaking-toggle svg{width:18px;height:18px;}
+
+.recipe-name-with-timer{display:inline-flex;align-items:center;gap:3px;min-width:0;max-width:100%;vertical-align:baseline;}
+.recipe-name-with-timer>[data-recipe-timer-name]{flex:0 1 auto!important;min-width:0;}
+#list.top-summary .top-meal-title-line>.recipe-name-with-timer{flex:1;}
+button.recipe-list-timer{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;flex:0 0 auto;width:28px;height:28px;min-width:28px;min-height:28px;padding:4px;margin:-2px 0;border:0;background:transparent;color:#637080;line-height:1;touch-action:manipulation;}
+button.recipe-list-timer svg{width:19px;height:19px;}
+#cookingTimerControlsDialog .recipe-timer-controls .recipe-timer-icon{align-self:auto;}
+#recipeViewer .recipe-timer-readout.recipe-timer-long,#cookingTimerControlsDialog .recipe-timer-readout.recipe-timer-long{font-size:22px;}
+#recipeViewer .recipe-timer-notifications[hidden]{display:none!important;}
+#recipeViewer .recipe-timer-controls button:disabled,#cookingTimerControlsDialog .recipe-timer-controls button:disabled{opacity:.45;cursor:default;}
+#cookingTimerControlsDialog>div{max-width:380px;padding:18px;gap:0;}
+@media(max-width:340px){#recipeViewer .recipe-timer-readout.recipe-timer-long,#cookingTimerControlsDialog .recipe-timer-readout.recipe-timer-long{font-size:20px;}}
+
+.make-ahead-editor{padding:8px 0;}.make-ahead-task-editor{display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:6px;margin:8px 0;}.make-ahead-task-editor .make-ahead-description{grid-column:1;}.make-ahead-task-editor select{grid-column:1;}.make-ahead-task-editor>button{grid-column:2;grid-row:1/3;}.make-ahead-task-editor .make-ahead-days{grid-column:1;}.make-ahead-days[hidden]{display:none!important;}.make-ahead-reminder{display:flex;align-items:center;flex-wrap:wrap;gap:7px;font-size:13px;color:#637080;padding:6px 8px;margin:4px 0;border-left:2px solid #bdad86;}.make-ahead-reminder span{flex:1;min-width:0;}.make-ahead-reminder small{width:100%;padding-left:31px;}.make-ahead-complete{opacity:.6;}.make-ahead-outside{margin:12px 0;font-size:13px;}button.recipe-personal-icon{display:inline-grid;place-items:center;vertical-align:middle;width:28px;min-width:28px;height:32px;padding:4px;border:0;background:transparent;color:#637080;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}button.recipe-personal-icon svg{width:19px;height:19px;}
+.recipe-personal-name{display:inline-flex;align-items:center;flex-wrap:wrap;min-width:0;max-width:100%;vertical-align:baseline;}.recipe-personal-name>[data-recipe-timer-name],.recipe-personal-name>.recipe-name-with-timer{flex:0 1 auto!important;min-width:0;}#list.top-summary .top-meal-title-line>.recipe-personal-name,#list.top-summary .recipe-name-with-tweak>.recipe-personal-name{flex:1;}button.recipe-favorite-toggle[aria-pressed="true"] svg{fill:currentColor;}
+
+.recipe-timer-confirm>div{max-width:320px;gap:14px;text-align:center;}.recipe-timer-confirm-actions{display:flex;justify-content:center;align-items:center;gap:32px;}.recipe-timer-confirm-actions button{min-width:44px;}#cookingTimerCompletion>div{max-width:340px;text-align:center;align-items:center;gap:10px;}#cookingTimerCompletion strong{font-size:26px;}#cookingTimerCompletion p{margin:0;overflow-wrap:anywhere;}#cookingTimerCompletion button.recipe-timer-icon{width:60px;min-width:60px;min-height:60px;}#cookingTimerCompletion button svg{width:32px;height:32px;}
+
+#recipeViewer .recipe-viewer-bar{grid-template-columns:repeat(5,minmax(44px,1fr));}#recipeViewer .recipe-toolbar-icon.recipe-settings-toggle{grid-column:4;}#recipeViewer .recipe-toolbar-icon.recipe-open-recipes{grid-column:5;}
+.recipe-open-dialog>div{gap:10px;overflow:hidden;}.recipe-open-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none;}.recipe-open-heading strong{min-width:0;overflow-wrap:anywhere;}.recipe-open-dialog input[type="search"]{width:100%;min-height:44px;padding:8px;border:1px solid #ccd2da;border-radius:8px;flex:none;}.recipe-open-dialog [hidden]{display:none!important;}.recipe-open-selection{display:flex;justify-content:flex-end;gap:4px;flex:none;}.recipe-open-selection svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}.recipe-open-list{min-height:0;overflow:auto;overscroll-behavior:contain;}.recipe-open-choice{display:flex;align-items:center;gap:10px;text-align:left;min-height:44px;padding:9px 4px;margin:0;border:0;border-bottom:1px solid #e5e8eb;background:transparent;color:inherit;font:inherit;overflow-wrap:anywhere;cursor:pointer;}.recipe-open-choice .check{flex:none;margin:0;}.recipe-open-choice>span{min-width:0;}.recipe-open-choice small{display:block;color:#637080;font-size:12px;margin-top:3px;}.recipe-open-choice input:disabled{opacity:.65;}.recipe-open-dialog .meal-unified-actions{flex:none;margin:0;padding:0;}.meal-options-heading-controls{float:right;display:flex;align-items:center;margin-left:8px;}button.meal-options-favorite{flex:0 0 44px;width:44px;min-width:44px;height:44px;min-height:44px;}
+
+body.recipe-bulk-select{--recipe-bulk-space:96px;}body.recipe-bulk-select .unified-nav-fab{transform:translateY(calc(-1 * var(--recipe-bulk-space)));}body.recipe-bulk-select .master-categories{padding-bottom:calc(var(--recipe-bulk-space) + env(safe-area-inset-bottom,0px));}body.recipe-bulk-select .master-category-meal .move,body.recipe-bulk-select .master-category-meal .recipe-section-move,body.recipe-bulk-select .master-category-meal .recipe-personal-icon,body.recipe-bulk-select .master-category-meal .needs-tweaking-icon,body.recipe-bulk-select .master-category-meal .recipe-list-timer,body.recipe-bulk-select .master-category-meal .related-meal-indicator,body.recipe-bulk-select .master-category-meal .shared-meal-link-button{display:none!important;}.recipe-bulk-check{display:flex;align-items:center;justify-content:center;flex:0 0 32px;min-height:44px;margin:0;padding:4px;}.recipe-bulk-check input{margin:0;}#recipeBulkToolbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));width:calc(100% - 24px);max-width:520px;z-index:9000;padding:5px 8px;background:#fff;color:#444;border:1px solid #dce2e9;border-radius:12px;box-shadow:0 3px 14px #0002;}.recipe-bulk-count{text-align:center;font-size:12px;line-height:18px;}.recipe-bulk-actions{display:flex;align-items:center;justify-content:space-around;}.recipe-bulk-actions button:disabled{opacity:.35;}.recipe-bulk-dialog>div{overflow:hidden;gap:12px;}.recipe-bulk-fields{overflow:auto;min-height:0;overscroll-behavior:contain;}.recipe-bulk-field{display:flex;flex-direction:column;gap:5px;margin:10px 0;font-size:14px;}.recipe-bulk-field select,.recipe-bulk-field input{width:100%;min-height:44px;padding:8px;border:1px solid #cfd5dd;border-radius:7px;background:white;color:inherit;font:inherit;}.recipe-bulk-fields p{font-size:13px;margin:4px 0;}.recipe-bulk-fields details{margin:12px 0;}.recipe-bulk-fields summary{min-height:38px;padding:7px 0;}.recipe-bulk-labels{max-height:160px;overflow:auto;}.recipe-bulk-labels label{display:flex;align-items:center;gap:8px;min-height:38px;font-size:14px;}
+
+#todaysTodo{margin:2px 0 14px;padding:8px 10px;border:1px solid #e1e4e6;border-radius:9px;background:#fafaf8;}#todaysTodo .today-todo-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;}#todaysTodo h3{margin:0;font-size:15px;font-weight:600;}#todaysTodo .today-todo-heading button{flex:none;min-width:44px;min-height:44px;}#todaysTodo .today-todo-heading svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}#todaysTodo .make-ahead-reminder{border:0;margin:0;padding:4px 0;min-height:44px;font-size:14px;color:#55616b;}#todaysTodo .today-todo-done{margin:2px 0 6px;font-size:14px;color:#65717e;}#editor .editor{display:flex;flex-direction:column;max-height:var(--meal-editor-height,calc(100dvh - 130px));overflow:hidden;padding:12px 12px 0;}
+[role="dialog"] #editor .editor{border:0;border-radius:0;margin:0;padding:0;}
+#editor .meal-editor-fields{min-height:0;overflow-y:auto;overscroll-behavior:contain;scroll-padding:12px;overflow-anchor:none;padding:0 2px 10px;}
+#editor .editor>.actions{position:sticky;bottom:0;flex-shrink:0;margin:0;padding:10px 0;background:#f7f7f7;border-top:1px solid #ddd;z-index:1;}
+#editor .editor>.actions button{min-height:44px;display:grid;place-items:center;}
+.meal-editor-sections{display:flex;flex-direction:column;gap:0;margin:12px 0 0;}
+#editor .meal-editor-section{border:0;border-top:1px solid #ddd;border-radius:0;background:transparent;overflow:visible;}
+#editor .meal-editor-summary{font-size:12px;font-weight:400;color:#777;min-width:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#editor .meal-editor-section>summary{padding:8px 0;gap:8px;}
+#editor .meal-editor-section>.settings-group-content{padding:0 0 12px;}
+.meal-editor-section>summary{min-height:44px;padding:9px 11px;font-size:14px;}.meal-editor-section>.settings-group-content{gap:8px;padding:0 10px 10px;}.meal-editor-section .time-editor-grid{margin:0;}.meal-editor-section #recipeIngredientLinks{margin:0;}.meal-editor-section #recipeMakeAhead{font-size:14px;}.meal-editor-section #recipeMakeAhead>summary{cursor:pointer;min-height:40px;padding:9px 0;}.meal-editor-section .recipe-related-buttons{margin:0;}.meal-editor-section .recipe-related-buttons .smallbtn{max-width:100%;overflow-wrap:anywhere;white-space:normal;}.meal-editor-section .settings-group-content>label{margin:0;}#editorAdditionalGroups:empty{display:none;}
+
+.recipe-bulk-choice-list{overflow:auto;min-height:0;max-height:48dvh;}.recipe-bulk-choice{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 2px;margin:0;font-size:15px;border-bottom:1px solid #e5e8eb;overflow-wrap:anywhere;}.recipe-bulk-choice input{flex:none;margin:0;}.recipe-bulk-value,.recipe-bulk-new-group{width:100%;min-height:44px;padding:8px;border:1px solid #cfd5dd;border-radius:7px;background:#fff;color:inherit;font:inherit;text-align:left;overflow-wrap:anywhere;}.recipe-bulk-error{color:#a33;font-size:13px;margin:0;}.recipe-bulk-impact:empty{display:none;}
+
+/* Optional recipe imagery stays out of compact schedule/overview rows. */
+
+/* Batch 2: only the editor's Notes & Reminders subsections. */
+#editor .meal-editor-subsection{border:0;border-top:1px solid #e1e1de;border-radius:0;background:transparent;overflow:visible;}
+#editor .meal-editor-subsection>summary{min-height:44px;padding:8px 0;font-size:14px;}
+#editor .meal-editor-subsection>.settings-group-content{padding:0 0 12px;gap:6px;}
+#editor .make-ahead-task-editor{grid-template-columns:minmax(0,1fr) 36px;margin:4px 0 10px;gap:6px;}
+#editor .make-ahead-description{grid-column:1;min-width:0;}
+#editor .make-ahead-lead{grid-column:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;}
+#editor .make-ahead-lead input,#editor .make-ahead-lead select{min-width:0;grid-column:auto;}
+#editor .make-ahead-timing-hint{grid-column:1;font-size:11px;}
+#editor .make-ahead-task-editor>button{grid-column:2;grid-row:1/3;}
+#editor .meal-editor-inline-icon{border:0;background:transparent;padding:4px;min-height:44px;min-width:36px;display:inline-grid;place-items:center;color:inherit;}
+#editor .meal-editor-inline-icon svg{width:22px;height:22px;}
+#editor #recipeNotes{min-height:120px;}
+
+/* Batch 3 editor-only hierarchy and compact draft controls. */
+#editor .meal-editor-subsection{margin:0;border-color:#ecece8;width:100%;min-width:0;}
+#editor .meal-editor-subsection>summary{font-size:13px;font-weight:500;padding:6px 0;min-height:40px;}
+#editor .meal-editor-subsection>.settings-group-content{padding-bottom:8px;}
+#editor #recipeMakeAhead>summary>.meal-editor-inline-icon{margin-left:auto;min-width:36px;width:36px;min-height:36px;}
+#editor #recipeMakeAhead>summary>.settings-chevron{margin-left:0;}
+#editor .meal-editor-segmented{display:flex;align-items:stretch;min-width:0;border:1px solid #ccc;border-radius:7px;overflow:hidden;}
+#editor .meal-editor-segmented button{flex:1;min-width:0;border:0;border-radius:0;background:#fff;font-size:12px;padding:6px 4px;min-height:38px;}
+#editor .meal-editor-segmented button[aria-pressed="true"]{background:#e8e4d8;color:#393a32;font-weight:600;}
+#editor .meal-editor-chips,#editor .meal-editor-suggestions{display:flex;flex-wrap:wrap;gap:6px;}
+#editor .meal-editor-chip{border:1px solid #d8d7cf;background:#f7f6ef;color:inherit;border-radius:14px;padding:7px 10px;font-size:13px;min-height:36px;max-width:100%;overflow-wrap:anywhere;}
+#editor .meal-editor-custom{display:flex;gap:6px;align-items:center;}
+#editor .meal-editor-custom input{flex:1;min-width:0;}
+#editor .meal-editor-linked-list{max-height:260px;overflow-y:auto;overscroll-behavior:contain;}
+#editor .meal-editor-linked-list label{margin:0;font-size:13px;}
+#editor .meal-editor-group-heading{gap:8px;justify-content:flex-start!important;padding:8px 3px!important;font-size:13px;min-height:40px;}
+#editor .meal-editor-text-action{border:0;background:transparent;color:#6b7067;padding:8px 0;text-align:left;font-size:12px;min-height:36px;}
+
+/* Batch 4: flat editor widths and consistent controls, scoped to this editor. */
+#editor .editor,#editor .meal-editor-fields,#editor .meal-editor-sections,#editor .meal-editor-section,#editor .meal-editor-subsection{min-width:0;max-width:100%;box-sizing:border-box;}
+#editor .meal-editor-sections{gap:4px;margin-top:8px;}
+#editor .meal-editor-section{border:0;}
+#editor .meal-editor-section>summary{--text-base-size:15px;font-weight:650;background:#f1f0e8;border-radius:6px;padding:8px;min-height:42px;}
+#editor .meal-editor-section>.settings-group-content{padding:4px 0 6px;}
+#editor .meal-editor-subsection{margin:0;padding:0;width:100%;}
+#editor .meal-editor-subsection>summary{--text-base-size:13px;font-size:13px;font-weight:500;padding:6px 0;min-height:38px;}
+#editor .meal-editor-subsection>.settings-group-content{padding:0 0 6px;min-width:0;}
+#editor .settings-chevron{flex-shrink:0;}
+#editor .ingredients-panel{margin-top:0;min-width:0;}
+#editor textarea,#editor input[type=search]{width:100%;min-width:0;box-sizing:border-box;}
+#editor input[type=search]{appearance:none;-webkit-appearance:none;min-height:42px;border:1px solid #ccc;border-radius:8px;padding:9px;background:#fff;color:inherit;font:inherit;}
+#editor input:focus-visible,#editor textarea:focus-visible{outline:2px solid #8a9271;outline-offset:1px;}
+#editor .meal-editor-linked-row{align-items:center!important;gap:8px!important;padding:6px 2px!important;min-width:0;}
+#editor .meal-editor-linked-row input{flex:0 0 20px;width:20px;height:20px;}
+#editor .meal-editor-linked-row span{flex:1;min-width:0;overflow-wrap:anywhere;}
+#editor .meal-editor-linked-row small{flex:0 1 28%;min-width:0;text-align:right;overflow-wrap:anywhere;}
+#editor .meal-editor-group-heading>span:last-child{min-width:0;overflow-wrap:anywhere;}
+#editor .meal-editor-group-chevron{width:22px;height:22px;flex:0 0 22px;}
+#editor .meal-editor-group-chevron svg{display:block;width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+#editor .meal-editor-group-chevron.expanded svg{transform:rotate(180deg);}
+#editor .make-ahead-task-editor{grid-template-columns:minmax(0,1fr) 44px;gap:6px;min-width:0;}
+#editor .make-ahead-task-editor>button{grid-column:2;grid-row:1;min-width:44px;width:44px;}
+#editor .make-ahead-lead{grid-column:1/-1;grid-template-columns:minmax(44px,.65fr) minmax(96px,1.35fr) 44px;align-items:center;gap:6px;}
+#editor .make-ahead-lead>.meal-editor-inline-icon{width:44px;min-width:44px;}
+#editor .meal-editor-segmented button[aria-pressed="true"]{background:#53613e;color:#fff;}
+#editor .make-ahead-timing-hint{grid-column:1/-1;overflow-wrap:anywhere;}
+#editor .editor.meal-editor-keyboard-open>.actions{display:none;}
+
+/* Batch 5: a single card-backed draft, with neutral editor chrome. */
+#editor .meal-editor-fields{padding-inline:0;}
+#editor .meal-editor-section>summary{background:#eaeaea;}
+#editor .meal-editor-subsection>summary{justify-content:flex-start;gap:7px;}
+#editor .meal-editor-subsection>summary>.settings-chevron{order:-1;margin-left:0;width:20px;height:20px;flex:0 0 20px;transform:rotate(-90deg);}
+#editor .meal-editor-subsection[open]>summary>.settings-chevron{transform:rotate(0deg);}
+#editor .meal-card-linked>summary>.settings-chevron{transform:rotate(0deg);}
+#editor .meal-card-linked[open]>summary>.settings-chevron{transform:rotate(90deg);}
+#editor .meal-editor-segmented{border:0;gap:3px;background:#e8e8e8;padding:2px;}
+#editor .meal-editor-segmented button{background:#e6e6e6;border:1px solid #d6d6d6;border-radius:5px;color:#333;}
+#editor .meal-editor-segmented button[aria-pressed="true"]{background:#fff;border-color:#aaa;box-shadow:0 1px 3px #0002;color:#242424;}
+#editor .meal-card-edit-mode{display:block;width:100%;min-width:0;margin:0 0 10px;padding:10px;border-radius:8px;outline:2px solid #8caaca;outline-offset:0;}
+#editor .meal-card-edit-mode>.master-meal-info{width:100%;min-width:0;padding-left:0;align-items:stretch;}
+#editor .meal-card-edit-mode>:not(.master-meal-info){display:none!important;}
+#editor .meal-card-name-field{min-width:0;position:relative;}
+#editor .meal-card-name-field .master-category-meal-name{font:inherit;min-height:36px;max-width:100%;}
+#editor .meal-card-field-button{background:none;border:0;color:inherit;text-align:left;padding:4px 0;font:inherit;min-height:36px;max-width:100%;overflow-wrap:anywhere;}
+#editor .meal-card-times{display:flex;flex-wrap:wrap;gap:2px 12px;align-items:start;}
+#editor .meal-card-time-field{min-width:0;max-width:100%;}
+#editor .meal-card-time-field input{max-width:145px;}
+#editor .meal-card-linked{margin:2px 0 0;}
+#editor .meal-card-linked>summary{font-size:12px;--text-base-size:12px;}
+#editor .meal-card-adjusting-warning{display:inline-flex;vertical-align:middle;width:20px;height:20px;color:#9b6d27;}
+#editor .meal-card-adjusting-warning svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;}
+#editor .meal-card-edit-mode [hidden]{display:none!important;}
+#editor .meal-card-edit-mode .meal-last-cooked{pointer-events:none;}
+#editor .meal-editor-adjusting [hidden]{display:none!important;}
+#editor .meal-editor-adjusting{border-top:1px solid #e5e5e5;padding:6px 0;}
+#editor .meal-editor-adjusting-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+#editor .meal-editor-adjusting-row label{margin:0;}
+#editor .meal-editor-note-toggle{border:0;background:none;padding:7px;min-width:40px;min-height:40px;}
+#editor .meal-editor-note-toggle svg{display:block;width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;}
+#editor .meal-editor-note-toggle[aria-expanded="true"] svg{transform:rotate(180deg);}
+
+/* Batch 6: compact, visibly editable card fields; normal cards are unchanged. */
+#editor .meal-card-edit-mode{padding:8px;}
+#editor .meal-card-edit-mode>.master-meal-info{display:flex;flex-direction:column;gap:3px;}
+#editor .meal-card-name-field .master-category-meal-name,#editor .meal-card-field-button,#editor .meal-card-name-field input,#editor .meal-card-time-field input{min-height:32px;margin:0;padding:5px 7px;border:1px solid #7776;border-radius:5px;background:var(--meal-edit-field,#ffffffb3);color:#242424;box-shadow:none;line-height:1.3;box-sizing:border-box;}
+#editor .meal-card-field-button:focus-visible,#editor .meal-card-name-field input:focus,#editor .meal-card-time-field input:focus{border-color:#626b60;outline:1px solid #626b60;outline-offset:0;}
+#editor .meal-card-times{margin:0;gap:4px;display:flex;flex-wrap:nowrap;width:100%;align-items:stretch;}#editor .meal-card-times>.meal-card-time-field{flex:1 1 auto;min-width:0;width:auto;max-width:none;}#editor .meal-card-times>.meal-card-time-field:nth-child(1){flex-grow:1;}#editor .meal-card-times>.meal-card-time-field:nth-child(2){flex-grow:1.1;}#editor .meal-card-times>.meal-card-time-field:nth-child(3){flex-grow:1.7;}#editor .meal-card-times .meal-card-field-button,#editor .meal-card-times input{width:100%;max-width:none;white-space:nowrap;overflow-wrap:normal;text-align:center;}
+#editor .meal-card-time-field .meal-card-field-button{font-size:12px;--text-base-size:12px;padding:5px;min-height:32px;}
+#editor .meal-card-linked{margin:5px 0 0;border:0;}
+#editor .meal-card-linked>summary{display:flex;flex-wrap:wrap;gap:4px 9px;padding:2px 0;min-height:32px;list-style:none;}
+#editor .meal-card-linked>summary::marker{content:'';}
+#editor .meal-card-linked>summary::-webkit-details-marker{display:none;}
+#editor .meal-card-linked-names{flex:1 1 120px;min-width:0;overflow-wrap:anywhere;}
+#editor .meal-card-edit-mode:has(.meal-card-linked){padding-bottom:3px!important;}
+#editor .meal-card-linked>summary{min-height:32px;padding:0;align-items:center;flex-wrap:nowrap;}#editor .meal-card-linked-names{padding-left:5px;}#editor .meal-card-links-action{margin-left:auto;flex:0 0 40px;width:40px;min-height:40px;display:grid;place-items:center;padding:6px!important;box-sizing:border-box;color:#444!important;}
+#editor .meal-card-links-action{font-weight:600;padding:5px 2px;color:#4d5849;}
+#editor .meal-editor-segmented{background:transparent;}
+#editor .meal-editor-segmented button{background:#fafafa;border-color:#e2e2e2;box-shadow:none;color:#626262;font-weight:400;}
+#editor .meal-editor-segmented button[aria-pressed="true"]{background:#fff;border-color:#aaa;box-shadow:0 1px 3px #0002;color:#242424;font-weight:600;}
+#editor .meal-group-picker-button{flex:1;min-width:0;text-align:left;white-space:normal;overflow-wrap:anywhere;}
+.meal-group-picker-options{max-height:min(50dvh,360px);overflow-y:auto;margin:10px 0;}
+.meal-group-picker-options label,.first-meal-new-group{display:flex;align-items:center;gap:10px;padding:9px 4px;margin:0;min-height:40px;font-size:14px;border-bottom:1px solid #eee;box-sizing:border-box;}
+.meal-group-picker-options label:has(input:checked){background:transparent;border-radius:5px;}
+.meal-group-picker-options label:has(input:disabled){color:#888;}
+.meal-group-picker-options input,.first-meal-new-group input[type="checkbox"]{width:18px;height:18px;flex:0 0 18px;accent-color:#315ba8;}
+.first-meal-group-choices > .meal-group-picker-options{margin-bottom:0;}
+.first-meal-new-group{padding-block:5px;}
+.first-meal-new-group .recipe-bulk-new-group{flex:1;min-width:0;width:auto;font-size:16px;box-sizing:border-box;}
+
+.meal-group-editor-heading{display:flex!important;align-items:center;width:100%;max-width:100%;box-sizing:border-box;gap:9px;min-height:40px;font-size:inherit;font-weight:700!important}#editor .meal-group-editor-heading{font-size:1em!important;font-weight:700!important}.meal-group-editor-heading .meal-group-picker-button{width:40px;height:40px;min-width:40px;min-height:40px;margin:0 0 0 auto;flex:0 0 40px;position:relative;right:-1px}.meal-group-assigned-list{font-size:.82em;font-weight:400;color:#777;line-height:1.3;overflow-wrap:anywhere;min-width:0}.meal-group-assigned-list.is-unassigned{color:#888}
+/* Linked recipes are edited in a separate row, matching Meal Groups; the saved meal card is unchanged. */
+#editor .meal-editor-fields>.meal-card-linked{display:block;margin:0 0 4px;border:0;min-width:0;}
+#editor .meal-editor-fields>.meal-card-linked>summary{display:flex;align-items:center;gap:9px;min-height:40px;padding:0;flex-wrap:nowrap;font-size:1em!important;--text-base-size:inherit!important;cursor:pointer;}
+#editor .meal-card-linked-heading{font-size:1em;font-weight:700;flex:0 0 auto;color:inherit;}
+#editor .meal-editor-fields>.meal-card-linked .meal-card-linked-names{flex:0 1 auto;min-width:0;font-size:.82em;font-weight:400;color:#777;line-height:1.3;overflow-wrap:anywhere;padding-left:0;}
+#editor .meal-editor-fields>.meal-card-linked .meal-card-links-action{margin-left:auto;flex:0 0 40px;width:40px;min-width:40px;min-height:40px;display:grid;place-items:center;padding:6px!important;color:#444!important;}
+#editor .meal-editor-fields>.meal-card-linked .meal-card-links-action svg{display:block;}
+/* Compact editor rows and matching selection dialogs. */
+#editor #mealCardLinkedBody{display:none!important;}
+#editor .meal-card-edit-mode>.master-meal-info .meal-card-rotation-control{width:100%;box-sizing:border-box;}
+
+#editor .meal-editor-fields>.meal-card-linked{margin:0!important;}
+#editor .meal-editor-fields>.meal-card-linked>.meal-linked-picker-trigger{display:flex;width:100%;align-items:center;gap:9px;min-height:40px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;padding:0;cursor:pointer;box-sizing:border-box;}
+#editor .meal-card-linked-heading{font-size:1em;font-weight:700;}
+#editor .meal-card-edit-mode .meal-card-rotation-control{display:flex!important;align-items:center;margin:5px 0 0!important;padding:0;min-height:30px;}
+#editor .meal-card-edit-mode .meal-card-rotation-control input{margin:0 7px 0 0;}
+#editor .meal-card-edit-mode{margin-bottom:4px!important;}
+#editor .meal-group-editor-heading .meal-group-picker-button{margin-left:auto!important;position:absolute!important;right:0;top:50%;transform:translateY(-50%);}
+#editor .meal-group-editor-heading{position:relative;padding-right:46px;}
+.meal-linked-dialog-search{display:block;width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccc;border-radius:7px;font:inherit;margin:14px 0 0;}
+.meal-linked-dialog-options label[hidden]{display:none;}
+.meal-linked-dialog-actions{display:flex;align-items:center;justify-content:center;gap:48px;margin:12px auto 0;}
+.meal-linked-dialog-actions button{width:44px;height:44px;}
+/* Compact selection summaries stay on one line, leaving the plus action visible. */
+#editor .meal-group-editor-heading{flex-wrap:nowrap!important;min-width:0!important;}
+#editor .meal-group-editor-heading .meal-group-assigned-list{flex:1 1 0!important;min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;overflow-wrap:normal!important;}
+#editor .meal-editor-fields>.meal-card-linked>.meal-linked-picker-trigger{min-width:0!important;flex-wrap:nowrap!important;}
+#editor .meal-editor-fields>.meal-card-linked .meal-card-linked-names{flex:1 1 0!important;min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;overflow-wrap:normal!important;}
+#editor .meal-editor-fields>.meal-card-linked .meal-card-links-action{flex:0 0 40px!important;margin-left:auto!important;}
+/* Editor alignment refinement: preserve approved time fields and rounded cards. */
+#editor .meal-editor-fields>.meal-card-linked{margin-bottom:-9px!important;}
+#editor .meal-group-editor-heading{position:relative!important;padding-right:0!important;width:100%!important;box-sizing:border-box!important;}
+#editor .meal-group-editor-heading .meal-group-picker-button{position:relative!important;right:auto!important;top:auto!important;transform:none!important;margin-left:auto!important;flex:0 0 40px!important;width:40px!important;min-width:40px!important;padding:6px!important;box-sizing:border-box!important;}
+#editor .meal-editor-fields>.meal-card-linked>.meal-linked-picker-trigger{padding-right:0!important;}
+#editor .meal-card-edit-mode .meal-card-rotation-control{margin-top:2px!important;min-height:26px!important;}
+#editor .meal-card-edit-mode>.master-meal-info{padding-bottom:0!important;}
+/* Batch 7: photo-free, compact card editing; normal card edging is unchanged. */
+#editor .meal-card-edit-mode{box-shadow:none!important;border:0!important;border-bottom:1px solid #ddd!important;border-radius:8px!important;outline:0!important;outline-offset:0;margin-bottom:10px;padding:7px 8px 10px;}
+#editor .meal-card-name-field .meal-card-field-button,#editor .meal-card-name-field input{display:block;width:100%;text-align:left;}
+#editor .meal-card-adjusting-warning{position:absolute;right:6px;top:6px;pointer-events:none;}
+#editor .meal-card-name-field:has(.meal-card-adjusting-warning:not([hidden])) .meal-card-field-button{padding-right:29px;}
