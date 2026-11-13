@@ -1,0 +1,2 @@
+- [Vanilla compatibility](vanilla-compatibility.md) — preserve the no-build app, existing data format, styling, and storage compatibility.
+- [Classic-script initialization](classic-script-initialization.md) — moving out of one closure removes cross-file function hoisting; protect startup ordering.

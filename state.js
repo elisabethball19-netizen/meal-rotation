@@ -1,4 +1,4 @@
-/* Shared inline in both apps: recovery must run before migrations or autosave. */
+/* Recovery must run before migrations or autosave. */
 // Optional immutable images. This layer never writes recipe/localStorage data.
 const recipePhotoStorage=(()=>{
  // Legacy backup/restore compatibility only; no recipe-photo display, resizing or upload UI.
@@ -22,6 +22,73 @@ const recipePhotoStorage=(()=>{
 })();
 function recipePhotoNotice(warnings){if(!warnings?.length)return;try{sessionStorage.setItem(recipePhotoStorage.test?'mealRotationTestPhotoNotice':'mealRotationPhotoNotice','Recipes restored. '+warnings.join(' '))}catch(e){}}
 
+function compactIngredientFractions(value){
+  const glyphs={'1/2':'½','1/3':'⅓','2/3':'⅔','1/4':'¼','3/4':'¾','1/8':'⅛','3/8':'⅜','5/8':'⅝','7/8':'⅞'};
+  let result=String(value??'');
+  // Some imported recipes lose the space in a mixed number: 11/2 = 1½.
+  // Restrict this repair to quantities at the start of a line or after a range dash,
+  // so fractions inside ingredient names, dates and URLs are not altered.
+  result=result.replace(/(^|[–—-]\s*)([1-9])([1-7])\/(2|3|4|8)(?=$|[^\w/])/g,(all,prefix,whole,num,den)=>{
+    const frac=num+'/'+den;
+    return glyphs[frac]?prefix+whole+glyphs[frac]:all;
+  });
+  return result.replace(/(^|[^\w/])(\d+)\s+(1\/2|1\/3|2\/3|1\/4|3\/4|1\/8|3\/8|5\/8|7\/8)(?=$|[^\w/])/g,(all,pre,whole,frac)=>pre+whole+glyphs[frac])
+    .replace(/(^|[^\w/])(1\/2|1\/3|2\/3|1\/4|3\/4|1\/8|3\/8|5\/8|7\/8)(?=$|[^\w/])/g,(all,pre,frac)=>pre+glyphs[frac]);
+}
+// Run before recipes are read so existing fraction and grocery matching stays unchanged.
+function migrateSavedIngredientFractions(){
+ const flag='mealRotationCompactFractionsMigratedV2';
+ if(localStorage.getItem(flag)==='true')return;
+ const updates={};
+ try{
+  const raw=localStorage.getItem('mealRotationDataV1');
+  if(!raw)return;
+  const data=JSON.parse(raw);
+  if(!Array.isArray(data.meals))return;
+  let changed=false;
+  for(const meal of data.meals){
+   if(!Array.isArray(meal.ingredients))continue;
+   meal.ingredients=meal.ingredients.map(item=>{
+    if(typeof item!=='string')return item;
+    const next=compactIngredientFractions(item);
+    if(next!==item)changed=true;
+    return next;
+   });
+  }
+  if(changed)updates.mealRotationDataV1=JSON.stringify(data);
+  const selectedRaw=localStorage.getItem('mealRotationSelectedIngredientsV1');
+  if(selectedRaw){
+   const selected=JSON.parse(selectedRaw);
+   if(selected&&typeof selected==='object'&&!Array.isArray(selected)){
+    let selectedChanged=false;
+    for(const [key,items] of Object.entries(selected)){
+     if(!Array.isArray(items))continue;
+     selected[key]=items.map(item=>{
+      if(typeof item!=='string')return item;
+      const next=compactIngredientFractions(item);
+      if(next!==item)selectedChanged=true;
+      return next;
+     });
+    }
+    if(selectedChanged)updates.mealRotationSelectedIngredientsV1=JSON.stringify(selected);
+   }
+  }
+  const checksRaw=localStorage.getItem('mealRotationCheckedIngredientsV1');
+  if(checksRaw){
+   const checks=JSON.parse(checksRaw);
+   if(Array.isArray(checks)){
+    const normalized=[...new Set(checks.map(x=>typeof x==='string'?compactIngredientFractions(x):x))];
+    if(JSON.stringify(normalized)!==JSON.stringify(checks))updates.mealRotationCheckedIngredientsV1=JSON.stringify(normalized);
+   }
+  }
+  if(Object.keys(updates).length){
+   const originals={};for(const key of Object.keys(updates))originals[key]=localStorage.getItem(key);
+   localStorage.setItem('mealRotationFractionMigrationBackupV2',JSON.stringify(originals));
+   for(const [key,value] of Object.entries(updates))localStorage.setItem(key,value);
+  }
+  localStorage.setItem(flag,'true');
+ }catch(e){ /* Leave the migration pending if storage is unavailable. */ }
+}
 function createMealPersistence(provider){
  const JOURNAL_KEY='mealRotationRecoveryJournalV1';
  let base,readError=null,recovery=false,strict=false,suspended=false,recoveryActions=null,startupValidator=null;
@@ -34,6 +101,28 @@ function createMealPersistence(provider){
   if(firstError){const error=Error(firstError.message||'Saved data could not be read');error.readableRecords=result;error.unreadableKeys=unreadable;throw error}return result;
  }
  function parseJournal(raw){const value=JSON.parse(raw);if(value?.version!==1||!value.originalStorage||Array.isArray(value.originalStorage)||typeof value.originalStorage!=='object'||Object.values(value.originalStorage).some(v=>typeof v!=='string'))throw Error('Unreadable recovery journal');return value}
+ // A journal is optional recovery assistance, not a prerequisite for freeing storage.
+ // Never truncate the current recipe snapshot to make it fit.
+ function writeJournal(value){
+  const next={...value,previousJournalRaw:undefined,previousAttempts:(value.previousAttempts||[]).slice(-5).map(entry=>({...entry,previousAttempts:undefined,previousJournalRaw:undefined}))};
+  journal=value;
+  try{
+   let encoded=JSON.stringify(next);
+   while(encoded.length*2>48000&&next.previousAttempts.length){next.previousAttempts.shift();encoded=JSON.stringify(next)}
+   if(encoded.length*2<=48000){
+    for(let attempt=0;attempt<2;attempt++){
+     try{base.setItem(JOURNAL_KEY,encoded);if(base.getItem(JOURNAL_KEY)===encoded){journal=next;journalRaw=encoded;return true}}
+     catch(_){}
+     // Retry once with only the current attempt; older entries are expendable.
+     next.previousAttempts=[];encoded=JSON.stringify(next);
+    }
+   }
+  }catch(_){}
+  // Do not leave a stale replacement marker behind when this attempt cannot fit.
+  try{base.removeItem(JOURNAL_KEY)}catch(_){}
+  journalRaw=null;
+  return false;
+ }
  function matchesRecords(actual,expected){return !!expected&&typeof expected==='object'&&!Array.isArray(expected)&&actual.size===Object.keys(expected).length&&Object.entries(expected).every(([key,value])=>typeof value==='string'&&actual.get(key)===value)}
  try{base=provider()}catch(e){readError=e;recovery=true}
  if(base){
@@ -82,8 +171,7 @@ function createMealPersistence(provider){
    if(journal.replacementCommitted!==true){
     if(!matchesRecords(original,journal.replacement))throw Error('Recovery replacement is incomplete. Original records and earlier recovery information remain available for export or another restore.');
     // Durable proof permits a later startup after normalization or cleanup was interrupted.
-    const verified={...journal,replacementCommitted:true},encoded=JSON.stringify(verified);
-    base.setItem(JOURNAL_KEY,encoded);if(base.getItem(JOURNAL_KEY)!==encoded)throw Error('Recovery completion could not be secured. Original recovery information is retained.');journal=verified;journalRaw=encoded;
+    writeJournal({...journal,replacementCommitted:true});
    }
    journalReplacementVerified=true;
   }
@@ -118,6 +206,22 @@ function createMealPersistence(provider){
   finally{retrying=false}
  }
  function reload(){if(hasDrafts())throw Error('Unsaved editor changes are still open. Save or cancel them before reloading.');suspended=true;window.dispatchEvent(new Event('mealRotationBeforeStorageReset'));location.reload()}
+ function startFresh(){
+  // This explicitly destructive action must work even when every setItem fails.
+  // Suspend autosave, remove only app-owned records, then reset via a clean reload.
+  suspended=true;
+  try{
+   base.removeItem(JOURNAL_KEY);
+   const remove=[];
+   for(let i=0;i<base.length;i++){const key=base.key(i);if(owned(key))remove.push(key)}
+   for(const key of remove)base.removeItem(key);
+   original.clear();pending.clear();failures.clear();journal=null;journalRaw=null;
+   journalCleanupPending=false;journalReplacementVerified=false;readError=null;recovery=false;strict=false;
+   warning?.remove();warning=null;
+   window.dispatchEvent(new Event('mealRotationBeforeStorageReset'));
+   location.reload();
+  }catch(error){suspended=false;throw error}
+ }
  function replace(data){
   startupValidator(data);
   if(hasDrafts())throw Error('An unsaved editor is still open. Export its draft and explicitly cancel it before replacing saved data.');
@@ -129,13 +233,15 @@ function createMealPersistence(provider){
   const previousAttempts=Array.isArray(priorJournal?.previousAttempts)?[...priorJournal.previousAttempts]:[];
   if(priorJournal){const previous={...priorJournal};if(Array.isArray(previous.previousAttempts))delete previous.previousAttempts;previousAttempts.push(previous)}
   const nextJournal={version:1,replacementCommitted:false,previousJournalRaw:priorJournal?undefined:priorJournalRaw,previousAttempts,createdAt:new Date().toISOString(),originalStorage:priorJournal?.originalStorage||Object.fromEntries(before),beforeReplacement:Object.fromEntries(before),replacement:data,pendingWrites:Object.fromEntries(pending),failedTransactions:[...failures.values()].map(f=>copy(f.record)),editorDrafts:editorDrafts()};
-  const encoded=JSON.stringify(nextJournal);base.setItem(JOURNAL_KEY,encoded);if(base.getItem(JOURNAL_KEY)!==encoded)throw Error('The original data could not be secured for recovery. No replacement was attempted.');journal=nextJournal;journalRaw=encoded;
+   writeJournal(nextJournal);
   try{
    for(const [key,value]of Object.entries(data).sort(([a],[b])=>(a==='mealRotationDataV1')-(b==='mealRotationDataV1')))base.setItem(key,value);
    for(const key of before.keys())if(!Object.hasOwn(data,key))base.removeItem(key);
    const actual=Object.fromEntries(readRaw());if(Object.keys(actual).length!==Object.keys(data).length||Object.entries(data).some(([key,value])=>actual[key]!==value))throw Error('Replacement could not be verified.');startupValidator(actual);
-  }catch(e){let failed=false;for(const key of new Set([...before.keys(),...Object.keys(data)]))try{if(before.has(key))base.setItem(key,before.get(key));else base.removeItem(key)}catch(_){failed=true}throw Error('Recovery could not be saved. '+(failed?'Storage prevented complete rollback. The original snapshot is retained in the recovery journal.':'Original records were restored; the recovery journal is retained. Please retry.'))}
-  reload();
+   }catch(e){let failed=false;for(const key of new Set([...before.keys(),...Object.keys(data)]))try{if(before.has(key))base.setItem(key,before.get(key));else base.removeItem(key)}catch(_){failed=true}throw Error('Recovery could not be saved. '+(failed?'Storage prevented complete rollback. Keep this page open and export the original recovery snapshot.':'Original records were restored. Keep this page open, export recovery data, and retry.'))}
+   writeJournal({...nextJournal,replacementCommitted:true});
+   original=new Map(Object.entries(data));pending.clear();failures.clear();
+   reload();
  }
  function finishStartup(){
   if(!journalRaw||recovery)return;
@@ -151,8 +257,8 @@ function createMealPersistence(provider){
   cover=document.createElement('section');cover.id='mealDataRecovery';cover.setAttribute('role','alertdialog');cover.setAttribute('aria-modal','true');cover.setAttribute('aria-labelledby','mealRecoveryTitle');cover.style.cssText='position:fixed;inset:0;z-index:50000;background:#fff;color:#242424;overflow:auto;padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start';
   const panel=document.createElement('div');panel.style.cssText='width:100%;max-width:520px;margin-block:auto;flex-shrink:0';const title=document.createElement('h1');title.id='mealRecoveryTitle';title.textContent='Saved data needs recovery';title.style.fontSize='24px';const detail=document.createElement('p');detail.textContent='Meal Rotation could not read its saved data. Automatic saving is paused to protect recoverable information. Export your data before restoring a backup or starting fresh.';const status=document.createElement('p');status.id='mealRecoveryStatus';status.setAttribute('role','status');status.style.overflowWrap='anywhere';status.textContent=readError?.message||'';
   const controls=document.createElement('div');controls.style.cssText='display:flex;gap:10px;flex-wrap:wrap';
-  const restore=button('Restore Backup',()=>{const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=async()=>{const file=input.files?.[0];if(!file)return;restore.disabled=fresh.disabled=true;try{const backup=JSON.parse(await file.text()),data=recoveryActions.normalize(backup);recoveryActions.validateCore(backup);recoveryActions.validate(data);const photoWarnings=await recipePhotoStorage.restore(backup);replace(data);recipePhotoNotice(photoWarnings)}catch(e){status.textContent='Backup was not restored: '+e.message}finally{restore.disabled=fresh.disabled=false}};input.click()});
-  const fresh=button('Start Fresh',()=>{if(panel.querySelector('[data-start-fresh-confirm]'))return;const confirmation=document.createElement('div');confirmation.dataset.startFreshConfirm='true';const text=document.createElement('p');text.textContent='Starting fresh will delete this app’s saved recipes, plans, and settings in this browser. Export Data for Recovery first if you may need them.';confirmation.append(text,button('Confirm Start Fresh',()=>{try{replace({})}catch(e){status.textContent=e.message}}),button('Cancel Start Fresh',()=>confirmation.remove()));panel.append(confirmation)});
+  const restore=button('Restore Backup',()=>{const input=document.createElement('input');input.type='file';input.accept='.json,application/json,*/*';input.onchange=async()=>{const file=input.files?.[0];if(!file)return;restore.disabled=fresh.disabled=true;try{const backup=JSON.parse(await file.text()),data=recoveryActions.normalize(backup);recoveryActions.validateCore(backup);recoveryActions.validate(data);const photoWarnings=await recipePhotoStorage.restore(backup);replace(data);recipePhotoNotice(photoWarnings)}catch(e){status.textContent='Backup was not restored: '+e.message}finally{restore.disabled=fresh.disabled=false}};input.click()});
+  const fresh=button('Start Fresh',()=>{if(panel.querySelector('[data-start-fresh-confirm]'))return;const confirmation=document.createElement('div');confirmation.dataset.startFreshConfirm='true';const text=document.createElement('p');text.textContent='Starting fresh will delete this app’s saved recipes, plans, and settings in this browser. Export Data for Recovery first if you may need them.';confirmation.append(text,button('Confirm Start Fresh',()=>{try{startFresh()}catch(e){status.textContent=e.message}}),button('Cancel Start Fresh',()=>confirmation.remove()));panel.append(confirmation)});
   controls.append(restore,button('Export Data for Recovery',exportRecovery),fresh);
   if(hasDrafts())controls.append(button('Cancel Open Drafts',()=>{
    if(panel.querySelector('[data-cancel-drafts-confirm]'))return;
@@ -161,7 +267,7 @@ function createMealPersistence(provider){
   }));panel.append(title,detail,status,controls);cover.append(panel);document.body.append(cover);for(const el of document.body.children)if(el!==cover)el.inert=true;restore.focus();
  }
  window.addEventListener('beforeunload',event=>{if(unresolved()){event.preventDefault();event.returnValue=''}});
- return {storage,inspect,transaction,offerRetry,resolve,cancelOwner,notify,showRecovery,finishStartup,failStartup,reload,editorDrafts,get recovery(){return recovery},get unsaved(){return unresolved()},get paused(){return suspended||recovery}};
+  return {storage,inspect,transaction,offerRetry,resolve,cancelOwner,notify,showRecovery,finishStartup,failStartup,reload,startFresh,editorDrafts,get recovery(){return recovery},get unsaved(){return unresolved()},get paused(){return suspended||recovery}};
 }
 
 const mealPersistence=createMealPersistence(()=>window.localStorage);
@@ -260,9 +366,10 @@ function validateBackupStorage(data){
 }
 function normalizeImportedBackup(d){
  // Test-only records can be present in older exports. Never import them as app data.
+ if(d.storage!==undefined&&(!d.storage||typeof d.storage!=='object'||Array.isArray(d.storage)))throw Error('Invalid backup storage');
  const cleaned={};
  for(const [key,value] of Object.entries(d.storage||{})){
-  if(key.startsWith('mealRotationTestSandboxV1:')||key.startsWith('mealRotationTESTONLY__'))continue;
+  if(key==='mealRotationRecoveryJournalV1'||key.startsWith('mealRotationTestSandboxV1:')||key.startsWith('mealRotationTESTONLY__'))continue;
   cleaned[key]=value;
  }
  // The top-level recipe collection is authoritative for this backup format.
@@ -274,6 +381,9 @@ function normalizeImportedBackup(d){
  if(d.categoryColors)cleaned.mealRotationCategoryColorsV1=JSON.stringify(d.categoryColors);
  if(d.pinnedCats)cleaned.mealRotationPinnedCategoriesV1=JSON.stringify(d.pinnedCats);
  if(d.expandedCats)cleaned.mealRotationExpandedCategoriesV1=JSON.stringify(d.expandedCats);
+ if(d.cookSessions!==undefined)cleaned.mealRotationCookingSessionsV1=JSON.stringify(d.cookSessions);
+ if(d.checkedIngredients!==undefined)cleaned.mealRotationCheckedIngredientsV1=JSON.stringify(d.checkedIngredients);
+ if(d.timeDisplayPrefs!==undefined)cleaned.mealRotationTimeVisibilityV1=JSON.stringify(d.timeDisplayPrefs);
  if(typeof d.showMealPlanTabs==='boolean')cleaned.mealRotationShowPlanTabsV1=String(d.showMealPlanTabs);
  return cleaned;
 }

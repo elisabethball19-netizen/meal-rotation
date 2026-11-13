@@ -819,7 +819,7 @@ window.addEventListener('popstate',e=>{
 function restoreRecipeViewerHistory(saved){
  if(!saved)return;const meal=meals.find(m=>String(m.id)===String(saved.mealId));if(meal){openRecipeViewer(meal,saved.context||null,false);recipeViewer.cover.scrollTop=saved.scrollTop||0}
 }
-function resumeRecipeViewer(){try{restoreRecipeViewerHistory(window.history.state?.mealRotationRecipeViewer);mealPersistence.finishStartup()}catch(error){mealPersistence.failStartup(Error(error.stack||error.message||String(error)))}}
+function resumeRecipeViewer(){try{restoreRecipeViewerHistory(window.history.state?.mealRotationRecipeViewer);mealPersistence.finishStartup()}catch(error){mealPersistence.failStartup(error)}}
 function recipeGuidanceEnabled(){return recipeViewingMode()==='split'&&recipeViewPrefs.syncIngredients===true}
 function cancelRecipeAdvance(view=recipeViewer){if(!view)return;clearTimeout(view.advanceTimer);view.advanceTimer=null}
 function configureGuidedCooking(view,ingredientsPane,instructionsPane){

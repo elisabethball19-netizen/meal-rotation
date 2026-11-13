@@ -368,10 +368,11 @@ async function enrichImportedRecipes(ids){
 }
 function requestRecipeImportResume(){if(recipeImportResumeTimer!==null)return;recipeImportResumeTimer=setTimeout(()=>{recipeImportResumeTimer=null;resumeRecipeImports()},0)}
 function resumeRecipeImports(){
- if(recipePageLeaving||navigator.onLine===false||recipeBackgroundWritesBlocked())return;
+ if(document.readyState==='loading'||mealPersistence.paused||recipePageLeaving||navigator.onLine===false||recipeBackgroundWritesBlocked())return;
  enrichImportedRecipes(meals.filter(m=>m.recipeImportPending&&(!m.recipeImportRetryAt||m.recipeImportRetryAt<=Date.now())).map(m=>m.id));
 }
 window.addEventListener('online',resumeRecipeImports);
+window.addEventListener('DOMContentLoaded',resumeRecipeImports,{once:true});
 new MutationObserver(requestRecipeImportResume).observe(document.body,{childList:true});
 
 function restoreState(state){if(state.recipePhotoUndo){try{restoreRecipePhotoReferences(state.recipePhotoUndo.refs)}catch(e){}return}if(state.scheduleChangeUndo)state=restoreScheduleUndoState(state);if(state.groupUndoGrocery)state=restoreGroupGroceryUndo(state);const wasRestoring=restoringRotationCalendars;restoringRotationCalendars=true;try{if(Object.hasOwn(state,'groupIdentities')){if(state.groupIdentities===null)localStorage.removeItem(GROUP_IDENTITIES_KEY);else localStorage.setItem(GROUP_IDENTITIES_KEY,state.groupIdentities)}if(Object.prototype.hasOwnProperty.call(state,'lastRotationBefore')){try{if(state.lastRotationBefore===null)localStorage.removeItem('mealRotationLastRotationBeforeV1');else if(typeof state.lastRotationBefore==='string')localStorage.setItem('mealRotationLastRotationBeforeV1',state.lastRotationBefore)}catch(e){}}if(!restoreMasterGroupOrder(state.masterGroupOrder))return;cats=state.cats;active=state.active;meals=state.meals;if(Array.isArray(state.mealPlans)&&state.mealPlans.length){mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId||mealPlans[0].id;showMealPlanTabs=!!state.showMealPlanTabs;autoPinTopCategories=true;}else saveActiveMealPlan();checkedIngredients=new Set(state.checkedIngredients||[]);groceryOccurrenceChecks=state.groceryOccurrenceChecks?JSON.parse(JSON.stringify(state.groceryOccurrenceChecks)):{version:1,checks:{}};groceryCheckStorageInvalid=false;saveGroceryOccurrenceChecks();if(state.weekdayCategories)weekdayCategories=state.weekdayCategories;if(state.weekdayMealOverrides)weekdayMealOverrides=state.weekdayMealOverrides;if(state.weekdayRecipeFilters){weekdayRecipeFilters=state.weekdayRecipeFilters;saveWeekdayRecipeFilters();}if(state.pinnedCats)pinnedCats=state.pinnedCats;if(state.expandedCats)expandedCats=state.expandedCats;if(typeof state.autoPinTopCategories==='boolean')autoPinTopCategories=true;if(typeof state.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=state.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;if(typeof state.masterPinsOverride==='boolean')masterPinsOverride=state.masterPinsOverride;saveMasterOpeningPrefs();if(state.startWeekday)startWeekday=state.startWeekday;if(state.topCounts)topCounts=state.topCounts;categoryColors=state.categoryColors&&typeof state.categoryColors==='object'?{...state.categoryColors}:{};saveCategoryColors();weekdayColors=state.weekdayColors&&typeof state.weekdayColors==='object'?{...state.weekdayColors}:deriveWeekdayColors(categoryColors);saveWeekdayColors();id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;newRecipeDraftId=null;editorCategoryBaseline=null;editorDraftCategories=null;stopMealEditorPositioning();menuCat=null;if(state.skippedCookingState)restoreSkippedCookingState(state.skippedCookingState);if(state.bulkRecipeUndoLabels){recipeLabelCatalog=[...state.bulkRecipeUndoLabels];saveRecipeLabelCatalog()}if(state.bulkRecipeUndoSelections)restoreBulkRecipeSelections(state.bulkRecipeUndoSelections);if(state.groupUndoIngredientSelections){const selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');for(const [key,value]of Object.entries(state.groupUndoIngredientSelections)){if(value===null)delete selected[key];else selected[key]=value}localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selected))}if(state.bulkRecipeUndoNewSelections?.length){const values=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');for(const key of state.bulkRecipeUndoNewSelections)if(!meals.some(m=>String(m.id)===key))delete values[key];localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(values))}if(state.bulkRecipeUndoExclusions){for(const key of state.bulkRecipeUndoExclusions)masterGroceryExcludedMealKeys.add(key);saveMasterGroceryMealExclusions()}persist();try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));saveWeekdayCategories();saveWeekdayMealOverrides();saveTopCounts();localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats));localStorage.setItem('mealRotationStartWeekdayV1',startWeekday);localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}catch(e){}resetGroceriesForNewTopMeals(new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id))));render()}finally{restoringRotationCalendars=wasRestoring}}
@@ -440,17 +441,17 @@ function recipeImportItems(json){
  if(!json.name&&!json.title){if(json.recipe&&typeof json.recipe==='object')return recipeImportItems(json.recipe);if(json.data&&typeof json.data==='object')return recipeImportItems(json.data);if(json.recipes&&!Array.isArray(json.recipes)&&typeof json.recipes==='object')return recipeImportItems(Object.values(json.recipes));}
  if(Array.isArray(json.cards)&&Array.isArray(json.lists))return recipeImportTrelloBoard(json);
  const resolveInstructions=recipeInstructionReferenceResolver(json);
- const raw=Array.isArray(json)?json:Array.isArray(json.recipes)?json.recipes:Array.isArray(json['@graph'])?json['@graph']:Array.isArray(json.items)?json.items:[json];
+ const raw=Array.isArray(json)?json:json.version===2&&Array.isArray(json.meals)?json.meals:Array.isArray(json.recipes)?json.recipes:Array.isArray(json.meals)&&json.recipes===undefined?json.meals:Array.isArray(json['@graph'])?json['@graph']:Array.isArray(json.items)?json.items:[json];
  return raw.filter(x=>x&&typeof x==='object'&&!Array.isArray(x)).flatMap(r=>{
   if(r['@graph'])return recipeImportItems(r);
   const name=String(r.name||r.title||r.recipeName||'').trim();if(!name)return [];
   if(r['@type']&&!String(Array.isArray(r['@type'])?r['@type'].join(' '):r['@type']).toLowerCase().includes('recipe'))return [];
-  return [{...r,name,recipeInstructions:resolveInstructions(recipeImportInstructionValue(r)),recipeCategory:r.recipeCategory??r.categories??r.labels??r.tags??r.keywords??[],recipeIngredient:r.recipeIngredient??r.ingredients??[],prepTime:r.prepTime??r.prep_time??r.preparationTime??'',cookTime:r.cookTime??r.cook_time??'',totalTime:r.totalTime??r.total_time??'',url:r.url||r.recipeUrl||r.link||r.source_url||r.sourceUrl||'',identifier:r.identifier||r.id||r.uid||r.uuid||'',linkedRecipes:r.linkedRecipes??r.linkedMeals??r.linkedRecipeIds??r.linkedMealIds??r.relatedRecipes??r.relatedMeals??[],importSourceId:r.importSourceId||(r.uid?'paprika:'+r.uid:r.title&&r.id?'mela:'+r.id:'')}];
+  return [{...r,name,recipeInstructions:resolveInstructions(recipeImportInstructionValue(r)),recipeCategory:recipeImportTags(r),recipeIngredient:r.recipeIngredient??r.ingredients??[],prepTime:r.prepTime??r.prep_time??r.preparationTime??'',cookTime:r.cookTime??r.cook_time??'',totalTime:r.totalTime??r.total_time??'',url:r.url||r.recipeUrl||r.link||r.source_url||r.sourceUrl||'',identifier:r.identifier||r.id||r.uid||r.uuid||'',linkedRecipes:r.linkedRecipes??r.linkedMeals??r.linkedRecipeIds??r.linkedMealIds??r.relatedRecipes??r.relatedMeals??[],importSourceId:r.importSourceId||(r.uid?'paprika:'+r.uid:r.title&&r.id?'mela:'+r.id:'')}];
  });
 }
 function recipeImportTags(r){
- const values=r.recipeCategory??r.labels??r.keywords??r.categories??[];
- return [...new Set((Array.isArray(values)?values:typeof values==='string'?values.split(/[,;|]/):[])
+ const values=[r.recipeCategory,r.labels,r.keywords,r.categories,r.tags,r.cat].flatMap(value=>Array.isArray(value)?value:typeof value==='string'?value.split(/[,;|]/):[]);
+ return [...new Set(values
   .map(x=>typeof x==='string'?x.trim():x&&typeof x==='object'?String(x.name||x.label||'').trim():'').filter(Boolean))];
 }
 function recipeImportMinutes(value){
@@ -822,7 +823,7 @@ function buildRecipeSageRefresh(backup){
  const title=document.createElement('strong');title.textContent='Refresh Recipes from RecipeSage';
  const explanation=document.createElement('p');explanation.style.margin='0';explanation.textContent='Choose a RecipeSage export to refresh matching recipes. Your customizations and personal notes stay intact. A complete safety backup is saved and downloaded automatically first. Incomplete or uncertain matches are skipped.';
  const choose=document.createElement('button');choose.type='button';choose.textContent='Choose RecipeSage export file';
- const input=document.createElement('input');input.type='file';input.accept='.json,.jsonld,.zip,application/json,application/zip';input.hidden=true;
+ const input=document.createElement('input');input.type='file';input.accept='.json,application/json,*/*';input.hidden=true;
  const apply=document.createElement('button');apply.type='button';apply.textContent='Refresh Recipes';apply.disabled=true;
  const result=document.createElement('p');result.style.margin='0';result.setAttribute('role','status');result.setAttribute('aria-live','polite');
  box.append(title,explanation,choose,input,apply,result);let items=null,generation=0;
@@ -851,11 +852,29 @@ function buildRecipeSageRefresh(backup){
  return box;
 }
 function openRecipeImportFilePicker(){
- const input=document.createElement('input');input.type='file';input.accept='.jsonld,.json,.csv,.html,.htm,.zip,.paprikarecipes,.melarecipe,.melarecipes,.paprikarecipe,application/json,text/csv,application/zip';
+ const input=document.createElement('input');input.type='file';input.accept='.json,application/json,*/*';
  input.onchange=async()=>{const file=input.files?.[0];if(!file)return;
-  try{const items=await recipeImportReadFile(file);if(!items.length){recipeImportNotice('No recipes were found in this export. Check that the file contains recipe information.');return}showRecipeImportSelection(items,file.name)}
+  try{
+   if(/\.json$/i.test(file.name)||file.type==='application/json'){
+    const backup=JSON.parse(await file.text());
+    if(backup?.version===2&&Array.isArray(backup.meals)&&Array.isArray(backup.cats)){
+     const replacement=normalizeImportedBackup(backup);validateBackupCore(startupCore(backup));validateBackupStorage(replacement);
+     if(confirm('This is a full Meal Rotation backup. Restore all recipes, plans and settings? This replaces the app data in this browser. Export a backup first if you need to keep it.'))await restoreVersion2Backup(backup);
+     return;
+    }
+   }
+   const items=await recipeImportReadFile(file);if(!items.length){recipeImportNotice('No recipes were found in this export. Check that the file contains recipe information.');return}showRecipeImportSelection(items,file.name)
+  }
   catch(e){recipeImportNotice('Could not read the recipe export. '+(e.message||'No meals were changed.')+' No meals were changed.')}
  };input.click();
+}
+async function restoreVersion2Backup(backup){
+ validateBackupCore(startupCore(backup));
+ const replacement=normalizeImportedBackup(backup);validateBackupStorage(replacement);
+ const preparation=await prepareOptionalBackupPhotos(backup);if(preparation.cancelled)return;
+ const finish=()=>{restoreBackupStorage(replacement);recipePhotoNotice(preparation.warnings);mealPersistence.reload()};
+ restoreBackupStorage(replacement,{id:'backup-restore',kind:'backup-restore',ownerId:null,retry:finish});
+ recipePhotoNotice(preparation.warnings);mealPersistence.reload();
 }
 function openRecipeImportSourcePicker(){
  const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;z-index:16100;display:flex;align-items:center;justify-content:center;background:#0008;padding:18px';

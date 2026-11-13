@@ -365,7 +365,7 @@ sizeSelect.onchange=()=>{mealTextSize=sizeSelect.value;localStorage.setItem(meal
 sizeWrap.append(sizeLabel,sizeSelect);displayGroup.content.prepend(sizeWrap);
 panel.append(displayGroup.details);
 recipeBulkBackupAPI={capture:captureBackupStorage,validate:validateBackupStorage,restore:restoreBackupStorage};
-let exportBtn=document.createElement('button');exportBtn.textContent='Export backup';exportBtn.onclick=()=>{persist();saveActiveMealPlan();saveTimeDisplayPrefs();return exportRecipeBackup({version:2,cats,active,meals,weekdayCategories,weekdayMealOverrides,weekdayColors,categoryColors,timeDisplayPrefs,masterOpenMode,masterPinsOverride,autoPinTopCategories,applyPinsToAllTabs,pinnedCats,expandedCats,mealPlans:{plans:mealPlans,activeId:activePlanId},showMealPlanTabs,storage:captureBackupStorage()})};let restoreBtn=document.createElement('button');restoreBtn.textContent='Restore backup';restoreBtn.onclick=()=>{let input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=()=>{let file=input.files&&input.files[0];if(!file)return;let reader=new FileReader();reader.onload=async()=>{try{let d=JSON.parse(reader.result);validateBackupCore(startupCore(d));if(d.version>=2){if(!d.storage)throw new Error('Missing backup storage');const replacement=normalizeImportedBackup(d);validateBackupStorage(replacement);const preparation=await prepareOptionalBackupPhotos(d);if(preparation.cancelled)return;const photoWarnings=preparation.warnings;restoreBackupStorage(replacement,{id:'backup-restore',kind:'backup-restore',ownerId:null,retry:()=>{restoreBackupStorage(replacement);recipePhotoNotice(photoWarnings);mealPersistence.reload()}});recipePhotoNotice(photoWarnings);backupRestoreReloadPending=true;location.reload();return;}const legacyPreparation=await prepareOptionalBackupPhotos(d);if(legacyPreparation.cancelled)return;const legacyPhotoWarnings=legacyPreparation.warnings;snapshot();if(!writeMasterGroupOrder(null,false))throw Error('Group order could not be reset');cats=d.cats;meals=d.meals;if(d.weekdayCategories&&typeof d.weekdayCategories==='object')weekdayCategories=d.weekdayCategories;if(typeof d.autoPinTopCategories==='boolean'){autoPinTopCategories=true;localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}if(typeof d.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=d.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(d.masterOpenMode))masterOpenMode=d.masterOpenMode;if(typeof d.masterPinsOverride==='boolean')masterPinsOverride=d.masterPinsOverride;saveMasterOpeningPrefs();if(Array.isArray(d.pinnedCats)){pinnedCats=d.pinnedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats))}if(Array.isArray(d.expandedCats)){expandedCats=d.expandedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}if(d.weekdayMealOverrides&&typeof d.weekdayMealOverrides==='object')weekdayMealOverrides=d.weekdayMealOverrides;if(d.mealPlans)restoreMealPlansFromBackup(d.mealPlans);if(typeof d.showMealPlanTabs==='boolean'){showMealPlanTabs=d.showMealPlanTabs;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))};saveWeekdayCategories();saveWeekdayMealOverrides();if(d.categoryColors&&typeof d.categoryColors==='object'&&!Array.isArray(d.categoryColors)){categoryColors=Object.fromEntries(Object.entries(d.categoryColors).filter(([c,color])=>typeof c==='string'&&/^#[0-9a-fA-F]{6}$/.test(color)));saveCategoryColors()}weekdayColors=d.weekdayColors&&typeof d.weekdayColors==='object'&&!Array.isArray(d.weekdayColors)?Object.fromEntries(Object.entries(d.weekdayColors).filter(([day,color])=>weekdays.includes(day)&&/^#[0-9a-fA-F]{6}$/.test(color))):deriveWeekdayColors(categoryColors);saveWeekdayColors();if(d.timeDisplayPrefs){setTimeDisplayPrefs(d.timeDisplayPrefs);saveTimeDisplayPrefs()}active=cats.includes(d.active)?d.active:(cats[0]||'Soup');id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;localStorage.removeItem(COOKING_SESSIONS_KEY);cookingSessions={version:1,occurrences:{}};cookingStorageInvalid=false;localStorage.removeItem(OCCURRENCE_SCALES_KEY);occurrenceScales={version:1,occurrences:{}};scaleStorageInvalid=false;persist();render();panel.classList.add('hidden');settings.setAttribute('aria-expanded','false');if(legacyPhotoWarnings.length)showAppMessage(legacyPhotoWarnings.join(' '))}catch(e){alert('Backup rejected or restore failed: '+e.message+'. No changes were made if validation failed.')}};reader.readAsText(file)};input.click()};let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=async()=>{await finishSettings('ask');render()};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipe files or Trello boards into Ideas';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=displayGroup;
+let exportBtn=document.createElement('button');exportBtn.textContent='Export backup';exportBtn.onclick=()=>{persist();saveActiveMealPlan();saveTimeDisplayPrefs();return exportRecipeBackup({version:2,cats,active,meals,weekdayCategories,weekdayMealOverrides,weekdayColors,categoryColors,timeDisplayPrefs,masterOpenMode,masterPinsOverride,autoPinTopCategories,applyPinsToAllTabs,pinnedCats,expandedCats,mealPlans:{plans:mealPlans,activeId:activePlanId},showMealPlanTabs,storage:captureBackupStorage()})};let restoreBtn=document.createElement('button');restoreBtn.textContent='Restore backup';restoreBtn.onclick=()=>{let input=document.createElement('input');input.type='file';input.accept='.json,application/json,*/*';input.onchange=()=>{let file=input.files&&input.files[0];if(!file)return;let reader=new FileReader();reader.onload=async()=>{try{let d=JSON.parse(reader.result);validateBackupCore(startupCore(d));if(d.version>=2){await restoreVersion2Backup(d);return;}const legacyPreparation=await prepareOptionalBackupPhotos(d);if(legacyPreparation.cancelled)return;const legacyPhotoWarnings=legacyPreparation.warnings;snapshot();if(!writeMasterGroupOrder(null,false))throw Error('Group order could not be reset');cats=d.cats;meals=d.meals;if(d.weekdayCategories&&typeof d.weekdayCategories==='object')weekdayCategories=d.weekdayCategories;if(typeof d.autoPinTopCategories==='boolean'){autoPinTopCategories=true;localStorage.setItem('mealRotationAutoPinTopCategoriesV1',String(autoPinTopCategories))}if(typeof d.applyPinsToAllTabs==='boolean'){applyPinsToAllTabs=d.applyPinsToAllTabs;localStorage.setItem('mealRotationApplyPinsAllTabsV1',String(applyPinsToAllTabs))}if(['all','current','across','none'].includes(d.masterOpenMode))masterOpenMode=d.masterOpenMode;if(typeof d.masterPinsOverride==='boolean')masterPinsOverride=d.masterPinsOverride;saveMasterOpeningPrefs();if(Array.isArray(d.pinnedCats)){pinnedCats=d.pinnedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats))}if(Array.isArray(d.expandedCats)){expandedCats=d.expandedCats.filter(c=>cats.includes(c));localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}if(d.weekdayMealOverrides&&typeof d.weekdayMealOverrides==='object')weekdayMealOverrides=d.weekdayMealOverrides;if(d.mealPlans)restoreMealPlansFromBackup(d.mealPlans);if(typeof d.showMealPlanTabs==='boolean'){showMealPlanTabs=d.showMealPlanTabs;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))};saveWeekdayCategories();saveWeekdayMealOverrides();if(d.categoryColors&&typeof d.categoryColors==='object'&&!Array.isArray(d.categoryColors)){categoryColors=Object.fromEntries(Object.entries(d.categoryColors).filter(([c,color])=>typeof c==='string'&&/^#[0-9a-fA-F]{6}$/.test(color)));saveCategoryColors()}weekdayColors=d.weekdayColors&&typeof d.weekdayColors==='object'&&!Array.isArray(d.weekdayColors)?Object.fromEntries(Object.entries(d.weekdayColors).filter(([day,color])=>weekdays.includes(day)&&/^#[0-9a-fA-F]{6}$/.test(color))):deriveWeekdayColors(categoryColors);saveWeekdayColors();if(d.timeDisplayPrefs){setTimeDisplayPrefs(d.timeDisplayPrefs);saveTimeDisplayPrefs()}active=cats.includes(d.active)?d.active:(cats[0]||'Soup');id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;editId=null;menuCat=null;localStorage.removeItem(COOKING_SESSIONS_KEY);cookingSessions={version:1,occurrences:{}};cookingStorageInvalid=false;localStorage.removeItem(OCCURRENCE_SCALES_KEY);occurrenceScales={version:1,occurrences:{}};scaleStorageInvalid=false;persist();render();panel.classList.add('hidden');settings.setAttribute('aria-expanded','false');if(legacyPhotoWarnings.length)showAppMessage(legacyPhotoWarnings.join(' '))}catch(e){alert('Backup rejected or restore failed: '+e.message+'. No changes were made if validation failed.')}};reader.readAsText(file)};input.click()};let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=async()=>{await finishSettings('ask');render()};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipe files or Trello boards into Ideas';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=displayGroup;
  const planOption=document.createElement('label');planOption.className='settings-display-option settings-display-option-with-help';
  const planCheck=document.createElement('input');planCheck.type='checkbox';planCheck.checked=showMealPlanTabs;
  planCheck.onchange=()=>{showMealPlanTabs=planCheck.checked;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs));renderList()};
@@ -3078,75 +3078,6 @@ function ingredientLine(value){
 }
 // Format imported recipe quantities with compact Unicode fractions.
 // Only change standalone quantity tokens; leave URLs, dates and ingredient names intact.
-function compactIngredientFractions(value){
-  const glyphs={'1/2':'½','1/3':'⅓','2/3':'⅔','1/4':'¼','3/4':'¾','1/8':'⅛','3/8':'⅜','5/8':'⅝','7/8':'⅞'};
-  let result=String(value??'');
-  // Some imported recipes lose the space in a mixed number: 11/2 = 1½.
-  // Restrict this repair to quantities at the start of a line or after a range dash,
-  // so fractions inside ingredient names, dates and URLs are not altered.
-  result=result.replace(/(^|[–—-]\s*)([1-9])([1-7])\/(2|3|4|8)(?=$|[^\w/])/g,(all,prefix,whole,num,den)=>{
-    const frac=num+'/'+den;
-    return glyphs[frac]?prefix+whole+glyphs[frac]:all;
-  });
-  return result.replace(/(^|[^\w/])(\d+)\s+(1\/2|1\/3|2\/3|1\/4|3\/4|1\/8|3\/8|5\/8|7\/8)(?=$|[^\w/])/g,(all,pre,whole,frac)=>pre+whole+glyphs[frac])
-    .replace(/(^|[^\w/])(1\/2|1\/3|2\/3|1\/4|3\/4|1\/8|3\/8|5\/8|7\/8)(?=$|[^\w/])/g,(all,pre,frac)=>pre+glyphs[frac]);
-}
-// One-time, non-destructive migration for ingredients saved before fraction formatting.
-// Preserve grocery selection matches by migrating the associated stored strings too.
-function migrateSavedIngredientFractions(){
- const flag='mealRotationCompactFractionsMigratedV2';
- if(localStorage.getItem(flag)==='true')return;
- const updates={};
- try{
-  const raw=localStorage.getItem('mealRotationDataV1');
-  if(!raw)return;
-  const data=JSON.parse(raw);
-  if(!Array.isArray(data.meals))return;
-  let changed=false;
-  for(const meal of data.meals){
-   if(!Array.isArray(meal.ingredients))continue;
-   meal.ingredients=meal.ingredients.map(item=>{
-    if(typeof item!=='string')return item;
-    const next=compactIngredientFractions(item);
-    if(next!==item)changed=true;
-    return next;
-   });
-  }
-  if(changed)updates.mealRotationDataV1=JSON.stringify(data);
-  const selectedRaw=localStorage.getItem('mealRotationSelectedIngredientsV1');
-  if(selectedRaw){
-   const selected=JSON.parse(selectedRaw);
-   if(selected&&typeof selected==='object'&&!Array.isArray(selected)){
-    let selectedChanged=false;
-    for(const [key,items] of Object.entries(selected)){
-     if(!Array.isArray(items))continue;
-     selected[key]=items.map(item=>{
-      if(typeof item!=='string')return item;
-      const next=compactIngredientFractions(item);
-      if(next!==item)selectedChanged=true;
-      return next;
-     });
-    }
-    if(selectedChanged)updates.mealRotationSelectedIngredientsV1=JSON.stringify(selected);
-   }
-  }
-  const checksRaw=localStorage.getItem('mealRotationCheckedIngredientsV1');
-  if(checksRaw){
-   const checks=JSON.parse(checksRaw);
-   if(Array.isArray(checks)){
-    const normalized=[...new Set(checks.map(x=>typeof x==='string'?compactIngredientFractions(x):x))];
-    if(JSON.stringify(normalized)!==JSON.stringify(checks))updates.mealRotationCheckedIngredientsV1=JSON.stringify(normalized);
-   }
-  }
-  // Save a rollback copy before changing existing records.
-  if(Object.keys(updates).length){
-   const originals={};for(const key of Object.keys(updates))originals[key]=localStorage.getItem(key);
-   localStorage.setItem('mealRotationFractionMigrationBackupV2',JSON.stringify(originals));
-   for(const [key,value] of Object.entries(updates))localStorage.setItem(key,value);
-  }
-  localStorage.setItem(flag,'true');
- }catch(e){ /* Leave the migration pending if storage is unavailable. */ }
-}
 function uniqueIngredientLines(lines,limit=120){
   const seen=new Set();return lines.map(ingredientLine).filter(line=>{const k=line.toLowerCase();if(!line||seen.has(k))return false;seen.add(k);return true}).slice(0,limit);
 }
@@ -4247,7 +4178,7 @@ document.addEventListener('click',e=>{
 
 mealPersistence.showRecovery({normalize:normalizeImportedBackup,validate:validateBackupStorage,validateCore:d=>validateBackupCore(startupCore(d))});
 if(!mealPersistence.recovery){
- try{rotationCalendarTrackingReady=true;render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');syncCookingTimer();syncMakeAheadLocalDay()}catch(error){mealPersistence.failStartup(Error(error.stack||error.message||String(error)))}
+ try{rotationCalendarTrackingReady=true;render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');syncCookingTimer();syncMakeAheadLocalDay()}catch(error){mealPersistence.failStartup(error)}
  if(!mealPersistence.recovery){showRecipePhotoRestoreNotice();resumeRecipeViewer()}
 }
 
