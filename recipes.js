@@ -778,6 +778,23 @@ function revealGroceryRecipeIngredient(meal,line){
  const step=[...recipeIngredientMatches(meal)].find(([,tokens])=>tokens.includes(ingredient.token))?.[0];
  if(step)revealRecipeAssociation(ingredient.token,step);
 }
+function configureCurrentRecipeStep(view,meal,session){
+ view.currentStepCleanup?.();const button=view.cover.querySelector('.recipe-current-step'),pane=view.content.querySelector('.recipe-instructions-pane');
+ let frame=0;
+ const update=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
+  if(recipeViewer!==view)return;
+  const step=cookingItemTokens(meal).steps.find(item=>item.token&&cleanInstructionBlock(item).type!=='section'&&!session?.steps.includes(item.token));
+  const target=step&&[...pane.querySelectorAll('[data-cooking-token]')].find(el=>el.dataset.cookingToken===step.token);
+  button.hidden=true;if(!target||view.linkEdit)return;
+  const split=recipeViewingMode()==='split',bounds=(split?pane:view.cover).getBoundingClientRect(),rect=target.getBoundingClientRect();
+  const top=split?bounds.top:Math.max(bounds.top,view.close.parentElement.getBoundingClientRect().bottom),bottom=Math.min(bounds.bottom,window.visualViewport?window.visualViewport.offsetTop+window.visualViewport.height:innerHeight);
+  if(rect.bottom>top&&rect.top<bottom)return;
+  const direction=rect.bottom<=top?'up':'down';button.dataset.direction=direction;setRecipeToolbarIcon(button,direction==='up'?'collapse':'expand','Return to unfinished step');button.hidden=false;
+ })};
+ view.cover.addEventListener('scroll',update,{capture:true,passive:true});window.addEventListener('resize',update);window.visualViewport?.addEventListener('resize',update);
+ const observer=new ResizeObserver(update);observer.observe(pane);observer.observe(view.content);
+ view.currentStepCleanup=()=>{cancelAnimationFrame(frame);observer.disconnect();view.cover.removeEventListener('scroll',update,true);window.removeEventListener('resize',update);window.visualViewport?.removeEventListener('resize',update)};update();
+}
 function returnToCurrentRecipeStep(){
  const view=recipeViewer,meal=meals.find(m=>String(m.id)===view?.mealId);if(!meal||view.linkEdit)return;
  const session=view.context?cookingSession(view.context):view.previewProgress;
@@ -792,7 +809,7 @@ function openRecipeViewer(meal,context=null,pushHistory=true,savedTabs=null,navi
  const cover=document.createElement('section');cover.id='recipeViewer';cover.setAttribute('role','dialog');cover.setAttribute('aria-modal','true');cover.setAttribute('aria-label','Recipe: '+(meal.name||'Untitled meal'));
  const inner=document.createElement('div');inner.className='recipe-viewer-content';cover.append(inner);
  const bar=document.createElement('header');bar.className='recipe-viewer-bar';const close=document.createElement('button');close.type='button';close.className='recipe-toolbar-icon';setRecipeToolbarIcon(close,'close','Close recipe');close.onclick=closeRecipeViewer;bar.append(close);
- const reset=document.createElement('button');reset.type='button';reset.className='recipe-toolbar-icon recipe-reset';setRecipeToolbarIcon(reset,'reset','Reset Progress');reset.onclick=()=>{const view=recipeViewer;if(!view)return;cancelRecipeAdvance();if(view.context){const key=cookingOccurrenceKey(view.context);resetCookingContexts(c=>cookingOccurrenceKey(c)===key)}else view.previewProgress={ingredients:[],steps:[]};renderRecipeViewer()};bar.append(reset);const mode=document.createElement('button');mode.type='button';mode.className='recipe-toolbar-icon recipe-view-mode';mode.onclick=()=>{const view=recipeViewer;if(!view)return;captureRecipeTab(view);view.activeTab.mode=recipeViewingMode()==='split'?'full':'split';recipeViewPrefs.mode=view.activeTab.mode;saveRecipeViewPrefs();view.restoreTabScroll=true;view.syncRequested=true;renderRecipeViewer()};bar.append(mode);const current=document.createElement('button');current.type='button';current.className='recipe-toolbar-icon recipe-current-step';setRecipeToolbarIcon(current,'current','Return to current step');current.onclick=returnToCurrentRecipeStep;bar.append(current);inner.append(bar);const {settings,cookingSettings,sync,autoComplete,keepScreenAwake}=buildRecipeViewerSettings(bar,inner);const openRecipes=document.createElement('button');openRecipes.type='button';openRecipes.className='recipe-toolbar-icon recipe-open-recipes';setRecipeToolbarIcon(openRecipes,'recipes','Open recipes');openRecipes.onclick=openViewerRecipes;bar.append(openRecipes);
+ const reset=document.createElement('button');reset.type='button';reset.className='recipe-toolbar-icon recipe-reset';setRecipeToolbarIcon(reset,'reset','Reset Progress');reset.onclick=()=>{const view=recipeViewer;if(!view)return;cancelRecipeAdvance();if(view.context){const key=cookingOccurrenceKey(view.context);resetCookingContexts(c=>cookingOccurrenceKey(c)===key)}else view.previewProgress={ingredients:[],steps:[]};renderRecipeViewer()};bar.append(reset);const mode=document.createElement('button');mode.type='button';mode.className='recipe-toolbar-icon recipe-view-mode';mode.onclick=()=>{const view=recipeViewer;if(!view)return;captureRecipeTab(view);view.activeTab.mode=recipeViewingMode()==='split'?'full':'split';recipeViewPrefs.mode=view.activeTab.mode;saveRecipeViewPrefs();view.restoreTabScroll=true;view.syncRequested=true;renderRecipeViewer()};bar.append(mode);const current=document.createElement('button');current.type='button';current.className='recipe-toolbar-icon recipe-current-step';setRecipeToolbarIcon(current,'current','Return to current step');current.onclick=returnToCurrentRecipeStep;cover.append(current);inner.append(bar);const {settings,cookingSettings,sync,autoComplete,keepScreenAwake}=buildRecipeViewerSettings(bar,inner);const openRecipes=document.createElement('button');openRecipes.type='button';openRecipes.className='recipe-toolbar-icon recipe-open-recipes';setRecipeToolbarIcon(openRecipes,'recipes','Open recipes');openRecipes.onclick=openViewerRecipes;bar.append(openRecipes);
  const content=document.createElement('article');inner.append(content);
  const inert=[...document.body.children].map(e=>[e,e.inert]);for(const [e] of inert)e.inert=true;
  recipeViewer={navigationOrigin:origin,scheduleOrigin:savedTabs?.scheduleOrigin||recipeScheduleOrigin(meal,context),mealId:String(meal.id),context,cover,content,close,reset,mode,settings,sync,cookingSettings,autoComplete,keepScreenAwake,inert,returnFocus,scroll,overflow,wake:null,wakeRequest:0,importController:null,previewProgress:{ingredients:[],steps:[]}};
@@ -815,7 +832,7 @@ function finishRecipeViewerClose(resumeOrigin=true){
  const view=recipeViewer;if(!view)return;closeCookingTimerCompletion();recipeViewer=null;view.importController?.abort();view.resizeObserver?.disconnect();view.tabResizeObserver?.disconnect();view.tabDragCleanup?.();view.dividerGestureCleanup?.();view.syncCleanup?.();view.guidedCleanup?.();view.scaleCleanup?.();clearRecipeLinkGestures(view);cancelRecipeAdvance(view);
 
  if(typeof releaseRecipeWakeLock==='function')releaseRecipeWakeLock(view);
- view.cover.remove();document.body.style.overflow=view.overflow;
+ view.currentStepCleanup?.();view.cover.remove();document.body.style.overflow=view.overflow;
  for(const [e,was] of view.inert)if(e.isConnected)e.inert=was;
  if(view.contentChanged)render();requestRecipeImportResume();
  view.returnFocus?.isConnected&&view.returnFocus.focus({preventScroll:true});window.scrollTo(0,view.scroll);
@@ -1292,7 +1309,7 @@ function renderRecipeViewer(){
  updateCookingTimerSoundControls();renderRecipeTabs(v);v.cover.setAttribute('aria-label','Recipe: '+(meal.name||'Untitled meal'));
  cancelRecipeAdvance(v);clearRecipeLinkGestures(v);v.guidedCleanup?.();v.syncCleanup?.();v.autoComplete.disabled=false;v.autoComplete.checked=recipeViewPrefs.autoCompleteIngredients===true;v.keepScreenAwake.checked=recipeViewPrefs.keepScreenAwake!==false;
  const session=v.context?cookingSession(v.context):v.previewProgress,items=cookingItemTokens(meal),scroll=v.restoreTabScroll?v.activeTab.coverScroll:v.cover.scrollTop;const active=v.restoreTabScroll?v.activeTab.focusToken:document.activeElement?.dataset.cookingToken,scaleFocused=document.activeElement?.getAttribute('aria-label')==='Scale Recipe';const paneScroll=v.restoreTabScroll?v.activeTab.paneScroll:[...v.content.querySelectorAll('.recipe-pane')].map(p=>p.scrollTop);v.scaleCleanup?.();v.content.replaceChildren();v.cover.classList.toggle('recipe-split',recipeViewingMode()==='split');v.cover.classList.toggle('recipe-link-editing',!!v.linkEdit);setRecipeToolbarIcon(v.mode,recipeViewingMode()==='split'?'full':'split',recipeViewingMode()==='split'?'Full View':'Split View');v.mode.setAttribute('aria-pressed',String(recipeViewingMode()==='split'));
- const current=v.cover.querySelector('.recipe-current-step');current.hidden=!!v.linkEdit||!items.steps.some(item=>item.token&&cleanInstructionBlock(item).type!=='section'&&!session?.steps.includes(item.token));
+
  const multiplier=v.context?occurrenceMultiplier(v.context):v.previewScale||1;const {scale}=buildRecipeTitleHeader(v,meal,multiplier);updateRecipeTimerReopenControl();renderRecipeTweakingStatus(v,meal);
  if(!v.context&&v.activeTab!==v.anchorTab){const notice=document.createElement('p');notice.className='recipe-occurrence-notice';notice.textContent='No definite scheduled occurrence for this link. Cooking progress and scaling stay in this viewer session.';v.content.append(notice)}
  if(v.linkEdit)v.linkIngredientTokens=new Set(recipeAssociationItems(meal).ingredients.map(i=>i.token));
@@ -1330,7 +1347,7 @@ function renderRecipeViewer(){
  if(v.linkTailSpace){const tail=document.createElement('div');tail.className='recipe-link-scroll-tail';tail.setAttribute('aria-hidden','true');tail.style.height=v.linkTailSpace+'px';instructionsPane.append(tail)}
  configureRecipeSplit(v,divider,panes);[ingredientsPane,instructionsPane].forEach((p,i)=>p.scrollTop=paneScroll[i]||0);v.cover.scrollTop=scroll;if(active){const target=[...v.content.querySelectorAll('[data-cooking-token]')].find(e=>e.dataset.cookingToken===active);target?.focus({preventScroll:true})}else if(scaleFocused)scale.focus({preventScroll:true});
  renderRecipeLinkBar(v);restoreRecipeLinkViewport(v,ingredientsPane,instructionsPane,scroll,paneScroll);
- configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane);configureGuidedCooking(v,ingredientsPane,instructionsPane);v.restoreTabScroll=false;
+ configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane);configureGuidedCooking(v,ingredientsPane,instructionsPane);configureCurrentRecipeStep(v,meal,session);v.restoreTabScroll=false;
 }
 
 const cookingRecipeStates=new Map();

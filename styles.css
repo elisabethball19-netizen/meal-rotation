@@ -1457,3 +1457,9 @@ body.recipe-bulk-select{--recipe-bulk-space:96px;}body.recipe-bulk-select .unifi
 #editor .meal-card-name-field .meal-card-field-button,#editor .meal-card-name-field input{display:block;width:100%;text-align:left;}
 #editor .meal-card-adjusting-warning{position:absolute;right:6px;top:6px;pointer-events:none;}
 #editor .meal-card-name-field:has(.meal-card-adjusting-warning:not([hidden])) .meal-card-field-button{padding-right:29px;}
+
+/* Batch 4A: compact filters, a stable return control, and one field focus ring. */
+.search-filter-toggle.active{color:#315ba8;background:#e9eef5;border-radius:9px;box-shadow:inset 0 0 0 1px #9baec8;}
+#recipeViewer>.recipe-current-step{position:fixed;left:max(16px,calc((100vw - 760px)/2 + 16px));bottom:calc(80px + env(safe-area-inset-bottom,0px));z-index:5;width:44px;height:44px;border:1px solid #dce2e9;border-radius:10px;background:#fff;color:#444;box-shadow:0 2px 7px #0002;}
+#recipeViewer>.recipe-current-step[hidden]{display:none;}
+body input:is([type=text],[type=url],[type=search],[type=number],:not([type])):focus,body textarea:focus,#editor input:is([type=text],[type=url],[type=search],[type=number],:not([type])):focus,#editor textarea:focus,#editor .meal-card-name-field input:focus,#editor .meal-card-time-field input:focus{outline:1px solid #8a9271;outline-offset:0;box-shadow:none;border-color:#8a9271;}

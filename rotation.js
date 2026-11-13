@@ -1050,6 +1050,10 @@ function openMealSearch(saved=null){
     check.onchange=()=>{if(check.checked)selectedGroups.add(group);else selectedGroups.delete(group);updateResults()};
     label.append(check,document.createTextNode(group));groupFilter.append(label);
   }
+  const searchRow=document.createElement('div');searchRow.style.cssText='display:flex;align-items:center;gap:8px';input.style.minWidth='0';
+  const filterButton=document.createElement('button');filterButton.type='button';filterButton.className='iconbtn search-filter-toggle';filterButton.setAttribute('aria-label','Meal group filters');filterButton.setAttribute('aria-expanded','false');
+  filterButton.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18l-7 8v7l-4 2v-9z"/></svg>';
+  groupFilter.hidden=true;filterButton.onclick=()=>{groupFilter.hidden=!groupFilter.hidden;filterButton.setAttribute('aria-expanded',String(!groupFilter.hidden))};searchRow.append(input,filterButton);
   const results=document.createElement('div');
   results.setAttribute('aria-live','polite');
   results.style.cssText='overflow-y:auto;min-height:100px;flex:1;overscroll-behavior:contain';
@@ -1073,6 +1077,7 @@ function openMealSearch(saved=null){
     if(meal){const search={query:input.value,groups:[...selectedGroups],scroll:results.scrollTop};openTopMealActionMenu(null,meal.cat,meal,false,null,{...navigationOrigin,resumeDialog:()=>openMealSearch(search)})}
   }
   function updateResults(){
+    filterButton.classList.toggle('active',selectedGroups.size>0);filterButton.title=selectedGroups.size?'Meal group filters ('+selectedGroups.size+' active)':'Meal group filters';
     results.replaceChildren();
     const q=normalizeSearchText(input.value);
     if(!q&&!selectedGroups.size)return;
@@ -1120,7 +1125,7 @@ function openMealSearch(saved=null){
     }
   };
   header.append(title,closeButton);
-  panel.append(header,input,groupFilter,results);
+  panel.append(header,searchRow,groupFilter,results);
   shade.append(panel);
   document.body.append(shade);
   document.addEventListener('keydown',onKeyDown);
