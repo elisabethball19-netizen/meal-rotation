@@ -54,6 +54,35 @@ function pushAppViewHistory(){
   window.history.pushState({mealRotationView:next},'');
  }
 }
+// Editor and its child dialogs consume Back before view navigation.
+let editorHistoryClosing=false,editorBackBusy=false,editorHistorySettled=Promise.resolve(),resolveEditorHistory=null;
+function stepEditorHistoryBack(){editorHistoryClosing=true;editorHistorySettled=new Promise(resolve=>resolveEditorHistory=resolve);window.history.back()}
+const editorDialogStack=[];
+function dismissEditorHistory(){
+ if(window.history.state?.mealRotationEditor&&editId===null){stepEditorHistoryBack()}
+}
+async function closeMealEditorWithPrompt(){
+ if(editId===null)return true;
+ if(editorHasPendingChanges()){
+  const save=await appDialog('Save meal changes before closing?',null,'yesnocancel');
+  if(save===null)return false;
+  if(save){const current=editId;await document.getElementById('save')?.onclick?.();await editorHistorySettled;return editId!==current}
+ }
+ if(editId!==null){mealPersistence.cancelOwner('recipe:'+editId);rollbackEditorCategories();editId=null;restoreMealEditorScroll()}await editorHistorySettled;return true;
+}
+window.addEventListener('popstate',event=>{
+ if(editorHistoryClosing){editorHistoryClosing=false;resolveEditorHistory?.();resolveEditorHistory=null;event.stopImmediatePropagation();return}
+ if(editId===null||recipeViewer||recipeEditorReturn||!mealEditorReturnView||mealEditorReturnView.view!=='groups')return;
+ event.stopImmediatePropagation();const state={...window.history.state,mealRotationView:{view:'groups',planId:activePlanId},mealRotationEditor:String(editId)};
+ const child=editorDialogStack.at(-1),active=document.activeElement,keyboard=active?.matches('input:not([type=checkbox]),textarea')&&(document.querySelector('#editor .meal-editor-keyboard-open')||innerHeight-(window.visualViewport?.height||innerHeight)>120);
+ if(keyboard){window.history.pushState(child?{...state,mealRotationEditorDialog:child.id}:state,'');active.blur();return}
+ const modal=[...document.querySelectorAll('[aria-modal=true]')].filter(el=>!el.closest('[inert]')&&el.getClientRects().length).at(-1);
+ if(modal&&(!child||!child.overlay.contains(modal))&&!editorBackBusy){window.history.pushState(child?{...state,mealRotationEditorDialog:child.id}:state,'');const cancel=modal.querySelector('button[aria-label^=Cancel],button[aria-label^=Close],button[aria-label=No]');if(cancel)cancel.click();else modal.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));return}
+ if(child){child.close(true);return}
+ if(editorBackBusy){window.history.pushState(state,'');const prompt=[...document.querySelectorAll('[role=dialog]')].find(dialog=>dialog.textContent.includes('Save meal changes before closing?'));prompt?.querySelector('button[aria-label=Cancel]')?.click();return}
+ if(editorHasPendingChanges())window.history.pushState(state,'');
+ editorBackBusy=true;closeMealEditorWithPrompt().finally(()=>{editorBackBusy=false});
+},true);
 window.addEventListener('popstate',event=>{
  const destination=event.state?.mealRotationView;
  if(!destination)return;
@@ -1927,8 +1956,10 @@ function updateRecipeBulkUI(){
 function recipeBulkDialog(title,returnFocus=null){
  const overlay=document.createElement('div');overlay.className='recipe-timer-dialog recipe-bulk-dialog';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label',title);overlay.dataset.recipeEditDraft='';const panel=document.createElement('div'),heading=document.createElement('strong');heading.textContent=title;panel.append(heading);
  const focused=document.activeElement,inert=[...document.body.children].map(el=>[el,el.inert]);for(const [el]of inert)el.inert=true;let closed=false;
- const close=()=>{if(closed||recipeBulkBusy)return;closed=true;overlay.remove();for(const [el,was]of inert)if(el.isConnected)el.inert=was;const target=focused?.isConnected?focused:typeof returnFocus==='function'?returnFocus():null;if(target?.isConnected&&!target.closest('[inert]'))target.focus({preventScroll:true})};
- overlay.onclick=e=>{if(e.target===overlay)close()};overlay.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();close()}if(e.key==='Tab'){const inputs=[...panel.querySelectorAll('button:not([disabled]),input,textarea,select,summary')].filter(el=>el.getClientRects().length),first=inputs[0],last=inputs.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}};overlay.append(panel);document.body.append(overlay);return {overlay,panel,close};
+ const layered=editId!==null&&mealEditorReturnView?.view==='groups'&&!recipeViewer&&!recipeEditorReturn,layer={id:'editor-dialog-'+(crypto.randomUUID?.()||Date.now()),close:null,overlay};
+ if(layered){editorDialogStack.push(layer);window.history.pushState({...window.history.state,mealRotationEditorDialog:layer.id},'')}
+ const close=(fromHistory=false)=>{if(closed||recipeBulkBusy)return;closed=true;if(layered){const index=editorDialogStack.indexOf(layer);if(index>=0)editorDialogStack.splice(index,1);if(fromHistory!==true&&window.history.state?.mealRotationEditorDialog===layer.id){stepEditorHistoryBack()}}overlay.remove();for(const [el,was]of inert)if(el.isConnected)el.inert=was;const target=focused?.isConnected?focused:typeof returnFocus==='function'?returnFocus():null;if(target?.isConnected&&!target.closest('[inert]'))target.focus({preventScroll:true})};
+ overlay.onclick=e=>{if(e.target===overlay)close()};overlay.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();close()}if(e.key==='Tab'){const inputs=[...panel.querySelectorAll('button:not([disabled]),input,textarea,select,summary')].filter(el=>el.getClientRects().length),first=inputs[0],last=inputs.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}};overlay.append(panel);document.body.append(overlay);layer.close=close;return {overlay,panel,close};
 }
 function openRecipeBulkScopes(){
  const d=recipeBulkDialog('Select recipes'),visible=[...document.querySelectorAll('.master-category-meal')].filter(row=>row.getClientRects().length).map(row=>row.dataset.mealId),focus=recipeBulkFocus;
@@ -3822,7 +3853,7 @@ function captureMealEditorOrigin(){
  return {...appViewSnapshot(),activeCategory:active,expandedCategories:[...masterExpandedCategories],expansionInitialized:masterExpansionInitialized,sections:[...masterSectionExpansion].map(([cat,value])=>[cat,{...value}]),scroll:window.scrollY};
 }
 function restoreMealEditorScroll(){
- stopMealEditorPositioning();
+ dismissEditorHistory();stopMealEditorPositioning();
  const position=mealEditorReturnScroll,origin=mealEditorReturnView;
  mealEditorReturnScroll=null;mealEditorReturnView=null;
  if(origin){
@@ -3898,6 +3929,7 @@ function openEditor(n,focusNewMeal=false,navigationOrigin=null){
  editorCategoryBaseline={newMealId:newRecipeDraftId===selectedMeal.id?selectedMeal.id:null,meals:JSON.stringify(meals.filter(meal=>meal.id!==newRecipeDraftId)),id,selections:localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}',labelCatalog:JSON.stringify(recipeLabelCatalog),labelFilters:JSON.stringify(weekdayRecipeFilters),labelPlans:JSON.stringify(mealPlans)};
  editId=selectedMeal.id;
  editorDraftCategories=[...new Set([selectedMeal.cat,...(selectedMeal.linkGroup?meals.filter(x=>x.linkGroup===selectedMeal.linkGroup):[selectedMeal]).map(x=>x.cat)].filter(Boolean))];
+ if(mealEditorReturnView?.view==='groups'&&!recipeEditorReturn&&!window.history.state?.mealRotationEditor)window.history.pushState({...window.history.state,mealRotationView:{view:'groups',planId:activePlanId},mealRotationEditor:String(editId)},'');
  renderEditor();placeEditorInline();positionMealEditor(focusNewMeal);
 }
 function renderEditor(){let m=meals.find(x=>x.id===editId);if(!m){$('editor').innerHTML='';return}$('editor').innerHTML=`<div class="editor"><label>Meal name</label><input id="name" type="text" value="${esc(m.name)}"><label>Group</label><div id="categoryRows"></div><div class="grid time-editor-grid"><div class="time-prep"><label for="prep">Prep time</label><input id="prep" type="text" inputmode="decimal" value="${esc(prettyTimeInput(m.prep))}"></div><div class="time-total"><label for="totaltime">Total time</label><input id="totaltime" type="text" inputmode="decimal" value="${esc(prettyTimeInput(m.total!==undefined&&m.total!==''?m.total:(m.prep!==''||m.cook!==''?(Number(m.prep)||0)+(Number(m.cook)||0):'')))}"></div><div class="time-marinate"><label for="marinate">Marinate time</label><input id="marinate" type="text" inputmode="decimal" value="${esc(m.marinate??'')}"></div></div><div class="time-keyboard-tools hidden"><button id="timeKeyboardMode" type="button" title="Switch to letter keyboard for time units" aria-label="Switch to letter keyboard for time units">ABC</button></div><div class="recipe-related-buttons"><button id="serveWith" type="button" class="smallbtn">Serve with</button><button id="editLinkedMeals" type="button" class="smallbtn">↗ Linked Meals</button></div><label>Recipe URL</label><input id="url" type="text" placeholder="https://" value="${esc(m.url)}"><label for="recipeInstructions">Steps</label><textarea id="recipeInstructions" class="ingredients-input" placeholder="One step per line. Use ## for section headings.">${esc(instructionEditorText(m.instructions))}</textarea><div class="muted">One step per line; use ## Heading to start a section.</div><details id="recipeIngredientLinks"><summary>Step links</summary></details><label for="recipeNotes">Notes</label><textarea id="recipeNotes" class="ingredients-input">${esc(m.notes||'')}</textarea><div id="ingredientsClosed"><button id="toggleIngredients" class="smallbtn" type="button">Ingredients</button></div><div id="ingredientsPanel" class="ingredients-panel hidden"><div class="ingredient-toolrow"><button id="hideIngredients" class="smallbtn" type="button">Hide ingredients</button><button id="ingredientLinkButton" class="ingredient-tool" type="button" title="Import ingredients from website link" aria-label="Import ingredients from website link"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></button><button id="ingredientPhotoButton" class="ingredient-tool" type="button" title="Choose ingredient photo from gallery" aria-label="Choose ingredient photo from gallery"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></button><button id="ingredientCameraButton" class="ingredient-tool" type="button" title="Take ingredient photo" aria-label="Take ingredient photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"/></svg></button></div><label id="ingredientsLabel">Enter one ingredient per line</label><textarea id="ingredients" class="ingredients-input" placeholder="Enter one ingredient per line">${esc((m.ingredients||[]).map(removeIngredientListMarker).join('\n'))}</textarea><input id="ingredientGalleryInput" type="file" accept="image/*" class="hidden"><input id="ingredientCameraInput" type="file" accept="image/*" capture="environment" class="hidden"></div><label class="meal-checkbox-option"><input id="rotation" type="checkbox" ${m.rotation||newRecipeDraftId===m.id?'checked':''}><span>Add to rotation</span></label><div class="actions"><button id="save" type="button" title="Save" aria-label="Save"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg></button><button id="delete" type="button" title="Delete" aria-label="Delete"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m3 0-1 15H6L5 6m5 4v7m4-7v7"/></svg></button><button id="cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div></div>`;buildRecipeEditorSections(m);buildRecipeTweakingEditor(m);buildMakeAheadEditor(m);organizeMealEditor();function categoryMembers(){return m.linkGroup?meals.filter(x=>x.linkGroup===m.linkGroup):[m]}
@@ -4200,7 +4232,7 @@ $('cancel').onclick=()=>{mealPersistence.cancelOwner('recipe:'+m.id);rollbackEdi
    $('editLinkedMeals').writeDraft(ids);d.close();
   };
   const cancel=document.createElement('button');cancel.type='button';cancel.className='iconbtn';setIconButton(cancel,'cancel','Close without changes');cancel.onclick=d.close;
-  actions.append(apply,cancel);d.panel.append(search,list,actions);cancel.focus({preventScroll:true});
+  actions.append(apply,cancel);d.panel.append(search,list,actions);d.overlay.classList.add('meal-linked-dialog');fitOneTimeMealViewport(d.overlay,d.panel);cancel.focus({preventScroll:true});
  };
  const cooked=info.querySelector('.meal-last-cooked');info.replaceChildren(nameSlot,times);if(keyboard)info.append(keyboard);const rotationControl=root.querySelector('.meal-card-rotation-control');if(rotationControl)info.append(rotationControl);card.after(linked);if(cooked)info.append(cooked);
  function refresh(){
@@ -4287,23 +4319,14 @@ document.addEventListener('click',e=>{
   if(suppressRecipeLink){e.preventDefault();e.stopImmediatePropagation();}
   // Synchronous closure leaves the original click to perform its intended action.
   if(closeSettings)finishSettings('save');
-  if(closeEditor){rollbackEditorCategories();editId=null;document.getElementById('editor').innerHTML='';restoreMealEditorScroll()}
+  if(closeEditor){if(window.history.state?.mealRotationEditor){e.preventDefault();e.stopImmediatePropagation();const clicked=e.target;closeMealEditorWithPrompt().then(closed=>{if(closed&&!suppressRecipeLink)performOutsideAction(clicked)});return}rollbackEditorCategories();editId=null;document.getElementById('editor').innerHTML='';restoreMealEditorScroll()}
   return;
  }
  e.preventDefault();e.stopImmediatePropagation();
  const clicked=e.target;
  (async()=>{
   if(closeSettings)await finishSettings('ask');
-  if(closeEditor&&editId!==null){
-   const save=await appDialog('Save meal changes before closing?',null,'yesno');
-   if(save){
-    const currentId=editId;
-    const saveButton=document.getElementById('save');
-    if(saveButton?.onclick)await saveButton.onclick();
-    // Invalid inputs or cancelled linked-meal edits keep the editor open.
-    if(editId===currentId)return;
-   }else{mealPersistence.cancelOwner('recipe:'+editId);rollbackEditorCategories();editId=null;}
-  }
+  if(closeEditor&&editId!==null&&!await closeMealEditorWithPrompt())return;
   if(closeEditor&&editId===null&&mealEditorReturnView)restoreMealEditorScroll();else render();
   if(!suppressRecipeLink)performOutsideAction(clicked);
  })().catch(err=>{console.error('Could not complete outside action',err)});

@@ -1486,3 +1486,9 @@ body input:is([type=text],[type=url],[type=search],[type=number],:not([type])):f
 #list .rotation-compact-header .rotation-heading-actions.rotation-week-controls button.rotation-labeled-button.iconbtn{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-width:0!important;height:40px!important;min-height:40px!important;padding:6px 4px!important;gap:3px!important;font-size:clamp(10px,2.8vw,12px)!important;border:1px solid #b9c5d2!important;background:#e9eef5!important;color:#30445b!important;border-radius:9px!important;box-shadow:0 1px 2px #0002!important;box-sizing:border-box;}
 #list .rotation-compact-header .rotation-heading-actions.rotation-week-controls button.rotation-labeled-button.iconbtn svg{width:16px!important;height:16px!important;flex:0 0 16px!important;}
 #list .rotation-week-controls button:disabled{opacity:.4;cursor:default;}
+
+/* The linked picker keeps its search/actions fixed while only recipes scroll. */
+.meal-linked-dialog{overscroll-behavior:none;}
+.meal-linked-dialog>div{overflow:hidden!important;min-height:0;}
+.meal-linked-dialog>div>strong,.meal-linked-dialog-search,.meal-linked-dialog-actions{flex-shrink:0;}
+.meal-linked-dialog .meal-linked-dialog-options{flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;}
