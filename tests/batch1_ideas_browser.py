@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright
 from scheduled_date_fixture import DATED_SCHEDULE_HOOK
 ROOT=Path(__file__).resolve().parents[1]
 HOOK='''window.batch1={
- importRecords:items=>showRecipeImportSelection(recipeImportItems(items),"legacy-status-fixture.json"),records:()=>JSON.parse(JSON.stringify(meals)),plans:()=>JSON.parse(JSON.stringify(mealPlans)),
+ star:(id,value)=>applyRecipeBulk([String(id)],{upNextStar:value},{upNextFirst:String(id)}),front:id=>placeUpNextFirst(meals.find(m=>m.id===id)),longList:()=>{for(let n=100;n<140;n++)meals.push({id:n,name:'Long '+n,cat:'Meals',rotation:false,recipeStatus:'up-next',upNextStar:false,ingredients:[]});persist();renderList()},importRecords:items=>showRecipeImportSelection(recipeImportItems(items),"legacy-status-fixture.json"),records:()=>JSON.parse(JSON.stringify(meals)),plans:()=>JSON.parse(JSON.stringify(mealPlans)),
  groups:()=>{showTop=false;allMealsActive=false;groceryTabActive=false;masterExpansionInitialized=true;masterExpandedCategories.clear();cats.forEach(c=>masterExpandedCategories.add(c));render()},
  status:(id,status)=>applyRecipeBulk([String(id)],{status}),bulk:(ids,patch,options={})=>applyRecipeBulk(ids.map(String),patch,options),
  order:()=>normalizedUpNextOrder(),list:cat=>masterRecipeOrder(cat).map(m=>m.id),
@@ -24,16 +24,17 @@ HOOK='''window.batch1={
 HOOK+=DATED_SCHEDULE_HOOK
 def recipe(id,name,cat,rotation=False,**kw):
  return dict(id=id,name=name,cat=cat,rotation=rotation,ingredients=['1 cup rice'],instructions=[{'type':'step','text':'Cook rice.'}],url='https://example.test/'+str(id),custom={'preserve':id},**kw)
-def setup(browser,name):
+def setup(browser,name,width=360):
  prefix='mealRotationTestSandboxV1:' if name.startswith('meal-') else ''
- records=[recipe(1,'Active','Meals',True,linkedMealIds=[8],makeAheadTasks=[{'id':'prep','description':'Prep rice','daysBefore':1}]),recipe(2,'Zulu soon','Meals',recipeStatus='up-next',linkGroup='shared'),recipe(3,'Alpha soon','Meals',recipeStatus='up-next'),recipe(4,'Legacy idea','Meals'),recipe(5,'Scheduled idea','Meals'),recipe(6,'Default missing','Meals'),recipe(8,'Linked side','Reference'),recipe(12,'Zulu soon','Other',recipeStatus='up-next',linkGroup='shared'),recipe(13,'Other soon','Other',recipeStatus='up-next'),recipe(14,'Other active','Other',True)]
+ records=[recipe(1,'Active','Meals',True,favorite=True,linkedMealIds=[8],makeAheadTasks=[{'id':'prep','description':'Prep rice','daysBefore':1}]),recipe(2,'Zulu soon','Meals',favorite=True,recipeStatus='up-next',linkGroup='shared'),recipe(3,'Alpha soon','Meals',recipeStatus='up-next'),recipe(4,'Legacy idea','Meals',recipeStatus='back-burner'),recipe(5,'Scheduled idea','Meals'),recipe(6,'Default missing','Meals'),recipe(8,'Linked side','Reference'),recipe(12,'Zulu soon','Other',recipeStatus='up-next',linkGroup='shared'),recipe(13,'Other soon','Other',recipeStatus='up-next'),recipe(14,'Other active','Other',True)]
  records[5].pop('rotation')
  dinner=dict(id='original',name='Dinner',weekdayCategories={'Monday':['Meals']},weekdayMealOverrides={'Monday::Meals':'1'},cycleRetainedSlots={'Monday::Meals':'1'},cycleSlotChoices={'Monday::Meals':{'mealId':'1','parentId':'','retain':True}},occasionalMeals={'Friday':'5'},weekdayRecipeFilters={},pinnedCats=[])
  lunch=dict(id='lunch',name='Lunch',weekdayCategories={'Tuesday':['Other']},weekdayMealOverrides={},weekdayRecipeFilters={},pinnedCats=[])
  seed={prefix+'mealRotationDataV1':json.dumps(dict(cats=['Meals','Other','Reference'],active='Meals',meals=records)),prefix+'mealRotationPlansV1':json.dumps(dict(plans=[dinner,lunch],activeId='original')),prefix+'mealRotationShowPlanTabsV1':'false',prefix+'mealRotationTutorialStageV1':'done',prefix+'mealRotationRecipeViewPrefsV1':json.dumps({'keepScreenAwake':False})}
+ seed[prefix+'mealRotationUpNextOrderV1']=json.dumps(['2','12','3','13'])
  seed['unrelated-sentinel']='keep'
  if prefix:seed['mealRotationDataV1']='WORKING SENTINEL'
- context=browser.new_context(viewport={'width':360,'height':800},is_mobile=True,has_touch=True,service_workers='block');p=context.new_page();errors=[];p.on('pageerror',lambda e:errors.append(str(e)));p.set_default_timeout(5000)
+ context=browser.new_context(viewport={'width':width,'height':800},is_mobile=True,has_touch=True,service_workers='block');p=context.new_page();errors=[];p.on('pageerror',lambda e:errors.append(str(e)));p.set_default_timeout(5000)
  p.add_init_script('if(!sessionStorage.seeded){for(const [k,v]of Object.entries('+json.dumps(seed)+'))localStorage.setItem(k,v);sessionStorage.seeded="yes"}')
  def route(request):
   path=request.request.url.split('http://batch1.test/',1)[-1].split('?')[0];f=ROOT/path
@@ -54,135 +55,138 @@ def pick(p,dialog,button,label):
  # Existing single-choice dialog confirms pending selection with the check icon.
  picker.get_by_role('button',name='Confirm '+button.lower(),exact=True).tap()
 
-def run(browser,name):
+def record(p,id):return next(m for m in get(p,'records()') if m['id']==id)
+def row(p,id,cat='Meals'):return p.locator('[data-category="'+cat+'"] .master-category-meal[data-meal-id="'+str(id)+'"]')
+def up_list(p,cat='Meals'):return p.locator('[data-category="'+cat+'"] [data-recipe-section="up-next"] .master-category-meal').evaluate_all('(xs)=>xs.map(x=>Number(x.dataset.mealId))')
+def status_editor(p,id,label,save=True):
+ get(p,'editor('+str(id)+')');p.locator('#recipeStatus').tap();d=p.get_by_role('dialog',name='Recipe status',exact=True)
+ assert d.get_by_role('radio').count()==2 and not d.get_by_text('Back Burner',exact=True).count()
+ d.get_by_role('radio',name=label,exact=True).check();d.get_by_role('button',name='Confirm recipe status',exact=True).tap();p.locator('#save' if save else '#cancel').tap()
+
+def migration_and_actions(browser,name):
  c,p,errors,prefix=setup(browser,name)
- assert get(p,"pool('Meals')")==[1]
- assert next(m for m in get(p,'records()') if m['id']==8)['rotation'] is False
- assert get(p,'records()')[5].get('rotation') is None
- assert p.locator('[data-category="Meals"] [data-recipe-section]').evaluate_all('(xs)=>xs.map(x=>x.dataset.recipeSection)')==['rotation','up-next','back-burner']
- assert p.locator('[data-category="Meals"] [data-recipe-section="back-burner"] .master-recipe-section-recipes').is_hidden()
+ assert p.locator('[data-category="Meals"] [data-recipe-section]').evaluate_all('(xs)=>xs.map(x=>x.dataset.recipeSection)')==['rotation','up-next']
+ assert get(p,'order()')[:4]==['2','12','3','13']
+ assert up_list(p)==[2,3,6,4,5]
+ assert record(p,2)['upNextStar'] and not record(p,4)['upNextStar'] and not record(p,6)['upNextStar']
+ assert not row(p,2).locator('[data-recipe-favorite]').count() and row(p,1).locator('[data-recipe-favorite]').count()==1
+ assert not p.locator('.shared-meal-link-button').count() and not p.locator('[title="Shared across groups"]').count()
+ assert not p.locator('[aria-label*=" in Up Next"]').count()
+ # Star taps share across copies, place first within their portion, and preserve Favorite values.
+ row(p,2).get_by_role('button',name='Unstar Zulu soon',exact=True).tap()
+ assert not record(p,2)['upNextStar'] and not record(p,12)['upNextStar'] and record(p,2)['favorite']
+ assert get(p,'order()')==['3','13','2','12','6','4','8','5'];assert not p.locator('[role="dialog"],#recipeBulkToolbar').count()
+ p.reload();assert not record(p,2)['upNextStar'] and get(p,'order()')==['3','13','2','12','6','4','8','5']
+ get(p,'groups()');row(p,4).get_by_role('button',name='Star Legacy idea',exact=True).tap();assert get(p,'order()')[:3]==['4','3','13']
+ row(p,4).get_by_role('button',name='Unstar Legacy idea',exact=True).tap();assert get(p,'order()')[2:5]==['4','2','12']
  p.evaluate('establishDatedFixtureSchedule()');get(p,'seedProgress()');schedule=get(p,'schedule()');associated=get(p,'associated()')
- # A scheduled automatic recipe can change status without replacing or losing its occurrence.
- get(p,"status(1,'up-next')");assert get(p,'schedule()')==schedule;assert get(p,'associated()')==associated
+ row(p,1).get_by_role('button',name='Move Active to Up Next',exact=True).tap()
+ assert get(p,'order()')[0]=='1' and record(p,1)['upNextStar'] and record(p,1)['favorite']
+ assert get(p,'schedule()')==schedule and get(p,'associated()')==associated
  assert get(p,"pool('Meals')")==[]
- get(p,"status(1,'back-burner')");assert get(p,'schedule()')==schedule and get(p,'associated()')==associated
- # Returning to rotation is an explicit metadata edit, without queue changes.
- get(p,"status(1,'rotation')");assert get(p,'schedule()')==schedule
- assert get(p,'order()')==['2','12','3','13']
- # Move shared peer past a visible subset; hidden IDs keep their relative order.
- get(p,'move(2,1,[2,3])');assert get(p,'order()')==['3','2','12','13'];assert get(p,"list('Other')").index(12)<get(p,"list('Other')").index(13)
- get(p,'move(13,-1,[12,13])');assert get(p,'order()')==['3','13','2','12'];assert get(p,"list('Meals')").index(3)<get(p,"list('Meals')").index(2)
- get(p,"status(2,'back-burner')");assert get(p,'order()')==['3','13'];get(p,"status(2,'up-next')");assert get(p,'order()')==['3','13','2','12']
- p.reload();assert get(p,'order()')==['3','13','2','12'];assert get(p,'schedule()')==schedule
- # Manual scheduling is allowed and leaves the chosen status intact.
- get(p,'manual(4)');assert next(m for m in get(p,'records()') if m['id']==4)['rotation'] is False
- assert ['original','Thursday','Meals',4,''] in get(p,'schedule()')
- # Pending individual status dialog + editor Cancel/Save.
- get(p,'editor(3)');button=p.locator('#recipeStatus');assert button.inner_text()=='Up Next';button.tap()
- d=p.get_by_role('dialog',name='Recipe status',exact=True);d.get_by_role('radio',name='Back Burner',exact=True).check()
- d.get_by_role('button',name='Confirm recipe status',exact=True).tap();p.locator('#cancel').tap();assert next(m for m in get(p,'records()') if m['id']==3)['recipeStatus']=='up-next'
- # Mixed bulk Keep existing with final cancellation must not write statuses.
- get(p,'select([1,3,4])');before=get(p,'snapshot()');d=p.get_by_role('dialog',name='Edit recipes',exact=True)
- pick(p,d,'Rotation status','Back Burner');assert get(p,'snapshot()')==before
- pick(p,d,'Rotation status','Keep existing');assert d.get_by_role('button',name='Apply to selected recipes',exact=True).is_disabled();assert get(p,'snapshot()')==before
- d.get_by_role('button',name='Cancel bulk edit',exact=True).tap();assert get(p,'snapshot()')==before
- # Reference-only group settings remain pending, block hidden-plan weekday assignments.
- get(p,"groupEdit('Other')");d=p.get_by_role('dialog',name='Edit meal group',exact=True);d.get_by_role('checkbox',name='Use for meal rotation',exact=True).uncheck();d.get_by_role('button',name='Save group changes',exact=True).tap();assert 'Remove this group’s weekday assignments before turning off meal rotation.' in d.inner_text();assert 'Tuesday · Lunch' in d.inner_text();d.get_by_role('button',name='Cancel group editing',exact=True).tap();assert get(p,"enabled('Other')")
- get(p,"groupEdit('Reference')");d=p.get_by_role('dialog',name='Edit meal group',exact=True);d.get_by_role('checkbox',name='Use for meal rotation',exact=True).uncheck();d.get_by_role('button',name='Cancel group editing',exact=True).tap();assert get(p,"enabled('Reference')")
- saved_schedule=get(p,'schedule()');get(p,"groupEdit('Reference')");d=p.get_by_role('dialog',name='Edit meal group',exact=True);d.get_by_role('checkbox',name='Use for meal rotation',exact=True).uncheck();d.get_by_role('button',name='Save group changes',exact=True).tap();assert not get(p,"enabled('Reference')");assert get(p,'schedule()')==saved_schedule
- get(p,'groups()');assert p.locator('[data-category="Reference"] [data-recipe-section]').evaluate_all('(xs)=>xs.map(x=>x.dataset.recipeSection)')==['all']
- # Backup contains shared order and group option; old backups still restore legacy false values.
- snapshot=get(p,'snapshot()');core=json.loads(snapshot['mealRotationDataV1']);backup=dict(version=2,**core,storage=snapshot)
- get(p,"status(3,'rotation')");p.evaluate('b=>batch1.restore(b)',backup);p.reload();assert get(p,'order()')==['3','13','2','12'];assert not get(p,"enabled('Reference')");assert get(p,'schedule()')==saved_schedule
- get(p,"groupEdit('Reference')");d=p.get_by_role('dialog',name='Edit meal group',exact=True);d.get_by_role('checkbox',name='Use for meal rotation',exact=True).check();d.get_by_role('button',name='Save group changes',exact=True).tap();assert get(p,"enabled('Reference')")
- legacy=copy.deepcopy(backup);legacy['storage'].pop('mealRotationUpNextOrderV1',None);legacy['storage'].pop('mealRotationGroupRotationV1',None)
- for m in legacy['meals']:m.pop('recipeStatus',None)
- legacy['meals'][3]['recipeStatus']='Ideas'
- p.evaluate('b=>batch1.restore(b)',legacy);p.reload();assert get(p,'order()')==[];assert get(p,"pool('Meals')")==[1];assert next(m for m in get(p,'records()') if m['id']==4)['recipeStatus']=='back-burner';p.reload();assert get(p,'order()')==[]
+ row(p,1).get_by_role('button',name='Move Active to In Rotation',exact=True).tap();assert get(p,'schedule()')==schedule and get(p,'associated()')==associated
+ # Shared promotion goes first in each In Rotation list, without replacing scheduled recipes.
+ row(p,2).get_by_role('button',name='Move Zulu soon to In Rotation',exact=True).tap()
+ assert record(p,2)['rotation'] and record(p,12)['rotation'] and record(p,2)['favorite']
+ assert p.locator('[data-category="Meals"] [data-recipe-section="rotation"] .master-category-meal').first.get_attribute('data-meal-id')=='2'
+ assert get(p,'schedule()')==schedule and get(p,'associated()')==associated
+ row(p,2).get_by_role('button',name='Move Zulu soon to Up Next',exact=True).tap();assert set(get(p,'order()')[:2])=={'2','12'} and record(p,12)['upNextStar'],(get(p,'order()'),record(p,2),record(p,12),p.locator('[role=dialog]').all_text_contents())
+ assert get(p,'schedule()')==schedule and get(p,'associated()')==associated
+ get(p,'manual(4)');assert not record(p,4)['rotation'] and not record(p,4)['upNextStar']
+ statuses={m['id']:(m.get('rotation'),m.get('upNextStar'),m.get('favorite'))for m in get(p,'records()')};get(p,'cycle()');assert statuses=={m['id']:(m.get('rotation'),m.get('upNextStar'),m.get('favorite'))for m in get(p,'records()')}
+ # Backups preserve an explicit unstar across restoration and repeated loading.
+ get(p,'persist()');snapshot=get(p,'snapshot()');core=json.loads(snapshot['mealRotationDataV1']);backup=dict(version=2,**core,storage=snapshot)
+ get(p,'star(4,true)');p.evaluate('b=>batch1.restore(b)',backup);p.reload();assert not record(p,4)['upNextStar'];p.reload();assert not record(p,4)['upNextStar']
  assert p.evaluate('localStorage.getItem("unrelated-sentinel")')=='keep'
  if prefix:assert p.evaluate('localStorage.getItem("mealRotationDataV1")')=='WORKING SENTINEL'
- assert not errors,errors;c.close();print('PASS',name,'Batch 1 migration, scheduling preservation, shared order, pending editors, reference groups, backups, reload, isolation and runtime',flush=True)
-def ui_and_rotation(browser,name):
- c,p,errors,prefix=setup(browser,name)
- p.evaluate('establishDatedFixtureSchedule()');get(p,'seedProgress()')
- # Short touch uses existing meal options, and explicit move arrows do not start selection mode.
- name_button=p.locator('[data-category="Meals"] [data-meal-id="2"] .master-category-meal-name').first
- name_button.tap();assert p.locator('.compact-meal-dialog').count() or p.get_by_role('dialog').count()
- p.keyboard.press('Escape')
- # Use the normal rendering after dismissing the options overlay.
- p.evaluate('document.querySelectorAll(".meal-dialog-overlay,.compact-meal-overlay").forEach(x=>x.remove())')
- # A separate disposable context avoids relying on unrelated popup dismissal selectors.
- c.close();c,p,errors,prefix=setup(browser,name)
- row=p.locator('[data-category="Meals"] [data-meal-id="2"]')
- row.get_by_role('button',name='Move Zulu soon down in Up Next',exact=True).tap()
- assert get(p,'order()')==['3','2','12','13'];assert not p.locator('.recipe-bulk-check').count()
- get(p,'undo()');assert get(p,'order()')==['2','12','3','13']
- # A vertical touch swipe stays a scroll gesture and does not reorder or select recipes.
- row=p.locator('[data-category="Meals"] [data-meal-id="2"]');row.scroll_into_view_if_needed();box=row.locator('.master-category-meal-name').first.bounding_box();client=c.new_cdp_session(p)
- point={'x':box['x']+20,'y':box['y']+10,'id':1};client.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[point]});client.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{**point,'y':point['y']+55}]});client.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]});assert get(p,'order()')==['2','12','3','13'] and not p.locator('.recipe-bulk-check').count()
+ assert not errors,errors;c.close();print('PASS',name,'two-section migration/order, stars versus Favorites, reload/restore, direct shared arrows/promotion, exact scheduled associated data, manual scheduling/cycling and storage isolation',flush=True)
 
- # Individual editor Save applies the final status, and is repeat-load safe.
- get(p,'editor(3)');p.locator('#recipeStatus').tap();d=p.get_by_role('dialog',name='Recipe status',exact=True)
- d.get_by_role('radio',name='Back Burner',exact=True).check();d.get_by_role('button',name='Confirm recipe status',exact=True).tap()
- assert next(m for m in get(p,'records()') if m['id']==3)['recipeStatus']=='up-next'
- p.locator('#save').tap();assert next(m for m in get(p,'records()') if m['id']==3)['recipeStatus']=='back-burner'
- p.reload();assert next(m for m in get(p,'records()') if m['id']==3)['recipeStatus']=='back-burner'
- # Mixed bulk updates apply only at the existing final confirmation.
- get(p,'groups()');get(p,'select([1,2,4])');d=p.get_by_role('dialog',name='Edit recipes',exact=True)
- before=get(p,'records()');pick(p,d,'Rotation status','Up Next');assert get(p,'records()')==before
- d.get_by_role('button',name='Apply to selected recipes',exact=True).tap()
- assert all(m['recipeStatus']=='up-next' for m in get(p,'records()') if m['id'] in [1,2,4,12])
- # Keep existing preserves mixed statuses while adding memberships, including Up Next position.
- get(p,"status(1,'rotation')");get(p,"status(4,'back-burner')")
- statuses={m['id']:m.get('recipeStatus') for m in get(p,'records()')};order=get(p,'order()')
- get(p,'bulk([1,2,4],{}, {bulkGroups:{sourceGroup:"Meals",add:true,remove:false,groups:["Reference"],newGroups:[]}})')
- assert all(m.get('recipeStatus')==statuses[m['id']] for m in get(p,'records()') if m['id'] in statuses)
- assert [id for id in get(p,'order()') if id in order]==order
- # Source-group restriction is still enforced by the transaction validator.
- before=get(p,'snapshot()')
- try:
-  get(p,'bulk([1,13],{status:"rotation"},{bulkGroups:{sourceGroup:"Meals",add:true,remove:false,groups:["Reference"],newGroups:[]}})')
-  raise AssertionError('mixed source groups accepted')
- except Exception as error:assert 'Choose valid meal groups' in str(error)
- assert get(p,'snapshot()')==before
- # Reference-only membership does not disable the same recipe in another enabled group.
- get(p,"unassign('Other')");get(p,"status(2,'rotation')");get(p,"groupEdit('Other')")
- d=p.get_by_role('dialog',name='Edit meal group',exact=True);d.get_by_role('checkbox',name='Use for meal rotation',exact=True).uncheck();d.get_by_role('button',name='Save group changes',exact=True).tap()
- assert get(p,"pool('Other')")==[] and 2 in get(p,"pool('Meals')")
- # All non-rotation statuses stay unchanged when scheduled recipes rotate out.
- before={m['id']:(m.get('rotation'),m.get('recipeStatus')) for m in get(p,'records()')}
- get(p,'cycle()');after={m['id']:(m.get('rotation'),m.get('recipeStatus')) for m in get(p,'records()')};assert before==after
- assert all(m['rotation'] for m in get(p,'records()') if m['id'] in get(p,"pool('Meals')"))
- assert not errors,errors;c.close();print('PASS',name,'touch arrows/options, order Undo, editor Save, mixed bulk confirmation/Keep existing/source restriction, membership ordering, multi-group eligibility and cycling statuses',flush=True)
-
-def failed_save(browser,name):
+def editors_and_groups(browser,name):
  c,p,errors,prefix=setup(browser,name)
- before=p.evaluate('prefix=>Object.fromEntries(Object.keys(localStorage).filter(k=>k.startsWith(prefix+"mealRotation")&&!k.endsWith("mealRotationRecoveryJournalV1")).map(k=>[k.slice(prefix.length),localStorage.getItem(k)]))',prefix);records=get(p,'records()');order=get(p,'order()')
- p.evaluate("""()=>{const native=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key.endsWith('mealRotationUpNextOrderV1'))throw Error('Batch 1 injected order write failure');return native.call(this,key,value)};window.restoreBatch1Writes=()=>{Storage.prototype.setItem=native}}""")
- try:
-  get(p,"status(2,'back-burner')");raise AssertionError('write failure accepted')
- except Exception as error:assert 'Batch 1 injected order write failure' in str(error)
- assert get(p,'records()')==records and get(p,'order()')==order
- # The existing persistence controller can retain a pending proposal; underlying saved values remain exact.
- p.evaluate('restoreBatch1Writes()');after=p.evaluate('prefix=>Object.fromEntries(Object.keys(localStorage).filter(k=>k.startsWith(prefix+"mealRotation")&&!k.endsWith("mealRotationRecoveryJournalV1")).map(k=>[k.slice(prefix.length),localStorage.getItem(k)]))',prefix)
- for key,value in before.items():assert after.get(key)==value,(key,after.get(key),value)
- assert not errors,errors;c.close();print('PASS',name,'injected Up Next storage failure rolls back recipe status and shared ordering without changing saved data',flush=True)
+ status_editor(p,3,'In Rotation',False);assert not record(p,3)['rotation']
+ status_editor(p,3,'In Rotation',True);assert record(p,3)['rotation'] and record(p,3)['upNextStar']
+ get(p,'groups()');get(p,'select([1,2,4])');d=p.get_by_role('dialog',name='Edit recipes',exact=True);before=get(p,'snapshot()')
+ pick(p,d,'Rotation status','Up Next');assert get(p,'snapshot()')==before
+ pick(p,d,'Rotation status','Keep existing');assert d.get_by_role('button',name='Apply to selected recipes',exact=True).is_disabled()
+ d.get_by_role('button',name='Cancel bulk edit',exact=True).tap();assert get(p,'snapshot()')==before
+ get(p,'select([1,2,4])');d=p.get_by_role('dialog',name='Edit recipes',exact=True);pick(p,d,'Rotation status','Up Next');d.get_by_role('button',name='Apply to selected recipes',exact=True).tap();assert all(not record(p,id)['rotation'] for id in [1,2,4,12])
+ get(p,"status(1,'rotation')");before={m['id']:(m.get('rotation'),m['upNextStar'])for m in get(p,'records()')}
+ get(p,'bulk([1,2,4],{}, {bulkGroups:{sourceGroup:"Meals",add:true,remove:false,groups:["Reference"],newGroups:[]}})');assert all(before[m['id']]==(m.get('rotation'),m['upNextStar']) for m in get(p,'records()') if m['id'] in before)
+ get(p,"groupEdit('Other')");d=p.get_by_role('dialog',name='Edit meal group',exact=True);assert d.locator('.meal-unified-actions button').evaluate_all('(xs)=>xs.every(x=>{const b=x.getBoundingClientRect();return b.left>=0&&b.right<=innerWidth})');check=d.get_by_role('checkbox',name='Use for meal rotation',exact=True)
+ assert check.evaluate('(x)=>getComputedStyle(x).width')=='18px';check.uncheck();d.get_by_role('button',name='Save group changes',exact=True).tap();assert 'Remove this group’s weekday assignments before turning off meal rotation.' in d.inner_text() and 'Tuesday · Lunch' in d.inner_text();d.get_by_role('button',name='Cancel group editing',exact=True).tap();assert get(p,"enabled('Other')")
+ get(p,"groupEdit('Reference')");d=p.get_by_role('dialog',name='Edit meal group',exact=True);d.get_by_role('checkbox',name='Use for meal rotation',exact=True).uncheck();d.get_by_role('button',name='Cancel group editing',exact=True).tap();assert get(p,"enabled('Reference')")
+ get(p,"groupEdit('Reference')");d=p.get_by_role('dialog',name='Edit meal group',exact=True);d.get_by_role('checkbox',name='Use for meal rotation',exact=True).uncheck();schedule=get(p,'schedule()');d.get_by_role('button',name='Save group changes',exact=True).tap();assert not get(p,"enabled('Reference')") and get(p,'schedule()')==schedule
+ get(p,'groups()');assert p.locator('[data-category="Reference"] [data-recipe-section]').evaluate_all('(xs)=>xs.map(x=>x.dataset.recipeSection)')==['all'];assert not p.locator('[data-category="Reference"] .recipe-up-next-star').count()
+ # Add meals keeps Copy/Move, search, checkbox selection and confirmation/cancel with outline chevrons.
+ get(p,"groupEdit('Reference')");d=p.get_by_role('dialog',name='Edit meal group',exact=True);add=d.get_by_role('button',name='Add meals',exact=True)
+ assert add.bounding_box()['width']<d.bounding_box()['width']*.7;assert not add.locator('svg').count();add.tap();picker=p.locator('.add-meals-picker');assert 'Add meals to Reference' in picker.inner_text()
+ assert not any(x in picker.inner_text() for x in ['▸','▾']);assert picker.locator('.meal-editor-group-chevron svg').count()>0
+ assert picker.get_by_role('radio',name='Copy (keep in original group)',exact=True).is_checked();picker.get_by_role('radio',name='Move (remove from original group)',exact=True).check();picker.get_by_role('button',name='Cancel',exact=True).tap()
+ # Confirm both existing Add meals modes with representative non-scheduled recipes.
+ get(p,"groupEdit('Reference')");p.get_by_role('dialog',name='Edit meal group',exact=True).get_by_role('button',name='Add meals',exact=True).tap();picker=p.locator('.add-meals-picker');picker.get_by_role('searchbox',name='Search meals',exact=True).fill('Alpha soon');picker.get_by_role('checkbox',name='Alpha soon',exact=True).check();picker.get_by_role('button',name='Add selected meals',exact=True).tap()
+ assert record(p,3)['cat']=='Meals' and any(m['cat']=='Reference' and m.get('linkGroup')==record(p,3).get('linkGroup') for m in get(p,'records()'))
+ original=record(p,6).copy();scheduled=get(p,'schedule()');get(p,"groupEdit('Reference')");p.get_by_role('dialog',name='Edit meal group',exact=True).get_by_role('button',name='Add meals',exact=True).tap();picker=p.locator('.add-meals-picker');picker.get_by_role('searchbox',name='Search meals',exact=True).fill('Default missing');picker.get_by_role('checkbox',name='Default missing',exact=True).check();picker.get_by_role('radio',name='Move (remove from original group)',exact=True).check();picker.get_by_role('button',name='Add selected meals',exact=True).tap();assert record(p,6)=={**original,'cat':'Reference'} and get(p,'schedule()')==scheduled
+ get(p,"unassign('Other')");get(p,"groupEdit('Other')");d=p.get_by_role('dialog',name='Edit meal group',exact=True);d.get_by_role('checkbox',name='Use for meal rotation',exact=True).uncheck();d.get_by_role('button',name='Save group changes',exact=True).tap();assert get(p,"pool('Other')")==[] and 1 in get(p,"pool('Meals')")
+ get(p,"groupEdit('Reference')");d=p.get_by_role('dialog',name='Edit meal group',exact=True);d.get_by_role('checkbox',name='Use for meal rotation',exact=True).check();d.get_by_role('button',name='Save group changes',exact=True).tap();assert get(p,"enabled('Reference')")
+ assert not errors,errors;c.close();c,p,errors,prefix=setup(browser,name,320);get(p,"groupEdit('Reference')");d=p.get_by_role('dialog',name='Edit meal group',exact=True);assert d.locator('.meal-unified-actions button').evaluate_all('(xs)=>xs.every(x=>{const b=x.getBoundingClientRect();return b.left>=0&&b.right<=innerWidth})');assert not errors,errors;c.close();print('PASS',name,'individual/bulk confirmation and Cancel/Keep existing, membership preservation, reference lists/safeguards, group editor controls and Add meals chevrons/Copy/Move/Cancel',flush=True)
 
-def imports(browser,name):
+def touch_drag(p,c,source,target=None,cancel=False,edge=False):
+ source.locator('.master-category-meal-name').first.evaluate('(x)=>x.scrollIntoView({block:"center"})');p.wait_for_timeout(80);box=source.locator('.master-category-meal-name').first.bounding_box();start={'x':box['x']+15,'y':box['y']+box['height']/2,'id':1};client=c.new_cdp_session(p)
+ client.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[start]});p.wait_for_timeout(650)
+ assert not p.locator('.master-group-drag-ghost,#recipeBulkToolbar').count()
+ targetbox=target.bounding_box() if target else None;y=p.viewport_size['height']-15 if edge else targetbox['y']+targetbox['height']*.85
+ client.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{**start,'y':start['y']+12}]});p.wait_for_timeout(80)
+ client.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{**start,'y':y}]});p.wait_for_timeout(260)
+ assert p.locator('.master-group-drag-ghost').count()==1
+ scroll=p.evaluate('scrollY');p.wait_for_timeout(250)
+ if edge:assert p.evaluate('scrollY')>scroll
+ client.send('Input.dispatchTouchEvent',{'type':'touchCancel' if cancel else 'touchEnd','touchPoints':[]});p.wait_for_timeout(100)
+ assert not p.locator('.master-group-drag-ghost,[role="dialog"],#recipeBulkToolbar').count()
+
+def dragging(browser,name):
+ c,p,errors,prefix=setup(browser,name);before=get(p,'order()');touch_drag(p,c,row(p,2),row(p,3));assert get(p,'order()')[:4]==['3','2','12','13'];assert record(p,2)['upNextStar'] and record(p,12)['upNextStar']
+ before=get(p,'order()');touch_drag(p,c,row(p,6),row(p,4),True);assert get(p,'order()')==before
+ touch_drag(p,c,row(p,6),row(p,4));assert up_list(p).index(4)<up_list(p).index(6);assert not record(p,6)['upNextStar']
+ p.reload();get(p,'groups()');assert up_list(p).index(4)<up_list(p).index(6)
+ # Overlapping membership + hidden filtered row: only the moved recipe changes relative placement.
+ get(p,'bulk([13],{}, {bulkGroups:{sourceGroup:"Other",add:true,remove:false,groups:["Meals"],newGroups:[]}})');copyid=next(m['id'] for m in get(p,'records()') if m.get('linkGroup')==record(p,13).get('linkGroup') and m['cat']=='Meals')
+ get(p,'star(2,true)');row(p,3).evaluate('(x)=>x.hidden=true');before=get(p,'order()');hidden=[id for id in before if id not in ['2','12']]
+ touch_drag(p,c,row(p,2),row(p,copyid));assert [id for id in get(p,'order()') if id not in ['2','12']]==hidden
+ assert get(p,"list('Other')").index(13)<get(p,"list('Other')").index(12)
+ get(p,'persist()');snapshot=get(p,'snapshot()');backup=dict(version=2,**json.loads(snapshot['mealRotationDataV1']),storage=snapshot);order=get(p,'order()');p.evaluate('b=>batch1.restore(b)',backup);p.reload();assert get(p,'order()')==order
+ # A quick swipe remains ordinary scrolling, and a stationary hold selects only on release.
+ get(p,'groups()');source=row(p,2);source.locator('.master-category-meal-name').first.evaluate('(x)=>x.scrollIntoView({block:"center"})');box=source.bounding_box();point={'x':box['x']+70,'y':box['y']+20,'id':1};client=c.new_cdp_session(p)
+ client.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[point]});client.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{**point,'y':point['y']+50}]});client.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]});assert get(p,'order()')==order and not p.locator('#recipeBulkToolbar').count()
+ get(p,'longList()');before=get(p,'order()');touch_drag(p,c,row(p,100),cancel=True,edge=True);assert get(p,'order()')==before
+ # Stationary long-press keeps existing bulk selection, while the normal tap retains meal options.
+ source=row(p,2).locator('.master-category-meal-name').first;source.evaluate('(x)=>x.scrollIntoView({block:"center"})');box=source.bounding_box();point={'x':box['x']+15,'y':box['y']+10,'id':1};client=c.new_cdp_session(p)
+ client.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[point]});p.wait_for_timeout(650);assert not p.locator('#recipeBulkToolbar').count();client.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]});assert p.locator('#recipeBulkToolbar').count()==1
+ get(p,'cancelBulk()');row(p,2).locator('.master-category-meal-name').first.tap();assert p.locator('.compact-meal-dialog,[role="dialog"]').count()
+ assert not errors,errors;c.close();print('PASS',name,'CDP touch hold-and-drag in both portions, overlapping/filtered shared order, cancellation, edge scroll, ordinary scroll, reload/backup and no accidental actions',flush=True)
+
+def imports_and_failure(browser,name):
  c,p,errors,prefix=setup(browser,name)
- items=[dict(name='Imported '+label,cat='Meals',ingredients=['1 cup rice'],instructions='Cook rice.',**fields) for label,fields in [('idea',{'rotation':False}),('named idea',{'status':'Ideas'}),('soon',{'recipeStatus':'up-next','rotation':False}),('active',{'rotation':True}),('default',{})]]
- p.evaluate('items=>batch1.importRecords(items)',items)
- p.locator('#recipeImportDialog').get_by_role('button',name='Select all',exact=True).tap()
- p.locator('#recipeImportDialog').get_by_role('button',name='Import recipes',exact=True).tap()
+ items=[dict(name='Imported '+label,cat='Meals',ingredients=['rice'],instructions='Cook rice.',**fields) for label,fields in [('idea',{'rotation':False}),('back',{'recipeStatus':'back-burner'}),('soon',{'recipeStatus':'up-next','rotation':False}),('unstarred',{'recipeStatus':'up-next','upNextStar':False,'rotation':False}),('active',{'rotation':True}),('default',{})]]
+ p.evaluate('items=>batch1.importRecords(items)',items);picker=p.locator('#recipeImportDialog');picker.get_by_role('button',name='Select all',exact=True).tap();picker.get_by_role('button',name='Import recipes',exact=True).tap()
  actual={m['name']:m for m in get(p,'records()') if m['name'].startswith('Imported ')}
- assert actual['Imported idea']['recipeStatus']==actual['Imported named idea']['recipeStatus']=='back-burner'
- assert actual['Imported soon']['recipeStatus']=='up-next' and actual['Imported soon']['rotation'] is False
- assert actual['Imported active']['rotation'] and actual['Imported default']['rotation']
- assert not errors,errors;c.close();print('PASS',name,'legacy false/Ideas recipe imports become Back Burner, saved Up Next/In Rotation survive and unstated import defaults remain intact',flush=True)
+ assert not actual['Imported idea']['upNextStar'] and not actual['Imported back']['upNextStar'] and actual['Imported soon']['upNextStar'] and not actual['Imported unstarred']['upNextStar'];assert actual['Imported active']['rotation'] and actual['Imported default']['rotation']
+ get(p,'persist()');p.reload();assert not next(m for m in get(p,'records()') if m['name']=='Imported unstarred')['upNextStar']
+ snapshot=get(p,'snapshot()');legacy=json.loads(snapshot['mealRotationDataV1']);legacy['meals']=copy.deepcopy(legacy['meals'])
+ for meal in legacy['meals']:
+  meal.pop('upNextStar',None)
+  if meal['id'] in [4,5,6,8]:meal['recipeStatus']='back-burner' if meal['id']==4 else 'Ideas'
+ oldbackup=dict(version=2,**legacy,storage=snapshot);p.evaluate('b=>batch1.restore(b)',oldbackup);p.reload()
+ assert record(p,2)['upNextStar'] and not record(p,4)['upNextStar'] and not record(p,5)['upNextStar'];get(p,'star(2,false)');p.reload();assert not record(p,2)['upNextStar']
+ get(p,'star(2,true)');before=get(p,'records()');order=get(p,'order()')
+ p.evaluate("""()=>{const native=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key.endsWith('mealRotationUpNextOrderV1'))throw Error('injected order write failure');return native.call(this,key,value)};window.restoreBatch1Writes=()=>{Storage.prototype.setItem=native}}""")
+ try:get(p,'star(2,false)');raise AssertionError('write failure accepted')
+ except Exception as error:assert 'injected order write failure' in str(error)
+ assert get(p,'records()')==before and get(p,'order()')==order;p.evaluate('restoreBatch1Writes()')
+ assert not errors,errors;c.close();print('PASS',name,'legacy/current imports, preserved import defaults, explicit unstar restoration and atomic star/order failure rollback',flush=True)
 
 if __name__=='__main__':
  with sync_playwright() as pw:
   browser=pw.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
   for name in ['index.html','meal-rotation-test.html']:
-   run(browser,name);ui_and_rotation(browser,name);failed_save(browser,name);imports(browser,name)
+   migration_and_actions(browser,name);editors_and_groups(browser,name);dragging(browser,name);imports_and_failure(browser,name)
   browser.close()

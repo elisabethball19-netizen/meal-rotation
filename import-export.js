@@ -549,7 +549,7 @@ function recipeImportStatus(record,defaultRotation){
  const legacy=String(record.recipeStatus??record.status??'').trim().toLowerCase();
  const named={'ideas':'back-burner','back burner':'back-burner','back-burner':'back-burner','up next':'up-next','up-next':'up-next','in rotation':'rotation','rotation':'rotation'}[legacy];
  const status=named||(typeof record.rotation==='boolean'?(record.rotation?'rotation':'back-burner'):null);
- return status?{recipeStatus:status,rotation:status==='rotation',keepAsIdea:status!=='rotation'}:{rotation:defaultRotation,keepAsIdea:!defaultRotation};
+ return status?{recipeStatus:status==='rotation'?'rotation':'up-next',upNextStar:typeof record.upNextStar==='boolean'?record.upNextStar:status==='up-next',rotation:status==='rotation',keepAsIdea:status!=='rotation'}:{rotation:defaultRotation,upNextStar:false,keepAsIdea:!defaultRotation};
 }
 function showRecipeImportSelection(items,filename){
  const tags=[...new Set(items.flatMap(recipeImportTags))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));

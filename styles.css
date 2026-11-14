@@ -1559,3 +1559,11 @@ input[type="checkbox"]{width:18px!important;height:18px!important;min-width:18px
 .recipe-bulk-dialog .dialog-heading-add[hidden]{display:none!important;}
 
 body.recipe-bulk-select .master-category-meal{gap:10px;}.recipe-bulk-check{flex:0 0 18px;width:18px;padding:0;}.recipe-search-select{display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;}
+
+/* Up Next reuses the personal-icon footprint with an understated hollow star. */
+button.recipe-up-next-star{width:44px;min-width:44px;height:44px;color:#8994a3;}
+button.recipe-up-next-star[aria-pressed="true"]{color:#42669a;}
+.add-meals-picker .meal-editor-group-chevron{width:22px;height:22px;flex:0 0 22px;}
+.add-meals-picker .meal-editor-group-chevron svg{display:block;width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.add-meals-picker .meal-editor-group-chevron.expanded svg{transform:rotate(180deg);}
+.add-meals-picker .meal-editor-group-heading{gap:8px;justify-content:flex-start;}

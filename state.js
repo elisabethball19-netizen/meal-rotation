@@ -362,7 +362,7 @@ function validateBackupCore(d){
  const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
  if(!object(d)||!Array.isArray(d.cats)||d.cats.some(c=>typeof c!=='string'||!c.trim())||new Set(d.cats).size!==d.cats.length)throw new Error('Invalid groups');
  if(!Array.isArray(d.meals))throw new Error('Invalid recipes: recipe list is missing');const invalidRecipe=d.meals.find(m=>!object(m)||!Number.isSafeInteger(Number(m.id))||Number(m.id)<1||typeof m.name!=='string'||(m.cat!==''&&!d.cats.includes(m.cat))||('ingredients'in m&&!Array.isArray(m.ingredients))||('labels'in m&&(!Array.isArray(m.labels)||m.labels.some(x=>typeof x!=='string'))));if(invalidRecipe!==undefined)throw new Error('Invalid recipes: '+(object(invalidRecipe)?String(invalidRecipe.name||'unnamed recipe')+' (ID '+String(invalidRecipe.id??'missing')+')':'invalid recipe entry'));
- for(const m of d.meals){if('serveWith'in m&&(!Array.isArray(m.serveWith)||m.serveWith.some(v=>typeof v!=='string'||!v.trim())))throw Error('Invalid Serve with preferences');if('preferredSideGroupIds'in m&&(!Array.isArray(m.preferredSideGroupIds)||m.preferredSideGroupIds.some(id=>typeof id!=='string'||!id)))throw Error('Invalid preferred side groups');if('instructions'in m&&m.instructions!=null&&typeof m.instructions!=='string'&&(!Array.isArray(m.instructions)||m.instructions.some(b=>typeof b!=='string'&&(!b||typeof b!=='object'||!['step','section'].includes(b.type)||typeof b.text!=='string'))))throw Error('Invalid recipe instructions');if('notes'in m&&typeof m.notes!=='string')throw Error('Invalid recipe notes');}
+ for(const m of d.meals){if('upNextStar'in m&&typeof m.upNextStar!=='boolean')throw Error('Invalid Up Next star');if('serveWith'in m&&(!Array.isArray(m.serveWith)||m.serveWith.some(v=>typeof v!=='string'||!v.trim())))throw Error('Invalid Serve with preferences');if('preferredSideGroupIds'in m&&(!Array.isArray(m.preferredSideGroupIds)||m.preferredSideGroupIds.some(id=>typeof id!=='string'||!id)))throw Error('Invalid preferred side groups');if('instructions'in m&&m.instructions!=null&&typeof m.instructions!=='string'&&(!Array.isArray(m.instructions)||m.instructions.some(b=>typeof b!=='string'&&(!b||typeof b!=='object'||!['step','section'].includes(b.type)||typeof b.text!=='string'))))throw Error('Invalid recipe instructions');if('notes'in m&&typeof m.notes!=='string')throw Error('Invalid recipe notes');}
  if(new Set(d.meals.map(m=>String(m.id))).size!==d.meals.length)throw new Error('Duplicate recipe IDs');
  if('active'in d&&typeof d.active!=='string')throw new Error('Invalid active group');
  if('mealPlans'in d){const plans=d.mealPlans;if(!object(plans)||!Array.isArray(plans.plans)||!plans.plans.length||plans.plans.some(p=>!object(p)||typeof p.id!=='string'||!p.id||typeof p.name!=='string'||!object(p.weekdayCategories)||('weekdayMealOverrides'in p&&!object(p.weekdayMealOverrides))||('weekdayRecipeFilters'in p&&!object(p.weekdayRecipeFilters))||('pinnedCats'in p&&!Array.isArray(p.pinnedCats)))||new Set(plans.plans.map(p=>p.id)).size!==plans.plans.length||('activeId'in plans&&!plans.plans.some(p=>p.id===plans.activeId)))throw new Error('Invalid meal plans');}
@@ -751,14 +751,12 @@ function cleanInstructionBlock(block){
  return {...block,text,type:heading?'section':block.type};
 }
 // Batch 1: optional status metadata preserves legacy rotation booleans and unknown fields.
-function recipeStatus(meal){
- if(meal?.rotation)return 'rotation';
- return meal?.recipeStatus==='up-next'?'up-next':'back-burner';
-}
+function recipeStatus(meal){return meal?.rotation?'rotation':'up-next'}
 function normalizeRecipeStatus(meal){
- if(meal.recipeStatus==='Ideas'||meal.recipeStatus==='ideas')meal.recipeStatus='back-burner';
- if(meal.recipeStatus==='up-next'||meal.recipeStatus==='back-burner')meal.rotation=false;
- return meal;
+ // The per-record boolean is also the migration marker: an explicit false never re-stars.
+ if(typeof meal.upNextStar!=='boolean')meal.upNextStar=meal.recipeStatus==='up-next';
+ if(['up-next','back-burner','Ideas','ideas'].includes(meal.recipeStatus))meal.rotation=false;
+ meal.recipeStatus=recipeStatus(meal);return meal;
 }
-function recipeStatusLabel(status){return {'rotation':'In Rotation','up-next':'Up Next','back-burner':'Back Burner'}[status]||'Back Burner'}
-function recipeStatusChoices(){return [['rotation','In Rotation'],['up-next','Up Next'],['back-burner','Back Burner']]}
+function recipeStatusLabel(status){return status==='rotation'?'In Rotation':'Up Next'}
+function recipeStatusChoices(){return [['rotation','In Rotation'],['up-next','Up Next']]}
