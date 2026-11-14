@@ -57,6 +57,84 @@ const SERVE_WITH_SYNONYMS=[
  ['bread','roll','rolls','biscuit','biscuits','toast','garlic bread']
 ];
 function serveWithWords(value){return String(value||'').normalize('NFKC').toLowerCase().replace(/[’']/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim().split(/\s+/).filter(Boolean).map(word=>word.length>4&&word.endsWith('ies')?word.slice(0,-3)+'y':word.length>4&&/(oes|ches|shes|xes|zes)$/.test(word)?word.slice(0,-2):word.length>3&&word.endsWith('s')&&!/(ss|us|is)$/.test(word)?word.slice(0,-1):word).join(' ')}
+// Simple sides are separate from legacy Serve with keywords and linked recipes.
+function simpleSideId(){return 'side-'+(crypto.randomUUID?.()||Date.now()+'-'+Math.random().toString(36).slice(2))}
+function simpleSideNameKey(name){return String(name).trim().normalize('NFKC').toLocaleLowerCase()}
+function copySimpleSides(value){return JSON.parse(JSON.stringify(Array.isArray(value)?value:[]))}
+function simpleSideIngredients(text,previous=[],fallback=[]){
+ const ids=new Set(previous.map(item=>item.id)),pool=[...previous,...fallback.filter(item=>!ids.has(item.id))],available=new Map();for(const ingredient of pool){if(!available.has(ingredient.text))available.set(ingredient.text,[]);available.get(ingredient.text).push(ingredient.id)}
+ return String(text).split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(text=>({id:available.get(text)?.shift()||simpleSideId(),text}));
+}
+function mergeSimpleSide(list,side){
+ const existing=list.find(item=>item.id===side.id)||list.find(item=>simpleSideNameKey(item.name)===simpleSideNameKey(side.name));
+ const result={...side,id:existing?.id||side.id,ingredients:simpleSideIngredients(side.ingredients.map(item=>item.text).join('\n'),existing?.ingredients||[],side.ingredients)};
+ return {sides:existing?list.map(item=>item===existing?result:item):[...list,result],side:result};
+}
+function simpleSideOccurrenceKey(plan,entry,calendar=plan.rotationCalendar){return JSON.stringify([...JSON.parse(groceryOccurrenceIdentity(plan,entry)),cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},calendar))])}
+function simpleSidesForEntry(plan,entry){return plan.simpleSideOccurrences?.[simpleSideOccurrenceKey(plan,entry)]||[]}
+function initializeSimpleSideOccurrence(plan,entry,calendar=plan.rotationCalendar){
+ const sides=copySimpleSides(entry.meal.simpleSides);if(!sides.length&&!plan.simpleSideOccurrences)return;
+ plan.simpleSideOccurrences={...(plan.simpleSideOccurrences||{}),[simpleSideOccurrenceKey(plan,entry,calendar)]:sides};
+}
+function inheritNewSimpleSideOccurrences(plan,entries,before,calendar){
+ if(restoringRotationCalendars||before?.version!==2)return;
+ for(const entry of entries){const key=rotationOccurrenceKey({...entry,planId:plan.id});if(!Object.hasOwn(before.occurrences||{},key)||before.occurrences[key]!==calendar.occurrences[key])initializeSimpleSideOccurrence(plan,entry,calendar)}
+}
+function restoreSimpleSideOccurrence(plan,entry,old,calendar,prior){
+ const key=simpleSideOccurrenceKey(plan,entry,calendar),oldKey=simpleSideOccurrenceKey(old,entry,prior);
+ if(Object.hasOwn(old.simpleSideOccurrences||{},oldKey))plan.simpleSideOccurrences={...(plan.simpleSideOccurrences||{}),[key]:copySimpleSides(old.simpleSideOccurrences[oldKey])};
+ else if(plan.simpleSideOccurrences)delete plan.simpleSideOccurrences[key];
+}
+function appendSimpleSideNames(parent,plan,entry){
+ const sides=simpleSidesForEntry(plan,entry);if(!sides.length)return;
+ const line=document.createElement('div');line.className='top-inline-linked simple-side-names';line.textContent=sides.map(side=>side.name).join(' · ');parent.append(line);
+}
+function simpleSideDefaultsFingerprint(meal){return JSON.stringify(sharedRecipeMembers(meal).map(record=>[String(record.id),record.simpleSides||[]]))}
+function applySimpleSideMutation(change){
+ const plan=mealPlans.find(plan=>plan.id===change.target.planId),entry=plan&&recipePlanEntries(plan.id).find(entry=>entry.day===change.target.day&&entry.cat===change.target.cat&&String(entry.meal.id)===change.target.mealId&&String(entry.linkedTo||'')===change.target.parentId);
+ if(!entry||simpleSideOccurrenceKey(plan,entry)!==change.target.key)throw Error('This scheduled meal changed. Cancel and reopen Serve with.');
+ if(JSON.stringify(simpleSidesForEntry(plan,entry))!==change.baseline)throw Error('These sides changed. Cancel and reopen Serve with.');
+ validateSimpleSides(change.sides);
+ if(change.defaults){validateSimpleSides(change.defaults);if(simpleSideDefaultsFingerprint(entry.meal)!==change.defaultsBaseline)throw Error('Recipe defaults changed. Cancel and reopen Serve with.');assignSharedRecipeFields(entry.meal,{simpleSides:change.defaults})}
+ plan.simpleSideOccurrences={...(plan.simpleSideOccurrences||{}),[change.target.key]:copySimpleSides(change.sides)};
+}
+function simpleSideDialogClose(dialog,label){
+ const close=document.createElement('button');close.type='button';close.className='dialog-heading-add';setIconButton(close,'cancel',label);close.onclick=()=>dialog.close();dialog.panel.firstElementChild.append(close);return close;
+}
+function chooseSimpleSideScope(side,meal,onChoose,onClose){
+ const d=recipeBulkDialog('Always serve '+side.name+' with '+meal.name+'?');simpleSideDialogClose(d,'Back to side editor');
+ const actions=document.createElement('div');actions.className='meal-unified-actions';
+ for(const [value,label]of [[true,'Always'],[false,'This time only']]){const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=label;button.onclick=()=>{d.close();onChoose(value)};actions.append(button)}d.panel.append(actions);
+ const observer=new MutationObserver(()=>{if(!d.overlay.isConnected){observer.disconnect();onClose()}});observer.observe(document.body,{childList:true});
+}
+function editSimpleSide(side,onSave,scope=null){
+ const d=recipeBulkDialog(side?'Edit simple side':'Add simple side');simpleSideDialogClose(d,'Cancel side edit');
+ const fields=document.createElement('div');fields.className='recipe-bulk-fields simple-side-fields';
+ const name=document.createElement('input');name.type='text';name.setAttribute('aria-label','Side name');name.placeholder='Side name';name.required=true;name.value=side?.name||'';
+ const ingredients=document.createElement('textarea');ingredients.className='ingredients-input';ingredients.setAttribute('aria-label','Side ingredients (optional)');ingredients.placeholder='Optional ingredients, one per line';ingredients.value=(side?.ingredients||[]).map(item=>item.text).join('\n');
+ const label=document.createElement('label');label.textContent='Name';label.append(name);const ingredientLabel=document.createElement('label');ingredientLabel.textContent='Ingredients (optional)';ingredientLabel.append(ingredients);fields.append(label,ingredientLabel);
+ const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Confirm side');setIconButton(cancel,'cancel','Cancel side edit');cancel.onclick=()=>d.close();
+ save.onclick=()=>{if(!name.value.trim()){error.textContent='Enter a side name.';name.setAttribute('aria-invalid','true');name.focus();return}
+  const next={id:side?.id||simpleSideId(),name:name.value.trim(),ingredients:simpleSideIngredients(ingredients.value,side?.ingredients||[])};
+  const finish=always=>{onSave(next,always);d.close()};if(scope&&!side){save.disabled=true;chooseSimpleSideScope(next,scope,finish,()=>{save.disabled=false})}else finish(false);
+ };actions.append(save,cancel);d.panel.append(fields,error,actions);name.focus({preventScroll:true});
+}
+function buildSimpleSideControls(parent,value,onChange,scope=null){
+ let draft=copySimpleSides(value);const section=document.createElement('div');section.className='simple-side-controls';const heading=document.createElement('strong');heading.textContent='Simple sides';const list=document.createElement('div');list.className='meal-editor-chips simple-side-list';const add=document.createElement('button');add.type='button';add.className='smallbtn';add.textContent='Add simple side';
+ const update=()=>{list.replaceChildren();for(const side of draft){const row=document.createElement('span');row.className='simple-side-row';const edit=document.createElement('button');edit.type='button';edit.className='meal-editor-chip';edit.textContent=side.name;edit.setAttribute('aria-label','Edit simple side '+side.name);edit.onclick=()=>editSimpleSide(side,next=>{const match=draft.find(item=>item.id!==side.id&&simpleSideNameKey(item.name)===simpleSideNameKey(next.name));draft=match?mergeSimpleSide(draft.filter(item=>item.id!==side.id),{...next,id:match.id}).sides:draft.map(item=>item.id===side.id?next:item);update();onChange(copySimpleSides(draft))});const remove=document.createElement('button');remove.type='button';remove.className='meal-editor-inline-icon';setIconButton(remove,'delete','Remove simple side '+side.name);remove.onclick=()=>{draft=draft.filter(item=>item.id!==side.id);update();onChange(copySimpleSides(draft))};row.append(edit,remove);list.append(row)}};
+ add.onclick=()=>editSimpleSide(null,(side,always)=>{if(scope&&always)side=scope.defaultSide(side,draft);draft=mergeSimpleSide(draft,side).sides;update();onChange(copySimpleSides(draft))},scope?.meal);
+ section.append(heading,list,add);parent.append(section);update();return {readDraft:()=>copySimpleSides(draft)};
+}
+function openOccurrenceServeWith(planId,entry,expectedKey=null){
+ const plan=mealPlans.find(plan=>plan.id===planId);if(!plan||!recipePlanEntries(planId).some(item=>item.day===entry.day&&item.cat===entry.cat&&String(item.meal.id)===String(entry.meal.id)&&String(item.linkedTo||'')===String(entry.linkedTo||'')))return;
+ const key=simpleSideOccurrenceKey(plan,entry);if(expectedKey&&key!==expectedKey){showAppMessage('This scheduled meal changed. Reopen Serve with.');return}const target={planId,day:entry.day,cat:entry.cat,mealId:String(entry.meal.id),parentId:String(entry.linkedTo||''),key};const baseline=JSON.stringify(simpleSidesForEntry(plan,entry)),defaultsBaseline=simpleSideDefaultsFingerprint(entry.meal);const baseDefaults=copySimpleSides(entry.meal.simpleSides),pendingDefaults=new Map();let defaults=copySimpleSides(baseDefaults);
+ const d=recipeBulkDialog('Serve with for '+entry.day);simpleSideDialogClose(d,'Cancel Serve with');const body=document.createElement('div');body.className='recipe-bulk-fields';
+ const linked=(entry.meal.linkedMealIds||[]).map(id=>meals.find(meal=>String(meal.id)===String(id))?.name).filter(Boolean);if(linked.length){const names=document.createElement('p');names.className='top-inline-linked';names.textContent='Linked recipes: '+linked.join(' · ');body.append(names)}
+ const controls=buildSimpleSideControls(body,simpleSidesForEntry(plan,entry),()=>{},{meal:entry.meal,defaultSide:(side,occurrenceSides)=>{const merged=mergeSimpleSide(defaults,side),existing=occurrenceSides.find(item=>simpleSideNameKey(item.name)===simpleSideNameKey(side.name));defaults=merged.sides;pendingDefaults.set(existing?.id||merged.side.id,merged.side);return merged.side}});
+ const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save Serve with');setIconButton(cancel,'cancel','Cancel Serve with');cancel.onclick=()=>d.close();
+ save.onclick=()=>{save.disabled=true;const sides=controls.readDraft(),intents=[...pendingDefaults].filter(([id])=>sides.some(side=>side.id===id));let finalDefaults=copySimpleSides(baseDefaults);for(const [,side]of intents)finalDefaults=mergeSimpleSide(finalDefaults,side).sides;try{applyRecipeBulk([target.mealId],{}, {render:false,simpleSides:{target,baseline,sides,...(intents.length?{defaults:finalDefaults,defaultsBaseline}:{})}});d.close();renderList()}catch(e){error.textContent='Sides could not be saved: '+e.message}finally{save.disabled=false}};actions.append(save,cancel);d.panel.append(body,error,actions);
+}
+
 function normalizeServeWith(value){return [...new Map((Array.isArray(value)?value:[]).filter(v=>typeof v==='string').map(v=>v.trim()).filter(v=>serveWithWords(v)).map(v=>[serveWithWords(v),v])).values()]}
 function serveWithMatches(title,preferences){const text=' '+serveWithWords(title)+' ';return normalizeServeWith(preferences).some(value=>{const term=serveWithWords(value),exact=text.includes(' '+term+' ');if(exact)return true;return SERVE_WITH_SYNONYMS.some(words=>words.some(word=>serveWithWords(word)===term)&&words.some(word=>text.includes(' '+serveWithWords(word)+' ')))})}
 function sideServeWith(plan,day,side,entries){const parent=pairedMainGroup(plan,day,side),main=parent&&entries?.find(item=>item.day===day&&item.cat===parent)?.meal;return normalizeServeWith(main?.serveWith)}
@@ -792,7 +870,7 @@ function restoreGroupGroceryUndo(saved){
 }
 function restoreScheduleUndoState(saved){
  const current=JSON.parse(captureState()),meta=saved.scheduleChangeUndo;
- const fields=['weekdayCategories','weekdayMealOverrides','weekdayRecipeFilters','cycleSlotChoices','cycleRetainedSlots','weekSchedule','rotationCalendar','favoriteRotationScores','dependentSideState','occasionalMeals'];
+ const fields=['weekdayCategories','weekdayMealOverrides','weekdayRecipeFilters','cycleSlotChoices','cycleRetainedSlots','weekSchedule','rotationCalendar','simpleSideOccurrences','favoriteRotationScores','dependentSideState','occasionalMeals'];
  current.mealPlans=current.mealPlans.map(plan=>{const old=saved.mealPlans.find(p=>p.id===plan.id);if(!old)return plan;for(const key of fields){if(Object.hasOwn(old,key))plan[key]=JSON.parse(JSON.stringify(old[key]));else delete plan[key]}return plan});
  for(const key of ['weekdayCategories','weekdayMealOverrides','weekdayRecipeFilters','activePlanId','lastRotationBefore'])current[key]=saved[key];
  if(meta.restoreOrder){const records=new Map(meals.map(m=>[String(m.id),m]));current.meals=saved.meals.map(m=>records.get(String(m.id))).filter(Boolean).concat(meals.filter(m=>!saved.meals.some(old=>String(old.id)===String(m.id))))}

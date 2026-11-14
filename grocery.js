@@ -80,6 +80,10 @@ function getGroceryContributions(allPlans=false,period='rotation'){
     const line=scaleRecipeIngredient(original,multiplier),quantity=groceryQuantityParts(line),baseKey=quantity?.key||'unmeasured:'+oldKey;
     result.push({id:JSON.stringify([dated,normalized,index]),occurrence,scheduledDate,preview:!!preview,legacyId:JSON.stringify([occurrence,normalized,index]),legacyIds:[JSON.stringify([occurrence,normalized,index]),JSON.stringify([legacyOccurrence,normalized,index])],legacyOwner,parentId:linkedParent==null?null:String(linkedParent),planId:plan.id,day,cat:entry.cat,mealId:meal.id,mealName:meal.name,original,ingredientToken:ingredientTokens.get(meal)[ingredientIndex]?.token,multiplier,line,quantity,baseKey,checkKeys:[...new Set([oldKey,original.toLowerCase().replace(/\s+/g,' ').trim()])]});
    }
+   for(const side of simpleSidesForEntry(plan,entry))for(const ingredient of side.ingredients){
+    const original=ingredient.text,line=scaleRecipeIngredient(original,multiplier),quantity=groceryQuantityParts(line),baseKey=quantity?.key||'unmeasured:'+ingredientKey(original),token='simple-side:'+JSON.stringify([side.id,ingredient.id]);
+    result.push({id:JSON.stringify([dated,token,0]),occurrence,scheduledDate,preview:!!preview,legacyOwner:false,legacyIds:[],parentId:linkedParent==null?null:String(linkedParent),planId:plan.id,day,cat:entry.cat,mealId:meal.id,mealName:(meal.name||'Meal')+' — '+side.name,simpleSideId:side.id,simpleSideName:side.name,multiplier,original,line,quantity,baseKey,checkKeys:[ingredientKey(original)]});
+   }
   }
  }
  return result;
@@ -193,7 +197,7 @@ function getMasterGroceryItems(){
     const name=document.createElement('button');name.type='button';name.className='grocery-ingredient-name';
     name.textContent=groceryDisplayText(line);bindGroceryTextPress(name,line,updateRows);
     const source=document.createElement('span');source.className='grocery-recipe-source';
-    const associations=new Map();for(const contribution of line.contributions||[]){const meal=meals.find(meal=>String(meal.id)===String(contribution.mealId)),key=meal?.linkGroup?'shared:'+meal.linkGroup:'recipe:'+contribution.mealId;if(!associations.has(key))associations.set(key,contribution)}
+    const associations=new Map();for(const contribution of line.contributions||[]){const meal=meals.find(meal=>String(meal.id)===String(contribution.mealId)),key=(meal?.linkGroup?'shared:'+meal.linkGroup:'recipe:'+contribution.mealId)+(contribution.simpleSideId?'|side:'+contribution.simpleSideId:'');if(!associations.has(key))associations.set(key,contribution)}
     for(const contribution of associations.values()){
      const link=document.createElement('button');link.type='button';link.className='grocery-recipe-link';link.dataset.mealId=String(contribution.mealId);link.dataset.planId=contribution.planId;link.dataset.day=contribution.day;link.dataset.grocerySourceId=contribution.id;link.textContent=contribution.mealName;
      link.onclick=()=>openGroceryRecipeSource(contribution);source.append(link);

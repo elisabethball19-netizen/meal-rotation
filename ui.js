@@ -187,7 +187,7 @@ function renderRotationWeekPreview(list){
   for(const entry of skipped){const empty=document.createElement('div');empty.className='empty-weekday-meal';empty.setAttribute('role','button');empty.tabIndex=0;empty.dataset.scheduleDay=day;empty.dataset.category=entry.cat;empty.setAttribute('aria-label',day+' '+entry.cat+' empty this week');const name=document.createElement('span');name.className='mealname';name.textContent='—';empty.append(name);
    const context=emptyWeekSlotContext(mealPlans.find(plan=>plan.id===source.plan.id),day,entry.cat),open=()=>openWeekEmptyActions(day,entry.cat,context);empty.onclick=open;empty.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();open()}};bindWeekMealGestures(empty,empty,day,{...entry,meal:null},()=>{},open);card.append(empty);
   }
-  for(const entry of entries){const row=document.createElement('div');row.className='meal';const name=document.createElement('button');name.type='button';name.className='mealname';name.textContent=entry.meal.name;name.dataset.rotationOccurrence=rotationOccurrenceKey({...entry,planId:source.plan.id});bindMealNamePress(name,entry);row.append(name);card.append(row)}
+  for(const entry of entries){const row=document.createElement('div');row.className='meal';const name=document.createElement('button');name.type='button';name.className='mealname';name.textContent=entry.meal.name;name.dataset.rotationOccurrence=rotationOccurrenceKey({...entry,planId:source.plan.id});bindMealNamePress(name,entry);const content=document.createElement('div');content.className='mealbody';content.append(name);appendSimpleSideNames(content,source.plan,entry);row.append(content);card.append(row)}
   list.append(card);
  }
 }
@@ -212,7 +212,7 @@ function previewNextWeekPlans(){
   moveDisplayedMealsToBottom(slots,true,false,null,null,true);if(hasDependentSideSlots())coordinateDependentSides();
   return mealPlans.map(plan=>{
    const entries=getDisplayedWeekdayMealsForPlan(plan),calendar=rotationCalendarForPlan(plan,entries);
-   for(const entry of entries){const key=rotationOccurrenceKey({...entry,planId:plan.id});const target=cookingDateInWeek(entry.day,nextStart),stored=parseCookingLocalDate(calendar.occurrences[key]);calendar.occurrences[key]=cookingLocalDate(stored&&stored>target?stored:target);calendar.assignedOn[key]=cookingLocalDate(nextStart);calendar.assignedAt[key]='preview'}
+   for(const entry of entries){const key=rotationOccurrenceKey({...entry,planId:plan.id});const target=cookingDateInWeek(entry.day,nextStart),stored=parseCookingLocalDate(calendar.occurrences[key]);calendar.occurrences[key]=cookingLocalDate(stored&&stored>target?stored:target);calendar.assignedOn[key]=cookingLocalDate(nextStart);calendar.assignedAt[key]='preview';const actual=saved.mealPlans.find(item=>item.id===plan.id),sideKey=simpleSideOccurrenceKey(plan,entry,calendar);if(Object.hasOwn(actual?.simpleSideOccurrences||{},sideKey))plan.simpleSideOccurrences={...(plan.simpleSideOccurrences||{}),[sideKey]:copySimpleSides(actual.simpleSideOccurrences[sideKey])};else if(Object.hasOwn(actual?.rotationCalendar?.occurrences||{},key)&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},actual.rotationCalendar))===calendar.occurrences[key]){if(plan.simpleSideOccurrences)plan.simpleSideOccurrences[sideKey]=[]}else initializeSimpleSideOccurrence(plan,entry,calendar)}
    return {plan:{...plan,rotationCalendar:calendar},entries,preview:true};
   });
  }finally{meals=saved.meals;mealPlans=saved.mealPlans;weekdayMealOverrides=saved.weekdayMealOverrides;bulkRecipeStorageDraft=saved.storage}
@@ -247,7 +247,7 @@ function renderAllMealsOverview(list){
       const content=document.createElement('div');content.className='all-meals-meal-content';
       const name=document.createElement('button');name.type='button';name.className='mealname';name.textContent=meal.name;
       name.onclick=()=>navigateToOverviewMeal(plan.id,meal.id);
-      content.append(name);bindRecipeTimerName(name,meal,linkedTo==null&&!dayEntries.some(parent=>parent.meal.id!==meal.id&&(parent.meal.linkedMealIds||[]).some(id=>String(id)===String(meal.id))));
+      content.append(name);appendSimpleSideNames(content,plan,{day,cat,meal,linkedTo});bindRecipeTimerName(name,meal,linkedTo==null&&!dayEntries.some(parent=>parent.meal.id!==meal.id&&(parent.meal.linkedMealIds||[]).some(id=>String(id)===String(meal.id))));
       const times=mealTimeDescription(meal);if(times){const caption=document.createElement('div');caption.className='times';setTimeSegments(caption,times);content.append(caption)}
       label.style.cursor='pointer';label.setAttribute('role','link');label.tabIndex=0;
       label.onclick=()=>navigateToOverviewPlan(plan.id);
@@ -1737,7 +1737,7 @@ function reconcileRotationCalendars(){
  if(!rotationCalendarTrackingReady)return;
  let changed=stabilizeAutomaticWeekSlots();const now=new Date();
  for(const plan of mealPlans){
-  const calendar=rotationCalendarForPlan(plan,scheduledCalendarEntries(plan),now);
+  const entries=scheduledCalendarEntries(plan),calendar=rotationCalendarForPlan(plan,entries,now);inheritNewSimpleSideOccurrences(plan,entries,plan.rotationCalendar,calendar);
   if(JSON.stringify(plan.rotationCalendar)!==JSON.stringify(calendar)){plan.rotationCalendar=calendar;changed=true}
  }
  if(changed)try{localStorage.setItem(mealPlansKey,JSON.stringify({plans:mealPlans,activeId:activePlanId}))}catch(e){}
@@ -1784,7 +1784,7 @@ function advanceRotationCalendars(calendars,affected,now,wholeWeek=false){
   for(const item of entries){
    const key=rotationOccurrenceKey({...item,planId:plan.id}),known=Object.prototype.hasOwnProperty.call(before.occurrences||{},key);
    if(known&&!outgoing.has(key)){calendar.occurrences[key]=before.occurrences[key];calendar.assignedOn[key]=before.assignedOn[key];calendar.assignedAt[key]=before.assignedAt[key]}
-   else{calendar.occurrences[key]=nextScheduledCookingDate(item.day,now,incomingWeek,before.occurrences?.[key]);calendar.assignedOn[key]=cookingLocalDate(now);calendar.assignedAt[key]=now.toISOString()}
+   else{calendar.occurrences[key]=nextScheduledCookingDate(item.day,now,incomingWeek,before.occurrences?.[key]);calendar.assignedOn[key]=cookingLocalDate(now);calendar.assignedAt[key]=now.toISOString();initializeSimpleSideOccurrence(plan,item,calendar)}
   }
   plan.rotationCalendar=calendar;plan.rotationCalendar=rotationCalendarForPlan(plan,entries,now);
  }
@@ -1797,7 +1797,7 @@ function restoreRotationCalendarSlots(previous,desired){
   const prior=rotationCalendarForPlan(old,getDisplayedWeekdayMealsForPlan(old,null,previous));
   const entries=getDisplayedWeekdayMealsForPlan(plan),current=rotationCalendarForPlan(plan,entries);
   for(const item of cycleAffectedEntries(entries.map(item=>({...item,planId:plan.id})),selected,plan)){
-   const key=rotationOccurrenceKey(item);current.occurrences[key]=prior.occurrences[key]??null;current.assignedOn[key]=prior.assignedOn[key]??null;current.assignedAt[key]=prior.assignedAt[key]??null;
+   const key=rotationOccurrenceKey(item);current.occurrences[key]=prior.occurrences[key]??null;current.assignedOn[key]=prior.assignedOn[key]??null;current.assignedAt[key]=prior.assignedAt[key]??null;restoreSimpleSideOccurrence(plan,item,old,current,prior);
   }
   plan.rotationCalendar=current;plan.rotationCalendar=rotationCalendarForPlan(plan,entries);
  }}finally{restoringRotationCalendars=wasRestoring}
@@ -2126,7 +2126,7 @@ function applyBulkGroupMemberships(ids,change,transaction,rotation){
 function recipeBulkOperationId(ids,patch,options){
  // Only an identical requested mutation may resolve its failed bulk operation.
  const ordered=value=>Array.isArray(value)?value.map(ordered):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,ordered(value[key])])):value;
- return 'bulk:'+JSON.stringify(ordered({type:options.dependentRole?'dependent-role':'bulk-edit',targets:[...ids].map(String).sort(),patch,dependentRole:options.dependentRole||null,firstMealPlan:options.firstMealPlan||undefined,bulkGroups:options.bulkGroups||undefined}));
+ return 'bulk:'+JSON.stringify(ordered({type:options.dependentRole?'dependent-role':'bulk-edit',targets:[...ids].map(String).sort(),patch,dependentRole:options.dependentRole||null,firstMealPlan:options.firstMealPlan||undefined,bulkGroups:options.bulkGroups||undefined,simpleSides:options.simpleSides||undefined}));
 }
 function applyRecipeBulk(ids,patch,options={}){
  const newGroup=options.firstMealPlan?.newGroup?validateNewMealGroupName(options.firstMealPlan.category):null;
@@ -2141,7 +2141,7 @@ function applyRecipeBulk(ids,patch,options={}){
   const sharedIds=new Set(selectedSharedRecipeIds(ids));if(patch.status||options.editor?.status)retainRecipeStatusOccurrences(sharedIds,schedules);for(const meal of meals){if(selected.has(String(meal.id))){if(Object.hasOwn(patch,'category')){meal.cat=patch.category;if(!patch.category){departing.add(String(meal.id));meal.rotation=false;delete meal.rotationPromotionPriority}}if(patch.rotation!==undefined){if(!patch.rotation&&meal.rotation)departing.add(String(meal.id));meal.rotation=patch.rotation;meal.recipeStatus=patch.rotation?'rotation':'up-next';if(!meal.rotation)delete meal.rotationPromotionPriority}}if(!sharedIds.has(String(meal.id)))continue;if(patch.upNextStar!==undefined)meal.upNextStar=patch.upNextStar;if(patch.favorite!==undefined){if(patch.favorite)meal.favorite=true;else delete meal.favorite}if(patch.adjusting!==undefined){if(patch.adjusting)meal.needsTweaking=true;else{delete meal.needsTweaking;delete meal.needsTweakingNote}}if(patch.addLabels?.length||patch.removeLabels?.length){const remove=new Set((patch.removeLabels||[]).map(labelKey));meal.labels=(Array.isArray(meal.labels)?[...meal.labels]:[]).filter(label=>!remove.has(labelKey(label)));for(const label of patch.addLabels||[])if(!meal.labels.some(old=>labelKey(old)===labelKey(label)))meal.labels.push(label)}}
   if(patch.status!==undefined)for(const key of ids){const record=meals.find(m=>String(m.id)===key);if(record)setRecipeStatus(record,patch.status)}
   if(options.bulkGroups)applyBulkGroupMemberships(ids,options.bulkGroups,transaction,patch.rotation);
-  if(options.viewerEdit)applyViewerRecipeMutation(options.viewerEdit,before);if(options.editor)applyEditorRecipeMutation(options.editor,transaction);if(options.dependentRole)applyDependentRoleMutation(options.dependentRole,transaction);if(options.createScheduledRecipe)addScheduledRecipeDraft(options.createScheduledRecipe,transaction);
+  if(options.simpleSides)applySimpleSideMutation(options.simpleSides);if(options.viewerEdit)applyViewerRecipeMutation(options.viewerEdit,before);if(options.editor)applyEditorRecipeMutation(options.editor,transaction);if(options.dependentRole)applyDependentRoleMutation(options.dependentRole,transaction);if(options.createScheduledRecipe)addScheduledRecipeDraft(options.createScheduledRecipe,transaction);
   if(patch.addLabels?.length){before.bulkRecipeUndoLabels=[...recipeLabelCatalog];for(const label of patch.addLabels)if(!recipeLabelCatalog.some(old=>labelKey(old)===labelKey(label)))recipeLabelCatalog.push(label);saveRecipeLabelCatalog()}
   const moved=meals.filter(m=>selected.has(String(m.id))&&memory.meals.some(old=>String(old.id)===String(m.id)&&(old.cat!==m.cat||!!old.rotation!==!!m.rotation))),promoted=moved.filter(m=>!patch.status&&!options.editor?.status&&m.rotation&&!memory.meals.find(old=>String(old.id)===String(m.id)).rotation);
   const priority=Math.max(Date.now(),...meals.map(m=>Number(m.rotationPromotionPriority)||0))+promoted.length;promoted.forEach((m,i)=>m.rotationPromotionPriority=priority-i);
@@ -2839,7 +2839,7 @@ if(c&&cats.includes(c)){
  tag.onclick=e=>{e.preventDefault();e.stopPropagation();navigateAfterSettings(()=>openMasterCategories(displayGroup))};
  mealTitleLine.append(tag);
 }
-body.append(mealTitleLine);
+body.append(mealTitleLine);appendSimpleSideNames(body,currentPlan,entry);
 const inlineLinked=inlineLinkedByParent.get(day+'|'+String(top.id))||[];
 if(inlineLinked.length){
  const linkedInfo=document.createElement('div');
@@ -2944,6 +2944,7 @@ function openTopMealActionMenu(day,category,meal,fromLinkedGroup=false,cookingOv
  const edit=()=>fromLinkedGroup?openLinkedMealEditorInline(meal,navigationOrigin):openEditor(meal.id,false,navigationOrigin);
  const links=[];if(day){links.push(['Select',select]);const entry=getDisplayedWeekdayMeals().find(item=>item.day===day&&item.cat===category&&String(item.meal.id)===String(meal.id));if(rotationGroupScheduled(plan,day,category)&&!entry?.occasional)links.push(['Skip',()=>skipScheduledMeal(day,category,meal)])}links.push(['Edit',edit]);
  compactMealLinks(dialog,links);
+ if(day){const entry=recipePlanEntries(plan.id).find(entry=>entry.day===day&&entry.cat===category&&String(entry.meal.id)===String(meal.id));if(entry){const key=simpleSideOccurrenceKey(plan,entry);compactMealButton(dialog,'Serve with',()=>navigateAfterSettings(()=>openOccurrenceServeWith(plan.id,entry,key)))}}
   const cooked=document.createElement('button');cooked.type='button';cooked.className='meal-options-last-cooked';cooked.style.cssText='display:flex;align-items:center;gap:6px;border:0;background:transparent;color:#707782;font:inherit;font-size:12px;font-weight:400;padding:2px 0;min-height:36px;max-width:100%;text-align:left;margin:0 0 12px';const cookedText=document.createElement('span');cooked.append(cookedText);cooked.insertAdjacentHTML('beforeend','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+appIconSvg.rename+'</svg>');
   function refreshCooked(){const current=meals.find(record=>String(record.id)===String(meal.id)),label=lastCookedLabel(current||meal);cookedText.textContent=label?label.replace(/^Last cooked /,'Last cooked: '):'Last cooked: Never';cooked.title='Edit last cooked date';cooked.setAttribute('aria-label',cookedText.textContent+' — Edit date for '+(current?.name||meal.name||'recipe'))}
   cooked.onclick=e=>{e.preventDefault();e.stopPropagation();const current=meals.find(record=>String(record.id)===String(meal.id));if(current)dialog.run(()=>editMealCookedDate(current,null,cookingOverride||currentRecipeContext(day,category,current)),resumeMenu)};refreshCooked();
@@ -2980,7 +2981,7 @@ function applyManualWeekdayMeal(day,category,meal,replacing=null,occasional=fals
  const sameDayMove=replacing&&replacing.day===day&&replacing.cat!==category;
  if(options.schedulingOnly||sameDayMove||weekSchedule(plan).slots[temporarySlotKey(day,category)]){beforeState.scheduleChangeUndo={sourceIds:[],checks:Object.fromEntries([...groceryBefore].map(([id,item])=>[id,item.checked])),restoreOrder:!!replacing};beforeState.skippedCookingState=captureSkippedCookingState(plan,{day,cat:category,meal:{id:'schedule-change'}});if(replacing){const other=captureSkippedCookingState(plan,replacing),saved=beforeState.skippedCookingState;saved.keys.push(...other.keys);Object.assign(saved.sessions,other.sessions);Object.assign(saved.scales,other.scales)}}
  restoreEmptySlotCalendar(plan,weekSchedule(plan).slots[temporarySlotKey(day,category)]);clearTemporarySlot(plan,day,category);
- const prior=getDisplayedWeekdayMealsForPlan(plan),moving=replacing?cycleAffectedEntries(prior.map(item=>({...item,planId:plan.id})),[{...replacing,planId:plan.id}],plan):[];
+ const prior=getDisplayedWeekdayMealsForPlan(plan),retainedSimpleSideOccurrence=prior.some(entry=>entry.day===day&&(occasional?entry.occasional:entry.cat===category)&&String(entry.meal.id)===String(meal.id)&&entry.linkedTo==null),moving=replacing?cycleAffectedEntries(prior.map(item=>({...item,planId:plan.id})),[{...replacing,planId:plan.id}],plan):[];
  const rotateSource=replacing&&!sameDayMove&&rotationGroupScheduled(plan,replacing.day,replacing.cat);
  if(rotateSource&&beforeState.scheduleChangeUndo){const occurrences=new Set(moving.map(item=>groceryOccurrenceIdentity(plan,item)));beforeState.scheduleChangeUndo.sourceIds=[...groceryBefore].filter(([,item])=>occurrences.has(item.source.occurrence)).map(([id])=>id)}
  if(!rotateSource&&!options.quiet)snapshot(JSON.stringify(beforeState));preserveOtherMealPlanChoices(day,category);
@@ -3002,6 +3003,7 @@ function applyManualWeekdayMeal(day,category,meal,replacing=null,occasional=fals
  if(sameDayMove)editableWeekSchedule(plan).slots[temporarySlotKey(replacing.day,replacing.cat)]={kind:'empty'};
  if(replacing?.occasional)delete plan.occasionalMeals[replacing.day];
  saveWeekdayMealOverrides();
+ if(!retainedSimpleSideOccurrence){const entry=getDisplayedWeekdayMealsForPlan(plan).find(entry=>entry.day===day&&(occasional?entry.occasional:entry.cat===category)&&String(entry.meal.id)===String(meal.id)&&entry.linkedTo==null);if(entry)initializeSimpleSideOccurrence(plan,entry)}
  // Materialize retained checks and explicitly uncheck all newly added quantities.
  reconcileRotatedGroceryChecks(groceryBefore,[]);
  if(replacing){
@@ -4202,8 +4204,8 @@ keyboardButton.onclick=()=>{
   // Re-focus to request the updated keyboard layout on Android browsers.
   if(activeTimeField.isConnected){activeTimeField.blur();if(activeTimeField.revealCardField)activeTimeField.revealCardField();else activeTimeField.focus();}
 };
-let serveWithDraft=normalizeServeWith(m.serveWith);
-const serveButton=$('serveWith');serveButton.hidden=true;serveButton.readDraft=()=>[...serveWithDraft];
+let serveWithDraft=normalizeServeWith(m.serveWith);let simpleSidesDraft=copySimpleSides(m.simpleSides);
+const serveButton=$('serveWith');serveButton.hidden=true;serveButton.readDraft=()=>[...serveWithDraft];serveButton.readSimpleSides=()=>copySimpleSides(simpleSidesDraft);
 const serveBody=serveButton.parentElement,chips=document.createElement('div'),suggestions=document.createElement('div'),customRow=document.createElement('div'),custom=document.createElement('input');
 chips.className='meal-editor-chips';suggestions.className='meal-editor-suggestions';customRow.className='meal-editor-custom';custom.type='text';custom.placeholder='Add custom suggestion...';custom.setAttribute('aria-label','Custom Serve with suggestion');
 const suggestionTitle=document.createElement('div');suggestionTitle.className='muted';suggestionTitle.textContent='Choose which types of sides to automatically rotate in with this meal.';suggestionTitle.style.cssText='font-size:12px;line-height:1.4;margin:6px 0 8px';
@@ -4216,7 +4218,7 @@ function updateServeWith(){
 }
 const addCustom=document.createElement('button');addCustom.type='button';addCustom.className='meal-editor-inline-icon';setIconButton(addCustom,'add','Add custom Serve with suggestion');
 function addServeCustom(){const value=custom.value.trim();if(!serveWithWords(value))return;if(!serveWithDraft.some(name=>serveWithWords(name)===serveWithWords(value)))serveWithDraft.push(value);if(!options.some(name=>serveWithWords(name)===serveWithWords(value)))options.push(value);custom.value='';updateServeWith()}
-addCustom.onclick=addServeCustom;custom.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addServeCustom()}};customRow.append(custom,addCustom);serveBody.append(chips,suggestionTitle,suggestions,customRow);updateServeWith();
+addCustom.onclick=addServeCustom;custom.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addServeCustom()}};customRow.append(custom,addCustom);serveBody.append(chips,suggestionTitle,suggestions,customRow);updateServeWith();buildSimpleSideControls(serveBody,simpleSidesDraft,value=>{simpleSidesDraft=value;document.querySelector('#editor .editor')?.refreshIndicators?.()});
 let linkedMealDraft=Array.isArray(m.linkedMealIds)?[...m.linkedMealIds]:[];
 const linkedButton=$('editLinkedMeals');linkedButton.hidden=true;linkedButton.readDraft=()=>[...linkedMealDraft];linkedButton.writeDraft=ids=>{linkedMealDraft=[...ids];updateLinkedLabel()};const linkedBody=linkedButton.parentElement,linkedSearch=document.createElement('input'),linkedList=document.createElement('div');
 linkedSearch.type='search';linkedSearch.placeholder='Search linked meals';linkedSearch.setAttribute('aria-label','Search linked meals');linkedList.className='meal-editor-linked-list';linkedBody.append(linkedSearch,linkedList);
@@ -4332,14 +4334,14 @@ $('ingredientCameraButton').onclick=()=>$('ingredientCameraInput').click();
 installRecipeIngredientLinkEditor(m);
 const indicatorRoot=document.querySelector('#editor .editor');
 indicatorRoot.refreshIndicators=()=>{
- const names=normalizeServeWith(serveWithDraft),linked=new Set(linkedMealDraft.map(String)),count=meals.filter(record=>linked.has(String(record.id))).length;
+ const names=[...normalizeServeWith(serveWithDraft),...simpleSidesDraft.map(side=>side.name)],linked=new Set(linkedMealDraft.map(String)),count=meals.filter(record=>linked.has(String(record.id))).length;
  const values={serve:names.length===1?names[0]:names.length?names.length+' selected':'',linked:count?count+' linked':'',recipe:[$('ingredients').value,$('recipeInstructions').value,$('url').value,$('editNeedsTweakingNote').value].some(value=>value.trim())||$('editNeedsTweaking').checked?'Added':'',notes:$('recipeNotes').value.trim()||$('recipeMakeAhead').readDraft().length?'Added':''};
  for(const [key,value]of Object.entries(values)){const label=indicatorRoot.querySelector('[data-editor-summary="'+key+'"]');if(label&&label.textContent!==value)label.textContent=value}
 };
 indicatorRoot.addEventListener('input',indicatorRoot.refreshIndicators);indicatorRoot.addEventListener('change',indicatorRoot.refreshIndicators);indicatorRoot.refreshIndicators();
-const savedEditorDraft={name:$('name').value,prep:$('prep').value,total:$('totaltime').value,marinate:$('marinate').value,ingredients:$('ingredients').value,instructions:$('recipeInstructions').value,notes:$('recipeNotes').value,url:$('url').value,serveWith:JSON.stringify(serveWithDraft),linked:JSON.stringify(linkedMealDraft),tasks:JSON.stringify($('recipeMakeAhead').readDraft()),adjusting:$('editNeedsTweaking').checked,adjustingNote:$('editNeedsTweakingNote').value};
+const savedEditorDraft={name:$('name').value,prep:$('prep').value,total:$('totaltime').value,marinate:$('marinate').value,ingredients:$('ingredients').value,instructions:$('recipeInstructions').value,notes:$('recipeNotes').value,url:$('url').value,serveWith:JSON.stringify(serveWithDraft),simpleSides:JSON.stringify(simpleSidesDraft),linked:JSON.stringify(linkedMealDraft),tasks:JSON.stringify($('recipeMakeAhead').readDraft()),adjusting:$('editNeedsTweaking').checked,adjustingNote:$('editNeedsTweakingNote').value};
 const persistenceEditor=document.querySelector('#editor .editor');
-const captureEditorRecoveryDraft=()=>({recipeId:String(m.id),rawControls:[...persistenceEditor.querySelectorAll('input:not([type=file]),textarea,select')].map(el=>({id:el.id,name:el.name,value:el.value,checked:el.checked})),originalRecipe:JSON.parse(JSON.stringify(m)),fields:Object.fromEntries(['name','prep','totaltime','marinate','ingredients','recipeInstructions','recipeNotes','url','editNeedsTweakingNote'].map(id=>[id,$(id)?.value??''])),rotation:$('rotation')?.checked,needsTweaking:$('editNeedsTweaking')?.checked,memberships:JSON.parse(JSON.stringify(editorMembershipDraft)),newGroups:pendingEditorGroups.filter(cat=>editorDraftCategories.includes(cat)),serveWith:[...serveWithDraft],linkedMealIds:[...linkedMealDraft],makeAheadTasks:$('recipeMakeAhead')?.readDraft?.()||[],ingredientStepLinks:$('recipeIngredientLinks')?.captureRecoveryDraft?.(),ingredientImportUrl,importedRecipeDetails:importedRecipeDetailsDraft});
+const captureEditorRecoveryDraft=()=>({recipeId:String(m.id),rawControls:[...persistenceEditor.querySelectorAll('input:not([type=file]),textarea,select')].map(el=>({id:el.id,name:el.name,value:el.value,checked:el.checked})),originalRecipe:JSON.parse(JSON.stringify(m)),fields:Object.fromEntries(['name','prep','totaltime','marinate','ingredients','recipeInstructions','recipeNotes','url','editNeedsTweakingNote'].map(id=>[id,$(id)?.value??''])),rotation:$('rotation')?.checked,needsTweaking:$('editNeedsTweaking')?.checked,memberships:JSON.parse(JSON.stringify(editorMembershipDraft)),newGroups:pendingEditorGroups.filter(cat=>editorDraftCategories.includes(cat)),serveWith:[...serveWithDraft],simpleSides:copySimpleSides(simpleSidesDraft),linkedMealIds:[...linkedMealDraft],makeAheadTasks:$('recipeMakeAhead')?.readDraft?.()||[],ingredientStepLinks:$('recipeIngredientLinks')?.captureRecoveryDraft?.(),ingredientImportUrl,importedRecipeDetails:importedRecipeDetailsDraft});
 persistenceEditor.mealRecoveryDraft={ownerId:'recipe:'+m.id,kind:'recipe-editor',capture:captureEditorRecoveryDraft,dirty:editorHasPendingChanges,save:()=>$('save')?.onclick?.(),discard:()=>$('cancel')?.onclick?.()};
 // Use a current editor handler for Retry Save. A confirmation must not commit an older draft.
 let persistenceEditorSaving=false;
@@ -4369,7 +4371,7 @@ $('save').onclick=async()=>{
   const cookValue=prepValue===String(m.prep??'')&&totalValue===String(m.total!==undefined&&m.total!==''?m.total:(m.prep!==''||m.cook!==''?(Number(m.prep)||0)+(Number(m.cook)||0):''))?(m.cook??''):'';
 
   const nextMakeAhead=$('recipeMakeAhead').readDraft();if(!$('recipeMakeAhead').validDraft()){await showAppMessage('Enter a valid preparation lead time: positive hours or days, or 0 days for the same day (up to 36600 days).');revealMealEditorField($('recipeMakeAhead'));return}
-  const next={...m,name:$('name').value.trim()||'Untitled meal',prep:prepValue,total:totalValue,marinate:marinateValue,cook:cookValue,url:$('url').value.trim(),ingredientImportUrl,ingredients:nextIngredients,instructions:nextInstructions,notes:nextNotes,linkedMealIds:[...linkedMealDraft],serveWith:[...serveWithDraft]};
+  const next={...m,name:$('name').value.trim()||'Untitled meal',prep:prepValue,total:totalValue,marinate:marinateValue,cook:cookValue,url:$('url').value.trim(),ingredientImportUrl,ingredients:nextIngredients,instructions:nextInstructions,notes:nextNotes,linkedMealIds:[...linkedMealDraft],serveWith:[...serveWithDraft]};if(simpleSidesDraft.length||Object.hasOwn(m,'simpleSides'))next.simpleSides=copySimpleSides(simpleSidesDraft);
   if(next.url!==String(m.url||'')){next.originalRecipeUrl=next.url;next.recipeSourceHidden=!next.url}
   if(nextIngredientLinks.length||Array.isArray(m.ingredientStepLinks))next.ingredientStepLinks=nextIngredientLinks;
   if(importedRecipeDetailsDraft?.recipeImportReferences?.length||$('recipeInstructions').recipeImportReferences?.length)next.recipeImportReferences=mergeRecipeImportReferences(m.recipeImportReferences||[],importedRecipeDetailsDraft?.recipeImportReferences||[],$('recipeInstructions').recipeImportReferences||[]);if(importedRecipeDetailsDraft?.originalRecipeUrl)next.originalRecipeUrl=importedRecipeDetailsDraft.originalRecipeUrl;
@@ -4380,7 +4382,7 @@ $('save').onclick=async()=>{
   if(removed.length&&(scheduled||referenced)&&await appDialog('Remove from group?',null,'tracking-remove',[],'Only this recipe’s selected group memberships will be removed. The recipe stays in your collection. If it has no groups left, it moves to Unassigned. Scheduled slots and references use the existing replacement and cleanup rules.')!==true)return;
   if(!persistenceEditor.isConnected||editId!==m.id)return;
   if(JSON.stringify(captureEditorRecoveryDraft())!==validatedDraftFingerprint){await showAppMessage('Your draft changed while confirmation was open. Your latest changes are still here; save again to validate them.');return}
-  const fields=sharedRecipeChanges(m,next);for(const [field,key]of [['name','name'],['marinate','marinate'],['ingredients','ingredients'],['instructions','recipeInstructions'],['notes','recipeNotes'],['url','url']])if($(key).value===savedEditorDraft[field])delete fields[field];if($('prep').value===savedEditorDraft.prep&&$('totaltime').value===savedEditorDraft.total){delete fields.prep;delete fields.total;delete fields.cook}if(JSON.stringify(serveWithDraft)===savedEditorDraft.serveWith)delete fields.serveWith;if(JSON.stringify(linkedMealDraft)===savedEditorDraft.linked)delete fields.linkedMealIds;if(JSON.stringify(nextMakeAhead)===savedEditorDraft.tasks)delete fields.makeAheadTasks;if($('editNeedsTweaking').checked===savedEditorDraft.adjusting&&$('editNeedsTweakingNote').value===savedEditorDraft.adjustingNote){delete fields.needsTweaking;delete fields.needsTweakingNote}if(!$('recipeIngredientLinks').hasChanges()&&!fields.ingredients&&!fields.instructions)delete fields.ingredientStepLinks;
+  const fields=sharedRecipeChanges(m,next);for(const [field,key]of [['name','name'],['marinate','marinate'],['ingredients','ingredients'],['instructions','recipeInstructions'],['notes','recipeNotes'],['url','url']])if($(key).value===savedEditorDraft[field])delete fields[field];if($('prep').value===savedEditorDraft.prep&&$('totaltime').value===savedEditorDraft.total){delete fields.prep;delete fields.total;delete fields.cook}if(JSON.stringify(simpleSidesDraft)===savedEditorDraft.simpleSides)delete fields.simpleSides;if(JSON.stringify(serveWithDraft)===savedEditorDraft.serveWith)delete fields.serveWith;if(JSON.stringify(linkedMealDraft)===savedEditorDraft.linked)delete fields.linkedMealIds;if(JSON.stringify(nextMakeAhead)===savedEditorDraft.tasks)delete fields.makeAheadTasks;if($('editNeedsTweaking').checked===savedEditorDraft.adjusting&&$('editNeedsTweakingNote').value===savedEditorDraft.adjustingNote){delete fields.needsTweaking;delete fields.needsTweakingNote}if(!$('recipeIngredientLinks').hasChanges()&&!fields.ingredients&&!fields.instructions)delete fields.ingredientStepLinks;
   if(newRecipeDraftId===m.id)fields.keepAsIdea=!$('rotation').checked;
   if(scheduledMealEditor?.draftId===m.id){next.recipeStatus=$('recipeStatus').dataset.status;try{saveScheduledMealEditor(next,editorMembershipDraft,$('rotation').checked)}catch(error){await showAppMessage('Meal could not be saved: '+error.message+' Your draft is still open.')}return}
   try{applyRecipeBulk([String(m.id)],{}, {render:false,editor:{sourceId:String(m.id),memberships:editorMembershipDraft.map(draft=>({...draft})),newGroups:pendingEditorGroups.filter(cat=>editorDraftCategories.includes(cat)),fields,rotation:$('rotation').checked,status:$('recipeStatus').dataset.status}})}catch(e){await showAppMessage('Recipe could not be saved: '+e.message+' Your draft is still open.');return}
@@ -4486,6 +4488,7 @@ function editorHasPendingChanges(){
    ((byId('editNeedsTweakingNote')?.value||'')!==String(meal.needsTweakingNote||''))||
    JSON.stringify(byId('recipeMakeAhead')?.readDraft?.()||[])!==JSON.stringify(recipeMakeAheadTasks(meal))||
    JSON.stringify(byId('serveWith')?.readDraft?.()||[])!==JSON.stringify(meal.serveWith||[])||
+   JSON.stringify(byId('serveWith')?.readSimpleSides?.()||[])!==JSON.stringify(meal.simpleSides||[])||
    JSON.stringify(byId('editLinkedMeals')?.readDraft?.()||[])!==JSON.stringify(meal.linkedMealIds||[])||
    !!byId('recipeIngredientLinks')?.hasChanges?.()||
    byId('recipeStatus')?.dataset.status!==recipeStatus(meal)||

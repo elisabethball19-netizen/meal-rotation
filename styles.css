@@ -1570,7 +1570,7 @@ button.recipe-up-next-star[aria-pressed="true"]{color:#42669a;}
 
 /* Ideas: fixed star/title/action columns keep stars on the first title line. */
 .master-category-meal[data-up-next-star]:not(.meal-card-edit-mode){display:grid;grid-template-columns:36px minmax(0,1fr) 44px;column-gap:4px;align-items:start;padding:2px 0;min-height:44px;}
-.master-category-meal[data-up-next-star]:not(.meal-card-edit-mode)>.recipe-up-next-star{grid-column:1;grid-row:1;width:36px;min-width:36px;height:44px;margin:0;padding:4px 0 0;display:grid;place-items:start center;}
+.master-category-meal[data-up-next-star]:not(.meal-card-edit-mode)>.recipe-up-next-star{grid-column:1;grid-row:1;width:36px;min-width:36px;height:44px;margin:0;padding:4px 0;display:grid;place-items:center;align-self:center;}
 .master-category-meal[data-up-next-star]:not(.meal-card-edit-mode)>.master-meal-info{grid-column:2;grid-row:1;padding:3px 0!important;gap:1px;align-self:center;}
 .master-category-meal[data-up-next-star]:not(.meal-card-edit-mode)>.recipe-section-move{grid-column:3;grid-row:1;margin:0;align-self:start;}
 .master-category-meal[data-up-next-star] .shared-meal-name-line{line-height:1.35;}
@@ -1608,3 +1608,5 @@ body.recipe-bulk-select .master-category-meal[data-up-next-star]>.recipe-bulk-ch
 .preparation-meal-target{animation:preparation-card-feedback 1s ease-out forwards;}
 @keyframes preparation-card-feedback{from{filter:drop-shadow(0 2px 6px rgba(35,48,60,.22))}to{filter:drop-shadow(0 2px 6px rgba(35,48,60,0))}}
 @media(prefers-reduced-motion:reduce){.preparation-meal-target{animation:none;filter:drop-shadow(0 2px 6px rgba(35,48,60,.22));}}
+
+.simple-side-controls{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:8px 0;min-width:0;}.simple-side-row{display:flex;align-items:center;max-width:100%;min-width:0;}.simple-side-row .meal-editor-chip{white-space:normal;overflow-wrap:anywhere;text-align:left;min-width:0;}.simple-side-fields label{display:block;margin:8px 0;font-size:14px;}.simple-side-fields input{box-sizing:border-box;width:100%;min-height:44px;padding:9px;border:1px solid #ccc;border-radius:8px;font:inherit;}.simple-side-fields textarea{box-sizing:border-box;min-height:110px;}.simple-side-names{padding-right:44px;box-sizing:border-box;font-size:13px;color:#637080;margin-top:2px;overflow-wrap:anywhere;white-space:normal;}
