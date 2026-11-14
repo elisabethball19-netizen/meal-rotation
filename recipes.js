@@ -1329,7 +1329,7 @@ function navigateToPreparationMeal(item){
   if(activePlanId!==target.plan.id)loadMealPlan(target.plan.id,false);
   showTop=true;groceryTabActive=false;allMealsActive=false;rotationWeekOffset=target.offset;editId=null;render();
   requestAnimationFrame(()=>{const meal=[...document.querySelectorAll('#list [data-rotation-occurrence]')].find(node=>node.dataset.rotationOccurrence===occurrence);
-   if(!meal)return;meal.scrollIntoView({behavior:'smooth',block:'center'});meal.focus({preventScroll:true});meal.classList.add('preparation-meal-target');setTimeout(()=>meal.classList.remove('preparation-meal-target'),1800);
+   if(!meal)return;meal.scrollIntoView({behavior:'smooth',block:'center'});meal.focus({preventScroll:true});const card=meal.closest('.top-recipe-wrap,.all-meals-day');if(card){card.classList.add('preparation-meal-target');setTimeout(()=>card.classList.remove('preparation-meal-target'),1000)};
   });
  });
 }

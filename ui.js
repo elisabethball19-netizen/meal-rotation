@@ -967,16 +967,30 @@ function slotEmptyLabel(day,cat){return 'Leave '+day+(getDayCategories(day).leng
 function compactMealDialog(title,label){
  const shade=document.createElement('div');shade.className='recipe-timer-dialog compact-meal-dialog';
  const box=document.createElement('div');box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label',label);
- const close=()=>shade.remove();appendRotationCloseHeader(box,title,close,true);
+ let closed=false,shieldTimer=null;const release=()=>{clearTimeout(shieldTimer);shieldTimer=setTimeout(()=>shade.remove(),350)};
+ // Keep the dismissed surface over queued retaps, including during synchronous work.
+ const dismiss=()=>{if(closed)return null;closed=true;box.querySelectorAll('button').forEach(button=>button.disabled=true);box.remove();shade.className='meal-action-shield';shade.setAttribute('aria-hidden','true');shade.style.cssText='position:fixed;inset:0;z-index:2147483647;background:transparent;touch-action:none';return release};
+ const close=()=>dismiss()?.();
+ const run=(action,resume=null)=>{
+  const release=dismiss();if(!release)return;
+  const failed=error=>showAppMessage('Meal action could not be completed. '+(error?.message||error));
+  try{return Promise.resolve(action()).then(result=>{
+   if(!resume)return;
+   // Inline controls return to a fresh popup after their nested dialog closes.
+   if(result?.overlay?.isConnected){const observer=new MutationObserver(()=>{if(!result.overlay.isConnected){observer.disconnect();resume()}});observer.observe(document.body,{childList:true})}else resume();
+  }).catch(failed)}catch(error){return failed(error)}finally{release()}
+ };
+ appendRotationCloseHeader(box,title,close,true);
+ for(const type of ['pointerdown','pointerup','touchstart','touchend','click','dblclick'])shade.addEventListener(type,event=>{if(closed){if(event.cancelable)event.preventDefault();event.stopImmediatePropagation();release()}},{capture:true,passive:false});
  shade.append(box);shade.onclick=e=>{if(e.target===shade)close()};shade.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();close()}};
- document.body.append(shade);return {shade,box,close};
+ document.body.append(shade);return {shade,box,close,run};
 }
 function compactMealButton(dialog,label,action){
- const button=document.createElement('button');button.type='button';button.className='smallbtn meal-full-action';button.textContent=label;button.onclick=()=>{dialog.close();action()};dialog.box.append(button);return button;
+ const button=document.createElement('button');button.type='button';button.className='smallbtn meal-full-action';button.textContent=label;button.onclick=()=>dialog.run(action);dialog.box.append(button);return button;
 }
 function compactMealLinks(dialog,actions){
  const links=document.createElement('div');links.className='meal-quick-actions';
- actions.forEach(([label,action],index)=>{if(index){const dot=document.createElement('span');dot.textContent='·';dot.setAttribute('aria-hidden','true');links.append(dot)}const button=document.createElement('button');button.type='button';button.textContent=label;button.onclick=()=>{dialog.close();action()};links.append(button)});dialog.box.append(links);
+ actions.forEach(([label,action],index)=>{if(index){const dot=document.createElement('span');dot.textContent='·';dot.setAttribute('aria-hidden','true');links.append(dot)}const button=document.createElement('button');button.type='button';button.textContent=label;button.onclick=()=>dialog.run(action);links.append(button)});dialog.box.append(links);
 }
 function underlyingSlotMeal(plan,day,cat){return getDisplayedWeekdayMealsForPlan(plan,null,null,null,true).find(entry=>entry.day===day&&(cat==='@day'||cat==null||entry.cat===cat))}
 function emptySlotAutomaticCandidate(day,cat){
@@ -993,7 +1007,6 @@ function autoPopulateWeekSlot(day,cat){
 function openUnscheduledGroupActions(day,cat){
  const dialog=compactMealDialog(day+' · '+cat,'Empty group options');
  compactMealButton(dialog,'Select Meal',()=>openWeekdayMealChooser(day,cat,null));
- if(emptySlotAutomaticCandidate(day,cat))compactMealButton(dialog,'Auto-Populate Meal',()=>autoPopulateWeekSlot(day,cat));
  compactMealButton(dialog,slotEmptyLabel(day,cat),()=>leaveWeekEmpty(day,cat));
  dialog.box.querySelector('button')?.focus();
 }
@@ -1018,7 +1031,6 @@ function openWeekEmptyActions(day,cat,context=emptyWeekSlotContext(mealPlans.fin
  const dialog=compactMealDialog(day+' · Empty this week','Empty meal options');
  const act=action=>()=>{if(valid())action()};
  compactMealButton(dialog,'Select Meal',act(()=>openWeekdayMealChooser(day,cat==='@day'?null:cat,null,cat==='@day',{slotContext:context})));
- if(emptySlotAutomaticCandidate(day,cat))compactMealButton(dialog,'Auto-Populate Meal',act(()=>autoPopulateWeekSlot(day,cat)));
  if(underlyingSlotMeal(plan,day,cat))compactMealButton(dialog,'Resume planned meal',act(()=>resumeWeekSlot(day,cat)));
 }
 
@@ -1822,7 +1834,7 @@ function editMealCookedDate(meal,onChanged=null,context=null){
  button('Cancel','cancel',()=>d.close()); panel.append(actions);overlay.append(panel);
  overlay.addEventListener('click',e=>{if(e.target===overlay)d.close()});
  overlay.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();d.close()}});
- document.body.append(overlay);
+ document.body.append(overlay);return d;
 }
 // Rotate-out menu: keep the cooking-date choice between uses.
 const ROTATE_MARK_COOKED_KEY='mealRotationMarkRotatedCookedV1';
@@ -2241,7 +2253,7 @@ function reorderUpNextRecipe(meal,target,before){
 function upNextStarButton(meal){
  const button=document.createElement('button');button.type='button';button.className='recipe-personal-icon recipe-up-next-star';button.dataset.upNextStar=String(meal.id);button.setAttribute('aria-pressed',String(meal.upNextStar===true));
  const label=meal.upNextStar===true?'Unpin recipe':'Pin recipe';button.title=label;button.setAttribute('aria-label',label);
- button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="'+(meal.upNextStar===true?'currentColor':'none')+'" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="m16 3 5 5-4 2-3 5-2 1-4-4 1-2 5-3Z"/><path d="m10 14-7 7" fill="none"/></svg>';
+ button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="'+(meal.upNextStar===true?'currentColor':'none')+'" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M16 9V4l1-1H7l1 1v5l-3 3v2h14v-2Z"/><path d="M12 14v7" fill="none"/></svg>';
  button.onclick=e=>{e.preventDefault();e.stopPropagation();try{applyRecipeBulk([String(meal.id)],{upNextStar:meal.upNextStar!==true},{upNextFirst:String(meal.id)})}catch(error){showAppMessage('Pin could not be saved. '+error.message)}};
  for(const event of ['pointerdown','pointerup','touchstart','touchend','dblclick'])button.addEventListener(event,e=>e.stopPropagation());return button;
 }
@@ -2878,7 +2890,7 @@ async function skipScheduledMeal(day,category,meal){
  const grocery=captureGroceryCheckStates(),used=new Set([...schedules.values()].flat().filter(item=>item!==current).map(item=>String(item.meal.id)));
  const skipUndo={...JSON.parse(captureState()),skippedCookingState:captureSkippedCookingState(plan,current)};snapshot(JSON.stringify(skipUndo));
  // Skipping is a schedule edit, not a consumed weighted rotation turn.
- const ranked=automaticSlotCandidates(plan,day,category,meals,prior).filter(m=>!excluded.has(String(m.id))),next=ranked.find(m=>!used.has(String(m.id)))||ranked[0];
+ const ranked=possible,next=ranked.find(m=>!used.has(String(m.id)))||ranked[0];
  preserveOtherMealPlanChoices(null,null,schedules);
  // Fix unrelated days/tabs even when the only alternative is already scheduled.
  for(const other of mealPlans)for(const entry of schedules.get(other.id)||[]){if(other.id===plan.id&&entry.day===day)continue;const slot=weekdaySlotKey(entry.day,entry.cat),choice=other.cycleSlotChoices?.[slot];if(choice)choice.retain=true}
@@ -2928,15 +2940,16 @@ function openTopMealActionMenu(day,category,meal,fromLinkedGroup=false,cookingOv
  navigationOrigin=navigationOrigin||captureMealEditorOrigin();
  const dialog=compactMealDialog(meal.name||'Meal options',day?'Meal options for '+day:'Meal options');
  dialog.box.classList.add('meal-options-compact');dialog.box.querySelector('h3').classList.add('meal-options-recipe-title');dialog.box.querySelector('button').setAttribute('aria-label','Close meal options');
+ const menuWeek=rotationWeekOffset,resumeMenu=()=>{if(activePlanId!==plan?.id||rotationWeekOffset!==menuWeek)return;const current=meals.find(record=>String(record.id)===String(meal.id));if(current)openTopMealActionMenu(day,category,current,fromLinkedGroup,cookingOverride,navigationOrigin)};
  const edit=()=>fromLinkedGroup?openLinkedMealEditorInline(meal,navigationOrigin):openEditor(meal.id,false,navigationOrigin);
  const links=[];if(day){links.push(['Select',select]);const entry=getDisplayedWeekdayMeals().find(item=>item.day===day&&item.cat===category&&String(item.meal.id)===String(meal.id));if(rotationGroupScheduled(plan,day,category)&&!entry?.occasional)links.push(['Skip',()=>skipScheduledMeal(day,category,meal)])}links.push(['Edit',edit]);
  compactMealLinks(dialog,links);
   const cooked=document.createElement('button');cooked.type='button';cooked.className='meal-options-last-cooked';cooked.style.cssText='display:flex;align-items:center;gap:6px;border:0;background:transparent;color:#707782;font:inherit;font-size:12px;font-weight:400;padding:2px 0;min-height:36px;max-width:100%;text-align:left;margin:0 0 12px';const cookedText=document.createElement('span');cooked.append(cookedText);cooked.insertAdjacentHTML('beforeend','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+appIconSvg.rename+'</svg>');
   function refreshCooked(){const current=meals.find(record=>String(record.id)===String(meal.id)),label=lastCookedLabel(current||meal);cookedText.textContent=label?label.replace(/^Last cooked /,'Last cooked: '):'Last cooked: Never';cooked.title='Edit last cooked date';cooked.setAttribute('aria-label',cookedText.textContent+' — Edit date for '+(current?.name||meal.name||'recipe'))}
-  cooked.onclick=e=>{e.preventDefault();e.stopPropagation();const current=meals.find(record=>String(record.id)===String(meal.id));if(current)editMealCookedDate(current,()=>{if(cooked.isConnected){refreshCooked();cooked.focus({preventScroll:true})}},cookingOverride||currentRecipeContext(day,category,current))};refreshCooked();
+  cooked.onclick=e=>{e.preventDefault();e.stopPropagation();const current=meals.find(record=>String(record.id)===String(meal.id));if(current)dialog.run(()=>editMealCookedDate(current,null,cookingOverride||currentRecipeContext(day,category,current)),resumeMenu)};refreshCooked();
 
  dialog.box.append(cooked);
- {const favorite=recipeFavoriteButton(meal);favorite.classList.add('meal-options-favorite');dialog.box.firstElementChild.insertBefore(favorite,dialog.box.firstElementChild.lastElementChild)}
+ {const favorite=recipeFavoriteButton(meal),toggle=favorite.onclick;favorite.onclick=event=>dialog.run(()=>toggle(event),resumeMenu);favorite.classList.add('meal-options-favorite');dialog.box.firstElementChild.insertBefore(favorite,dialog.box.firstElementChild.lastElementChild)}
  compactMealButton(dialog,'Open recipe',()=>openSavedMealRecipe(meal,cookingOverride||currentRecipeContext(day,category,meal),navigationOrigin));
  if(!day)compactMealButton(dialog,'Schedule Meal',()=>openScheduleMealDialog(meal));
  if(day)compactMealButton(dialog,slotEmptyLabel(day,category),()=>leaveWeekEmpty(day,category));

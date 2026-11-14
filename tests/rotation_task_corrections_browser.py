@@ -32,10 +32,12 @@ def setup(b,name):
  c,p,e,prefix=f.setup(b,name,320);p.clock.install(time=datetime.fromisoformat('2026-11-02T12:00:00-08:00'));p.evaluate('correctionTest.seed()');return c,p,e,prefix
 
 def hold(p,loc):
+ p.wait_for_function("!document.querySelector('.meal-action-shield')")
  loc.scroll_into_view_if_needed();box=loc.bounding_box();x=box['x']+min(box['width']/2,70);y=box['y']+box['height']/2
  p.mouse.move(x,y);p.mouse.down();p.clock.run_for(600);p.mouse.up()
 
 def touch_hold(c,p,loc):
+ p.wait_for_function("!document.querySelector('.meal-action-shield')")
  loc.scroll_into_view_if_needed();box=loc.bounding_box();point={'x':box['x']+min(60,box['width']/2),'y':box['y']+box['height']/2,'id':1};cdp=c.new_cdp_session(p)
  cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[point]});p.clock.run_for(600);cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]});cdp.detach()
 
@@ -70,13 +72,13 @@ def task_cases(b,name):
  assert p.evaluate('correctionTest.describe()')=='  Defrost chicken!   for Sunday’s dinner'
  item=p.evaluate('correctionTest.showTask({plan:"lunch",id:13})');assert item['day']=='Friday' and item['due']<item['scheduled'];assert item['text']=='Defrost chicken roast for Friday’s lunch'
  before=p.evaluate('correctionTest.snapshot()');p.locator('#taskProbe .make-ahead-task-link').tap();p.wait_for_timeout(100);assert p.evaluate('correctionTest.state().plan')=='lunch';assert p.evaluate('correctionTest.snapshot()')==before
- assert p.locator('.preparation-meal-target').get_attribute('data-rotation-occurrence')==item['occurrence']
- item=p.evaluate('correctionTest.showTask({plan:"original",id:5})');before=p.evaluate('correctionTest.snapshot()');p.locator('#taskProbe .make-ahead-task-link').tap();p.wait_for_timeout(100);assert p.locator('.preparation-meal-target').get_attribute('data-rotation-occurrence')==item['occurrence'];assert p.evaluate('correctionTest.snapshot()')==before
+ assert p.locator('[data-rotation-occurrence]:focus').get_attribute('data-rotation-occurrence')==item['occurrence']
+ item=p.evaluate('correctionTest.showTask({plan:"original",id:5})');before=p.evaluate('correctionTest.snapshot()');p.locator('#taskProbe .make-ahead-task-link').tap();p.wait_for_timeout(100);assert p.locator('[data-rotation-occurrence]:focus').get_attribute('data-rotation-occurrence')==item['occurrence'];assert p.evaluate('correctionTest.snapshot()')==before
  # Linked recipe has its own exact anchor, rather than its parent.
- p.evaluate('correctionTest.showTask({id:8,linked:true})');p.locator('#taskProbe .make-ahead-task-link').tap();p.wait_for_timeout(100);assert p.locator('.preparation-meal-target').inner_text()=='Linked side'
+ p.evaluate('correctionTest.showTask({id:8,linked:true})');p.locator('#taskProbe .make-ahead-task-link').tap();p.wait_for_timeout(100);assert p.locator('[data-rotation-occurrence]:focus').inner_text()=='Linked side'
  p.evaluate('correctionTest.showTask({id:1})');state=p.evaluate('correctionTest.state()');before=p.evaluate('correctionTest.checks()');p.locator('#taskProbe input').tap();assert p.evaluate('correctionTest.state()')==state;assert p.evaluate('correctionTest.checks()')!=before
  p.evaluate('correctionTest.showTask({id:1})');before=p.evaluate('correctionTest.snapshot()');hold(p,p.locator('#taskProbe .make-ahead-task-link'));assert p.get_by_role('dialog',name='Edit preparation task',exact=True).count();p.get_by_role('dialog',name='Edit preparation task',exact=True).get_by_role('button',name='Cancel preparation edit',exact=True).tap();assert p.evaluate('correctionTest.snapshot()')==before and p.evaluate('correctionTest.state()')==state
- future=p.evaluate('correctionTest.futureTask()')[0];item=p.evaluate('arg=>correctionTest.showTask(arg)',future);before=p.evaluate('correctionTest.snapshot()');p.locator('#taskProbe .make-ahead-task-link').tap();p.wait_for_timeout(100);assert p.evaluate('correctionTest.state().offset')==1;assert p.locator('.preparation-meal-target').get_attribute('data-rotation-occurrence')==item['occurrence'];assert p.evaluate('correctionTest.snapshot()')==before
+ future=p.evaluate('correctionTest.futureTask()')[0];item=p.evaluate('arg=>correctionTest.showTask(arg)',future);before=p.evaluate('correctionTest.snapshot()');p.locator('#taskProbe .make-ahead-task-link').tap();p.wait_for_timeout(100);assert p.evaluate('correctionTest.state().offset')==1;assert p.locator('[data-rotation-occurrence]:focus').get_attribute('data-rotation-occurrence')==item['occurrence'];assert p.evaluate('correctionTest.snapshot()')==before
  p.evaluate('correctionTest.week(0)');p.evaluate('correctionTest.showTask({id:1})');p.evaluate('correctionTest.empty()');before=p.evaluate('correctionTest.snapshot()');state=p.evaluate('correctionTest.state()');p.locator('#taskProbe .make-ahead-task-link').tap();assert p.get_by_role('alertdialog').count();assert p.evaluate('correctionTest.snapshot()')==before and p.evaluate('correctionTest.state()')==state;p.get_by_role('button',name='OK',exact=True).tap()
  assert not e,e;c.close();print('PASS',name,'exact task text, planned day, tab/current/next/linked/multiple-slot navigation, checkbox only, held edit and missing occurrence',flush=True)
 
