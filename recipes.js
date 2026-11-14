@@ -1257,7 +1257,7 @@ function makeAheadReminderRow(item,today=false){
  check.onchange=()=>setMakeAheadComplete(item,check.checked);label.append(check,text);return label;
 }
 function makeAheadTaskVisible(item,today=cookingLocalDate(new Date())){return typeof item.scheduled==='string'&&item.scheduled>=today}
-function makeAheadCardDate(item,today=cookingLocalDate(new Date())){return !item.complete&&item.due<today?today:item.due}
+function makeAheadCardDate(item){return item.due}
 function appendMakeAheadDay(card,day,rows,start=makeAheadWeekStart()){
  const due=cookingLocalDate(cookingDateInWeek(day,start)),today=cookingLocalDate(new Date());for(const item of rows.filter(item=>makeAheadTaskVisible(item,today)&&makeAheadCardDate(item,today)===due))card.append(makeAheadReminderRow(item));
 }
