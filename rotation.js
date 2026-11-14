@@ -101,13 +101,7 @@ function applySimpleSideMutation(change){
 function simpleSideDialogClose(dialog,label){
  const close=document.createElement('button');close.type='button';close.className='dialog-heading-add';setIconButton(close,'cancel',label);close.onclick=()=>dialog.close();dialog.panel.firstElementChild.append(close);return close;
 }
-function chooseSimpleSideScope(side,meal,onChoose,onClose){
- const d=recipeBulkDialog('Always serve '+side.name+' with '+meal.name+'?');simpleSideDialogClose(d,'Back to side editor');
- const actions=document.createElement('div');actions.className='meal-unified-actions';
- for(const [value,label]of [[true,'Always'],[false,'This time only']]){const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=label;button.onclick=()=>{d.close();onChoose(value)};actions.append(button)}d.panel.append(actions);
- const observer=new MutationObserver(()=>{if(!d.overlay.isConnected){observer.disconnect();onClose()}});observer.observe(document.body,{childList:true});
-}
-function editSimpleSide(side,onSave,scope=null){
+function editSimpleSide(side,onSave){
  const d=recipeBulkDialog(side?'Edit simple side':'Add simple side');simpleSideDialogClose(d,'Cancel side edit');
  const fields=document.createElement('div');fields.className='recipe-bulk-fields simple-side-fields';
  const name=document.createElement('input');name.type='text';name.setAttribute('aria-label','Side name');name.placeholder='Side name';name.required=true;name.value=side?.name||'';
@@ -116,23 +110,44 @@ function editSimpleSide(side,onSave,scope=null){
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Confirm side');setIconButton(cancel,'cancel','Cancel side edit');cancel.onclick=()=>d.close();
  save.onclick=()=>{if(!name.value.trim()){error.textContent='Enter a side name.';name.setAttribute('aria-invalid','true');name.focus();return}
   const next={id:side?.id||simpleSideId(),name:name.value.trim(),ingredients:simpleSideIngredients(ingredients.value,side?.ingredients||[])};
-  const finish=always=>{onSave(next,always);d.close()};if(scope&&!side){save.disabled=true;chooseSimpleSideScope(next,scope,finish,()=>{save.disabled=false})}else finish(false);
+  onSave(next);d.close();
  };actions.append(save,cancel);d.panel.append(fields,error,actions);name.focus({preventScroll:true});
 }
-function buildSimpleSideControls(parent,value,onChange,scope=null){
+function buildSimpleSideControls(parent,value,onChange){
  let draft=copySimpleSides(value);const section=document.createElement('div');section.className='simple-side-controls';const heading=document.createElement('strong');heading.textContent='Simple sides';const list=document.createElement('div');list.className='meal-editor-chips simple-side-list';const add=document.createElement('button');add.type='button';add.className='smallbtn';add.textContent='Add simple side';
  const update=()=>{list.replaceChildren();for(const side of draft){const row=document.createElement('span');row.className='simple-side-row';const edit=document.createElement('button');edit.type='button';edit.className='meal-editor-chip';edit.textContent=side.name;edit.setAttribute('aria-label','Edit simple side '+side.name);edit.onclick=()=>editSimpleSide(side,next=>{const match=draft.find(item=>item.id!==side.id&&simpleSideNameKey(item.name)===simpleSideNameKey(next.name));draft=match?mergeSimpleSide(draft.filter(item=>item.id!==side.id),{...next,id:match.id}).sides:draft.map(item=>item.id===side.id?next:item);update();onChange(copySimpleSides(draft))});const remove=document.createElement('button');remove.type='button';remove.className='meal-editor-inline-icon';setIconButton(remove,'delete','Remove simple side '+side.name);remove.onclick=()=>{draft=draft.filter(item=>item.id!==side.id);update();onChange(copySimpleSides(draft))};row.append(edit,remove);list.append(row)}};
- add.onclick=()=>editSimpleSide(null,(side,always)=>{if(scope&&always)side=scope.defaultSide(side,draft);draft=mergeSimpleSide(draft,side).sides;update();onChange(copySimpleSides(draft))},scope?.meal);
+ add.onclick=()=>editSimpleSide(null,side=>{draft=mergeSimpleSide(draft,side).sides;update();onChange(copySimpleSides(draft))});
  section.append(heading,list,add);parent.append(section);update();return {readDraft:()=>copySimpleSides(draft)};
 }
 function openOccurrenceServeWith(planId,entry,expectedKey=null){
  const plan=mealPlans.find(plan=>plan.id===planId);if(!plan||!recipePlanEntries(planId).some(item=>item.day===entry.day&&item.cat===entry.cat&&String(item.meal.id)===String(entry.meal.id)&&String(item.linkedTo||'')===String(entry.linkedTo||'')))return;
- const key=simpleSideOccurrenceKey(plan,entry);if(expectedKey&&key!==expectedKey){showAppMessage('This scheduled meal changed. Reopen Serve with.');return}const target={planId,day:entry.day,cat:entry.cat,mealId:String(entry.meal.id),parentId:String(entry.linkedTo||''),key};const baseline=JSON.stringify(simpleSidesForEntry(plan,entry)),defaultsBaseline=simpleSideDefaultsFingerprint(entry.meal);const baseDefaults=copySimpleSides(entry.meal.simpleSides),pendingDefaults=new Map();let defaults=copySimpleSides(baseDefaults);
- const d=recipeBulkDialog('Serve with for '+entry.day);simpleSideDialogClose(d,'Cancel Serve with');const body=document.createElement('div');body.className='recipe-bulk-fields';
+ const key=simpleSideOccurrenceKey(plan,entry);if(expectedKey&&key!==expectedKey){showAppMessage('This scheduled meal changed. Reopen sides.');return}
+ const target={planId,day:entry.day,cat:entry.cat,mealId:String(entry.meal.id),parentId:String(entry.linkedTo||''),key},baseSides=copySimpleSides(simpleSidesForEntry(plan,entry)),baseline=JSON.stringify(baseSides),baseDefaults=copySimpleSides(entry.meal.simpleSides),defaultsBaseline=simpleSideDefaultsFingerprint(entry.meal);
+ const d=recipeBulkDialog('Sides for '+(entry.meal.name||'meal'));d.panel.classList.add('occurrence-side-editor');simpleSideDialogClose(d,'Cancel side edit');
+ const body=document.createElement('div');body.className='recipe-bulk-fields simple-side-fields';const list=document.createElement('div');list.className='meal-editor-chips simple-side-list';body.append(list);
  const linked=(entry.meal.linkedMealIds||[]).map(id=>meals.find(meal=>String(meal.id)===String(id))?.name).filter(Boolean);if(linked.length){const names=document.createElement('p');names.className='top-inline-linked';names.textContent='Linked recipes: '+linked.join(' · ');body.append(names)}
- const controls=buildSimpleSideControls(body,simpleSidesForEntry(plan,entry),()=>{},{meal:entry.meal,defaultSide:(side,occurrenceSides)=>{const merged=mergeSimpleSide(defaults,side),existing=occurrenceSides.find(item=>simpleSideNameKey(item.name)===simpleSideNameKey(side.name));defaults=merged.sides;pendingDefaults.set(existing?.id||merged.side.id,merged.side);return merged.side}});
- const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save Serve with');setIconButton(cancel,'cancel','Cancel Serve with');cancel.onclick=()=>d.close();
- save.onclick=()=>{save.disabled=true;const sides=controls.readDraft(),intents=[...pendingDefaults].filter(([id])=>sides.some(side=>side.id===id));let finalDefaults=copySimpleSides(baseDefaults);for(const [,side]of intents)finalDefaults=mergeSimpleSide(finalDefaults,side).sides;try{applyRecipeBulk([target.mealId],{}, {render:false,simpleSides:{target,baseline,sides,...(intents.length?{defaults:finalDefaults,defaultsBaseline}:{})}});d.close();renderList()}catch(e){error.textContent='Sides could not be saved: '+e.message}finally{save.disabled=false}};actions.append(save,cancel);d.panel.append(body,error,actions);
+ const name=document.createElement('input');name.type='text';name.placeholder='Side name';name.required=true;name.setAttribute('aria-label','Side name');const label=document.createElement('label');label.textContent='Side name';label.append(name);
+ const ingredientDetails=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Ingredients (optional)';const ingredients=document.createElement('textarea');ingredients.className='ingredients-input';ingredients.placeholder='One ingredient per line';ingredients.setAttribute('aria-label','Side ingredients (optional)');ingredientDetails.append(summary,ingredients);body.append(label,ingredientDetails);
+ const question=document.createElement('p');question.className='simple-side-question';const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');const actions=document.createElement('div');actions.className='meal-unified-actions';
+ const always=document.createElement('button'),once=document.createElement('button'),save=document.createElement('button');always.type=once.type=save.type='button';always.className=once.className='smallbtn';always.textContent='Always';once.textContent='This time only';setIconButton(save,'save','Save side');actions.append(always,once,save);d.panel.append(body,question,error,actions);
+ let selected=null,removing=false,busy=false,finished=false,prepared=null;const newId=simpleSideId();
+ const update=()=>{const valid=!!name.value.trim();question.hidden=!!selected||!valid;question.textContent='Always serve '+name.value.trim()+' with '+entry.meal.name+'?';always.hidden=once.hidden=!!selected;save.hidden=!selected;always.disabled=once.disabled=busy||!valid;save.disabled=busy||(!removing&&!valid);label.hidden=ingredientDetails.hidden=removing;save.title=removing?'Remove side':'Save side';save.setAttribute('aria-label',save.title)};
+ for(const side of baseSides){const row=document.createElement('span');row.className='simple-side-row';const edit=document.createElement('button');edit.type='button';edit.className='meal-editor-chip';edit.textContent=side.name;edit.setAttribute('aria-label','Edit simple side '+side.name);edit.onclick=()=>{selected=side;removing=false;name.value=side.name;ingredients.value=side.ingredients.map(item=>item.text).join('\n');ingredientDetails.open=false;error.textContent='';prepared=null;update();name.focus({preventScroll:true})};const remove=document.createElement('button');remove.type='button';remove.className='meal-editor-inline-icon';setIconButton(remove,'delete','Remove simple side '+side.name);remove.onclick=()=>{selected=side;removing=true;name.value=side.name;error.textContent='Remove '+side.name+' from this meal?';update()};row.append(edit,remove);list.append(row)}
+ const submit=useDefault=>{
+  if(busy||finished||!d.overlay.isConnected||!removing&&!name.value.trim())return;busy=true;update();error.textContent='';
+  try{
+   let sides,defaults;
+   if(removing)sides=baseSides.filter(side=>side.id!==selected.id);
+   else{
+    const fingerprint=JSON.stringify([selected?.id||newId,name.value.trim(),ingredients.value]);if(prepared?.fingerprint!==fingerprint)prepared={fingerprint,side:{id:selected?.id||newId,name:name.value.trim(),ingredients:simpleSideIngredients(ingredients.value,selected?.ingredients||[])}};
+    let side=prepared.side;
+    if(!selected&&useDefault){const merged=mergeSimpleSide(baseDefaults,side);defaults=merged.sides;side=merged.side}
+    if(selected){const match=baseSides.find(item=>item.id!==selected.id&&simpleSideNameKey(item.name)===simpleSideNameKey(side.name));sides=match?mergeSimpleSide(baseSides.filter(item=>item.id!==selected.id),{...side,id:match.id}).sides:baseSides.map(item=>item.id===selected.id?side:item)}else sides=mergeSimpleSide(baseSides,side).sides;
+   }
+   applyRecipeBulk([target.mealId],{}, {render:false,simpleSides:{target,baseline,sides,...(defaults?{defaults,defaultsBaseline}:{})}});finished=true;d.close();renderList();
+  }catch(e){error.textContent='Side could not be saved: '+e.message+' Your draft is still here.'}finally{busy=false;update()}
+ };
+ always.onclick=()=>submit(true);once.onclick=()=>submit(false);save.onclick=()=>submit(false);name.oninput=update;ingredients.oninput=()=>{prepared=null};update();name.focus({preventScroll:true});
 }
 
 function normalizeServeWith(value){return [...new Map((Array.isArray(value)?value:[]).filter(v=>typeof v==='string').map(v=>v.trim()).filter(v=>serveWithWords(v)).map(v=>[serveWithWords(v),v])).values()]}

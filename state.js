@@ -297,6 +297,7 @@ function validateWeekSchedule(value){
  const validKey=key=>typeof key==='string'&&['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].some(day=>key.startsWith(day+'::')&&key.length>day.length+2);
  for(const [key,item] of Object.entries(value.slots)){
   if(!validKey(key)||!object(item)||!['empty','once'].includes(item.kind))throw Error('Invalid temporary meal slot');
+  if('occurrences'in item&&(!Array.isArray(item.occurrences)||item.occurrences.some(key=>typeof key!=='string')||new Set(item.occurrences).size!==item.occurrences.length))throw Error('Invalid skipped meal occurrences');
   if('groceryChecks'in item)validateGroceryOccurrenceChecks({version:1,checks:item.groceryChecks,quantities:item.groceryQuantities});
   if(item.kind==='once'&&(!object(item.meal)||typeof item.meal.id!=='string'||!item.meal.id.startsWith('once-')||typeof item.meal.name!=='string'||!item.meal.name.trim()||!Array.isArray(item.meal.ingredients)||item.meal.ingredients.some(line=>typeof line!=='string')||item.meal.temporaryMeal!==true))throw Error('Invalid temporary meal');
  }
