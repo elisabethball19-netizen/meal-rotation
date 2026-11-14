@@ -1,5 +1,5 @@
 /* Bump this version when changing the offline app shell. */
-const SHELL_VERSION = 'v125';
+const SHELL_VERSION = 'v126';
 const CACHE_PREFIX = `meal-rotation-shell:${self.registration.scope}:`;
 const CACHE_NAME = CACHE_PREFIX + SHELL_VERSION;
 const SHELL_FILES = [
@@ -40,7 +40,8 @@ self.addEventListener('fetch', event => {
   const canonical = new URL(url.pathname, url.origin).href;
   if (!SHELL_URLS.has(canonical)) return;
 
-  const network = fetch(event.request).then(async response => {
+  // Revalidate the HTTP cache too; an online response may otherwise be stale.
+  const network = fetch(event.request, { cache: 'no-cache' }).then(async response => {
     if (!response.ok || response.type === 'opaque') throw new Error('App file unavailable');
     // Serve the current file even if storage is full or unavailable.
     try {
