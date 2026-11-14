@@ -1,28 +1,37 @@
-function getGroceryContributions(allPlans=false){
- saveActiveMealPlan();let selected={};try{selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
+let groceryPeriod='current';
+function groceryPeriodSchedules(period=groceryPeriod){
+ const current=mealPlans.map(plan=>({plan,entries:getDisplayedWeekdayMealsForPlan(plan),preview:false}));if(period==='rotation')return current;
+ const start=cookingPlanningWeekStart(),next=new Date(start);next.setDate(next.getDate()+7);const end=new Date(next);end.setDate(end.getDate()+7);
+ const within=(source,from,to)=>({...source,entries:source.entries.filter(entry=>{const date=scheduledOccurrenceDate({...entry,planId:source.plan.id},source.plan.rotationCalendar);return date>=from&&date<to})});
+ const upcoming=period==='next'||period==='both'?previewNextWeekPlans().map(source=>within(source,next,end)):[];
+ return (period==='next'?[]:current).concat(upcoming);
+}
+function getGroceryContributions(allPlans=false,period='rotation'){
+ if(period==='rotation')saveActiveMealPlan();let selected={};try{selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
  const result=[],observed=new Set(),legacyOwners=new Map();
- for(const plan of (allPlans||showMealPlanTabs&&mealPlans.length>1?mealPlans:mealPlans.filter(p=>p.id===activePlanId))){
+ for(const {plan,entries,preview}of groceryPeriodSchedules(period)){
+  if(!allPlans&&!(showMealPlanTabs&&mealPlans.length>1)&&plan.id!==activePlanId)continue;
   if(!allPlans&&showMealPlanTabs&&mealPlans.length>1&&masterGroceryExcludedPlanIds.has(String(plan.id)))continue;
-  const entries=getDisplayedWeekdayMealsForPlan(plan),groupRank=entry=>{const raw=plan.weekdayCategories?.[entry.day],groups=Array.isArray(raw)?raw:[raw],index=groups.indexOf(entry.cat);return index<0?groups.length:index};
+  const groupRank=entry=>{const raw=plan.weekdayCategories?.[entry.day],groups=Array.isArray(raw)?raw:[raw],index=groups.indexOf(entry.cat);return index<0?groups.length:index};
   for(const entry of [...entries].sort((a,b)=>weekdays.indexOf(a.day)-weekdays.indexOf(b.day)||groupRank(a)-groupRank(b))){const occurrence=groceryOccurrenceIdentity(plan,entry),legacy=JSON.stringify(JSON.parse(occurrence).slice(0,4));if(!legacyOwners.has(legacy))legacyOwners.set(legacy,occurrence)}
   for(const entry of entries){
    const {meal,day,linkedTo}=entry;if(!allPlans&&masterGroceryExcludedMealKeys.has(groceryMealKey(plan,meal)))continue;
-   const context=cookingContext(plan.id,day,entry.cat,meal,linkedTo),occurrence=groceryOccurrenceIdentity(plan,entry);if(observed.has(occurrence))continue;observed.add(occurrence);
-   const legacyOccurrence=JSON.stringify(JSON.parse(occurrence).slice(0,4));if(!legacyOwners.has(legacyOccurrence))legacyOwners.set(legacyOccurrence,occurrence);const legacyOwner=legacyOwners.get(legacyOccurrence)===occurrence;
+   const context=cookingContext(plan.id,day,entry.cat,meal,linkedTo),occurrence=groceryOccurrenceIdentity(plan,entry),scheduledDate=cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar)),dated=JSON.stringify([...JSON.parse(occurrence),scheduledDate]);if(observed.has(dated))continue;observed.add(dated);
+   const legacyOccurrence=JSON.stringify(JSON.parse(occurrence).slice(0,4));if(!legacyOwners.has(legacyOccurrence))legacyOwners.set(legacyOccurrence,occurrence);const legacyOwner=!preview&&legacyOwners.get(legacyOccurrence)===occurrence;
    const linkedParent=linkedTo??entries.find(parent=>parent.day===day&&parent.cat!==entry.cat&&(parent.meal.linkedMealIds||[]).some(id=>String(id)===String(meal.id)))?.meal.id;
-   const selectedKeys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),multiplier=occurrenceMultiplier(context),counts=new Map();
+   const selectedKeys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),actualPlan=mealPlans.find(item=>item.id===plan.id),sameDate=actualPlan&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},actualPlan.rotationCalendar))===scheduledDate,multiplier=!preview||sameDate?occurrenceMultiplier(context):1,counts=new Map();
    for(const raw of Array.isArray(meal.ingredients)?meal.ingredients:[]){
     const original=String(raw??'').trim(),oldKey=ingredientKey(original);if(!oldKey||!selectedKeys.has(oldKey)||syncIngredientHeading(original))continue;
     const normalized=ingredientKey(compactIngredientFractions(original)),index=counts.get(normalized)||0;counts.set(normalized,index+1);
     const line=scaleRecipeIngredient(original,multiplier),quantity=groceryQuantityParts(line),baseKey=quantity?.key||'unmeasured:'+oldKey;
-    result.push({id:JSON.stringify([occurrence,normalized,index]),occurrence,legacyId:JSON.stringify([legacyOccurrence,normalized,index]),legacyOwner,parentId:linkedParent==null?null:String(linkedParent),planId:plan.id,day,cat:entry.cat,mealId:meal.id,mealName:meal.name,original,line,quantity,baseKey,checkKeys:[...new Set([oldKey,original.toLowerCase().replace(/\s+/g,' ').trim()])]});
+    result.push({id:JSON.stringify([dated,normalized,index]),occurrence,scheduledDate,preview:!!preview,legacyId:JSON.stringify([occurrence,normalized,index]),legacyIds:[JSON.stringify([occurrence,normalized,index]),JSON.stringify([legacyOccurrence,normalized,index])],legacyOwner,parentId:linkedParent==null?null:String(linkedParent),planId:plan.id,day,cat:entry.cat,mealId:meal.id,mealName:meal.name,original,line,quantity,baseKey,checkKeys:[...new Set([oldKey,original.toLowerCase().replace(/\s+/g,' ').trim()])]});
    }
   }
  }
  return result;
 }
 function getMasterGroceryItems(){
- const sources=getGroceryContributions().flatMap(source=>{
+ const sources=getGroceryContributions(false,groceryPeriod).flatMap(source=>{
   const amount=groceryCheckedAmount(source),q=source.quantity;
   // Ranges stay whole unless both bounds can be split without inventing a range.
   if(!q||!amount||amount.lo<=0||amount.hi<=0||grocerySourceChecked(source)||q.hi-amount.hi<q.lo-amount.lo)return [source];
@@ -90,6 +99,8 @@ function getMasterGroceryItems(){
   const heading=document.createElement('h2');heading.textContent='Grocery List';
   const groceryHeader=document.createElement('div');groceryHeader.className='grocery-compact-header';groceryHeader.append(heading);panel.append(groceryHeader);
   const filters=document.createElement('div');filters.className='master-grocery-plan-filters';
+  const periods=document.createElement('div');periods.className='week-selector';periods.setAttribute('role','group');periods.setAttribute('aria-label','Grocery period');
+  for(const [value,label]of [['current','This week'],['next','Next week'],['both','Both weeks']]){const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-pressed',String(groceryPeriod===value));button.onclick=()=>{groceryPeriod=value;for(const other of periods.querySelectorAll('button'))other.setAttribute('aria-pressed',String(other===button));updateRows()};periods.append(button)}filters.append(periods);
   const rows=document.createElement('div');rows.className='master-grocery-list';
   function updateRows(){
    rows.replaceChildren();
@@ -118,7 +129,8 @@ function getMasterGroceryItems(){
     if(!associations.size)source.textContent='No associated recipes';
     for(const contribution of associations.values()){
      if(source.childNodes.length)source.append(document.createTextNode(' · '));const link=document.createElement('button');link.type='button';link.className='grocery-recipe-link';link.dataset.mealId=String(contribution.mealId);link.dataset.planId=contribution.planId;link.dataset.day=contribution.day;link.style.cssText='border:0;background:transparent;color:inherit;text-decoration:underline;padding:5px 2px;min-height:44px;text-align:left;font:inherit';link.textContent=contribution.mealName+' ('+mealPlans.find(p=>p.id===contribution.planId)?.name+', '+contribution.day+', '+contribution.cat+')';
-     link.onclick=()=>{const plan=mealPlans.find(p=>p.id===contribution.planId),entry=plan&&getDisplayedWeekdayMealsForPlan(plan).find(entry=>entry.day===contribution.day&&String(entry.meal.id)===String(contribution.mealId)&&groceryOccurrenceIdentity(plan,entry)===contribution.occurrence);if(!entry)return;if(entry.meal.temporaryMeal){showAppMessage('This one-time meal has no saved recipe.');return}openSavedMealRecipe(entry.meal,cookingContext(plan.id,entry.day,entry.cat,entry.meal,entry.linkedTo));revealGroceryRecipeIngredient(entry.meal,contribution.original)};source.append(link);
+     link.textContent+=' · '+contribution.scheduledDate;
+     link.onclick=()=>{const plan=mealPlans.find(p=>p.id===contribution.planId),entry=plan&&getDisplayedWeekdayMealsForPlan(plan).find(entry=>entry.day===contribution.day&&String(entry.meal.id)===String(contribution.mealId)&&groceryOccurrenceIdentity(plan,entry)===contribution.occurrence&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar))===contribution.scheduledDate),meal=entry?.meal||meals.find(meal=>String(meal.id)===String(contribution.mealId));if(!meal||meal.temporaryMeal){showAppMessage('This one-time meal has no saved recipe.');return}openSavedMealRecipe(meal,entry?cookingContext(plan.id,entry.day,entry.cat,meal,entry.linkedTo):null);revealGroceryRecipeIngredient(meal,contribution.original)};source.append(link);
     }
     source.hidden=true;
     name.setAttribute('aria-expanded','false');
@@ -143,13 +155,14 @@ function getMasterGroceryItems(){
    const title=document.createElement('h3');title.textContent='Choose Meals';title.style.margin='0 0 6px';box.append(title);
    const hint=document.createElement('p');hint.textContent='Choose which meals to include in your grocery list. Your meal rotation will not change.';hint.style.cssText='font-size:14px;color:#666;margin:0 0 12px';box.append(hint);
    const body=document.createElement('div');body.style.cssText='overflow-y:auto;min-height:0;flex:1';
+   const schedules=groceryPeriodSchedules();
    const excludedPlans=new Set(masterGroceryExcludedPlanIds),excludedMeals=new Set(masterGroceryExcludedMealKeys);
    for(const plan of (showMealPlanTabs&&mealPlans.length>1?mealPlans:mealPlans.filter(p=>p.id===activePlanId))){
     const section=document.createElement('section');section.style.cssText='border-top:1px solid #ddd;padding:12px 0';
     const header=document.createElement('label');header.style.cssText='display:flex;align-items:center;gap:10px;font-weight:700;margin-bottom:8px';
     const planCheck=document.createElement('input');planCheck.type='checkbox';planCheck.checked=!excludedPlans.has(String(plan.id));planCheck.style.cssText='width:20px;height:20px';
     header.append(planCheck,document.createTextNode(plan.name));if(showMealPlanTabs&&mealPlans.length>1)section.append(header);
-    const entries=new Map();for(const entry of getDisplayedWeekdayMealsForPlan(plan)){entries.set(String(entry.meal.id),entry.meal)}
+    const entries=new Map();for(const source of schedules.filter(source=>source.plan.id===plan.id))for(const entry of source.entries){entries.set(String(entry.meal.id),entry.meal)}
     const mealChecks=[];
     for(const meal of entries.values()){
      const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;padding:7px 2px 7px 22px';
@@ -169,7 +182,7 @@ function getMasterGroceryItems(){
    const cancel=document.createElement('button');cancel.type='button';setIconButton(cancel,'cancel','Cancel');cancel.onclick=()=>overlay.remove();
    footer.append(save,cancel);box.append(footer);overlay.append(box);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay);
   };
-  if((showMealPlanTabs&&mealPlans.length>1?mealPlans:mealPlans.filter(p=>p.id===activePlanId)).some(plan=>getDisplayedWeekdayMealsForPlan(plan).length))filters.append(chooseMeals);
+  filters.append(chooseMeals);
   const toolbar=list.querySelector(':scope > .top-controls');
   if(toolbar){filters.append(toolbar);toolbar.classList.add('grocery-inline-actions');}
   groceryHeader.append(filters);

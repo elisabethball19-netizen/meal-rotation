@@ -578,7 +578,7 @@ function validateGroceryOccurrenceChecks(value){
   let source;try{source=JSON.parse(key)}catch(e){throw Error('Invalid grocery source')}
   if(!Array.isArray(source)||source.length!==3||typeof source[0]!=='string'||typeof source[1]!=='string'||!Number.isSafeInteger(source[2])||source[2]<0||typeof checked!=='boolean')throw Error('Invalid grocery source check');
   let occurrence;try{occurrence=JSON.parse(source[0])}catch(e){throw Error('Invalid grocery occurrence')}
-  if(!Array.isArray(occurrence)||![4,5].includes(occurrence.length)||occurrence.some(value=>typeof value!=='string'))throw Error('Invalid grocery occurrence');
+  if(!Array.isArray(occurrence)||![4,5,6].includes(occurrence.length)||occurrence.some(value=>typeof value!=='string'))throw Error('Invalid grocery occurrence');
  }
 }
 try{const raw=localStorage.getItem(GROCERY_OCCURRENCE_CHECKS_KEY);if(raw){const value=JSON.parse(raw);validateGroceryOccurrenceChecks(value);groceryOccurrenceChecks=value}}catch(e){groceryCheckStorageInvalid=true}
@@ -590,17 +590,20 @@ function groceryOccurrenceIdentity(plan,entry){
  const slot=rotationGroupScheduled(plan,entry.day,entry.cat);
  return JSON.stringify([String(plan.id),entry.day,String(entry.meal.id),(slot||entry.occasional&&!(entry.linkedTo??entry.parentId))?'slot':'linked:'+String(entry.linkedTo??entry.parentId??''),cats.includes(entry.cat)?groupIdentity(entry.cat,true):String(entry.cat||'@day')]);
 }
+function groceryStoredAmount(source,ledger){
+ for(const key of [source.id,...(source.legacyOwner===false?[]:source.legacyIds||[source.legacyId])]){if(ledger.quantities?.[key])return ledger.quantities[key];if(typeof ledger.checks?.[key]==='boolean')return null}return null;
+}
 function groceryCheckedAmount(source,ledger=groceryOccurrenceChecks,legacy=checkedIngredients){
- const saved=ledger.quantities?.[source.id];if(saved&&source.quantity)return {lo:Math.min(saved.lo,source.quantity.lo),hi:Math.min(saved.hi,source.quantity.hi)};
+ const saved=groceryStoredAmount(source,ledger);if(saved&&source.quantity)return {lo:Math.min(saved.lo,source.quantity.lo),hi:Math.min(saved.hi,source.quantity.hi)};
  return source.quantity&&(grocerySourceChecked(source,ledger,legacy)?{lo:source.quantity.lo,hi:source.quantity.hi}:{lo:0,hi:0});
 }
 function grocerySourceChecked(source,ledger=groceryOccurrenceChecks,legacy=checkedIngredients){
  if(typeof source.segmentChecked==='boolean')return source.segmentChecked;
- const amount=ledger.quantities?.[source.id];if(amount&&source.quantity)return amount.lo>=source.quantity.lo-1e-8&&amount.hi>=source.quantity.hi-1e-8;
+ const amount=groceryStoredAmount(source,ledger);if(amount&&source.quantity)return amount.lo>=source.quantity.lo-1e-8&&amount.hi>=source.quantity.hi-1e-8;
  const stored=ledger?.checks?.[source.id];
- if(typeof stored==='boolean')return stored;if(source.legacyOwner===false)return false;const old=source.legacyId&&ledger.checks[source.legacyId];return typeof old==='boolean'?old:legacy.has(source.baseKey)||source.checkKeys.some(key=>legacy.has(key));
+ if(typeof stored==='boolean')return stored;if(source.legacyOwner===false)return false;const old=(source.legacyIds||[source.legacyId]).map(key=>ledger.checks[key]).find(value=>typeof value==='boolean');return typeof old==='boolean'?old:legacy.has(source.baseKey)||source.checkKeys.some(key=>legacy.has(key));
 }
-function captureGroceryCheckStates(){return new Map(getGroceryContributions(true).map(source=>[source.id,{source,checked:grocerySourceChecked(source),amount:groceryCheckedAmount(source)}]))}
+function captureGroceryCheckStates(includeUpcoming=false){return new Map(getGroceryContributions(true,includeUpcoming?'both':'rotation').map(source=>[source.id,{source,checked:grocerySourceChecked(source),amount:groceryCheckedAmount(source)}]))}
 function preserveGroceryCheckStates(states){for(const [id,item] of states){groceryOccurrenceChecks.checks[id]=item.checked;if(item.amount)(groceryOccurrenceChecks.quantities??={})[id]={...item.amount}}}
 function groceryItemChecked(key,item){
  if(item.contributions)return item.contributions.every(source=>grocerySourceChecked(source));
@@ -609,7 +612,7 @@ function groceryItemChecked(key,item){
 function setGroceryItemChecked(key,item,checked){
  if(item.contributions){
   // Materialize legacy states before changing a global key shared with other rows.
-  const states=captureGroceryCheckStates();preserveGroceryCheckStates(states);
+  const states=captureGroceryCheckStates(true);preserveGroceryCheckStates(states);
   for(const source of item.contributions){
    groceryOccurrenceChecks.checks[source.id]=checked;
    if(source.quantity){const full=states.get(source.id)?.source,prior=states.get(source.id)?.amount||{lo:0,hi:0},q=source.quantity;
@@ -627,14 +630,16 @@ function reconcileRotatedGroceryChecks(before,affected,restore=null){
  if(hasDependentSideSlots()){coordinateDependentSides(!!restore);saveActiveMealPlan();}
  const reset=new Set(affected.map(item=>{const plan=mealPlans.find(plan=>plan.id===item.planId);return plan?groceryOccurrenceIdentity(plan,{...item,meal:item.meal||{id:item.mealId},linkedTo:item.linkedTo??item.parentId}):''}));
  const restoredLegacy=restore?new Set(restore.checkedIngredients||[]):null;
- const next={version:1,checks:{},quantities:{}};const currentSources=getGroceryContributions(true),visible=new Set(currentSources.map(source=>source.id));
+ const savedLedger=groceryOccurrenceChecks,next={version:1,checks:{},quantities:{}};for(const [id,checked]of Object.entries(savedLedger.checks)){const occurrence=JSON.parse(JSON.parse(id)[0]);if(occurrence.length===6&&occurrence[5]>=cookingLocalDate(new Date())&&meals.some(meal=>String(meal.id)===occurrence[2])&&mealPlans.some(plan=>String(plan.id)===occurrence[0])){next.checks[id]=checked;if(savedLedger.quantities?.[id])next.quantities[id]={...savedLedger.quantities[id]}}}const currentSources=getGroceryContributions(true),visible=new Set(currentSources.map(source=>source.id));
  for(const plan of mealPlans)if(plan.weekSchedule?.linkedGroceryChecks)for(const id of Object.keys(plan.weekSchedule.linkedGroceryChecks)){const occurrence=JSON.parse(JSON.parse(id)[0]);if(affected.some(item=>item.planId===plan.id&&item.day===occurrence[1]&&(item.meal?.linkedMealIds||[]).some(side=>String(side)===occurrence[2]))){delete plan.weekSchedule.linkedGroceryChecks[id];delete plan.weekSchedule.linkedGroceryQuantities?.[id]}}
  for(const [id,item]of before){const source=item.source;if(visible.has(id)||!source?.parentId||[...reset].some(key=>{if(!key)return false;const parts=JSON.parse(key);return parts[0]===String(source.planId)&&parts[1]===source.day&&parts[2]===source.parentId}))continue;const plan=mealPlans.find(p=>p.id===source.planId);if(plan&&getDisplayedWeekdayMealsForPlan(plan).some(entry=>entry.day===source.day&&String(entry.meal.id)===source.parentId)){const state=editableWeekSchedule(plan);state.linkedGroceryChecks={...state.linkedGroceryChecks,[id]:item.checked};if(item.amount)state.linkedGroceryQuantities={...state.linkedGroceryQuantities,[id]:{...item.amount}}}}
  for(const source of currentSources){
   const was=before.get(source.id)||(source.legacyOwner?before.get(source.legacyId):null);
-  if(restore&&reset.has(source.occurrence))next.checks[source.id]=grocerySourceChecked(source,restore.groceryOccurrenceChecks||{version:1,checks:{}},restoredLegacy);
+  const incoming=!before.has(source.id)&&typeof savedLedger.checks[source.id]==='boolean';
+  if(incoming&&!restore)next.checks[source.id]=savedLedger.checks[source.id];
+  else if(restore&&reset.has(source.occurrence))next.checks[source.id]=grocerySourceChecked(source,restore.groceryOccurrenceChecks||{version:1,checks:{}},restoredLegacy);
   else next.checks[source.id]=!reset.has(source.occurrence)&&was?was.checked:false;
-  const amount=restore&&reset.has(source.occurrence)?restore.groceryOccurrenceChecks?.quantities?.[source.id]:!reset.has(source.occurrence)&&was?.amount;
+  const amount=incoming&&!restore?savedLedger.quantities?.[source.id]:restore&&reset.has(source.occurrence)?restore.groceryOccurrenceChecks?.quantities?.[source.id]:!reset.has(source.occurrence)&&was?.amount;
   if(amount&&source.quantity)next.quantities[source.id]={lo:Math.min(amount.lo,source.quantity.lo),hi:Math.min(amount.hi,source.quantity.hi)};
  }
  groceryOccurrenceChecks=next;saveGroceryOccurrenceChecks();saveActiveMealPlan();
