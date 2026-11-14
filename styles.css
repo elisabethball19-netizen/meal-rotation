@@ -1601,3 +1601,7 @@ body.recipe-bulk-select .master-category-meal[data-up-next-star]>.recipe-bulk-ch
 .bulk-groups-panel>.bulk-new-group-row,.bulk-groups-panel>.recipe-bulk-error{flex-shrink:0;}
 .recipe-bulk-picker{display:flex;align-items:center;justify-content:space-between;gap:12px;}
 .recipe-bulk-picker::after{content:"";flex:0 0 8px;width:8px;height:8px;border-top:1.9px solid currentColor;border-right:1.9px solid currentColor;transform:rotate(45deg);margin-right:4px;}
+
+.make-ahead-task-link{flex:1;min-width:0;min-height:32px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;padding:0;white-space:pre-wrap;overflow-wrap:anywhere;touch-action:pan-y;}
+#todaysTodo .make-ahead-task-link{grid-column:2;}
+.make-ahead-task-link:focus-visible,.preparation-meal-target{outline:2px solid #6484b5;outline-offset:3px;border-radius:3px;}

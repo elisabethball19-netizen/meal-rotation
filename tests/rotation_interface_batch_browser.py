@@ -17,18 +17,16 @@ def run(b,name):
  pin=f.row(p,2).get_by_role('button',name='Unpin recipe',exact=True);assert pin.locator('svg').get_attribute('fill')=='currentColor';assert pin.get_attribute('title')=='Unpin recipe';assert f.row(p,4).get_by_role('button',name='Pin recipe',exact=True).locator('svg').get_attribute('fill')=='none';p.screenshot(path='/tmp/interface-pins-'+name+'.png')
  for start in ['Monday','Saturday']:
   result=p.evaluate('s=>interfaceTest.order(s)',start);days=result['days'];entries=result['entries'];assert [days.index(e['day']) for e in entries]==sorted(days.index(e['day']) for e in entries);assert any(e['day']=='Tuesday' and e.get('empty') for e in entries)
- assert p.evaluate('interfaceTest.task()')=='Defrost steak for Friday’s Carne Asada.'
- prep=p.evaluate('interfaceTest.prep()');assert prep['before']==prep['after'] and ' · ' not in prep['text'] and ' on the Dinner meal tab' in prep['text']
+ assert p.evaluate('interfaceTest.task()')=='Defrost steak for Friday’s dinner'
+ prep=p.evaluate('interfaceTest.prep()');assert prep['before']==prep['after'] and ' · ' not in prep['text'] and 'dinner' in prep['text'] and 'meal tab' not in prep['text']
  before_dates=p.evaluate('interfaceTest.complete(false)');checked=p.evaluate('interfaceTest.complete(true)');assert checked[0]['complete'];assert [{k:v for k,v in x.items() if k!='complete'} for x in before_dates]==[{k:v for k,v in x.items() if k!='complete'} for x in checked];p.evaluate('interfaceTest.complete(false)')
  for visible in [True,False]:
   p.evaluate('v=>interfaceTest.tabs(v)',visible)
   assert p.locator('.meal-plan-add').count()==int(visible)
-  assert p.locator('[data-add-meal-tab]').evaluate('(e)=>e.hidden')==visible
-  if visible:p.locator('.meal-plan-add').tap()
-  else:p.evaluate("document.querySelector('[data-add-meal-tab]').click()")
-  assert p.get_by_role('dialog',name='Add Meal Tab',exact=True).count()
-  p.get_by_role('dialog',name='Add Meal Tab',exact=True).get_by_role('button',name='Cancel',exact=True).tap()
- p.evaluate('interfaceTest.tabs(true)');p.locator('#settings').tap();p.locator('[data-settings-group=display]>summary').tap();tabs=p.get_by_role('checkbox',name='Tabs',exact=True);tabs.uncheck();assert p.locator('[data-add-meal-tab]').is_visible() and not p.locator('.meal-plan-add').count();tabs.check();assert p.locator('[data-add-meal-tab]').is_hidden() and p.locator('.meal-plan-add').count()==1
+  assert not p.locator('[data-add-meal-tab]').count()
+  if visible:
+   p.locator('.meal-plan-add').tap();assert p.get_by_role('dialog',name='Add Meal Tab',exact=True).count();p.get_by_role('dialog',name='Add Meal Tab',exact=True).get_by_role('button',name='Cancel',exact=True).tap()
+ p.evaluate('interfaceTest.tabs(true)');p.locator('#settings').tap();p.locator('[data-settings-group=display]>summary').tap();tabs=p.get_by_role('checkbox',name='Show meal tabs',exact=True);tabs.uncheck();assert not p.locator('.meal-plan-add').count();tabs.check();assert p.locator('.meal-plan-add').count()==1
  p.evaluate('batch1.groups()');before=f.get(p,'records()');p.evaluate('batch1.select([2,3])')
  outer=p.get_by_role('dialog',name='Edit recipes',exact=True)
  assert outer.locator('.recipe-bulk-picker').count()==2

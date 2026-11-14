@@ -1298,26 +1298,45 @@ function editPreparationTask(item){
 }
 function bindPreparationTaskPress(row,item){
  let timer=null,start=null,held=false;const stop=()=>{clearTimeout(timer);timer=null};
- row.addEventListener('pointerdown',event=>{if(event.button!==0)return;stop();held=false;start={x:event.clientX,y:event.clientY};timer=setTimeout(()=>{held=true;editPreparationTask(item)},550)});
+ row.addEventListener('pointerdown',event=>{if(event.button!==0)return;stop();held=false;start=null;if(event.target.closest('input'))return;start={x:event.clientX,y:event.clientY};timer=setTimeout(()=>{held=true},550)});
  row.addEventListener('pointermove',event=>{if(start&&Math.hypot(event.clientX-start.x,event.clientY-start.y)>10){stop();start=null}});
- for(const event of ['pointerup','pointercancel','pointerleave'])row.addEventListener(event,()=>{stop();start=null});
+ row.addEventListener('pointerup',event=>{stop();if(start&&held){event.preventDefault();event.stopPropagation();editPreparationTask(item)}start=null});
+ for(const event of ['pointercancel','pointerleave'])row.addEventListener(event,()=>{stop();start=null});
  row.addEventListener('click',event=>{if(held){event.preventDefault();event.stopImmediatePropagation();held=false}},true);
+ row.addEventListener('touchend',event=>{if(held)event.preventDefault()},{passive:false});
  row.addEventListener('contextmenu',event=>event.preventDefault());
 }
-function makeAheadTaskDescription(item,today=false){
- const task=String(item.task.description||'').trim().replace(/[.!?]+$/,'');
- let text=task+' for '+item.entry.day+"’s "+(item.entry.meal.name||'meal');
- if(today){
-  if(mealPlans.length>1)text+=' on the '+item.plan.name+' meal tab';
-  const start=cookingPlanningWeekStart(),next=new Date(start);next.setDate(next.getDate()+7);
-  if(item.scheduled>=cookingLocalDate(next))text+=' next week';
-  else if(item.scheduled<cookingLocalDate(start))text+=' on '+parseCookingLocalDate(item.scheduled).toLocaleDateString(undefined,{month:'short',day:'numeric'});
- }
- return text+'.';
+function makeAheadTaskDescription(item){
+ const planName=String(item.plan.name||'meal'),name=/^(breakfast|lunch|dinner|supper|snacks?)$/i.test(planName)?planName.toLocaleLowerCase():planName;
+ let context=' for '+item.entry.day+'’s '+name;
+ const start=cookingPlanningWeekStart(),next=new Date(start),end=new Date(start);next.setDate(next.getDate()+7);end.setDate(end.getDate()+14);
+ if(item.scheduled>=cookingLocalDate(next)&&item.scheduled<cookingLocalDate(end))context+=' next week';
+ else if(item.scheduled&&(item.scheduled<cookingLocalDate(start)||item.scheduled>=cookingLocalDate(end)))context+=' on '+parseCookingLocalDate(item.scheduled).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+ return item.task.description+context;
+}
+function navigateToPreparationMeal(item){
+ const occurrence=rotationOccurrenceKey({...item.entry,planId:item.plan.id}),matches=(plan,entry)=>rotationOccurrenceKey({...entry,planId:plan.id})===occurrence&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar))===item.scheduled;
+ const locate=()=>{const plan=mealPlans.find(plan=>plan.id===item.plan.id);if(!plan)return null;
+  const next=cookingPlanningWeekStart();next.setDate(next.getDate()+7);const future=item.scheduled>=cookingLocalDate(next);
+  const source=future?previewNextWeekPlans().find(source=>source.plan.id===plan.id):{plan,entries:recipePlanEntries(plan.id)};
+  return source?.entries.some(entry=>matches(source.plan,entry)&&(!future||cookingLocalDate(cookingDateInWeek(entry.day,next))===item.scheduled))?{plan,offset:future?1:0}:null;
+ };
+ if(!locate()){showAppMessage('This planned meal is no longer available.');return}
+ document.querySelector('[data-make-ahead-recipe]')?.remove();
+ if(recipeViewer)closeRecipeViewer();
+ navigateAfterSettings(()=>{
+  const target=locate();if(!target){showAppMessage('This planned meal is no longer available.');return}
+  if(activePlanId!==target.plan.id)loadMealPlan(target.plan.id,false);
+  showTop=true;groceryTabActive=false;allMealsActive=false;rotationWeekOffset=target.offset;editId=null;render();
+  requestAnimationFrame(()=>{const meal=[...document.querySelectorAll('#list [data-rotation-occurrence]')].find(node=>node.dataset.rotationOccurrence===occurrence);
+   if(!meal)return;meal.scrollIntoView({behavior:'smooth',block:'center'});meal.focus({preventScroll:true});meal.classList.add('preparation-meal-target');setTimeout(()=>meal.classList.remove('preparation-meal-target'),1800);
+  });
+ });
 }
 function makeAheadReminderRow(item,today=false){
- const label=document.createElement('label');label.className='make-ahead-reminder'+(item.complete?' make-ahead-complete':'');label.dataset.makeAheadKey=item.key;label.dataset.planId=String(item.plan.id);const check=document.createElement('input');check.type='checkbox';check.className='check';check.checked=item.complete;
- const text=document.createElement('span');text.textContent=makeAheadTaskDescription(item,today);check.setAttribute('aria-label',text.textContent);
+ const label=document.createElement('div');label.className='make-ahead-reminder'+(item.complete?' make-ahead-complete':'');label.dataset.makeAheadKey=item.key;label.dataset.planId=String(item.plan.id);const check=document.createElement('input');check.type='checkbox';check.className='check';check.checked=item.complete;
+ const text=document.createElement('button');text.type='button';text.className='make-ahead-task-link';text.textContent=makeAheadTaskDescription(item);check.setAttribute('aria-label',text.textContent);
+ text.onclick=event=>{event.preventDefault();event.stopPropagation();navigateToPreparationMeal(item)};
  check.onchange=()=>setMakeAheadComplete(item,check.checked);label.append(check,text);bindPreparationTaskPress(label,item);return label;
 }
 function makeAheadTaskVisible(item,today=cookingLocalDate(new Date())){return typeof item.scheduled==='string'&&item.scheduled>=today}
@@ -1328,7 +1347,7 @@ function appendMakeAheadDay(card,day,rows,start=makeAheadWeekStart()){
 function makeAheadIndicator(meal){if(!makeAheadDisplayPrefs.showMakeAheadReminders||!recipeMakeAheadTasks(meal).length)return null;const b=document.createElement('button');b.type='button';b.className='recipe-personal-icon';setRecipeToolbarIcon(b,'prep','Make ahead: '+(meal.name||'Recipe'));b.onclick=e=>{e.preventDefault();e.stopPropagation();openMakeAheadTasks(meal)};for(const event of ['pointerdown','pointerup','touchstart','touchend','dblclick'])b.addEventListener(event,e=>e.stopPropagation());return b}
 function openMakeAheadTasks(meal){
  const shade=document.createElement('div');shade.className='recipe-timer-dialog';shade.setAttribute('role','dialog');shade.setAttribute('aria-label','Make ahead: '+meal.name);shade.dataset.makeAheadRecipe=String(meal.id);const panel=document.createElement('div'),heading=document.createElement('strong');heading.textContent=meal.name||'Make ahead';panel.append(heading);
- const rows=scheduledMakeAheadTasks().filter(item=>String(item.entry.meal.id)===String(meal.id)&&makeAheadTaskVisible(item));if(rows.length)for(const item of rows){const line=makeAheadReminderRow(item),date=document.createElement('small');date.textContent=item.due+' · '+item.plan.name;line.append(date);panel.append(line)}else for(const task of recipeMakeAheadTasks(meal)){const p=document.createElement('p');p.textContent=task.description+' · '+makeAheadTiming(task.daysBefore,task.hoursBefore);panel.append(p)}
+ const rows=scheduledMakeAheadTasks().filter(item=>String(item.entry.meal.id)===String(meal.id)&&makeAheadTaskVisible(item));if(rows.length)for(const item of rows){const line=makeAheadReminderRow(item),date=document.createElement('small');date.textContent='Due '+item.due;line.append(date);panel.append(line)}else for(const task of recipeMakeAheadTasks(meal)){const p=document.createElement('p');p.textContent=task.description+' · '+makeAheadTiming(task.daysBefore,task.hoursBefore);panel.append(p)}
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close make ahead');close.onclick=()=>shade.remove();panel.append(close);shade.append(panel);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.onkeydown=e=>{if(e.key==='Escape')shade.remove()};document.body.append(shade);close.focus({preventScroll:true});
 }
 
