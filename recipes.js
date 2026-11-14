@@ -1176,22 +1176,22 @@ function setMakeAheadComplete(item,checked){
  const plan=mealPlans.find(plan=>plan.id===item.plan.id);if(!plan)return;
  if(!scheduledMakeAheadTasks().some(current=>current.plan.id===plan.id&&current.key===item.key)){renderTodayTodo();return}
  snapshot();plan.makeAheadChecks={...(plan.makeAheadChecks||{}),[item.key]:checked};saveActiveMealPlan();
- for(const row of document.querySelectorAll('[data-make-ahead-key]')){const current=mealPlans.find(plan=>String(plan.id)===row.dataset.planId),complete=current?makeAheadTaskComplete(current,row.dataset.makeAheadKey):false;row.querySelector('input[type="checkbox"]').checked=complete;row.classList.toggle('make-ahead-complete',complete)}renderTodayTodo();
+ for(const row of document.querySelectorAll('[data-make-ahead-key]')){const current=mealPlans.find(plan=>String(plan.id)===row.dataset.planId),complete=current?makeAheadTaskComplete(current,row.dataset.makeAheadKey):false;row.querySelector('input[type="checkbox"]').checked=complete;row.classList.toggle('make-ahead-complete',complete)}if(allMealsActive||rotationWeekOffset)renderList();else renderTodayTodo();
 }
 function renderTodayTodo(){
- const old=document.getElementById('todaysTodo'),header=document.querySelector('#list>.rotation-compact-header');
- if(!header||!showTop||allMealsActive||groceryTabActive||!makeAheadDisplayPrefs.showMakeAheadReminders){old?.remove();return}
- const today=cookingLocalDate(new Date()),seen=new Set(),items=scheduledMakeAheadTasks().filter(item=>{const id=JSON.stringify([item.plan.id,item.key]);if((item.due!==today&&!(item.due<today&&!item.complete))||seen.has(id))return false;seen.add(id);return true}).sort((a,b)=>Number(a.complete)-Number(b.complete));
+ const old=document.getElementById('todaysTodo'),header=document.querySelector('#list>.rotation-week-controls')||document.querySelector('#list>.rotation-compact-header');
+ if(!header||!showTop||allMealsActive||groceryTabActive||rotationWeekOffset||!makeAheadDisplayPrefs.showMakeAheadReminders){old?.remove();return}
+ const today=cookingLocalDate(new Date()),seen=new Set(),items=scheduledMakeAheadTasks().filter(item=>{const id=JSON.stringify([item.plan.id,item.key]);if(!makeAheadTaskVisible(item,today)||(item.due!==today&&!(item.due<today&&!item.complete))||seen.has(id))return false;seen.add(id);return true}).sort((a,b)=>Number(a.complete)-Number(b.complete));
  if(!items.length){old?.remove();return}
- const section=document.createElement('section');section.id='todaysTodo';section.setAttribute('aria-labelledby','todaysTodoHeading');const heading=document.createElement('div');heading.className='today-todo-heading';const title=document.createElement('h3');title.id='todaysTodoHeading';title.textContent="Today's To-Do";
- const eye=document.createElement('button');eye.type='button';eye.className='iconbtn';eye.setAttribute('aria-pressed',String(makeAheadDisplayPrefs.showCompletedToday));eye.title=makeAheadDisplayPrefs.showCompletedToday?'Hide completed tasks':'Show completed tasks';eye.setAttribute('aria-label',eye.title);eye.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'+(makeAheadDisplayPrefs.showCompletedToday?'':'<path d="m3 3 18 18"/>')+'</svg>';eye.onclick=()=>{makeAheadDisplayPrefs.showCompletedToday=!makeAheadDisplayPrefs.showCompletedToday;saveMakeAheadDisplayPrefs();renderTodayTodo();document.querySelector('#todaysTodo .today-todo-heading button')?.focus({preventScroll:true})};heading.append(title,eye);section.append(heading);
+ const section=old||document.createElement('section');section.id='todaysTodo';section.setAttribute('aria-labelledby','todaysTodoHeading');const heading=section.querySelector('.today-todo-heading')||document.createElement('div');heading.className='today-todo-heading';const title=heading.querySelector('h3')||document.createElement('h3');title.id='todaysTodoHeading';title.textContent="Today's To-Do";
+ const eye=heading.querySelector('button')||document.createElement('button');eye.type='button';eye.className='iconbtn';eye.setAttribute('aria-pressed',String(makeAheadDisplayPrefs.showCompletedToday));eye.title=makeAheadDisplayPrefs.showCompletedToday?'Hide completed tasks':'Show completed tasks';eye.setAttribute('aria-label',eye.title);eye.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'+(makeAheadDisplayPrefs.showCompletedToday?'':'<path d="m3 3 18 18"/>')+'</svg>';eye.onclick=event=>{event.preventDefault();event.stopPropagation();makeAheadDisplayPrefs.showCompletedToday=!makeAheadDisplayPrefs.showCompletedToday;saveMakeAheadDisplayPrefs();renderTodayTodo();document.querySelector('#todaysTodo .today-todo-heading button')?.focus({preventScroll:true})};heading.append(title,eye);section.replaceChildren(heading);
  const shown=items.filter(item=>!item.complete||makeAheadDisplayPrefs.showCompletedToday);for(const item of shown)section.append(makeAheadReminderRow(item,true));if(!shown.length){const done=document.createElement('p');done.className='today-todo-done';done.textContent='All done!';section.append(done)}
- if(old)old.replaceWith(section);else header.after(section);
+ if(!old)header.after(section);
 }
 let makeAheadDayTimer=null,makeAheadLocalDay=null;
 function syncMakeAheadLocalDay(){
  clearTimeout(makeAheadDayTimer);if(document.hidden)return;
- const now=new Date(),today=cookingLocalDate(now);if(today!==makeAheadLocalDay){makeAheadLocalDay=today;renderTodayTodo()}
+ const now=new Date(),today=cookingLocalDate(now);if(today!==makeAheadLocalDay){makeAheadLocalDay=today;if((allMealsActive||rotationWeekOffset)&&showTop&&!groceryTabActive&&editId===null)renderList();else renderTodayTodo()}
  const midnight=new Date(now);midnight.setHours(24,0,0,50);makeAheadDayTimer=setTimeout(syncMakeAheadLocalDay,Math.max(100,midnight-now));
 }
 window.addEventListener('focus',syncMakeAheadLocalDay);window.addEventListener('pageshow',syncMakeAheadLocalDay);window.addEventListener('pagehide',()=>clearTimeout(makeAheadDayTimer));document.addEventListener('visibilitychange',syncMakeAheadLocalDay);
@@ -1256,16 +1256,15 @@ function makeAheadReminderRow(item,today=false){
  const text=document.createElement('span');text.textContent=item.task.description+' · for '+item.entry.day+"'s "+(item.entry.meal.name||'meal')+(today?' · '+item.plan.name:'');check.setAttribute('aria-label',text.textContent);
  check.onchange=()=>setMakeAheadComplete(item,check.checked);label.append(check,text);return label;
 }
-function appendMakeAheadDay(card,day,rows,start=makeAheadWeekStart()){const due=cookingLocalDate(cookingDateInWeek(day,start));for(const item of rows.filter(x=>x.due===due))card.append(makeAheadReminderRow(item))}
-function appendOutsideMakeAhead(section,rows,start=makeAheadWeekStart()){
- const today=cookingLocalDate(new Date()),before=cookingLocalDate(start),overdue=rows.filter(item=>!item.complete&&item.due<today&&item.due<before).sort((a,b)=>a.due.localeCompare(b.due));if(!overdue.length)return;
- const box=document.createElement('details');box.className='make-ahead-outside';box.open=true;const heading=document.createElement('summary');heading.textContent='Overdue preparation';box.append(heading);
- for(const item of overdue){const row=makeAheadReminderRow(item),date=document.createElement('small');date.textContent=item.due+' · '+item.plan.name;row.append(date);box.append(row)}section.append(box);
+function makeAheadTaskVisible(item,today=cookingLocalDate(new Date())){return typeof item.scheduled==='string'&&item.scheduled>=today}
+function makeAheadCardDate(item,today=cookingLocalDate(new Date())){return !item.complete&&item.due<today?today:item.due}
+function appendMakeAheadDay(card,day,rows,start=makeAheadWeekStart()){
+ const due=cookingLocalDate(cookingDateInWeek(day,start)),today=cookingLocalDate(new Date());for(const item of rows.filter(item=>makeAheadTaskVisible(item,today)&&makeAheadCardDate(item,today)===due))card.append(makeAheadReminderRow(item));
 }
 function makeAheadIndicator(meal){if(!makeAheadDisplayPrefs.showMakeAheadReminders||!recipeMakeAheadTasks(meal).length)return null;const b=document.createElement('button');b.type='button';b.className='recipe-personal-icon';setRecipeToolbarIcon(b,'prep','Make ahead: '+(meal.name||'Recipe'));b.onclick=e=>{e.preventDefault();e.stopPropagation();openMakeAheadTasks(meal)};for(const event of ['pointerdown','pointerup','touchstart','touchend','dblclick'])b.addEventListener(event,e=>e.stopPropagation());return b}
 function openMakeAheadTasks(meal){
  const shade=document.createElement('div');shade.className='recipe-timer-dialog';shade.setAttribute('role','dialog');shade.setAttribute('aria-label','Make ahead: '+meal.name);const panel=document.createElement('div'),heading=document.createElement('strong');heading.textContent=meal.name||'Make ahead';panel.append(heading);
- const rows=scheduledMakeAheadTasks().filter(item=>String(item.entry.meal.id)===String(meal.id));if(rows.length)for(const item of rows){const line=makeAheadReminderRow(item),date=document.createElement('small');date.textContent=item.due+' · '+item.plan.name;line.append(date);panel.append(line)}else for(const task of recipeMakeAheadTasks(meal)){const p=document.createElement('p');p.textContent=task.description+' · '+makeAheadTiming(task.daysBefore,task.hoursBefore);panel.append(p)}
+ const rows=scheduledMakeAheadTasks().filter(item=>String(item.entry.meal.id)===String(meal.id)&&makeAheadTaskVisible(item));if(rows.length)for(const item of rows){const line=makeAheadReminderRow(item),date=document.createElement('small');date.textContent=item.due+' · '+item.plan.name;line.append(date);panel.append(line)}else for(const task of recipeMakeAheadTasks(meal)){const p=document.createElement('p');p.textContent=task.description+' · '+makeAheadTiming(task.daysBefore,task.hoursBefore);panel.append(p)}
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close make ahead');close.onclick=()=>shade.remove();panel.append(close);shade.append(panel);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.onkeydown=e=>{if(e.key==='Escape')shade.remove()};document.body.append(shade);close.focus({preventScroll:true});
 }
 

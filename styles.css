@@ -1473,3 +1473,9 @@ body input:is([type=text],[type=url],[type=search],[type=number],:not([type])):f
 #editor .meal-editor-linked-list label{display:flex;gap:8px;align-items:flex-start;min-width:0;overflow-wrap:anywhere;}
 #editor .meal-editor-linked-list .master-category-meal-name,#editor .meal-editor-linked-list .master-meal-info{min-width:0;overflow-wrap:anywhere;}
 [aria-label="Clear selected groups"][hidden]{display:none!important;}
+
+/* Week switches share the preparation editor's Hours / Days treatment. */
+.week-selector{display:flex;align-items:stretch;gap:3px;padding:2px;margin:0 0 8px;}
+.week-selector button{min-height:38px;padding:6px 10px;font-size:12px;border:1px solid #e2e2e2;border-radius:5px;background:#fafafa;color:#626262;font-weight:400;}
+.week-selector button[aria-pressed="true"]{background:#fff;border-color:#aaa;box-shadow:0 1px 3px #0002;color:#242424;font-weight:600;}
+.rotation-week-controls{margin:4px 0 10px;}.rotation-week-controls .week-selector{margin-bottom:3px;}

@@ -1339,6 +1339,12 @@ body input:is([type=text],[type=url],[type=search],[type=number],:not([type])):f
 #editor .meal-editor-linked-list label{display:flex;gap:8px;align-items:flex-start;min-width:0;overflow-wrap:anywhere;}
 #editor .meal-editor-linked-list .master-category-meal-name,#editor .meal-editor-linked-list .master-meal-info{min-width:0;overflow-wrap:anywhere;}
 [aria-label="Clear selected groups"][hidden]{display:none!important;}
+
+/* Week switches share the preparation editor's Hours / Days treatment. */
+.week-selector{display:flex;align-items:stretch;gap:3px;padding:2px;margin:0 0 8px;}
+.week-selector button{min-height:38px;padding:6px 10px;font-size:12px;border:1px solid #e2e2e2;border-radius:5px;background:#fafafa;color:#626262;font-weight:400;}
+.week-selector button[aria-pressed="true"]{background:#fff;border-color:#aaa;box-shadow:0 1px 3px #0002;color:#242424;font-weight:600;}
+.rotation-week-controls{margin:4px 0 10px;}.rotation-week-controls .week-selector{margin-bottom:3px;}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -3188,22 +3194,22 @@ function setMakeAheadComplete(item,checked){
  const plan=mealPlans.find(plan=>plan.id===item.plan.id);if(!plan)return;
  if(!scheduledMakeAheadTasks().some(current=>current.plan.id===plan.id&&current.key===item.key)){renderTodayTodo();return}
  snapshot();plan.makeAheadChecks={...(plan.makeAheadChecks||{}),[item.key]:checked};saveActiveMealPlan();
- for(const row of document.querySelectorAll('[data-make-ahead-key]')){const current=mealPlans.find(plan=>String(plan.id)===row.dataset.planId),complete=current?makeAheadTaskComplete(current,row.dataset.makeAheadKey):false;row.querySelector('input[type="checkbox"]').checked=complete;row.classList.toggle('make-ahead-complete',complete)}renderTodayTodo();
+ for(const row of document.querySelectorAll('[data-make-ahead-key]')){const current=mealPlans.find(plan=>String(plan.id)===row.dataset.planId),complete=current?makeAheadTaskComplete(current,row.dataset.makeAheadKey):false;row.querySelector('input[type="checkbox"]').checked=complete;row.classList.toggle('make-ahead-complete',complete)}if(allMealsActive||rotationWeekOffset)renderList();else renderTodayTodo();
 }
 function renderTodayTodo(){
- const old=document.getElementById('todaysTodo'),header=document.querySelector('#list>.rotation-compact-header');
- if(!header||!showTop||allMealsActive||groceryTabActive||!makeAheadDisplayPrefs.showMakeAheadReminders){old?.remove();return}
- const today=cookingLocalDate(new Date()),seen=new Set(),items=scheduledMakeAheadTasks().filter(item=>{const id=JSON.stringify([item.plan.id,item.key]);if((item.due!==today&&!(item.due<today&&!item.complete))||seen.has(id))return false;seen.add(id);return true}).sort((a,b)=>Number(a.complete)-Number(b.complete));
+ const old=document.getElementById('todaysTodo'),header=document.querySelector('#list>.rotation-week-controls')||document.querySelector('#list>.rotation-compact-header');
+ if(!header||!showTop||allMealsActive||groceryTabActive||rotationWeekOffset||!makeAheadDisplayPrefs.showMakeAheadReminders){old?.remove();return}
+ const today=cookingLocalDate(new Date()),seen=new Set(),items=scheduledMakeAheadTasks().filter(item=>{const id=JSON.stringify([item.plan.id,item.key]);if(!makeAheadTaskVisible(item,today)||(item.due!==today&&!(item.due<today&&!item.complete))||seen.has(id))return false;seen.add(id);return true}).sort((a,b)=>Number(a.complete)-Number(b.complete));
  if(!items.length){old?.remove();return}
- const section=document.createElement('section');section.id='todaysTodo';section.setAttribute('aria-labelledby','todaysTodoHeading');const heading=document.createElement('div');heading.className='today-todo-heading';const title=document.createElement('h3');title.id='todaysTodoHeading';title.textContent="Today's To-Do";
- const eye=document.createElement('button');eye.type='button';eye.className='iconbtn';eye.setAttribute('aria-pressed',String(makeAheadDisplayPrefs.showCompletedToday));eye.title=makeAheadDisplayPrefs.showCompletedToday?'Hide completed tasks':'Show completed tasks';eye.setAttribute('aria-label',eye.title);eye.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'+(makeAheadDisplayPrefs.showCompletedToday?'':'<path d="m3 3 18 18"/>')+'</svg>';eye.onclick=()=>{makeAheadDisplayPrefs.showCompletedToday=!makeAheadDisplayPrefs.showCompletedToday;saveMakeAheadDisplayPrefs();renderTodayTodo();document.querySelector('#todaysTodo .today-todo-heading button')?.focus({preventScroll:true})};heading.append(title,eye);section.append(heading);
+ const section=old||document.createElement('section');section.id='todaysTodo';section.setAttribute('aria-labelledby','todaysTodoHeading');const heading=section.querySelector('.today-todo-heading')||document.createElement('div');heading.className='today-todo-heading';const title=heading.querySelector('h3')||document.createElement('h3');title.id='todaysTodoHeading';title.textContent="Today's To-Do";
+ const eye=heading.querySelector('button')||document.createElement('button');eye.type='button';eye.className='iconbtn';eye.setAttribute('aria-pressed',String(makeAheadDisplayPrefs.showCompletedToday));eye.title=makeAheadDisplayPrefs.showCompletedToday?'Hide completed tasks':'Show completed tasks';eye.setAttribute('aria-label',eye.title);eye.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'+(makeAheadDisplayPrefs.showCompletedToday?'':'<path d="m3 3 18 18"/>')+'</svg>';eye.onclick=event=>{event.preventDefault();event.stopPropagation();makeAheadDisplayPrefs.showCompletedToday=!makeAheadDisplayPrefs.showCompletedToday;saveMakeAheadDisplayPrefs();renderTodayTodo();document.querySelector('#todaysTodo .today-todo-heading button')?.focus({preventScroll:true})};heading.append(title,eye);section.replaceChildren(heading);
  const shown=items.filter(item=>!item.complete||makeAheadDisplayPrefs.showCompletedToday);for(const item of shown)section.append(makeAheadReminderRow(item,true));if(!shown.length){const done=document.createElement('p');done.className='today-todo-done';done.textContent='All done!';section.append(done)}
- if(old)old.replaceWith(section);else header.after(section);
+ if(!old)header.after(section);
 }
 let makeAheadDayTimer=null,makeAheadLocalDay=null;
 function syncMakeAheadLocalDay(){
  clearTimeout(makeAheadDayTimer);if(document.hidden)return;
- const now=new Date(),today=cookingLocalDate(now);if(today!==makeAheadLocalDay){makeAheadLocalDay=today;renderTodayTodo()}
+ const now=new Date(),today=cookingLocalDate(now);if(today!==makeAheadLocalDay){makeAheadLocalDay=today;if((allMealsActive||rotationWeekOffset)&&showTop&&!groceryTabActive&&editId===null)renderList();else renderTodayTodo()}
  const midnight=new Date(now);midnight.setHours(24,0,0,50);makeAheadDayTimer=setTimeout(syncMakeAheadLocalDay,Math.max(100,midnight-now));
 }
 window.addEventListener('focus',syncMakeAheadLocalDay);window.addEventListener('pageshow',syncMakeAheadLocalDay);window.addEventListener('pagehide',()=>clearTimeout(makeAheadDayTimer));document.addEventListener('visibilitychange',syncMakeAheadLocalDay);
@@ -3268,16 +3274,15 @@ function makeAheadReminderRow(item,today=false){
  const text=document.createElement('span');text.textContent=item.task.description+' · for '+item.entry.day+"'s "+(item.entry.meal.name||'meal')+(today?' · '+item.plan.name:'');check.setAttribute('aria-label',text.textContent);
  check.onchange=()=>setMakeAheadComplete(item,check.checked);label.append(check,text);return label;
 }
-function appendMakeAheadDay(card,day,rows,start=makeAheadWeekStart()){const due=cookingLocalDate(cookingDateInWeek(day,start));for(const item of rows.filter(x=>x.due===due))card.append(makeAheadReminderRow(item))}
-function appendOutsideMakeAhead(section,rows,start=makeAheadWeekStart()){
- const today=cookingLocalDate(new Date()),before=cookingLocalDate(start),overdue=rows.filter(item=>!item.complete&&item.due<today&&item.due<before).sort((a,b)=>a.due.localeCompare(b.due));if(!overdue.length)return;
- const box=document.createElement('details');box.className='make-ahead-outside';box.open=true;const heading=document.createElement('summary');heading.textContent='Overdue preparation';box.append(heading);
- for(const item of overdue){const row=makeAheadReminderRow(item),date=document.createElement('small');date.textContent=item.due+' · '+item.plan.name;row.append(date);box.append(row)}section.append(box);
+function makeAheadTaskVisible(item,today=cookingLocalDate(new Date())){return typeof item.scheduled==='string'&&item.scheduled>=today}
+function makeAheadCardDate(item,today=cookingLocalDate(new Date())){return !item.complete&&item.due<today?today:item.due}
+function appendMakeAheadDay(card,day,rows,start=makeAheadWeekStart()){
+ const due=cookingLocalDate(cookingDateInWeek(day,start)),today=cookingLocalDate(new Date());for(const item of rows.filter(item=>makeAheadTaskVisible(item,today)&&makeAheadCardDate(item,today)===due))card.append(makeAheadReminderRow(item));
 }
 function makeAheadIndicator(meal){if(!makeAheadDisplayPrefs.showMakeAheadReminders||!recipeMakeAheadTasks(meal).length)return null;const b=document.createElement('button');b.type='button';b.className='recipe-personal-icon';setRecipeToolbarIcon(b,'prep','Make ahead: '+(meal.name||'Recipe'));b.onclick=e=>{e.preventDefault();e.stopPropagation();openMakeAheadTasks(meal)};for(const event of ['pointerdown','pointerup','touchstart','touchend','dblclick'])b.addEventListener(event,e=>e.stopPropagation());return b}
 function openMakeAheadTasks(meal){
  const shade=document.createElement('div');shade.className='recipe-timer-dialog';shade.setAttribute('role','dialog');shade.setAttribute('aria-label','Make ahead: '+meal.name);const panel=document.createElement('div'),heading=document.createElement('strong');heading.textContent=meal.name||'Make ahead';panel.append(heading);
- const rows=scheduledMakeAheadTasks().filter(item=>String(item.entry.meal.id)===String(meal.id));if(rows.length)for(const item of rows){const line=makeAheadReminderRow(item),date=document.createElement('small');date.textContent=item.due+' · '+item.plan.name;line.append(date);panel.append(line)}else for(const task of recipeMakeAheadTasks(meal)){const p=document.createElement('p');p.textContent=task.description+' · '+makeAheadTiming(task.daysBefore,task.hoursBefore);panel.append(p)}
+ const rows=scheduledMakeAheadTasks().filter(item=>String(item.entry.meal.id)===String(meal.id)&&makeAheadTaskVisible(item));if(rows.length)for(const item of rows){const line=makeAheadReminderRow(item),date=document.createElement('small');date.textContent=item.due+' · '+item.plan.name;line.append(date);panel.append(line)}else for(const task of recipeMakeAheadTasks(meal)){const p=document.createElement('p');p.textContent=task.description+' · '+makeAheadTiming(task.daysBefore,task.hoursBefore);panel.append(p)}
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close make ahead');close.onclick=()=>shade.remove();panel.append(close);shade.append(panel);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.onkeydown=e=>{if(e.key==='Escape')shade.remove()};document.body.append(shade);close.focus({preventScroll:true});
 }
 
@@ -5795,7 +5800,27 @@ function addOverviewHomeButton(){
  b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" style="width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round"><path d="M3 10.2 12 3l9 7.2V21h-6.5v-7h-5v7H3z"/></svg>';
  b.onclick=()=>{groceryTabActive=false;allMealsActive=false;renderList()};document.body.append(b);
 }
-let overviewWeekOffset=0;
+let overviewWeekOffset=0,rotationWeekOffset=0;
+function weekSelector(offset,onChange){
+ const row=document.createElement('div');row.className='week-selector';row.setAttribute('role','group');row.setAttribute('aria-label','Displayed week');
+ for(const [value,label]of [[0,'This week'],[1,'Next week']]){const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-pressed',String(offset===value));button.onclick=()=>onChange(value);row.append(button)}return row;
+}
+function rotationWeekControls(){
+ const controls=document.createElement('div');controls.className='rotation-week-controls';const plan=mealPlans.find(plan=>plan.id===activePlanId),caption=document.createElement('small');caption.className='muted';caption.textContent=(plan?.name||'Current plan')+' · '+(rotationWeekOffset?'Next week preview':'This week · rotation actions apply to this plan');
+ controls.append(weekSelector(rotationWeekOffset,value=>{rotationWeekOffset=value;renderList()}),caption);return controls;
+}
+function renderRotationWeekPreview(list){
+ const upcoming=previewNextWeekPlans(),source=upcoming.find(item=>item.plan.id===activePlanId),heading=document.createElement('h2');heading.className='view-page-title';heading.textContent=source?.plan.name?.trim()?'My '+source.plan.name.trim()+' Rotation':'My Rotation';list.append(heading,rotationWeekControls());
+ if(!source)return;const start=cookingPlanningWeekStart();start.setDate(start.getDate()+7);const tasks=makeAheadDisplayPrefs.showMakeAheadReminders?scheduledMakeAheadTasks(true,upcoming).filter(item=>item.plan.id===activePlanId):[];
+ for(const day of orderedDays()){
+  const date=cookingLocalDate(cookingDateInWeek(day,start)),card=document.createElement('section');card.className='all-meals-day';card.dataset.date=date;card.style.backgroundColor=colorForDay(day);
+  const title=document.createElement('h3');title.textContent=day+' · '+parseCookingLocalDate(date).toLocaleDateString(undefined,{month:'short',day:'numeric'});card.append(title);
+  const entries=source.entries.filter(entry=>entry.day===day&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:source.plan.id},source.plan.rotationCalendar))===date);
+  if(!entries.length){const empty=document.createElement('div');empty.className='muted';empty.textContent='—';card.append(empty)}
+  for(const entry of entries){const row=document.createElement('div');row.className='meal';const name=document.createElement('button');name.type='button';name.className='mealname';name.textContent=entry.meal.name;name.onclick=()=>openSavedMealRecipe(meals.find(meal=>String(meal.id)===String(entry.meal.id))||entry.meal);row.append(name);card.append(row)}
+  appendMakeAheadDay(card,day,tasks,start);list.append(card);
+ }
+}
 function previewNextWeekPlans(){
  const saved={meals,mealPlans,weekdayMealOverrides,storage:bulkRecipeStorageDraft};
  const nextStart=cookingPlanningWeekStart();nextStart.setDate(nextStart.getDate()+7);
@@ -5818,9 +5843,8 @@ function renderAllMealsOverview(list){
   section.setAttribute('aria-label','Weekly Overview weekly overview');
   const heading=document.createElement('h2');heading.textContent='Weekly Overview';section.append(heading);
   const current=mealPlans.map(plan=>({plan,entries:getDisplayedWeekdayMealsForPlan(plan)})),upcoming=previewNextWeekPlans(),start=cookingPlanningWeekStart();start.setDate(start.getDate()+overviewWeekOffset*7);
-  const weeks=document.createElement('div');weeks.className='recipe-related-buttons';weeks.style.margin='0 0 10px';
-  for(const [offset,label]of [[0,'This week'],[1,'Next week']]){const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=label;button.setAttribute('aria-pressed',String(overviewWeekOffset===offset));button.style.background=overviewWeekOffset===offset?'#e9eef5':'#fff';button.onclick=()=>{overviewWeekOffset=offset;renderList()};weeks.append(button)}section.append(weeks);
-  const byPlan=overviewWeekOffset?upcoming:current,prepRows=makeAheadDisplayPrefs.showMakeAheadReminders?scheduledMakeAheadTasks(true,upcoming):[];appendOutsideMakeAhead(section,prepRows,start);
+  section.append(weekSelector(overviewWeekOffset,value=>{overviewWeekOffset=value;renderList()}));
+  const byPlan=overviewWeekOffset?upcoming:current,prepRows=makeAheadDisplayPrefs.showMakeAheadReminders?scheduledMakeAheadTasks(true,upcoming):[];
   let selected={};try{selected=JSON.parse(testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
   const hideChecked=testStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';
   for(const day of orderedDays()){
@@ -8174,6 +8198,7 @@ function renderList(){if(recipeBulkMode&&(showTop||editId!==null))endRecipeBulk(
   tabBar.after(menu);
  }
 }
+ if(!allMealsActive&&!groceryTabActive&&rotationWeekOffset){renderRotationWeekPreview(list);addFloatingViewButtons();return;}
  if(groceryTabActive){renderGroceryViewToolbar(list);renderMasterGroceryTab(list);addFloatingViewButtons();return;}
 const showRotationActions=!allMealsActive&&!groceryTabActive&&(
  mealPlans.some(plan=>Object.keys(plan.id===activePlanId?weekdayCategories:plan.weekdayCategories||{}).length)||
@@ -8190,6 +8215,7 @@ if(!allMealsActive&&!groceryTabActive){
 }
 list.append(topControls);placeViewToolbar(topControls);
 if(showRotationActions){const heading=list.querySelector(':scope > .view-page-title');if(heading){const header=document.createElement('div');header.className='rotation-compact-header';const buttons=document.createElement('div');buttons.className='rotation-heading-actions';buttons.append(...topControls.querySelectorAll('.rotation-standalone-action'));const rotationButtons=buttons.querySelectorAll('.rotation-standalone-action');rotationButtons.forEach((button,index)=>{const label=index===0?'Rotate Meals':'Rotate Back';button.classList.add('rotation-labeled-button');button.style.cssText='display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;width:auto!important;height:40px!important;min-height:40px!important;padding:7px 10px!important;border:1px solid #b9c5d2!important;border-radius:9px!important;background:#e9eef5!important;color:#30445b!important;box-shadow:0 1px 2px rgba(0,0,0,.09)!important;white-space:nowrap!important;font-weight:600!important;';const labelSpan=document.createElement('span');labelSpan.className='rotation-button-label';labelSpan.textContent=label;button.append(labelSpan);button.title=label;button.setAttribute('aria-label',label);});header.append(heading,buttons);topControls.after(header);}}
+if(!allMealsActive&&!groceryTabActive){const header=list.querySelector('.rotation-compact-header')||list.querySelector('.view-page-title');header?.after(rotationWeekControls())}
 if(!allMealsActive&&!groceryTabActive)appendRotationSetupPrompt(list);
 appendMealPlanSettingsPanel(list);
 if(allMealsActive){renderAllMealsOverview(list);addFloatingViewButtons();return;}

@@ -131,7 +131,27 @@ function addOverviewHomeButton(){
  b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" style="width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round"><path d="M3 10.2 12 3l9 7.2V21h-6.5v-7h-5v7H3z"/></svg>';
  b.onclick=()=>{groceryTabActive=false;allMealsActive=false;renderList()};document.body.append(b);
 }
-let overviewWeekOffset=0;
+let overviewWeekOffset=0,rotationWeekOffset=0;
+function weekSelector(offset,onChange){
+ const row=document.createElement('div');row.className='week-selector';row.setAttribute('role','group');row.setAttribute('aria-label','Displayed week');
+ for(const [value,label]of [[0,'This week'],[1,'Next week']]){const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-pressed',String(offset===value));button.onclick=()=>onChange(value);row.append(button)}return row;
+}
+function rotationWeekControls(){
+ const controls=document.createElement('div');controls.className='rotation-week-controls';const plan=mealPlans.find(plan=>plan.id===activePlanId),caption=document.createElement('small');caption.className='muted';caption.textContent=(plan?.name||'Current plan')+' · '+(rotationWeekOffset?'Next week preview':'This week · rotation actions apply to this plan');
+ controls.append(weekSelector(rotationWeekOffset,value=>{rotationWeekOffset=value;renderList()}),caption);return controls;
+}
+function renderRotationWeekPreview(list){
+ const upcoming=previewNextWeekPlans(),source=upcoming.find(item=>item.plan.id===activePlanId),heading=document.createElement('h2');heading.className='view-page-title';heading.textContent=source?.plan.name?.trim()?'My '+source.plan.name.trim()+' Rotation':'My Rotation';list.append(heading,rotationWeekControls());
+ if(!source)return;const start=cookingPlanningWeekStart();start.setDate(start.getDate()+7);const tasks=makeAheadDisplayPrefs.showMakeAheadReminders?scheduledMakeAheadTasks(true,upcoming).filter(item=>item.plan.id===activePlanId):[];
+ for(const day of orderedDays()){
+  const date=cookingLocalDate(cookingDateInWeek(day,start)),card=document.createElement('section');card.className='all-meals-day';card.dataset.date=date;card.style.backgroundColor=colorForDay(day);
+  const title=document.createElement('h3');title.textContent=day+' · '+parseCookingLocalDate(date).toLocaleDateString(undefined,{month:'short',day:'numeric'});card.append(title);
+  const entries=source.entries.filter(entry=>entry.day===day&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:source.plan.id},source.plan.rotationCalendar))===date);
+  if(!entries.length){const empty=document.createElement('div');empty.className='muted';empty.textContent='—';card.append(empty)}
+  for(const entry of entries){const row=document.createElement('div');row.className='meal';const name=document.createElement('button');name.type='button';name.className='mealname';name.textContent=entry.meal.name;name.onclick=()=>openSavedMealRecipe(meals.find(meal=>String(meal.id)===String(entry.meal.id))||entry.meal);row.append(name);card.append(row)}
+  appendMakeAheadDay(card,day,tasks,start);list.append(card);
+ }
+}
 function previewNextWeekPlans(){
  const saved={meals,mealPlans,weekdayMealOverrides,storage:bulkRecipeStorageDraft};
  const nextStart=cookingPlanningWeekStart();nextStart.setDate(nextStart.getDate()+7);
@@ -154,9 +174,8 @@ function renderAllMealsOverview(list){
   section.setAttribute('aria-label','Weekly Overview weekly overview');
   const heading=document.createElement('h2');heading.textContent='Weekly Overview';section.append(heading);
   const current=mealPlans.map(plan=>({plan,entries:getDisplayedWeekdayMealsForPlan(plan)})),upcoming=previewNextWeekPlans(),start=cookingPlanningWeekStart();start.setDate(start.getDate()+overviewWeekOffset*7);
-  const weeks=document.createElement('div');weeks.className='recipe-related-buttons';weeks.style.margin='0 0 10px';
-  for(const [offset,label]of [[0,'This week'],[1,'Next week']]){const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=label;button.setAttribute('aria-pressed',String(overviewWeekOffset===offset));button.style.background=overviewWeekOffset===offset?'#e9eef5':'#fff';button.onclick=()=>{overviewWeekOffset=offset;renderList()};weeks.append(button)}section.append(weeks);
-  const byPlan=overviewWeekOffset?upcoming:current,prepRows=makeAheadDisplayPrefs.showMakeAheadReminders?scheduledMakeAheadTasks(true,upcoming):[];appendOutsideMakeAhead(section,prepRows,start);
+  section.append(weekSelector(overviewWeekOffset,value=>{overviewWeekOffset=value;renderList()}));
+  const byPlan=overviewWeekOffset?upcoming:current,prepRows=makeAheadDisplayPrefs.showMakeAheadReminders?scheduledMakeAheadTasks(true,upcoming):[];
   let selected={};try{selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
   const hideChecked=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';
   for(const day of orderedDays()){
@@ -2492,6 +2511,7 @@ function renderList(){if(recipeBulkMode&&(showTop||editId!==null))endRecipeBulk(
   tabBar.after(menu);
  }
 }
+ if(!allMealsActive&&!groceryTabActive&&rotationWeekOffset){renderRotationWeekPreview(list);addFloatingViewButtons();return;}
  if(groceryTabActive){renderGroceryViewToolbar(list);renderMasterGroceryTab(list);addFloatingViewButtons();return;}
 const showRotationActions=!allMealsActive&&!groceryTabActive&&(
  mealPlans.some(plan=>Object.keys(plan.id===activePlanId?weekdayCategories:plan.weekdayCategories||{}).length)||
@@ -2509,6 +2529,7 @@ if(!allMealsActive&&!groceryTabActive){
 }
 list.append(topControls);placeViewToolbar(topControls);
 if(showRotationActions){const heading=list.querySelector(':scope > .view-page-title');if(heading){const header=document.createElement('div');header.className='rotation-compact-header';const buttons=document.createElement('div');buttons.className='rotation-heading-actions';buttons.append(...topControls.querySelectorAll('.rotation-standalone-action'));const rotationButtons=buttons.querySelectorAll('.rotation-standalone-action');rotationButtons.forEach((button,index)=>{const label=index===0?'Rotate Meals':'Rotate Back';button.classList.add('rotation-labeled-button');button.style.cssText='display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;width:auto!important;height:40px!important;min-height:40px!important;padding:7px 10px!important;border:1px solid #b9c5d2!important;border-radius:9px!important;background:#e9eef5!important;color:#30445b!important;box-shadow:0 1px 2px rgba(0,0,0,.09)!important;white-space:nowrap!important;font-weight:600!important;';const labelSpan=document.createElement('span');labelSpan.className='rotation-button-label';labelSpan.textContent=label;button.append(labelSpan);button.title=label;button.setAttribute('aria-label',label);});header.append(heading,buttons);topControls.after(header);}}
+if(!allMealsActive&&!groceryTabActive){const header=list.querySelector('.rotation-compact-header')||list.querySelector('.view-page-title');header?.after(rotationWeekControls())}
 if(!allMealsActive&&!groceryTabActive)appendRotationSetupPrompt(list);
 appendMealPlanSettingsPanel(list);
 if(allMealsActive){renderAllMealsOverview(list);addFloatingViewButtons();return;}
