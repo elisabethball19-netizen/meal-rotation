@@ -71,7 +71,7 @@ def migration_and_actions(browser,name):
  assert record(p,2)['upNextStar'] and not record(p,4)['upNextStar'] and not record(p,6)['upNextStar']
  assert not row(p,2).locator('[data-recipe-favorite]').count() and row(p,1).locator('[data-recipe-favorite]').count()==1
  assert not p.locator('.shared-meal-link-button').count() and not p.locator('[title="Shared across groups"]').count()
- assert not p.locator('[aria-label*=" in Up Next"]').count()
+ assert not p.locator('[aria-label*=" in Ideas"]').count()
  # Star taps share across copies, place first within their portion, and preserve Favorite values.
  row(p,2).get_by_role('button',name='Unstar Zulu soon',exact=True).tap()
  assert not record(p,2)['upNextStar'] and not record(p,12)['upNextStar'] and record(p,2)['favorite']
@@ -80,7 +80,7 @@ def migration_and_actions(browser,name):
  get(p,'groups()');row(p,4).get_by_role('button',name='Star Legacy idea',exact=True).tap();assert get(p,'order()')[:3]==['4','3','13']
  row(p,4).get_by_role('button',name='Unstar Legacy idea',exact=True).tap();assert get(p,'order()')[2:5]==['4','2','12']
  p.evaluate('establishDatedFixtureSchedule()');get(p,'seedProgress()');schedule=get(p,'schedule()');associated=get(p,'associated()')
- row(p,1).get_by_role('button',name='Move Active to Up Next',exact=True).tap()
+ row(p,1).get_by_role('button',name='Move Active to Ideas',exact=True).tap()
  assert get(p,'order()')[0]=='1' and record(p,1)['upNextStar'] and record(p,1)['favorite']
  assert get(p,'schedule()')==schedule and get(p,'associated()')==associated
  assert get(p,"pool('Meals')")==[]
@@ -90,7 +90,7 @@ def migration_and_actions(browser,name):
  assert record(p,2)['rotation'] and record(p,12)['rotation'] and record(p,2)['favorite']
  assert p.locator('[data-category="Meals"] [data-recipe-section="rotation"] .master-category-meal').first.get_attribute('data-meal-id')=='2'
  assert get(p,'schedule()')==schedule and get(p,'associated()')==associated
- row(p,2).get_by_role('button',name='Move Zulu soon to Up Next',exact=True).tap();assert set(get(p,'order()')[:2])=={'2','12'} and record(p,12)['upNextStar'],(get(p,'order()'),record(p,2),record(p,12),p.locator('[role=dialog]').all_text_contents())
+ row(p,2).get_by_role('button',name='Move Zulu soon to Ideas',exact=True).tap();assert set(get(p,'order()')[:2])=={'2','12'} and record(p,12)['upNextStar'],(get(p,'order()'),record(p,2),record(p,12),p.locator('[role=dialog]').all_text_contents())
  assert get(p,'schedule()')==schedule and get(p,'associated()')==associated
  get(p,'manual(4)');assert not record(p,4)['rotation'] and not record(p,4)['upNextStar']
  statuses={m['id']:(m.get('rotation'),m.get('upNextStar'),m.get('favorite'))for m in get(p,'records()')};get(p,'cycle()');assert statuses=={m['id']:(m.get('rotation'),m.get('upNextStar'),m.get('favorite'))for m in get(p,'records()')}
@@ -106,10 +106,10 @@ def editors_and_groups(browser,name):
  status_editor(p,3,'In Rotation',False);assert not record(p,3)['rotation']
  status_editor(p,3,'In Rotation',True);assert record(p,3)['rotation'] and record(p,3)['upNextStar']
  get(p,'groups()');get(p,'select([1,2,4])');d=p.get_by_role('dialog',name='Edit recipes',exact=True);before=get(p,'snapshot()')
- pick(p,d,'Rotation status','Up Next');assert get(p,'snapshot()')==before
+ pick(p,d,'Rotation status','Ideas');assert get(p,'snapshot()')==before
  pick(p,d,'Rotation status','Keep existing');assert d.get_by_role('button',name='Apply to selected recipes',exact=True).is_disabled()
  d.get_by_role('button',name='Cancel bulk edit',exact=True).tap();assert get(p,'snapshot()')==before
- get(p,'select([1,2,4])');d=p.get_by_role('dialog',name='Edit recipes',exact=True);pick(p,d,'Rotation status','Up Next');d.get_by_role('button',name='Apply to selected recipes',exact=True).tap();assert all(not record(p,id)['rotation'] for id in [1,2,4,12])
+ get(p,'select([1,2,4])');d=p.get_by_role('dialog',name='Edit recipes',exact=True);pick(p,d,'Rotation status','Ideas');d.get_by_role('button',name='Apply to selected recipes',exact=True).tap();assert all(not record(p,id)['rotation'] for id in [1,2,4,12])
  get(p,"status(1,'rotation')");before={m['id']:(m.get('rotation'),m['upNextStar'])for m in get(p,'records()')}
  get(p,'bulk([1,2,4],{}, {bulkGroups:{sourceGroup:"Meals",add:true,remove:false,groups:["Reference"],newGroups:[]}})');assert all(before[m['id']]==(m.get('rotation'),m['upNextStar']) for m in get(p,'records()') if m['id'] in before)
  get(p,"groupEdit('Other')");d=p.get_by_role('dialog',name='Edit meal group',exact=True);assert d.locator('.meal-unified-actions button').evaluate_all('(xs)=>xs.every(x=>{const b=x.getBoundingClientRect();return b.left>=0&&b.right<=innerWidth})');check=d.get_by_role('checkbox',name='Use for meal rotation',exact=True)
@@ -119,7 +119,7 @@ def editors_and_groups(browser,name):
  get(p,'groups()');assert p.locator('[data-category="Reference"] [data-recipe-section]').evaluate_all('(xs)=>xs.map(x=>x.dataset.recipeSection)')==['all'];assert not p.locator('[data-category="Reference"] .recipe-up-next-star').count()
  # Add meals keeps Copy/Move, search, checkbox selection and confirmation/cancel with outline chevrons.
  get(p,"groupEdit('Reference')");d=p.get_by_role('dialog',name='Edit meal group',exact=True);add=d.get_by_role('button',name='Add meals',exact=True)
- assert add.bounding_box()['width']<d.bounding_box()['width']*.7;assert not add.locator('svg').count();add.tap();picker=p.locator('.add-meals-picker');assert 'Add meals to Reference' in picker.inner_text()
+ assert add.bounding_box()['width']<d.bounding_box()['width']*.7;assert not add.locator('svg').count();add.tap();picker=p.locator('.add-meals-picker');assert 'Add meals to Reference' in picker.inner_text() and 'Add meals by:' not in picker.inner_text()
  assert not any(x in picker.inner_text() for x in ['▸','▾']);assert picker.locator('.meal-editor-group-chevron svg').count()>0
  assert picker.get_by_role('radio',name='Copy (keep in original group)',exact=True).is_checked();picker.get_by_role('radio',name='Move (remove from original group)',exact=True).check();picker.get_by_role('button',name='Cancel',exact=True).tap()
  # Confirm both existing Add meals modes with representative non-scheduled recipes.

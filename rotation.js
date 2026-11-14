@@ -582,10 +582,10 @@ function initializeMasterCategoryExpansion(extraCategory){
  if(extraCategory&&cats.includes(extraCategory))masterExpandedCategories.add(extraCategory);
 }
 
-function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=false,scrollExpandedToTop=false,resetOnSelect=false,compactPinned=false,leftChevrons=false){
+function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=false,scrollExpandedToTop=false,resetOnSelect=false,compactPinned=false,leftChevrons=false,behavior={}){
  // Entries: {meal, checked, onChange}. Keep selections when groups collapse or searches change.
- const groups=new Map();entries.forEach(entry=>{const cat=entry.meal.cat||'Ungrouped';if(!groups.has(cat))groups.set(cat,[]);groups.get(cat).push(entry)});
- const sections=[];
+ const groups=new Map();entries.forEach(entry=>{const cat=entry.meal.cat||behavior.unassignedLabel||'Ungrouped';if(!groups.has(cat))groups.set(cat,[]);groups.get(cat).push(entry)});
+ const sections=[];let searching=false,searchExpansion=[];
  const selectedArea=document.createElement('div');
  if(pinSelected){selectedArea.style.cssText='border-bottom:1px solid #ddd;margin-bottom:8px';container.append(selectedArea)}
  const selectedRows=[];
@@ -613,18 +613,21 @@ function buildGroupedMealPicker(container,search,entries,searchMode,pinSelected=
    const cb=document.createElement('input');cb.type='checkbox';cb.checked=!!entry.checked;cb.style.cssText='width:20px;height:20px;flex-shrink:0';cb.onchange=()=>{entry.checked=cb.checked;entry.onChange(cb.checked);search.dispatchEvent(new Event('input'));if(resetOnSelect){sections.forEach(s=>s.setExpanded(false));container.scrollTop=0;const outer=container.closest('[data-label-manager-list]');if(outer)outer.scrollTop=0;}else if(cb.checked&&pinSelected)container.scrollTop=0};
    const text=document.createElement('span');text.textContent=entry.meal.name;if(leftChevrons)row.className='meal-editor-linked-row';row.append(cb,text);body.append(row);entry.row=row;entry.checkbox=cb;
   });
-  let expanded=!pinSelected&&groups.get(cat).some(x=>x.checked);const setExpanded=value=>{expanded=value;body.style.display=value?'block':'none';if(leftChevrons){arrow.classList.toggle('expanded',value);header.setAttribute('aria-expanded',String(value))}else arrow.textContent=value?'▾':'▸'};
-  header.onclick=()=>{const opening=!expanded;setExpanded(opening);if(opening&&scrollExpandedToTop){requestAnimationFrame(()=>{const offset=header.getBoundingClientRect().top-container.getBoundingClientRect().top;container.scrollTop+=offset})}};setExpanded(expanded);section.append(header,body);container.append(section);sections.push({section,entries:groups.get(cat),setExpanded});
+  let expanded=!behavior.startCollapsed&&!pinSelected&&groups.get(cat).some(x=>x.checked);const setExpanded=value=>{expanded=value;body.style.display=value?'block':'none';if(leftChevrons){arrow.classList.toggle('expanded',value);header.setAttribute('aria-expanded',String(value))}else arrow.textContent=value?'▾':'▸'};
+  header.onclick=()=>{const opening=!expanded;setExpanded(opening);if(opening&&scrollExpandedToTop){requestAnimationFrame(()=>{const offset=header.getBoundingClientRect().top-container.getBoundingClientRect().top;container.scrollTop+=offset})}};setExpanded(expanded);section.append(header,body);container.append(section);sections.push({section,entries:groups.get(cat),setExpanded,getExpanded:()=>expanded});
  });
+ const empty=behavior.emptyText?document.createElement('p'):null;if(empty){empty.className='muted';empty.textContent=behavior.emptyText;container.append(empty)}
  container.collapseMealGroups=()=>sections.forEach(group=>group.setExpanded(false));
  search.oninput=()=>{
   const query=search.value.trim().toLocaleLowerCase();
+  if(behavior.restoreExpansion){if(query&&!searching)searchExpansion=sections.map(group=>[group,group.getExpanded()]);if(!query&&searching)for(const [group,expanded]of searchExpansion)group.setExpanded(expanded);searching=!!query}
   const words=query.split(/\s+/).filter(Boolean);
   refreshPinned();
   sections.forEach(group=>{
    let visible=0;group.entries.forEach(entry=>{const title=entry.meal.name.toLocaleLowerCase();const match=(!pinSelected||!entry.checked)&&(!query||(searchMode&&!searchMode.checked?words.every(word=>title.includes(word)):title.includes(query)));entry.row.style.display=match?'flex':'none';if(match)visible++});
-   group.section.style.display=visible?'block':'none';if(query&&visible)group.setExpanded(true);if(!query)group.setExpanded(resetOnSelect?false:group.entries.some(entry=>entry.checkbox.checked));
+   group.section.style.display=visible?'block':'none';if(query&&visible)group.setExpanded(true);if(!query&&!behavior.restoreExpansion)group.setExpanded(resetOnSelect?false:group.entries.some(entry=>entry.checkbox.checked));
   });
+  if(empty)empty.hidden=sections.some(group=>group.section.style.display!=='none');
  };
  search.dispatchEvent(new Event('input'));
 }
@@ -641,7 +644,6 @@ function chooseExistingMealsForNewGroup(category,existingGroup=false){
   const selections=[...unique.values()].map(m=>({meal:m,checked:false,onChange(value){this.checked=value}}));
   buildGroupedMealPicker(list,search,selections,undefined,false,false,false,false,true);
   const modeRow=document.createElement('div');modeRow.style.cssText='display:flex;flex-wrap:wrap;gap:14px;padding:7px 2px;border-top:1px solid #ddd';
-  const modeLabel=document.createElement('span');modeLabel.textContent='Add meals by:';modeLabel.style.cssText='width:100%;font-weight:600';modeRow.append(modeLabel);
   const modeName='group-meal-mode-'+Date.now();
   for(const [value,label] of [['copy','Copy (keep in original group)'],['move','Move (remove from original group)']]){
    const option=document.createElement('label');option.style.cssText='display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px';
@@ -945,7 +947,7 @@ function openHelpModal(){
  const title=document.createElement('h2');title.textContent=top?'My Rotation help':'Meal Groups help';title.style.cssText='margin:0';
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close');close.style.flex='0 0 44px';close.onclick=()=>overlay.remove();header.append(title,close);
  const content=document.createElement('div');content.style.cssText='padding:10px 20px 20px;overflow-y:auto;overscroll-behavior:contain';
- const intro=document.createElement('p');intro.textContent=top?'My Rotation displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into In Rotation and Up Next. Expand a group to manage its meals.';content.append(intro);
+ const intro=document.createElement('p');intro.textContent=top?'My Rotation displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into In Rotation and Ideas. Expand a group to manage its meals.';content.append(intro);
  const items=top?[
   ['Meal-plan tabs','Choose a tab to see its own weekday assignments. Long-press a tab to rename, reorder, or delete it.'],
   ['Tap a displayed meal','Open its meal actions, including recipe options, editing, grocery list, and last-cooked date where available.'],
@@ -963,7 +965,7 @@ function openHelpModal(){
   ['Add a meal','Tap + to add a meal to the selected group.'],
   ['Edit a meal','Choose Edit meal from its meal actions. The editor opens beneath the selected meal.'],
   ['Move a rotating meal','Tap its up or down arrow to move it to the top or bottom of the group; hold to move one position.'],
-  ['Recipe status','Choose In Rotation or Up Next in the recipe status control.'],
+  ['Recipe status','Choose In Rotation or Ideas in the recipe status control.'],
   ['Linked meals','Linked recipes can appear in more than one group; linked changes may affect their other appearances.'],
   ['Last cooked','Shows the latest recorded cooking date when enabled.'],
   ['Navigation','Use the floating buttons to open My Rotation, Weekly Overview, or Grocery List. The Menu button returns here with groups collapsed.']
