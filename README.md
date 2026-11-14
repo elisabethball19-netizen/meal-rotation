@@ -15,7 +15,7 @@ Recipe content stays on existing meal records, and cooking progress is saved sep
 
 ## Add a recipe to a meal group
 
-Tap the group's **+** to create an Idea and immediately open the existing recipe editor. That group expands, its Ideas section opens, and In Rotation closes. The new row and name field are brought into view using the existing mobile/keyboard positioning. Other groups keep their expansion preferences. Creation is guarded against repeated taps while the new draft is open, and Save re-enables adding. Cancel or discarding the draft removes the new unsaved recipe without leaving an empty entry; existing saved recipes are unaffected.
+Tap the group's **+** to create a Back Burner recipe and immediately open the existing recipe editor. That group expands, its Back Burner section opens, and In Rotation closes. The new row and name field are brought into view using the existing mobile/keyboard positioning. Other groups keep their expansion preferences. Creation is guarded against repeated taps while the new draft is open, and Save re-enables adding. Cancel or discarding the draft removes the new unsaved recipe without leaving an empty entry; existing saved recipes are unaffected.
 
 `tests/add_recipe_ideas_browser.py` checks both apps at 320px/360px, collapsed bottom-of-page groups and long lists, focus/scrolling, keyboard-sized viewports, native disabled-control taps and detached-handler reentry, Save/Cancel/outside close, reload, and preservation of existing recipes, schedules, groceries, progress, scaling and unrelated section preferences.
 
@@ -37,7 +37,7 @@ Focused isolated-browser tests: `make_ahead_reminders_browser.py`, `skip_this_we
 
 ## Needs Adjusting
 
-Needs Adjusting is only a status and optional note. Marking, editing or removing it never moves recipes, changes their rotation order, replaces scheduled meals, or records cooking dates. Flagged recipes cycle normally. Moving between Ideas and In Rotation remains a separate arrow action and preserves the warning.
+Needs Adjusting is only a status and optional note. Marking, editing or removing it never moves recipes, changes their rotation order, replaces scheduled meals, or records cooking dates. Flagged recipes cycle normally. Moving between Back Burner, Up Next, and In Rotation remains a separate arrow action and preserves the warning.
 
 Unmarked recipes show a small, lightly outlined **Needs Adjusting** button below instructions and regular notes. It opens the existing optional-note editor with Save/Cancel. Marked recipes show a compact note immediately below the title, with an amber circled exclamation heading, the app's trash icon at the top right, and a pencil **Edit note** action beneath the note. The bottom marking action is absent. Regular Notes remain separate.
 
@@ -368,3 +368,13 @@ See [Serve with verification](tests/serve_with_test_report.md). The older depend
 Meal-action popups always show a compact **Last cooked: [date]** or **Last cooked: Never** caption with a pencil beneath the title. Tap either to use the existing picker. Save or confirmed Clear updates the caption in the same popup; Cancel preserves the saved date. The large Edit last cooked date action is removed, and other actions retain their order and behavior. Card visibility still follows Show Last Cooked Date; Change Meal's existing date formatting/display is unchanged. Long titles and short landscape popups keep the existing heading controls and scroll safely.
 
 See [popup date verification](tests/meal_action_cooked_date_test_report.md).
+
+## Recipe statuses and reference groups
+
+Meal Groups shows **In Rotation**, **Up Next**, then **Back Burner**. Existing Ideas are treated as Back Burner; records without a status retain the existing rotation default. Back Burner starts collapsed. Change status in Edit Recipe, the row’s status arrow, or meal options; the bulk editor also offers **Keep existing** for mixed selections. Choices stay pending until their existing confirmation. Status changes preserve scheduled occurrences, linked recipes, reminders, cooking progress and groceries. Only In Rotation is eligible for regular automatic selection; manual scheduling does not promote a recipe.
+
+Up Next uses one saved order across groups, including shared recipe memberships. Its existing move arrows work on touch screens: tap to move to the top/bottom of the displayed group, or hold to move one place. Other recipes keep their relative order. Newly added or returning Up Next recipes append; membership changes retain their position. Recipe name taps, scrolling and meal options keep their existing actions. The order is saved by recipe IDs, independently of the In Rotation queue, and included in complete backups.
+
+**Edit meal group → Use for meal rotation** defaults on. Turn it off and save to show a plain reference list and exclude that group from new weekday assignments and automatic rotation. Recipe statuses, links, memberships and scheduled occurrences stay intact. Ongoing weekday assignments in any meal tab (including hidden tabs and the next-week preview) block turning it off and are listed in the dialog. Remove those assignments first. Reference groups remain available for organization, searching and linked-recipe selection; turning the option back on restores the status sections.
+
+`python3 tests/batch1_ideas_browser.py` runs focused disposable Chromium touch-browser fixtures against both existing apps. Physical Android scrolling, long-hold arrows and installed-app update behavior still need a phone check.

@@ -1109,7 +1109,7 @@ function refreshNeedsTweakingViews(updated){
 }
 // Existing records are group memberships. Only linkGroup proves shared identity;
 // linkedMealIds are serving relationships, and names/source URLs are not identity.
-const RECIPE_MEMBERSHIP_FIELDS=new Set(['id','cat','rotation','linkGroup','rotationPromotionPriority']);
+const RECIPE_MEMBERSHIP_FIELDS=new Set(['id','cat','rotation','recipeStatus','linkGroup','rotationPromotionPriority']);
 function sharedRecipeMembers(meal,library=meals){return meal?library.filter(m=>String(m.id)===String(meal.id)||!!meal.linkGroup&&m.linkGroup===meal.linkGroup):[]}
 function sharedRecipeChanges(before,after){const patch={};for(const key of new Set([...Object.keys(before),...Object.keys(after)]))if(!RECIPE_MEMBERSHIP_FIELDS.has(key)&&JSON.stringify(before[key])!==JSON.stringify(after[key]))patch[key]=after[key];return patch}
 function assignSharedRecipeFields(meal,patch,library=meals){

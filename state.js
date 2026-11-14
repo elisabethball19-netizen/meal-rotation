@@ -310,7 +310,7 @@ function validateSavedRecords(data,requireCore=false){
  const objectKeys=['mealRotationWeekdayCategoriesV1','mealRotationWeekdayMealOverridesV1','mealRotationWeekdayRecipeFiltersV1','mealRotationSelectedIngredientsV1','mealRotationTopCountsV1','mealRotationGroupIdentitiesV1','mealRotationWeekdayColorsV1','mealRotationCategoryColorsV1','mealRotationFractionMigrationBackupV2'];
  const nullableObjects=['mealRotationTimeVisibilityV1','mealRotationRecipeViewPrefsV1','mealRotationMakeAheadDisplayV1','mealRotationEditorSectionsV1','mealRotationGroupSectionExpansionV1'];
  const arrayKeys=['mealRotationCheckedIngredientsV1','mealRotationPinnedCategoriesV1','mealRotationExpandedCategoriesV1','mealRotationRecipeLabelCatalogV1','mealRotationGroupDisplayOrderV1','mealRotationMasterGroceryExcludedPlansV1','mealRotationMasterGroceryExcludedMealsV1'];
- const otherKeys=['mealRotationDataV1','mealRotationPlansV1','mealRotationCookingSessionsV1','mealRotationOccurrenceScalesV1','mealRotationGroceryOccurrenceChecksV1','mealRotationCookingTimerV1','mealRotationLastRotationBeforeV1','mealRotationManualGroceriesV1','mealRotationGroceryTextOverridesV1'];
+ const otherKeys=['mealRotationUpNextOrderV1','mealRotationGroupRotationV1','mealRotationDataV1','mealRotationPlansV1','mealRotationCookingSessionsV1','mealRotationOccurrenceScalesV1','mealRotationGroceryOccurrenceChecksV1','mealRotationCookingTimerV1','mealRotationLastRotationBeforeV1','mealRotationManualGroceriesV1','mealRotationGroceryTextOverridesV1'];
  for(const [key,value]of Object.entries(data)){
   if(typeof value!=='string')throw Error('Invalid saved value: '+key);
   const structured=objectKeys.includes(key)||nullableObjects.includes(key)||arrayKeys.includes(key)||otherKeys.includes(key)||key.startsWith('mealRotationLastTopMealIdsV1:');
@@ -318,6 +318,8 @@ function validateSavedRecords(data,requireCore=false){
   try{parsed[key]=JSON.parse(value)}catch(e){throw Error('Unreadable saved JSON: '+key)}
   const v=parsed[key];if(objectKeys.includes(key)&&!object(v)||nullableObjects.includes(key)&&v!==null&&!object(v)||arrayKeys.includes(key)&&!(key==='mealRotationMasterGroceryExcludedPlansV1'||key==='mealRotationMasterGroceryExcludedMealsV1'?Array.isArray(v)&&v.every(id):strings(v))||key.startsWith('mealRotationLastTopMealIdsV1:')&&(!Array.isArray(v)||v.some(x=>!id(x))))throw Error('Invalid saved record type: '+key);
  }
+ if(Object.hasOwn(parsed,'mealRotationUpNextOrderV1')&&(!Array.isArray(parsed.mealRotationUpNextOrderV1)||parsed.mealRotationUpNextOrderV1.some(v=>typeof v!=='string')||new Set(parsed.mealRotationUpNextOrderV1).size!==parsed.mealRotationUpNextOrderV1.length))throw Error('Invalid Up Next order');
+ if(Object.hasOwn(parsed,'mealRotationGroupRotationV1')&&(!object(parsed.mealRotationGroupRotationV1)||Object.values(parsed.mealRotationGroupRotationV1).some(v=>typeof v!=='boolean')))throw Error('Invalid group rotation settings');
  if(Object.hasOwn(parsed,'mealRotationGroceryTextOverridesV1'))validateGroceryTextOverrides(parsed.mealRotationGroceryTextOverridesV1);
  if(Object.hasOwn(parsed,'mealRotationManualGroceriesV1'))validateManualGroceryItems(parsed.mealRotationManualGroceriesV1);
  if(requireCore&&!Object.hasOwn(data,'mealRotationDataV1'))throw Error('Missing recipe collection');
@@ -748,3 +750,15 @@ function cleanInstructionBlock(block){
  const heading=numberedBold&&text.length<80&&!/[.!?]$/.test(text)&&/^(?:[A-Z][a-z]+)(?:\s+(?:[A-Z][a-z]+|the|and|for|of|to|a|an)){1,8}:?$/.test(text);
  return {...block,text,type:heading?'section':block.type};
 }
+// Batch 1: optional status metadata preserves legacy rotation booleans and unknown fields.
+function recipeStatus(meal){
+ if(meal?.rotation)return 'rotation';
+ return meal?.recipeStatus==='up-next'?'up-next':'back-burner';
+}
+function normalizeRecipeStatus(meal){
+ if(meal.recipeStatus==='Ideas'||meal.recipeStatus==='ideas')meal.recipeStatus='back-burner';
+ if(meal.recipeStatus==='up-next'||meal.recipeStatus==='back-burner')meal.rotation=false;
+ return meal;
+}
+function recipeStatusLabel(status){return {'rotation':'In Rotation','up-next':'Up Next','back-burner':'Back Burner'}[status]||'Back Burner'}
+function recipeStatusChoices(){return [['rotation','In Rotation'],['up-next','Up Next'],['back-burner','Back Burner']]}

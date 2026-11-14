@@ -1,3 +1,4 @@
+const UP_NEXT_ORDER_KEY='mealRotationUpNextOrderV1',GROUP_ROTATION_KEY='mealRotationGroupRotationV1';
 const timePreferencesStorageKey='mealRotationTimeVisibilityV1';
 const previousMarinateVisibility=localStorage.getItem('mealRotationShowMarinateV1')==='true';
 let timeDisplayPrefs={top:{cooking:false,marinate:previousMarinateVisibility},category:{cooking:false,marinate:previousMarinateVisibility},all:{cooking:false,marinate:false}};
@@ -159,7 +160,7 @@ function unassignedWeekGroupSlots(plan,day,assigned,entries=getDisplayedWeekdayM
 }
 function setDayCategories(day,values){
   const previous=getDayCategories(day);
-  const next=values.includes(EMPTY_DAY_ASSIGNMENT)?[EMPTY_DAY_ASSIGNMENT]:[...new Set(values.filter(c=>cats.includes(c)))];
+  const next=values.includes(EMPTY_DAY_ASSIGNMENT)?[EMPTY_DAY_ASSIGNMENT]:[...new Set(values.filter(c=>cats.includes(c)&&groupUsesRotation(c)))];
   const plan=mealPlans.find(plan=>plan.id===activePlanId),occasional=meals.find(meal=>String(meal.id)===String(plan?.occasionalMeals?.[day]));
   const occasionalOwner=boundOccasionalGroup(plan,day),removeOccasional=occasionalOwner&&!next.includes(occasionalOwner);
   const groceryBefore=captureGroceryCheckStates(),schedules=new Map(mealPlans.map(p=>[p.id,getDisplayedWeekdayMealsForPlan(p.id===activePlanId?{...p,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:p)]));
@@ -283,7 +284,7 @@ function clearWeekdayOverride(day,cat){
 }
 let weekdayMealOverrides={};try{const wo=JSON.parse(localStorage.getItem('mealRotationWeekdayMealOverridesV1')||'{}');if(wo&&typeof wo==='object')weekdayMealOverrides=wo}catch(e){}function saveWeekdayMealOverrides(){try{localStorage.setItem('mealRotationWeekdayMealOverridesV1',JSON.stringify(weekdayMealOverrides))}catch(e){}if(typeof mealPlans!=='undefined')saveActiveMealPlan()}
 migrateSavedIngredientFractions();
-let meals=[];let hasValidSavedData=false;try{const saved=localStorage.getItem('mealRotationDataV1');if(saved){const d=JSON.parse(saved);if(Array.isArray(d.cats)&&Array.isArray(d.meals)){cats=d.cats;meals=d.meals.map(m=>({...m,ingredients:Array.isArray(m.ingredients)?m.ingredients:[]}));id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;active=cats.includes(d.active)?d.active:(cats[0]||'Chicken');hasValidSavedData=true}}}catch(e){}
+let meals=[];let hasValidSavedData=false;try{const saved=localStorage.getItem('mealRotationDataV1');if(saved){const d=JSON.parse(saved);if(Array.isArray(d.cats)&&Array.isArray(d.meals)){cats=d.cats;meals=d.meals.map(m=>normalizeRecipeStatus({...m,ingredients:Array.isArray(m.ingredients)?m.ingredients:[]}));id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;active=cats.includes(d.active)?d.active:(cats[0]||'Chicken');hasValidSavedData=true}}}catch(e){}
 // New installations begin with three editable example groups and no recipes.
 weekdayColors={...weekdayColorDefaults};saveWeekdayColors();
 // Keep Top Recipes as the default landing page, but restore the current view
@@ -564,13 +565,13 @@ let masterCategoriesView=false;try{masterCategoriesView=sessionStorage.getItem('
 // UI-only section visibility, independent for each group and included in backups.
 const masterSectionExpansionKey='mealRotationGroupSectionExpansionV1',masterSectionExpansion=new Map();
 try{const saved=JSON.parse(localStorage.getItem(masterSectionExpansionKey)||'null');if(saved?.version===1&&saved.groups&&typeof saved.groups==='object'&&!Array.isArray(saved.groups))for(const [category,sections]of Object.entries(saved.groups)){
- if(sections&&typeof sections==='object'&&!Array.isArray(sections)){const known={};for(const key of ['rotation','ideas'])if(typeof sections[key]==='boolean')known[key]=sections[key];masterSectionExpansion.set(category,known)}
+ if(sections&&typeof sections==='object'&&!Array.isArray(sections)){const known={};for(const key of ['rotation','ideas','up-next','back-burner'])if(typeof sections[key]==='boolean')known[key]=sections[key];masterSectionExpansion.set(category,known)}
 }}catch(e){}
-function masterRecipeSectionOpen(category,rotation){const key=rotation?'rotation':'ideas';return masterSectionExpansion.get(category)?.[key]??rotation}
+function masterRecipeSectionOpen(category,rotation){const key=rotation===true?'rotation':rotation===false?'back-burner':rotation;return masterSectionExpansion.get(category)?.[key]??(key!=='back-burner')}
 function saveMasterSectionExpansion(){try{localStorage.setItem(masterSectionExpansionKey,JSON.stringify({version:1,groups:Object.fromEntries(masterSectionExpansion)}))}catch(e){/* Keep navigation preferences in memory if storage is unavailable. */}}
 function setMasterRecipeSectionOpen(category,rotation,open){
  if(masterRecipeSectionOpen(category,rotation)===open)return false;
- masterSectionExpansion.set(category,{...masterSectionExpansion.get(category),[rotation?'rotation':'ideas']:open});saveMasterSectionExpansion();return true;
+ masterSectionExpansion.set(category,{...masterSectionExpansion.get(category),[rotation===true?'rotation':rotation===false?'back-burner':rotation]:open});saveMasterSectionExpansion();return true;
 }
 function copyMasterSectionExpansion(oldName,newName){if(masterSectionExpansion.has(oldName)){masterSectionExpansion.set(newName,{...masterSectionExpansion.get(oldName)});saveMasterSectionExpansion()}}
 const masterExpandedCategories=new Set();let masterExpansionInitialized=false;
@@ -743,7 +744,7 @@ function rememberCurrentView(){
 }
 // Rendered-page identity is also used to close Settings on navigation.
 let lastRenderedPageKey=null;
-const $=x=>document.getElementById(x);let backupRestoreReloadPending=false;window.addEventListener('mealRotationBeforeStorageReset',()=>{backupRestoreReloadPending=true});function persist(){if(backupRestoreReloadPending||mealPersistence.paused)return;if(hasDependentSideSlots()&&!coordinatingDependentSides&&!restoringRotationCalendars){const before=captureGroceryCheckStates();if(coordinateDependentSides())reconcileRotatedGroceryChecks(before,[]);saveActiveMealPlan()}reconcileRotationCalendars();reconcileAllCookingData();try{localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals:meals.filter(meal=>!meal._scheduledEditorDraft)}))}catch(e){}}window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function captureState(){return JSON.stringify({groupIdentities:localStorage.getItem(GROUP_IDENTITIES_KEY),lastRotationBefore:localStorage.getItem('mealRotationLastRotationBeforeV1'),cats,active,meals:meals.filter(meal=>!meal._scheduledEditorDraft),masterGroupOrder,groceryOccurrenceChecks,checkedIngredients:[...checkedIngredients],weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,pinnedCats,expandedCats,startWeekday,topCounts,categoryColors,weekdayColors,autoPinTopCategories,applyPinsToAllTabs,masterOpenMode,masterPinsOverride,mealPlans,activePlanId,showMealPlanTabs})}
+const $=x=>document.getElementById(x);let backupRestoreReloadPending=false;window.addEventListener('mealRotationBeforeStorageReset',()=>{backupRestoreReloadPending=true});function persist(){if(backupRestoreReloadPending||mealPersistence.paused)return;saveUpNextOrder();if(hasDependentSideSlots()&&!coordinatingDependentSides&&!restoringRotationCalendars){const before=captureGroceryCheckStates();if(coordinateDependentSides())reconcileRotatedGroceryChecks(before,[]);saveActiveMealPlan()}reconcileRotationCalendars();reconcileAllCookingData();try{localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals:meals.filter(meal=>!meal._scheduledEditorDraft)}))}catch(e){}}window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function captureState(){return JSON.stringify({upNextOrder:normalizedUpNextOrder(),groupIdentities:localStorage.getItem(GROUP_IDENTITIES_KEY),lastRotationBefore:localStorage.getItem('mealRotationLastRotationBeforeV1'),cats,active,meals:meals.filter(meal=>!meal._scheduledEditorDraft),masterGroupOrder,groceryOccurrenceChecks,checkedIngredients:[...checkedIngredients],weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,pinnedCats,expandedCats,startWeekday,topCounts,categoryColors,weekdayColors,autoPinTopCategories,applyPinsToAllTabs,masterOpenMode,masterPinsOverride,mealPlans,activePlanId,showMealPlanTabs})}
 function snapshot(state=captureState()){dismissOnboardingHint();if(history[history.length-1]!==state){history.push(state);if(history.length>100)history.shift()}redoHistory=[];groceryUndo=null}
 // Change Meal snapshots describe scheduling, never a replacement recipe library.
 function captureScheduleUndoChecks(){return Object.fromEntries([...captureGroceryCheckStates()].map(([id,item])=>[id,item.checked]))}
@@ -944,7 +945,7 @@ function openHelpModal(){
  const title=document.createElement('h2');title.textContent=top?'My Rotation help':'Meal Groups help';title.style.cssText='margin:0';
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close');close.style.flex='0 0 44px';close.onclick=()=>overlay.remove();header.append(title,close);
  const content=document.createElement('div');content.style.cssText='padding:10px 20px 20px;overflow-y:auto;overscroll-behavior:contain';
- const intro=document.createElement('p');intro.textContent=top?'My Rotation displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into In Rotation and Ideas. Expand a group to manage its meals.';content.append(intro);
+ const intro=document.createElement('p');intro.textContent=top?'My Rotation displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into In Rotation, Up Next, and Back Burner. Expand a group to manage its meals.';content.append(intro);
  const items=top?[
   ['Meal-plan tabs','Choose a tab to see its own weekday assignments. Long-press a tab to rename, reorder, or delete it.'],
   ['Tap a displayed meal','Open its meal actions, including recipe options, editing, grocery list, and last-cooked date where available.'],
@@ -962,7 +963,7 @@ function openHelpModal(){
   ['Add a meal','Tap + to add a meal to the selected group.'],
   ['Edit a meal','Choose Edit meal from its meal actions. The editor opens beneath the selected meal.'],
   ['Move a rotating meal','Tap its up or down arrow to move it to the top or bottom of the group; hold to move one position.'],
-  ['Ideas and rotation','Check an idea to move it into In Rotation.'],
+  ['Recipe status','Choose In Rotation, Up Next, or Back Burner in the recipe status control.'],
   ['Linked meals','Linked recipes can appear in more than one group; linked changes may affect their other appearances.'],
   ['Last cooked','Shows the latest recorded cooking date when enabled.'],
   ['Navigation','Use the floating buttons to open My Rotation, Weekly Overview, or Grocery List. The Menu button returns here with groups collapsed.']
@@ -1105,7 +1106,7 @@ function openMealSearch(saved=null){
       name.textContent=meal.name||'Untitled meal';
       name.style.cssText='display:block;font-size:17px';
       const meta=document.createElement('span');
-      meta.textContent=(meal.cat||'Unassigned')+(meal.rotation?' · In rotation':' · Ideas');
+      meta.textContent=(meal.cat||'Unassigned')+(' · '+recipeStatusLabel(recipeStatus(meal)));
       meta.style.cssText='display:block;font-size:13px;color:#666;margin-top:4px';
       button.append(name,meta);
       button.dataset.mealId=String(meal.id);
@@ -1136,3 +1137,21 @@ function openMealSearch(saved=null){
   fitSearch();
   requestAnimationFrame(()=>{if(shade.isConnected){input.focus({preventScroll:true});fitSearch()}});
 }
+
+function readUpNextOrder(){const value=JSON.parse(localStorage.getItem(UP_NEXT_ORDER_KEY)||'[]');return Array.isArray(value)?[...new Set(value.filter(id=>typeof id==='string'))]:[]}
+function normalizedUpNextOrder(){
+ const ids=new Set(meals.filter(m=>recipeStatus(m)==='up-next').map(m=>String(m.id)));
+ const order=readUpNextOrder().filter(id=>ids.has(id));
+ for(const meal of meals)if(ids.has(String(meal.id))&&!order.includes(String(meal.id))){
+  const peer=meal.linkGroup&&meals.find(other=>other!==meal&&other.linkGroup===meal.linkGroup&&order.includes(String(other.id)));
+  if(peer)order.splice(order.indexOf(String(peer.id))+1,0,String(meal.id));else order.push(String(meal.id));
+ }
+ return order;
+}
+function saveUpNextOrder(){const order=normalizedUpNextOrder();if(JSON.stringify(order)!==localStorage.getItem(UP_NEXT_ORDER_KEY))localStorage.setItem(UP_NEXT_ORDER_KEY,JSON.stringify(order));return order}
+function upNextRank(meal,order){const peers=meal.linkGroup?meals.filter(m=>m.linkGroup===meal.linkGroup):[meal];return Math.min(...peers.map(m=>order.indexOf(String(m.id))).filter(i=>i>=0),Infinity)}
+function setRecipeStatus(meal,status){
+ const peers=meal.linkGroup?meals.filter(m=>m.linkGroup===meal.linkGroup):[meal];
+ for(const record of peers){record.rotation=status==='rotation';record.recipeStatus=status;if(!record.rotation)delete record.rotationPromotionPriority}
+}
+function groupUsesRotation(category){const values=JSON.parse(localStorage.getItem(GROUP_ROTATION_KEY)||'{}');const key=groupIdentity(category);return !key||values[key]!==false}
