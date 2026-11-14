@@ -310,7 +310,7 @@ function validateSavedRecords(data,requireCore=false){
  const objectKeys=['mealRotationWeekdayCategoriesV1','mealRotationWeekdayMealOverridesV1','mealRotationWeekdayRecipeFiltersV1','mealRotationSelectedIngredientsV1','mealRotationTopCountsV1','mealRotationGroupIdentitiesV1','mealRotationWeekdayColorsV1','mealRotationCategoryColorsV1','mealRotationFractionMigrationBackupV2'];
  const nullableObjects=['mealRotationTimeVisibilityV1','mealRotationRecipeViewPrefsV1','mealRotationMakeAheadDisplayV1','mealRotationEditorSectionsV1','mealRotationGroupSectionExpansionV1'];
  const arrayKeys=['mealRotationCheckedIngredientsV1','mealRotationPinnedCategoriesV1','mealRotationExpandedCategoriesV1','mealRotationRecipeLabelCatalogV1','mealRotationGroupDisplayOrderV1','mealRotationMasterGroceryExcludedPlansV1','mealRotationMasterGroceryExcludedMealsV1'];
- const otherKeys=['mealRotationDataV1','mealRotationPlansV1','mealRotationCookingSessionsV1','mealRotationOccurrenceScalesV1','mealRotationGroceryOccurrenceChecksV1','mealRotationCookingTimerV1','mealRotationLastRotationBeforeV1'];
+ const otherKeys=['mealRotationDataV1','mealRotationPlansV1','mealRotationCookingSessionsV1','mealRotationOccurrenceScalesV1','mealRotationGroceryOccurrenceChecksV1','mealRotationCookingTimerV1','mealRotationLastRotationBeforeV1','mealRotationManualGroceriesV1'];
  for(const [key,value]of Object.entries(data)){
   if(typeof value!=='string')throw Error('Invalid saved value: '+key);
   const structured=objectKeys.includes(key)||nullableObjects.includes(key)||arrayKeys.includes(key)||otherKeys.includes(key)||key.startsWith('mealRotationLastTopMealIdsV1:');
@@ -318,6 +318,7 @@ function validateSavedRecords(data,requireCore=false){
   try{parsed[key]=JSON.parse(value)}catch(e){throw Error('Unreadable saved JSON: '+key)}
   const v=parsed[key];if(objectKeys.includes(key)&&!object(v)||nullableObjects.includes(key)&&v!==null&&!object(v)||arrayKeys.includes(key)&&!(key==='mealRotationMasterGroceryExcludedPlansV1'||key==='mealRotationMasterGroceryExcludedMealsV1'?Array.isArray(v)&&v.every(id):strings(v))||key.startsWith('mealRotationLastTopMealIdsV1:')&&(!Array.isArray(v)||v.some(x=>!id(x))))throw Error('Invalid saved record type: '+key);
  }
+ if(Object.hasOwn(parsed,'mealRotationManualGroceriesV1'))validateManualGroceryItems(parsed.mealRotationManualGroceriesV1);
  if(requireCore&&!Object.hasOwn(data,'mealRotationDataV1'))throw Error('Missing recipe collection');
  if(Object.hasOwn(data,'mealRotationDataV1'))validateBackupCore(startupCore(parsed.mealRotationDataV1));
  if(Object.hasOwn(data,'mealRotationPlansV1'))validateBackupCore({...startupCore(parsed.mealRotationDataV1),mealPlans:parsed.mealRotationPlansV1});
@@ -571,6 +572,9 @@ function groceryQuantityParts(line){
 // Membership and recipe ingredients continue to use their existing saved records.
 const GROCERY_OCCURRENCE_CHECKS_KEY='mealRotationGroceryOccurrenceChecksV1';
 let groceryOccurrenceChecks={version:1,checks:{}},groceryCheckStorageInvalid=false;
+function validateManualGroceryItems(items){
+ const ids=new Set();if(!Array.isArray(items))throw Error('Invalid additional grocery items');for(const item of items){if(!item||typeof item.id!=='string'||!item.id||ids.has(item.id)||typeof item.text!=='string'||!item.text.trim()||typeof item.checked!=='boolean')throw Error('Invalid additional grocery item');ids.add(item.id)}
+}
 function validateGroceryOccurrenceChecks(value){
  if(!value||value.version!==1||!value.checks||typeof value.checks!=='object'||Array.isArray(value.checks)||value.quantities!==undefined&&(!value.quantities||typeof value.quantities!=='object'||Array.isArray(value.quantities)))throw Error('Invalid grocery occurrence checks');
  for(const amount of Object.values(value.quantities||{}))if(!amount||!Number.isFinite(amount.lo)||!Number.isFinite(amount.hi)||amount.lo<0||amount.hi<amount.lo)throw Error('Invalid checked grocery quantity');

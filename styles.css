@@ -1509,3 +1509,14 @@ input[type="checkbox"]::after{display:none!important;}
 #todaysTodo .make-ahead-reminder>input{grid-column:1;grid-row:1;}
 #todaysTodo .make-ahead-reminder>span{grid-column:2;min-width:0;white-space:normal;overflow-wrap:anywhere;}
 #todaysTodo .make-ahead-due{grid-column:2;width:auto;padding:0;margin:0;font-size:12px;line-height:1.3;color:#737b83;}
+
+/* Smaller native boxes retain the labels' existing generous touch targets. */
+input[type="checkbox"]{width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;flex:0 0 18px!important;margin:0!important;}
+#todaysTodo .make-ahead-reminder{grid-template-columns:18px minmax(0,1fr);column-gap:10px;}
+#list .grocery-compact-header>h2{flex:1 1 auto!important;}#list .grocery-add-manual{margin-left:auto;flex:0 0 44px;}
+#list .grocery-compact-header .master-grocery-plan-filters{flex:1 0 100%!important;}
+.grocery-week-options{display:flex;flex-wrap:wrap;gap:4px 16px;max-width:100%;min-width:0;}.master-grocery-plan-filters .grocery-week-options label{display:flex;gap:10px;min-height:44px;max-width:100%;white-space:normal;}.grocery-week-options span{min-width:0;overflow-wrap:anywhere;}
+.grocery-choose-meals{min-width:44px;min-height:44px;}.grocery-choose-meals svg{width:25px;height:25px;}
+.manual-groceries h3{font-size:16px;margin:18px 0 4px;}.manual-grocery-item{min-height:44px;cursor:pointer;}.manual-grocery-text{white-space:pre-wrap;overflow-wrap:anywhere;}.manual-grocery-field{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font:inherit;}
+
+.grocery-checkbox-target{position:relative;display:flex;flex:0 0 18px;width:18px;height:18px;}.grocery-checkbox-target input{position:relative;z-index:1;}.grocery-checkbox-target::before{content:"";position:absolute;inset:-13px;}.manual-grocery-item,.master-grocery-item{min-height:44px;}

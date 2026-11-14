@@ -1,5 +1,38 @@
-let groceryPeriod='current';
+const MANUAL_GROCERIES_KEY='mealRotationManualGroceriesV1',GROCERY_PERIOD_KEY='mealRotationGroceryPeriodV1';
+function readGroceryPeriod(){
+ const raw=localStorage.getItem(GROCERY_PERIOD_KEY);if(raw===null)return 'current';let value=raw;try{value=JSON.parse(raw)}catch(_){}
+ if(value&&typeof value==='object'&&typeof value.thisWeek==='boolean'&&typeof value.nextWeek==='boolean')return value.thisWeek?(value.nextWeek?'both':'current'):(value.nextWeek?'next':'none');
+ return ({current:'current','this week':'current',next:'next','next week':'next',both:'both','both weeks':'both',none:'none'})[String(value).toLowerCase().trim()]||'current';
+}
+let groceryPeriod=readGroceryPeriod();
+function manualGroceryItems(){const items=JSON.parse(localStorage.getItem(MANUAL_GROCERIES_KEY)||'[]');validateManualGroceryItems(items);return items}
+function saveManualGroceryItems(items){validateManualGroceryItems(items);localStorage.setItem(MANUAL_GROCERIES_KEY,JSON.stringify(items))}
+function setAllManualGroceries(checked){saveManualGroceryItems(manualGroceryItems().map(item=>({...item,checked})))}
+function openManualGroceryEditor(item=null,refresh=()=>renderList()){
+ const d=recipeBulkDialog(item?'Edit grocery item':'Add grocery item'),field=document.createElement('input');field.type='text';field.className='manual-grocery-field';field.setAttribute('aria-label','Grocery item');field.placeholder='e.g. 2 cartons oat milk';field.value=item?.text||'';
+ const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');const actions=document.createElement('div');actions.className='meal-unified-actions';
+ function action(kind,label,change){const button=document.createElement('button');button.type='button';setIconButton(button,kind,label);button.onclick=()=>{try{if(change()===false)return;d.close();refresh()}catch(e){error.textContent='Could not save grocery item: '+e.message}};actions.append(button);return button}
+ const save=action('save','Save grocery item',()=>{const text=field.value.trim();if(!text)return false;const current=manualGroceryItems();if(item&&!current.some(record=>record.id===item.id))throw Error('This item was removed.');saveManualGroceryItems(item?current.map(record=>record.id===item.id?{...record,text}:record):[...current,{id:crypto.randomUUID?.()||'manual-'+Date.now()+'-'+Math.random().toString(36).slice(2),text,checked:false}])});
+ if(item)action('delete','Delete grocery item',()=>saveManualGroceryItems(manualGroceryItems().filter(record=>record.id!==item.id)));
+ action('cancel','Cancel',()=>{});actions.lastElementChild.onclick=d.close;
+ field.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();save.click()}};d.panel.append(field,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);field.focus({preventScroll:true});
+}
+function appendManualGroceries(rows,refresh){
+ const items=manualGroceryItems().filter(item=>localStorage.getItem('mealRotationHideCheckedGroceriesV1')!=='true'||!item.checked);if(!items.length)return;
+ const section=document.createElement('section');section.className='manual-groceries';const heading=document.createElement('h3');heading.textContent='Additional items';section.append(heading);
+ for(const item of items){
+  const row=document.createElement('label');row.className='master-grocery-item manual-grocery-item';row.dataset.manualId=item.id;
+  const check=document.createElement('input');check.type='checkbox';check.checked=item.checked;check.setAttribute('aria-label',item.text);check.onchange=()=>{try{saveManualGroceryItems(manualGroceryItems().map(record=>record.id===item.id?{...record,checked:check.checked}:record));refresh()}catch(e){check.checked=item.checked;showAppMessage(e.message)}};
+  row.addEventListener('pointerdown',()=>{held=false},true);row.addEventListener('keydown',()=>{held=false},true);
+  const text=document.createElement('span');text.className='grocery-item-details manual-grocery-text';text.textContent=item.text;let timer=null,start=null,held=false;
+  text.addEventListener('pointerdown',event=>{if(event.button!==0)return;held=false;start={x:event.clientX,y:event.clientY};clearTimeout(timer);timer=setTimeout(()=>{held=true;openManualGroceryEditor(item,refresh)},550)});
+  text.addEventListener('pointermove',event=>{if(start&&Math.hypot(event.clientX-start.x,event.clientY-start.y)>10){clearTimeout(timer);start=null}});for(const event of ['pointerup','pointercancel','pointerleave'])text.addEventListener(event,()=>{clearTimeout(timer);start=null});
+  text.addEventListener('contextmenu',event=>event.preventDefault());row.addEventListener('click',event=>{if(held){event.preventDefault();event.stopImmediatePropagation();held=false}},true);
+  row.append(check,text);section.append(row);
+ }rows.append(section);
+}
 function groceryPeriodSchedules(period=groceryPeriod){
+ if(period==='none')return [];
  const current=mealPlans.map(plan=>({plan,entries:getDisplayedWeekdayMealsForPlan(plan),preview:false}));if(period==='rotation')return current;
  const start=cookingPlanningWeekStart(),next=new Date(start);next.setDate(next.getDate()+7);const end=new Date(next);end.setDate(end.getDate()+7);
  const within=(source,from,to)=>({...source,entries:source.entries.filter(entry=>{const date=scheduledOccurrenceDate({...entry,planId:source.plan.id},source.plan.rotationCalendar);return date>=from&&date<to})});
@@ -95,19 +128,22 @@ function getMasterGroceryItems(){
   });
  }
  function renderMasterGroceryTab(list){
+  groceryPeriod=readGroceryPeriod();
   const panel=document.createElement('section');panel.className='meal-plan-grocery';panel.setAttribute('aria-label','Master grocery list');
   const heading=document.createElement('h2');heading.textContent='Grocery List';
-  const groceryHeader=document.createElement('div');groceryHeader.className='grocery-compact-header';groceryHeader.append(heading);panel.append(groceryHeader);
+  const groceryHeader=document.createElement('div');groceryHeader.className='grocery-compact-header';groceryHeader.append(heading);const addManual=document.createElement('button');addManual.type='button';addManual.className='iconbtn grocery-add-manual';setIconButton(addManual,'add','Add grocery item');addManual.onclick=()=>openManualGroceryEditor(null,updateRows);groceryHeader.append(addManual);panel.append(groceryHeader);
   const filters=document.createElement('div');filters.className='master-grocery-plan-filters';
-  const periods=document.createElement('div');periods.className='week-selector';periods.setAttribute('role','group');periods.setAttribute('aria-label','Grocery period');
-  for(const [value,label]of [['current','This week'],['next','Next week'],['both','Both weeks']]){const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-pressed',String(groceryPeriod===value));button.onclick=()=>{groceryPeriod=value;for(const other of periods.querySelectorAll('button'))other.setAttribute('aria-pressed',String(other===button));updateRows()};periods.append(button)}filters.append(periods);
+  const periods=document.createElement('div');periods.className='grocery-week-options';periods.setAttribute('role','group');periods.setAttribute('aria-label','Grocery period');const weekChecks={};
+  for(const [value,text]of [['current','This week'],['next','Next week']]){const label=document.createElement('label'),check=document.createElement('input'),name=document.createElement('span');check.type='checkbox';check.checked=groceryPeriod===value||groceryPeriod==='both';name.textContent=text;weekChecks[value]=check;
+   check.onchange=()=>{const previous=groceryPeriod,next=weekChecks.current.checked?(weekChecks.next.checked?'both':'current'):(weekChecks.next.checked?'next':'none');try{localStorage.setItem(GROCERY_PERIOD_KEY,next);groceryPeriod=next;updateRows()}catch(e){weekChecks.current.checked=previous==='current'||previous==='both';weekChecks.next.checked=previous==='next'||previous==='both';showAppMessage(e.message)}};label.append(check,name);periods.append(label);
+  }filters.append(periods);
   const rows=document.createElement('div');rows.className='master-grocery-list';
   function updateRows(){
    rows.replaceChildren();
    const groceries=getMasterGroceryItems();
    if(!groceries.size){
     const msg=document.createElement('p');msg.className='muted';
-    msg.textContent=mealPlans.every(plan=>masterGroceryExcludedPlanIds.has(String(plan.id)))?'Select a meal plan to show groceries.':'No selected groceries.';
+    msg.textContent=groceryPeriod==='none'?'Select a week to show recipe groceries.':mealPlans.every(plan=>masterGroceryExcludedPlanIds.has(String(plan.id)))?'Select a meal plan to show groceries.':'No selected recipe groceries.';
     rows.append(msg);
    }
    groceries.forEach((line,key)=>{
@@ -141,11 +177,12 @@ function getMasterGroceryItems(){
      name.setAttribute('aria-label',line.line+(source.hidden?'. Tap to show associated recipes':'. Tap to hide associated recipes'));
     };
     details.append(name,source);
-    row.append(check,details);rows.append(row);
+    const target=document.createElement('label');target.className='grocery-checkbox-target';target.append(check);row.append(target,details);rows.append(row);
    });
+   appendManualGroceries(rows,updateRows);
   }
-  const chooseMeals=document.createElement('button');chooseMeals.type='button';chooseMeals.className='smallbtn grocery-choose-meals';
-  chooseMeals.textContent='Choose Meals';chooseMeals.title='Choose which meals contribute ingredients to this grocery list';
+  const chooseMeals=document.createElement('button');chooseMeals.type='button';chooseMeals.className='iconbtn grocery-choose-meals';
+  chooseMeals.title='Choose meals';chooseMeals.setAttribute('aria-label','Choose meals');chooseMeals.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18l-7 8v7l-4 2v-9z"/></svg>';
   chooseMeals.onclick=()=>{
    saveActiveMealPlan();
    const overlay=document.createElement('div');overlay.className='grocery-meal-dialog-overlay';
@@ -182,9 +219,8 @@ function getMasterGroceryItems(){
    const cancel=document.createElement('button');cancel.type='button';setIconButton(cancel,'cancel','Cancel');cancel.onclick=()=>overlay.remove();
    footer.append(save,cancel);box.append(footer);overlay.append(box);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay);
   };
-  filters.append(chooseMeals);
   const toolbar=list.querySelector(':scope > .top-controls');
-  if(toolbar){filters.append(toolbar);toolbar.classList.add('grocery-inline-actions');}
+  if(toolbar){toolbar.prepend(chooseMeals);filters.append(toolbar);toolbar.classList.add('grocery-inline-actions');}else filters.append(chooseMeals);
   groceryHeader.append(filters);
   panel.append(rows);list.append(panel);updateRows();
  }

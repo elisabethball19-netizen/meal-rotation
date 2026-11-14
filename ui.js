@@ -1866,7 +1866,7 @@ function renderGroceryViewToolbar(list){
  const bar=document.createElement('div');bar.className='top-controls';
  function add(label,svg,handler){const b=document.createElement('button');b.type='button';b.className='iconbtn top-action-icon';b.title=label;b.setAttribute('aria-label',label);b.innerHTML=svg;b.onclick=handler;bar.append(b)}
  const keyset=()=>new Set(getMasterGroceryItems().keys());
- const tickAll=checked=>{snapshot();for(const [key,item] of getMasterGroceryItems())setGroceryItemChecked(key,item,checked);localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));renderList()};
+ const tickAll=checked=>{snapshot();for(const [key,item] of getMasterGroceryItems())setGroceryItemChecked(key,item,checked);setAllManualGroceries(checked);localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));renderList()};
  add('Select all groceries','<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg>',()=>tickAll(true));
  add('Deselect all groceries','<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 12h10"/></svg>',()=>tickAll(false));
  const hide=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';
