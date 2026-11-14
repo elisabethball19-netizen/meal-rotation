@@ -61,7 +61,7 @@ function groceryPeriodSchedules(period=groceryPeriod){
 }
 function getGroceryContributions(allPlans=false,period='rotation'){
  if(period==='rotation')saveActiveMealPlan();let selected={};try{selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
- const result=[],observed=new Set(),legacyOwners=new Map();
+ const result=[],observed=new Set(),legacyOwners=new Map(),ingredientTokens=new Map();
  for(const {plan,entries,preview}of groceryPeriodSchedules(period)){
   if(!allPlans&&!(showMealPlanTabs&&mealPlans.length>1)&&plan.id!==activePlanId)continue;
   if(!allPlans&&showMealPlanTabs&&mealPlans.length>1&&masterGroceryExcludedPlanIds.has(String(plan.id)))continue;
@@ -73,15 +73,27 @@ function getGroceryContributions(allPlans=false,period='rotation'){
    const legacyOccurrence=JSON.stringify(JSON.parse(occurrence).slice(0,4));if(!legacyOwners.has(legacyOccurrence))legacyOwners.set(legacyOccurrence,occurrence);const legacyOwner=!preview&&legacyOwners.get(legacyOccurrence)===occurrence;
    const linkedParent=linkedTo??entries.find(parent=>parent.day===day&&parent.cat!==entry.cat&&(parent.meal.linkedMealIds||[]).some(id=>String(id)===String(meal.id)))?.meal.id;
    const selectedKeys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),actualPlan=mealPlans.find(item=>item.id===plan.id),sameDate=actualPlan&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},actualPlan.rotationCalendar))===scheduledDate,multiplier=!preview||sameDate?occurrenceMultiplier(context):1,counts=new Map();
-   for(const raw of Array.isArray(meal.ingredients)?meal.ingredients:[]){
+   if(!ingredientTokens.has(meal))ingredientTokens.set(meal,cookingItemTokens(meal).ingredients);
+   for(const [ingredientIndex,raw]of (Array.isArray(meal.ingredients)?meal.ingredients:[]).entries()){
     const original=String(raw??'').trim(),oldKey=ingredientKey(original);if(!oldKey||!selectedKeys.has(oldKey)||syncIngredientHeading(original))continue;
     const normalized=ingredientKey(compactIngredientFractions(original)),index=counts.get(normalized)||0;counts.set(normalized,index+1);
     const line=scaleRecipeIngredient(original,multiplier),quantity=groceryQuantityParts(line),baseKey=quantity?.key||'unmeasured:'+oldKey;
-    result.push({id:JSON.stringify([dated,normalized,index]),occurrence,scheduledDate,preview:!!preview,legacyId:JSON.stringify([occurrence,normalized,index]),legacyIds:[JSON.stringify([occurrence,normalized,index]),JSON.stringify([legacyOccurrence,normalized,index])],legacyOwner,parentId:linkedParent==null?null:String(linkedParent),planId:plan.id,day,cat:entry.cat,mealId:meal.id,mealName:meal.name,original,line,quantity,baseKey,checkKeys:[...new Set([oldKey,original.toLowerCase().replace(/\s+/g,' ').trim()])]});
+    result.push({id:JSON.stringify([dated,normalized,index]),occurrence,scheduledDate,preview:!!preview,legacyId:JSON.stringify([occurrence,normalized,index]),legacyIds:[JSON.stringify([occurrence,normalized,index]),JSON.stringify([legacyOccurrence,normalized,index])],legacyOwner,parentId:linkedParent==null?null:String(linkedParent),planId:plan.id,day,cat:entry.cat,mealId:meal.id,mealName:meal.name,original,ingredientToken:ingredientTokens.get(meal)[ingredientIndex]?.token,multiplier,line,quantity,baseKey,checkKeys:[...new Set([oldKey,original.toLowerCase().replace(/\s+/g,' ').trim()])]});
    }
   }
  }
  return result;
+}
+function openGroceryRecipeSource(source){
+ const meal=meals.find(meal=>String(meal.id)===String(source.mealId));if(!meal||meal.temporaryMeal){showAppMessage('This one-time meal has no saved recipe.');return}
+ const plan=mealPlans.find(plan=>String(plan.id)===String(source.planId));
+ const matches=(plan,entry)=>entry.day===source.day&&String(entry.meal.id)===String(source.mealId)&&groceryOccurrenceIdentity(plan,entry)===source.occurrence&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar))===source.scheduledDate;
+ const current=plan?recipePlanEntries(plan.id).filter(entry=>matches(plan,entry)):[];
+ const context=current.length===1?cookingContext(plan.id,current[0].day,current[0].cat,meal,current[0].linkedTo):null;
+ // Future-only sources stay previews, rather than borrowing this week's progress or scaling.
+ const future=!context&&source.preview&&groceryPeriodSchedules('next').some(item=>String(item.plan.id)===String(source.planId)&&item.entries.some(entry=>matches(item.plan,entry)));
+ const target=context||future?groceryRecipeNavigation(meal,source):null;
+ openSavedMealRecipe(meal,context,null,target);
 }
 function getMasterGroceryItems(){
  const sources=getGroceryContributions(false,groceryPeriod).flatMap(source=>{
@@ -183,8 +195,8 @@ function getMasterGroceryItems(){
     const source=document.createElement('span');source.className='grocery-recipe-source';
     const associations=new Map();for(const contribution of line.contributions||[]){const meal=meals.find(meal=>String(meal.id)===String(contribution.mealId)),key=meal?.linkGroup?'shared:'+meal.linkGroup:'recipe:'+contribution.mealId;if(!associations.has(key))associations.set(key,contribution)}
     for(const contribution of associations.values()){
-     const link=document.createElement('button');link.type='button';link.className='grocery-recipe-link';link.dataset.mealId=String(contribution.mealId);link.dataset.planId=contribution.planId;link.dataset.day=contribution.day;link.textContent=contribution.mealName;
-     link.onclick=()=>{const plan=mealPlans.find(p=>p.id===contribution.planId),entry=plan&&getDisplayedWeekdayMealsForPlan(plan).find(entry=>entry.day===contribution.day&&String(entry.meal.id)===String(contribution.mealId)&&groceryOccurrenceIdentity(plan,entry)===contribution.occurrence&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar))===contribution.scheduledDate),meal=entry?.meal||meals.find(meal=>String(meal.id)===String(contribution.mealId));if(!meal||meal.temporaryMeal){showAppMessage('This one-time meal has no saved recipe.');return}openSavedMealRecipe(meal,entry?cookingContext(plan.id,entry.day,entry.cat,meal,entry.linkedTo):null);revealGroceryRecipeIngredient(meal,contribution.original)};source.append(link);
+     const link=document.createElement('button');link.type='button';link.className='grocery-recipe-link';link.dataset.mealId=String(contribution.mealId);link.dataset.planId=contribution.planId;link.dataset.day=contribution.day;link.dataset.grocerySourceId=contribution.id;link.textContent=contribution.mealName;
+     link.onclick=()=>openGroceryRecipeSource(contribution);source.append(link);
     }
     source.hidden=true;
     name.setAttribute('aria-expanded','false');

@@ -617,22 +617,32 @@ function groceryItemChecked(key,item){
  if(item.contributions)return item.contributions.every(source=>grocerySourceChecked(source));
  return checkedIngredients.has(key)||(item.checkGroups?.length?item.checkGroups.every(group=>group.some(k=>checkedIngredients.has(k))):!!item.checkKeys?.length&&item.checkKeys.every(k=>checkedIngredients.has(k)));
 }
-function setGroceryItemChecked(key,item,checked){
+function setGroceryItemChecked(key,item,checked,batch=null){
  if(item.contributions){
   // Materialize legacy states before changing a global key shared with other rows.
-  const states=captureGroceryCheckStates(true);preserveGroceryCheckStates(states);
+  const states=batch?.states||captureGroceryCheckStates(true);if(!batch)preserveGroceryCheckStates(states);
   for(const source of item.contributions){
    groceryOccurrenceChecks.checks[source.id]=checked;
-   if(source.quantity){const full=states.get(source.id)?.source,prior=states.get(source.id)?.amount||{lo:0,hi:0},q=source.quantity;
+   if(source.quantity){const full=states.get(source.id)?.source,prior=(batch&&full?groceryCheckedAmount(full):states.get(source.id)?.amount)||{lo:0,hi:0},q=source.quantity;
     (groceryOccurrenceChecks.quantities??={})[source.id]=source.segmentChecked===undefined?{lo:checked?q.lo:0,hi:checked?q.hi:0}:{lo:Math.max(0,Math.min(full.quantity.lo,prior.lo+(checked?1:-1)*q.lo)),hi:Math.max(0,Math.min(full.quantity.hi,prior.hi+(checked?1:-1)*q.hi))};
    }
   }
-  const all=[...states.values()].map(item=>item.source).filter(source=>source.baseKey===item.baseKey);
-  if(all.every(source=>grocerySourceChecked(source)))checkedIngredients.add(item.baseKey);else checkedIngredients.delete(item.baseKey);
+  if(batch)batch.bases.add(item.baseKey);else{const all=[...states.values()].map(item=>item.source).filter(source=>source.baseKey===item.baseKey);
+  if(all.every(source=>grocerySourceChecked(source)))checkedIngredients.add(item.baseKey);else checkedIngredients.delete(item.baseKey)}
   if(!checked){checkedIngredients.delete(key);for(const old of item.checkKeys||[])checkedIngredients.delete(old)}
-  saveGroceryOccurrenceChecks();return;
+  if(!batch)saveGroceryOccurrenceChecks();return;
  }
  if(checked)checkedIngredients.add(key);else{checkedIngredients.delete(key);for(const old of item.checkKeys||[])checkedIngredients.delete(old)}
+}
+// Bulk actions share one immutable source universe; only check amounts change during the batch.
+function setGroceryItemsChecked(items,checked){
+ if(!items.size)return;
+ const states=captureGroceryCheckStates(true),byBase=new Map(),batch={states,bases:new Set()};
+ preserveGroceryCheckStates(states);
+ for(const {source}of states.values()){if(!byBase.has(source.baseKey))byBase.set(source.baseKey,[]);byBase.get(source.baseKey).push(source)}
+ for(const [key,item]of items)setGroceryItemChecked(key,item,checked,batch);
+ for(const key of batch.bases){if((byBase.get(key)||[]).every(source=>grocerySourceChecked(source)))checkedIngredients.add(key);else checkedIngredients.delete(key)}
+ saveGroceryOccurrenceChecks();
 }
 function reconcileRotatedGroceryChecks(before,affected,restore=null){
  if(hasDependentSideSlots()){coordinateDependentSides(!!restore);saveActiveMealPlan();}
