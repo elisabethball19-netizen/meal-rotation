@@ -1541,5 +1541,11 @@ input[type="checkbox"]{width:18px!important;height:18px!important;min-width:18px
 .recipe-bulk-choice{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 0;overflow-wrap:anywhere;}
 .recipe-bulk-value{width:100%;min-height:44px;border:1px solid #cfd5dd;border-radius:7px;background:#fff;color:inherit;padding:9px;text-align:left;font:inherit;overflow-wrap:anywhere;}
 
+.recipe-bulk-selected-names{max-height:160px;white-space:normal;flex-shrink:1;}
+.recipe-bulk-selected-names>div{padding:4px 0;overflow-wrap:anywhere;}
+.recipe-bulk-fields>.recipe-bulk-value{margin-top:10px;}
+.recipe-bulk-note{font-size:13px;line-height:1.4;margin:0;}
+.bulk-new-group-row{display:flex;gap:8px;flex-shrink:0;}.bulk-new-group-row[hidden]{display:none;}.bulk-new-group-row input{min-width:0;flex:1;font:inherit;padding:8px;border:1px solid #ccc;border-radius:7px;}
+.recipe-bulk-actions{gap:2px;}.recipe-bulk-actions .recipe-bulk-labeled-action{min-width:42px!important;padding:4px!important;font-size:11px;}
 .recipe-bulk-field[hidden]{display:none;}
 .meal-options-compact .meal-full-action+.meal-full-action{margin-top:8px;}
