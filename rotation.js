@@ -1044,8 +1044,8 @@ function openMealSearch(saved=null){
   const selectedGroups=new Set((Array.isArray(saved?.groups)?saved.groups:[]).filter(group=>cats.includes(group)));
   const groupFilter=document.createElement('fieldset');
   groupFilter.style.cssText='margin:0;padding:8px;border:1px solid #ccc;border-radius:9px;max-height:150px;overflow-y:auto;flex-shrink:0';
-  const legend=document.createElement('legend');legend.textContent='Meal groups';groupFilter.append(legend);
-  const clearGroups=document.createElement('button');clearGroups.type='button';clearGroups.className='iconbtn';setIconButton(clearGroups,'cancel','Clear selected groups');clearGroups.style.cssText='width:30px;height:30px;min-width:30px;min-height:30px;padding:4px;margin-left:auto';
+  const legend=document.createElement('legend');legend.textContent='Filter meal groups';groupFilter.append(legend);
+  const clearGroups=document.createElement('button');clearGroups.type='button';clearGroups.className='iconbtn';setIconButton(clearGroups,'save','Deselect all meal groups');clearGroups.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 12h10"/></svg>';clearGroups.style.cssText='width:30px;height:30px;min-width:30px;min-height:30px;padding:4px;margin-left:auto';
   clearGroups.onclick=()=>{selectedGroups.clear();groupFilter.querySelectorAll('input').forEach(check=>check.checked=false);updateResults()};
   legend.style.cssText='display:flex;align-items:center;gap:8px;width:100%';legend.append(clearGroups);
   for(const group of cats){

@@ -1527,3 +1527,19 @@ input[type="checkbox"]{width:18px!important;height:18px!important;min-width:18px
 .grocery-header-icons{display:flex;align-items:center;gap:2px;margin-left:auto;flex:0 0 auto;}
 .grocery-header-icons>button{flex:0 0 44px;min-width:44px!important;min-height:44px!important;margin:0!important;}
 #list .meal-plan-grocery>.master-grocery-plan-filters{display:flex!important;margin:8px 0 10px!important;padding:0 0 6px!important;border-bottom:1px solid #e1e1e1!important;}
+
+.meal-options-compact{height:auto!important;min-height:0!important;gap:0!important;}
+.meal-options-compact>div:first-child{margin-bottom:2px!important;}
+.meal-options-compact .meal-quick-actions{margin:0!important;padding:0!important;min-height:36px!important;}
+.meal-options-compact .meal-options-last-cooked{margin:0 0 10px!important;min-height:32px!important;}
+.recipe-bulk-dialog{overscroll-behavior:none;}
+.recipe-bulk-dialog>div{background:#fff;color:#242424;display:flex;flex-direction:column;max-height:calc(100dvh - 36px);overflow:hidden!important;}
+.recipe-bulk-dialog>div>strong{display:flex;align-items:center;gap:8px;flex-shrink:0;overflow-wrap:anywhere;}
+.dialog-heading-add{margin-left:auto;flex-shrink:0;}
+.recipe-bulk-dialog .meal-unified-actions,.recipe-bulk-dialog .meal-linked-dialog-actions{flex-shrink:0;}
+.recipe-bulk-choice-list,.recipe-bulk-selected-names{min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;}
+.recipe-bulk-choice{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 0;overflow-wrap:anywhere;}
+.recipe-bulk-value{width:100%;min-height:44px;border:1px solid #cfd5dd;border-radius:7px;background:#fff;color:inherit;padding:9px;text-align:left;font:inherit;overflow-wrap:anywhere;}
+
+.recipe-bulk-field[hidden]{display:none;}
+.meal-options-compact .meal-full-action+.meal-full-action{margin-top:8px;}
