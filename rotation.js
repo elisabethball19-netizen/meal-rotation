@@ -1061,9 +1061,9 @@ function openMealSearch(saved=null){
   const results=document.createElement('div');
   results.setAttribute('aria-live','polite');
   results.style.cssText='overflow-y:auto;min-height:100px;flex:1;overscroll-behavior:contain';
-  const selectedRecipes=new Set();const bulk=document.createElement('button');bulk.type='button';bulk.className='smallbtn';bulk.hidden=true;bulk.setAttribute('aria-label','Bulk actions for selected recipes');
-  const updateSelection=()=>{bulk.hidden=!selectedRecipes.size;bulk.textContent='Bulk actions ('+selectedRecipes.size+')'};
-  bulk.onclick=()=>{if(!selectedRecipes.size)return;closeSearch();setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;recipeBulkMode=true;recipeBulkIds=new Set(selectedRecipes);render()};
+  const selectedRecipes=new Set(recipeBulkMode?[...recipeBulkIds]:[]);let selectedSourceGroup=recipeBulkMode?recipeBulkSourceGroup:null;const bulk=document.createElement('button');bulk.type='button';bulk.className='smallbtn';bulk.hidden=true;bulk.setAttribute('aria-label','Bulk actions for selected recipes');
+  const updateSelection=()=>{bulk.hidden=!selectedRecipes.size;bulk.textContent='Bulk actions ('+selectedRecipes.size+')'};updateSelection();
+  bulk.onclick=()=>{if(!selectedRecipes.size)return;closeSearch();setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;recipeBulkMode=true;recipeBulkIds=new Set(selectedRecipes);recipeBulkSourceGroup=selectedSourceGroup;recipeBulkFilter={query:input.value,groups:[...selectedGroups]};render()};
   function fitSearch(){
     const vv=window.visualViewport;
     if(!vv)return;
@@ -1089,15 +1089,7 @@ function openMealSearch(saved=null){
     results.replaceChildren();
     const q=normalizeSearchText(input.value);
     if(!q&&!selectedGroups.size)return;
-    const seen=new Set();
-    const matches=meals.filter(m=>{
-      return (!selectedGroups.size||selectedGroups.has(m.cat))&&(!q||mealMatchesSearch(m,q));
-    }).filter(m=>{
-      const key=m.linkGroup?'linked:'+m.linkGroup:'single:'+m.id;
-      if(seen.has(key))return false;
-      seen.add(key);
-      return true;
-    });
+    const matches=meals.filter(m=>(!selectedGroups.size||selectedGroups.has(m.cat))&&(!q||mealMatchesSearch(m,q)));
     if(!matches.length){
       const empty=document.createElement('p');
       empty.textContent='No matching meals.';
@@ -1112,15 +1104,14 @@ function openMealSearch(saved=null){
       const name=document.createElement('span');
       name.textContent=meal.name||'Untitled meal';
       name.style.cssText='display:block;font-size:17px';
-      const categories=meal.linkGroup?meals.filter(m=>m.linkGroup===meal.linkGroup).map(m=>m.cat):[meal.cat];
       const meta=document.createElement('span');
-      meta.textContent=[...new Set(categories)].join(', ')+(meal.rotation?' · In rotation':' · Ideas');
+      meta.textContent=(meal.cat||'Unassigned')+(meal.rotation?' · In rotation':' · Ideas');
       meta.style.cssText='display:block;font-size:13px;color:#666;margin-top:4px';
       button.append(name,meta);
       button.dataset.mealId=String(meal.id);
       button.onclick=()=>chooseMeal(meal.id);
       const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px';
-      const check=document.createElement('input');check.type='checkbox';check.className='check';check.setAttribute('aria-label','Select '+(meal.name||'Untitled meal'));check.checked=selectedRecipes.has(String(meal.id));check.onchange=()=>{if(check.checked)selectedRecipes.add(String(meal.id));else selectedRecipes.delete(String(meal.id));updateSelection()};row.append(check,button);results.append(row);
+      const check=document.createElement('input');check.type='checkbox';check.className='check';check.setAttribute('aria-label','Select '+(meal.name||'Untitled meal'));check.checked=selectedRecipes.has(String(meal.id));check.disabled=selectedSourceGroup!==null&&meal.cat!==selectedSourceGroup;check.title=check.disabled?'Select recipes from '+(selectedSourceGroup||'Unassigned'):'';check.onchange=()=>{if(selectedSourceGroup!==null&&meal.cat!==selectedSourceGroup){check.checked=false;return}if(check.checked){if(!selectedRecipes.size)selectedSourceGroup=meal.cat;selectedRecipes.add(String(meal.id))}else selectedRecipes.delete(String(meal.id));if(!selectedRecipes.size)selectedSourceGroup=null;updateSelection();updateResults()};const target=document.createElement('label');target.className='recipe-search-select';target.append(check);row.append(target,button);results.append(row);
     });
   }
   function onKeyDown(event){if(event.key==='Escape'){event.preventDefault();closeSearch()}}

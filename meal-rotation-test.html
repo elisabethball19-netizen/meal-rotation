@@ -1390,7 +1390,7 @@ input[type="checkbox"]{width:18px!important;height:18px!important;min-width:18px
 /* Grocery heading controls wrap as one group; periods remain below. */
 #list .meal-plan-grocery .grocery-compact-header{display:flex!important;flex-wrap:wrap!important;gap:4px 12px!important;border:0!important;}
 #list .grocery-compact-header>h2{flex:1 0 auto!important;margin:0!important;}
-.grocery-header-icons{display:flex;align-items:center;gap:2px;margin-left:auto;flex:0 0 auto;}
+.grocery-header-icons{display:flex;align-items:center;gap:2px;margin-left:0;flex:0 0 auto;}
 .grocery-header-icons>button{flex:0 0 44px;min-width:44px!important;min-height:44px!important;margin:0!important;}
 #list .meal-plan-grocery>.master-grocery-plan-filters{display:flex!important;margin:8px 0 10px!important;padding:0 0 6px!important;border-bottom:1px solid #e1e1e1!important;}
 
@@ -1415,6 +1415,16 @@ input[type="checkbox"]{width:18px!important;height:18px!important;min-width:18px
 .recipe-bulk-actions{gap:2px;}.recipe-bulk-actions .recipe-bulk-labeled-action{min-width:42px!important;padding:4px!important;font-size:11px;}
 .recipe-bulk-field[hidden]{display:none;}
 .meal-options-compact .meal-full-action+.meal-full-action{margin-top:8px;}
+
+/* Source names are compact lines; quantities and occurrence checks are unchanged. */
+.grocery-recipe-source .grocery-recipe-link{display:block;width:100%;border:0;background:transparent;color:inherit;text-decoration:underline;padding:2px 0;min-height:0;text-align:left;font:inherit;line-height:1.35;overflow-wrap:anywhere;}
+.recipe-bulk-other-group .recipe-bulk-check{opacity:.4;cursor:not-allowed;}
+.recipe-bulk-choice>span{min-width:0;flex:1;}
+.recipe-bulk-dialog input[type="radio"]{appearance:auto!important;-webkit-appearance:auto!important;accent-color:#315ba8;width:18px;height:18px;min-width:18px;min-height:18px;flex:0 0 18px;margin:0;background:revert!important;border:revert!important;box-shadow:none!important;}
+.recipe-bulk-dialog input[type="radio"]::after{display:none!important;}
+.recipe-bulk-dialog .dialog-heading-add[hidden]{display:none!important;}
+
+body.recipe-bulk-select .master-category-meal{gap:10px;}.recipe-bulk-check{flex:0 0 18px;width:18px;padding:0;}.recipe-search-select{display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -5015,9 +5025,9 @@ function openMealSearch(saved=null){
   const results=document.createElement('div');
   results.setAttribute('aria-live','polite');
   results.style.cssText='overflow-y:auto;min-height:100px;flex:1;overscroll-behavior:contain';
-  const selectedRecipes=new Set();const bulk=document.createElement('button');bulk.type='button';bulk.className='smallbtn';bulk.hidden=true;bulk.setAttribute('aria-label','Bulk actions for selected recipes');
-  const updateSelection=()=>{bulk.hidden=!selectedRecipes.size;bulk.textContent='Bulk actions ('+selectedRecipes.size+')'};
-  bulk.onclick=()=>{if(!selectedRecipes.size)return;closeSearch();setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;recipeBulkMode=true;recipeBulkIds=new Set(selectedRecipes);render()};
+  const selectedRecipes=new Set(recipeBulkMode?[...recipeBulkIds]:[]);let selectedSourceGroup=recipeBulkMode?recipeBulkSourceGroup:null;const bulk=document.createElement('button');bulk.type='button';bulk.className='smallbtn';bulk.hidden=true;bulk.setAttribute('aria-label','Bulk actions for selected recipes');
+  const updateSelection=()=>{bulk.hidden=!selectedRecipes.size;bulk.textContent='Bulk actions ('+selectedRecipes.size+')'};updateSelection();
+  bulk.onclick=()=>{if(!selectedRecipes.size)return;closeSearch();setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;recipeBulkMode=true;recipeBulkIds=new Set(selectedRecipes);recipeBulkSourceGroup=selectedSourceGroup;recipeBulkFilter={query:input.value,groups:[...selectedGroups]};render()};
   function fitSearch(){
     const vv=window.visualViewport;
     if(!vv)return;
@@ -5043,15 +5053,7 @@ function openMealSearch(saved=null){
     results.replaceChildren();
     const q=normalizeSearchText(input.value);
     if(!q&&!selectedGroups.size)return;
-    const seen=new Set();
-    const matches=meals.filter(m=>{
-      return (!selectedGroups.size||selectedGroups.has(m.cat))&&(!q||mealMatchesSearch(m,q));
-    }).filter(m=>{
-      const key=m.linkGroup?'linked:'+m.linkGroup:'single:'+m.id;
-      if(seen.has(key))return false;
-      seen.add(key);
-      return true;
-    });
+    const matches=meals.filter(m=>(!selectedGroups.size||selectedGroups.has(m.cat))&&(!q||mealMatchesSearch(m,q)));
     if(!matches.length){
       const empty=document.createElement('p');
       empty.textContent='No matching meals.';
@@ -5066,15 +5068,14 @@ function openMealSearch(saved=null){
       const name=document.createElement('span');
       name.textContent=meal.name||'Untitled meal';
       name.style.cssText='display:block;font-size:17px';
-      const categories=meal.linkGroup?meals.filter(m=>m.linkGroup===meal.linkGroup).map(m=>m.cat):[meal.cat];
       const meta=document.createElement('span');
-      meta.textContent=[...new Set(categories)].join(', ')+(meal.rotation?' · In rotation':' · Ideas');
+      meta.textContent=(meal.cat||'Unassigned')+(meal.rotation?' · In rotation':' · Ideas');
       meta.style.cssText='display:block;font-size:13px;color:#666;margin-top:4px';
       button.append(name,meta);
       button.dataset.mealId=String(meal.id);
       button.onclick=()=>chooseMeal(meal.id);
       const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px';
-      const check=document.createElement('input');check.type='checkbox';check.className='check';check.setAttribute('aria-label','Select '+(meal.name||'Untitled meal'));check.checked=selectedRecipes.has(String(meal.id));check.onchange=()=>{if(check.checked)selectedRecipes.add(String(meal.id));else selectedRecipes.delete(String(meal.id));updateSelection()};row.append(check,button);results.append(row);
+      const check=document.createElement('input');check.type='checkbox';check.className='check';check.setAttribute('aria-label','Select '+(meal.name||'Untitled meal'));check.checked=selectedRecipes.has(String(meal.id));check.disabled=selectedSourceGroup!==null&&meal.cat!==selectedSourceGroup;check.title=check.disabled?'Select recipes from '+(selectedSourceGroup||'Unassigned'):'';check.onchange=()=>{if(selectedSourceGroup!==null&&meal.cat!==selectedSourceGroup){check.checked=false;return}if(check.checked){if(!selectedRecipes.size)selectedSourceGroup=meal.cat;selectedRecipes.add(String(meal.id))}else selectedRecipes.delete(String(meal.id));if(!selectedRecipes.size)selectedSourceGroup=null;updateSelection();updateResults()};const target=document.createElement('label');target.className='recipe-search-select';target.append(check);row.append(target,button);results.append(row);
     });
   }
   function onKeyDown(event){if(event.key==='Escape'){event.preventDefault();closeSearch()}}
@@ -5906,7 +5907,7 @@ function getMasterGroceryItems(){
  function renderMasterGroceryTab(list){
   groceryPeriod=readGroceryPeriod();
   const panel=document.createElement('section');panel.className='meal-plan-grocery';panel.setAttribute('aria-label','Master grocery list');
-  const heading=document.createElement('h2');heading.textContent='Grocery List';
+  const heading=document.createElement('h2');heading.textContent='Groceries';
   const groceryHeader=document.createElement('div');groceryHeader.className='grocery-compact-header';groceryHeader.append(heading);const addManual=document.createElement('button');addManual.type='button';addManual.className='iconbtn grocery-add-manual';setIconButton(addManual,'add','Add grocery item');addManual.onclick=()=>openManualGroceryEditor(null,updateRows);panel.append(groceryHeader);
   const filters=document.createElement('div');filters.className='master-grocery-plan-filters';
   const periods=document.createElement('div');periods.className='grocery-week-options';periods.setAttribute('role','group');periods.setAttribute('aria-label','Grocery period');const weekChecks={};
@@ -5937,11 +5938,9 @@ function getMasterGroceryItems(){
     const name=document.createElement('button');name.type='button';name.className='grocery-ingredient-name';
     name.textContent=groceryDisplayText(line);bindGroceryTextPress(name,line,updateRows);
     const source=document.createElement('span');source.className='grocery-recipe-source';
-    const associations=new Map();for(const contribution of line.contributions||[]){const key=JSON.stringify([contribution.planId,contribution.day,String(contribution.mealId),contribution.occurrence]);if(!associations.has(key))associations.set(key,contribution)}
-    if(!associations.size)source.textContent='No associated recipes';
+    const associations=new Map();for(const contribution of line.contributions||[]){const meal=meals.find(meal=>String(meal.id)===String(contribution.mealId)),key=meal?.linkGroup?'shared:'+meal.linkGroup:'recipe:'+contribution.mealId;if(!associations.has(key))associations.set(key,contribution)}
     for(const contribution of associations.values()){
-     if(source.childNodes.length)source.append(document.createTextNode(' · '));const link=document.createElement('button');link.type='button';link.className='grocery-recipe-link';link.dataset.mealId=String(contribution.mealId);link.dataset.planId=contribution.planId;link.dataset.day=contribution.day;link.style.cssText='border:0;background:transparent;color:inherit;text-decoration:underline;padding:5px 2px;min-height:44px;text-align:left;font:inherit';link.textContent=contribution.mealName+' ('+mealPlans.find(p=>p.id===contribution.planId)?.name+', '+contribution.day+', '+contribution.cat+')';
-     link.textContent+=' · '+contribution.scheduledDate;
+     const link=document.createElement('button');link.type='button';link.className='grocery-recipe-link';link.dataset.mealId=String(contribution.mealId);link.dataset.planId=contribution.planId;link.dataset.day=contribution.day;link.textContent=contribution.mealName;
      link.onclick=()=>{const plan=mealPlans.find(p=>p.id===contribution.planId),entry=plan&&getDisplayedWeekdayMealsForPlan(plan).find(entry=>entry.day===contribution.day&&String(entry.meal.id)===String(contribution.mealId)&&groceryOccurrenceIdentity(plan,entry)===contribution.occurrence&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar))===contribution.scheduledDate),meal=entry?.meal||meals.find(meal=>String(meal.id)===String(contribution.mealId));if(!meal||meal.temporaryMeal){showAppMessage('This one-time meal has no saved recipe.');return}openSavedMealRecipe(meal,entry?cookingContext(plan.id,entry.day,entry.cat,meal,entry.linkedTo):null);revealGroceryRecipeIngredient(meal,contribution.original)};source.append(link);
     }
     source.hidden=true;
@@ -7828,27 +7827,33 @@ function bulkRecipeStorageBridge(base){return new Proxy(base,{get(target,key){
  const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;
 }})}
 let recipeBulkBackupAPI=null;
-let recipeBulkMode=false,recipeBulkIds=new Set(),recipeBulkFocus=null,recipeBulkSuppress=null,recipeBulkBusy=false;
+let recipeBulkMode=false,recipeBulkIds=new Set(),recipeBulkFocus=null,recipeBulkSourceGroup=null,recipeBulkFilter=null,recipeBulkSuppress=null,recipeBulkBusy=false;
 function bulkRecipeSelected(){return meals.filter(m=>recipeBulkIds.has(String(m.id)))}
 function bulkRecipeRender(){const top=window.scrollY;renderList();window.scrollTo({top,behavior:'instant'});requestAnimationFrame(()=>window.scrollTo({top,behavior:'instant'}))}
-function beginRecipeBulk(meal){if(showTop||editId!==null||recipeViewer||recipeBulkBusy)return;const top=scrollY;recipeBulkMode=true;recipeBulkIds.add(String(meal.id));recipeBulkFocus={cat:meal.cat,rotation:!!meal.rotation};recipeBulkSuppress=String(meal.id);masterGroupDragCleanup?.();masterGroupDragCleanup=null;updateRecipeBulkUI();window.scrollTo({top,behavior:'instant'});requestAnimationFrame(()=>window.scrollTo({top,behavior:'instant'}))}
-function endRecipeBulk(){recipeBulkMode=false;recipeBulkIds.clear();recipeBulkFocus=null;recipeBulkSuppress=null;document.body.classList.remove('recipe-bulk-select');document.getElementById('recipeBulkToolbar')?.remove();document.querySelectorAll('.recipe-bulk-check').forEach(el=>el.remove());if(!showTop&&editId===null)bulkRecipeRender()}
-function toggleRecipeBulk(meal,checked=null){const key=String(meal.id);if(checked??!recipeBulkIds.has(key))recipeBulkIds.add(key);else recipeBulkIds.delete(key);recipeBulkFocus={cat:meal.cat,rotation:!!meal.rotation};updateRecipeBulkUI()}
+function clearRecipeBulkSelection(){recipeBulkIds.clear();recipeBulkSourceGroup=null;recipeBulkFilter=null;recipeBulkSuppress=null}
+function selectRecipeBulkFromGroup(meal,group,checked=true){
+ if(typeof group!=='string'||meal.cat!==group||recipeBulkIds.size&&recipeBulkSourceGroup!==group)return false;
+ if(checked){if(!recipeBulkIds.size)recipeBulkSourceGroup=group;recipeBulkIds.add(String(meal.id))}else recipeBulkIds.delete(String(meal.id));
+ if(!recipeBulkIds.size){recipeBulkSourceGroup=null;recipeBulkFilter=null}return true;
+}
+function beginRecipeBulk(meal,group){if(showTop||editId!==null||recipeViewer||recipeBulkBusy||!selectRecipeBulkFromGroup(meal,group))return;const top=scrollY;recipeBulkMode=true;recipeBulkFocus={cat:group,rotation:!!meal.rotation};recipeBulkSuppress=String(meal.id);masterGroupDragCleanup?.();masterGroupDragCleanup=null;updateRecipeBulkUI();window.scrollTo({top,behavior:'instant'});requestAnimationFrame(()=>window.scrollTo({top,behavior:'instant'}))}
+function endRecipeBulk(){recipeBulkMode=false;clearRecipeBulkSelection();recipeBulkFocus=null;document.body.classList.remove('recipe-bulk-select');document.getElementById('recipeBulkToolbar')?.remove();document.querySelectorAll('.recipe-bulk-check').forEach(el=>el.remove());if(!showTop&&editId===null)bulkRecipeRender()}
+function toggleRecipeBulk(meal,checked=null,group){selectRecipeBulkFromGroup(meal,group,checked??!recipeBulkIds.has(String(meal.id)));updateRecipeBulkUI()}
 function bindRecipeBulkRow(row,meal){
  let hold=null,start=null;const stop=()=>{clearTimeout(hold);hold=null;start=null};
- row.addEventListener('pointerdown',e=>{if(recipeBulkMode){recipeBulkSuppress=null;e.stopImmediatePropagation();return}if(e.pointerType==='mouse'&&e.button!==0||e.target.closest('button,input,a,select'))return;start={x:e.clientX,y:e.clientY};hold=setTimeout(()=>{if(start)beginRecipeBulk(meal)},550)},{capture:true});
+ row.addEventListener('pointerdown',e=>{if(recipeBulkMode){recipeBulkSuppress=null;e.stopImmediatePropagation();return}if(e.pointerType==='mouse'&&e.button!==0||e.target.closest('button,input,a,select'))return;start={x:e.clientX,y:e.clientY};hold=setTimeout(()=>{if(start)beginRecipeBulk(meal,row.closest('.master-category-card')?.dataset.category)},550)},{capture:true});
  row.addEventListener('pointermove',e=>{if(start&&Math.hypot(e.clientX-start.x,e.clientY-start.y)>10)stop()});for(const event of ['pointerup','pointercancel','pointerleave'])row.addEventListener(event,stop);
- row.addEventListener('click',e=>{if(!recipeBulkMode)return;if(recipeBulkSuppress!==null){recipeBulkSuppress=null;e.preventDefault();e.stopImmediatePropagation();return}if(e.target.closest('.recipe-bulk-check'))return;e.preventDefault();e.stopImmediatePropagation();toggleRecipeBulk(meal)},{capture:true});
+ row.addEventListener('click',e=>{if(!recipeBulkMode)return;if(recipeBulkSuppress!==null){recipeBulkSuppress=null;e.preventDefault();e.stopImmediatePropagation();return}if(e.target.closest('.recipe-bulk-check'))return;e.preventDefault();e.stopImmediatePropagation();toggleRecipeBulk(meal,null,row.closest('.master-category-card')?.dataset.category)},{capture:true});
 }
 function eligibleBulkRecipes(){
- const unique=new Map();for(const row of document.querySelectorAll('.master-category-meal[data-meal-id]')){if(!row.getClientRects().length)continue;const meal=meals.find(m=>String(m.id)===row.dataset.mealId);if(meal){const key=meal.linkGroup||'recipe:'+meal.id;if(!unique.has(key))unique.set(key,meal)}}return [...unique.values()];
+ if(recipeBulkSourceGroup===null||!recipeBulkIds.size)return [];const unique=new Map();for(const meal of meals){if(meal.cat!==recipeBulkSourceGroup||recipeBulkFilter?.query&&!mealMatchesSearch(meal,recipeBulkFilter.query)||recipeBulkFilter?.groups.length&&!recipeBulkFilter.groups.includes(meal.cat))continue;const key=meal.linkGroup||'recipe:'+meal.id;if(!unique.has(key))unique.set(key,meal)}return [...unique.values()];
 }
-function selectExpandedBulkRecipes(){for(const meal of eligibleBulkRecipes())if(!sharedRecipeMembers(meal).some(member=>recipeBulkIds.has(String(member.id))))recipeBulkIds.add(String(meal.id));updateRecipeBulkUI()}
+function selectExpandedBulkRecipes(){for(const meal of eligibleBulkRecipes())selectRecipeBulkFromGroup(meal,recipeBulkSourceGroup);updateRecipeBulkUI()}
 function updateRecipeBulkUI(){
- if(!recipeBulkMode)return;for(const id of recipeBulkIds)if(!meals.some(m=>String(m.id)===id))recipeBulkIds.delete(id);document.body.classList.add('recipe-bulk-select');for(const button of document.querySelectorAll('.master-category-header .iconbtn,.master-add-group,[aria-label="Manage recipe labels"]'))button.disabled=true;
- for(const row of document.querySelectorAll('.master-category-meal[data-meal-id]')){const meal=meals.find(m=>String(m.id)===row.dataset.mealId);if(!meal)continue;let label=row.querySelector('.recipe-bulk-check');if(!label){label=document.createElement('label');label.className='recipe-bulk-check';const check=document.createElement('input');check.type='checkbox';check.className='check';check.setAttribute('aria-label','Select '+(meal.name||'Untitled meal'));check.onchange=()=>toggleRecipeBulk(meal,check.checked);label.append(check);row.prepend(label)}label.firstElementChild.checked=recipeBulkIds.has(String(meal.id))}
- let bar=document.getElementById('recipeBulkToolbar');if(!bar){bar=document.createElement('section');bar.id='recipeBulkToolbar';bar.setAttribute('aria-label','Selected recipes');bar.dataset.recipeEditDraft='';const count=document.createElement('div');count.className='recipe-bulk-count';count.setAttribute('role','status');bar.append(count);const actions=document.createElement('div');actions.className='recipe-bulk-actions';for(const [kind,label,action]of [['move','Move selected recipes',()=>openRecipeBulkEditor(true)],['rename','Edit selected recipes',()=>openRecipeBulkEditor(false)],['delete','Delete selected recipes',deleteRecipeBulk],['save','Select all expanded recipes',selectExpandedBulkRecipes],['deselect','Deselect all recipes',()=>{recipeBulkIds.clear();updateRecipeBulkUI()}],['cancel','Exit selection mode',endRecipeBulk]]){const b=document.createElement('button');b.type='button';setIconButton(b,kind,label);if(kind==='deselect'){b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 12h10"/></svg>'}if(kind==='save')b.dataset.selectExpanded='true';if(kind==='save')b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m7 12 3 3 7-7"/></svg>';const text=document.createElement('span');text.textContent=({move:'Move',rename:'Edit',delete:'Delete',save:'Select all',deselect:'Deselect all',cancel:'Done'})[kind];b.append(text);b.classList.add('recipe-bulk-labeled-action');b.dataset.needsSelection=String(['move','rename','delete'].includes(kind));b.onclick=action;actions.append(b)}bar.append(actions);document.body.append(bar)}
- bar.querySelector('.recipe-bulk-count').textContent=recipeIdentityCount([...recipeBulkIds])+' selected';for(const b of bar.querySelectorAll('button[data-needs-selection="true"]'))b.disabled=!recipeBulkIds.size||recipeBulkBusy;bar.querySelector('[data-select-expanded]').disabled=!eligibleBulkRecipes().length||recipeBulkBusy;
+ if(!recipeBulkMode)return;for(const id of recipeBulkIds)if(!meals.some(m=>String(m.id)===id))recipeBulkIds.delete(id);if(!recipeBulkIds.size)recipeBulkSourceGroup=null;document.body.classList.add('recipe-bulk-select');for(const button of document.querySelectorAll('.master-category-header .iconbtn,.master-add-group,[aria-label="Manage recipe labels"]'))button.disabled=true;
+ for(const row of document.querySelectorAll('.master-category-meal[data-meal-id]')){const meal=meals.find(m=>String(m.id)===row.dataset.mealId);if(!meal)continue;let label=row.querySelector('.recipe-bulk-check');if(!label){label=document.createElement('label');label.className='recipe-bulk-check';const check=document.createElement('input');check.type='checkbox';check.className='check';check.setAttribute('aria-label','Select '+(meal.name||'Untitled meal'));check.onchange=()=>toggleRecipeBulk(meal,check.checked,row.closest('.master-category-card')?.dataset.category);label.append(check);row.prepend(label)}const allowed=recipeBulkSourceGroup===null||row.closest('.master-category-card')?.dataset.category===recipeBulkSourceGroup;label.firstElementChild.disabled=!allowed;label.firstElementChild.checked=allowed&&recipeBulkIds.has(String(meal.id));label.title=allowed?'':'Select recipes from '+(recipeBulkSourceGroup||'Unassigned');row.classList.toggle('recipe-bulk-other-group',!allowed)}
+ let bar=document.getElementById('recipeBulkToolbar');if(!bar){bar=document.createElement('section');bar.id='recipeBulkToolbar';bar.setAttribute('aria-label','Selected recipes');bar.dataset.recipeEditDraft='';const count=document.createElement('div');count.className='recipe-bulk-count';count.setAttribute('role','status');bar.append(count);const actions=document.createElement('div');actions.className='recipe-bulk-actions';for(const [kind,label,action]of [['rename','Edit selected recipes',()=>openRecipeBulkEditor(false)],['delete','Delete selected recipes',deleteRecipeBulk],['save','Select all source-group recipes',selectExpandedBulkRecipes],['deselect','Deselect all recipes',()=>{clearRecipeBulkSelection();updateRecipeBulkUI()}],['cancel','Exit selection mode',endRecipeBulk]]){const b=document.createElement('button');b.type='button';setIconButton(b,kind,label);if(kind==='deselect'){b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 12h10"/></svg>'}if(kind==='save')b.dataset.selectExpanded='true';if(kind==='save')b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m7 12 3 3 7-7"/></svg>';const text=document.createElement('span');text.textContent=({move:'Move',rename:'Edit',delete:'Delete',save:'Select all',deselect:'Deselect all',cancel:'Done'})[kind];b.append(text);b.classList.add('recipe-bulk-labeled-action');b.dataset.needsSelection=String(['move','rename','delete'].includes(kind));b.onclick=action;actions.append(b)}bar.append(actions);document.body.append(bar)}
+ bar.querySelector('.recipe-bulk-count').textContent=recipeBulkSourceGroup===null?'0 selected':(recipeBulkSourceGroup||'Unassigned')+' ('+recipeIdentityCount([...recipeBulkIds])+')';for(const b of bar.querySelectorAll('button[data-needs-selection="true"]'))b.disabled=!recipeBulkIds.size||recipeBulkBusy;bar.querySelector('[data-select-expanded]').disabled=!eligibleBulkRecipes().length||recipeBulkBusy;
 }
 function recipeBulkDialog(title,returnFocus=null){
  const overlay=document.createElement('div');overlay.className='recipe-timer-dialog recipe-bulk-dialog';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label',title);overlay.dataset.recipeEditDraft='';const panel=document.createElement('div'),heading=document.createElement('strong');heading.textContent=title;panel.append(heading);
@@ -7862,7 +7867,7 @@ function validateRecipeBulkChange(ids,patch,allowEmpty=false,groups=cats,members
  for(const key of ['rotation','favorite','adjusting','delete'])if(Object.hasOwn(patch,key)&&typeof patch[key]!=='boolean')throw Error('Invalid '+key+' change.');for(const key of ['addLabels','removeLabels'])if(patch[key]!==undefined&&(!Array.isArray(patch[key])||patch[key].some(label=>typeof label!=='string'||!label.trim())))throw Error('Invalid recipe labels.');
  if((!ids.length&&!allowEmpty)||ids.some(id=>!meals.some(m=>String(m.id)===id)))throw Error('The recipe selection changed. Select the recipes again.');if(patch.category&&!groups.includes(patch.category))throw Error('Choose an existing meal group.');
  if(patch.category===''&&patch.rotation===true)throw Error('Choose a meal group before adding unassigned recipes to rotation.');
- if(patch.rotation===true&&!patch.category&&!(membershipChange&&membershipChange.operation!=='remove'&&membershipChange.groups.length)&&meals.some(meal=>meal.cat===''&&ids.includes(String(meal.id))))throw Error('Choose a meal group before adding unassigned recipes to rotation.');
+ if(patch.rotation===true&&!patch.category&&!(membershipChange&&membershipChange.add&&membershipChange.groups.length)&&meals.some(meal=>meal.cat===''&&ids.includes(String(meal.id))))throw Error('Choose a meal group before adding unassigned recipes to rotation.');
  if((patch.addLabels||[]).some(label=>(patch.removeLabels||[]).some(other=>labelKey(label)===labelKey(other))))throw Error('A label cannot be added and removed in the same update.');
  if(Object.hasOwn(patch,'category')){const groups=new Map();for(const m of meals){if(!m.linkGroup)continue;const cat=ids.includes(String(m.id))?patch.category:m.cat,key=JSON.stringify([m.linkGroup,cat]);if(groups.has(key)){const other=groups.get(key);if(ids.includes(String(m.id))&&m.cat!==patch.category||ids.includes(String(other.id))&&other.cat!==patch.category)throw Error('Shared copies of the same recipe cannot occupy the same group. Choose a different destination; no recipes were moved.')}groups.set(key,m)}}
 }
@@ -7933,11 +7938,14 @@ function applyEditorRecipeMutation(edit,transaction){
  transaction.promotionMealId=primary?.cat?edit.sourceId:null;if(transaction.promotion?.day)transaction.allowedDays.push({planId:activePlanId,day:transaction.promotion.day});
 }
 
+function bulkGroupMemberships(source,change){
+ const members=sharedRecipeMembers(source),chosen=new Set(members.map(meal=>meal.cat).filter(Boolean));if(change.add)for(const group of change.groups)chosen.add(group);if(change.remove)chosen.delete(change.sourceGroup);return {members,chosen};
+}
+function bulkGroupChangePending(ids,change){return !!change&&ids.some(key=>{const source=meals.find(meal=>String(meal.id)===key);if(!source)return false;const {members,chosen}=bulkGroupMemberships(source,change),prior=new Set(members.map(meal=>meal.cat).filter(Boolean));return chosen.size!==prior.size||[...chosen].some(group=>!prior.has(group))})}
 function applyBulkGroupMemberships(ids,change,transaction,rotation){
- const unique=new Map();for(const key of ids){const source=meals.find(m=>String(m.id)===key);if(!source)throw Error('A selected recipe was removed.');const identity=source.linkGroup||'recipe:'+source.id;if(!unique.has(identity))unique.set(identity,source)}
+ const unique=new Map();for(const key of ids){const source=meals.find(m=>String(m.id)===key);if(!source||source.cat!==change.sourceGroup)throw Error('The source group changed. Select the recipes again.');const identity=source.linkGroup||'recipe:'+source.id;if(!unique.has(identity))unique.set(identity,source)}
  for(const source of unique.values()){
-  const members=sharedRecipeMembers(source),prior=members.map(m=>m.cat).filter(Boolean),chosen=new Set(change.operation==='replace'?change.groups:change.operation==='add'?[...prior,...change.groups]:prior.filter(cat=>!change.groups.includes(cat)));
-  const primaryCat=chosen.has(source.cat)?source.cat:([...chosen][0]||''),remaining=new Set([...chosen].filter(cat=>cat!==primaryCat)),memberships=[{id:String(source.id),cat:primaryCat}];
+  const {members,chosen}=bulkGroupMemberships(source,change),prior=new Set(members.map(member=>member.cat)),primaryCat=chosen.has(source.cat)?source.cat:([...chosen].find(cat=>!prior.has(cat))||''),remaining=new Set([...chosen].filter(cat=>cat!==primaryCat)),memberships=[{id:String(source.id),cat:primaryCat}];
   for(const member of members.filter(member=>member!==source)){const keep=remaining.delete(member.cat);memberships.push({id:String(member.id),cat:keep?member.cat:'',removed:!keep})}for(const cat of remaining)memberships.push({id:null,cat});
   applyEditorRecipeMutation({sourceId:String(source.id),memberships,newGroups:[],fields:{},rotation:rotation??source.rotation},transaction);
  }
@@ -7946,11 +7954,11 @@ function applyBulkGroupMemberships(ids,change,transaction,rotation){
 function recipeBulkOperationId(ids,patch,options){
  // Only an identical requested mutation may resolve its failed bulk operation.
  const ordered=value=>Array.isArray(value)?value.map(ordered):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,ordered(value[key])])):value;
- return 'bulk:'+JSON.stringify(ordered({type:options.dependentRole?'dependent-role':'bulk-edit',targets:[...ids].map(String).sort(),patch,dependentRole:options.dependentRole||null,firstMealPlan:options.firstMealPlan||undefined}));
+ return 'bulk:'+JSON.stringify(ordered({type:options.dependentRole?'dependent-role':'bulk-edit',targets:[...ids].map(String).sort(),patch,dependentRole:options.dependentRole||null,firstMealPlan:options.firstMealPlan||undefined,bulkGroups:options.bulkGroups||undefined}));
 }
 function applyRecipeBulk(ids,patch,options={}){
  const newGroup=options.firstMealPlan?.newGroup?validateNewMealGroupName(options.firstMealPlan.category):null;
- let groups=newGroup?[...cats,newGroup]:[...cats];for(const name of options.bulkGroups?.newGroups||[])groups.push(validateNewMealGroupName(name,groups));if(options.bulkGroups&&(!['add','remove','replace'].includes(options.bulkGroups.operation)||!Array.isArray(options.bulkGroups.groups)||options.bulkGroups.groups.some(name=>!groups.includes(name))))throw Error('Choose valid meal groups.');
+ let groups=newGroup?[...cats,newGroup]:[...cats];for(const name of options.bulkGroups?.newGroups||[])groups.push(validateNewMealGroupName(name,groups));if(options.bulkGroups&&(typeof options.bulkGroups.sourceGroup!=='string'||typeof options.bulkGroups.add!=='boolean'||typeof options.bulkGroups.remove!=='boolean'||options.bulkGroups.remove&&!options.bulkGroups.sourceGroup||options.bulkGroups.add&&!options.bulkGroups.groups?.length||!Array.isArray(options.bulkGroups.groups)||options.bulkGroups.groups.some(name=>!groups.includes(name)||name===options.bulkGroups.sourceGroup)||ids.some(key=>meals.find(meal=>String(meal.id)===key)?.cat!==options.bulkGroups.sourceGroup)))throw Error('Choose valid meal groups.');
  validateRecipeBulkChange(ids,patch,!!options.dependentRole||!!options.createScheduledRecipe,groups,options.bulkGroups);if(recipeBulkBusy)throw Error('A bulk update is already in progress.');if(groceryCheckStorageInvalid||cookingStorageInvalid||scaleStorageInvalid)throw Error('Saved recipe progress or groceries could not be read. Export a backup before making bulk changes.');
  const beforeStorage=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(beforeStorage);const before=JSON.parse(captureState()),memory={id,cats,meals,mealPlans,weekdayCategories,weekdayMealOverrides,cookingSessions,occurrenceScales,groceryOccurrenceChecks,recipeLabelCatalog,excluded:masterGroceryExcludedMealKeys,linked:new Set(previouslyActiveLinkedIds),recipeStates:new Map(cookingRecipeStates),signature:cookingScheduleSignature};
  const raw=JSON.parse(JSON.stringify({sessions:cookingSessions,scales:occurrenceScales}));const selected=new Set(ids),removed=new Set(patch.delete?ids:[]),transaction={selected,removed,allowedDays:[],promotion:null,promotionMealId:null};let result=false;recipeBulkBusy=true;
@@ -8018,7 +8026,7 @@ function newMealGroupButton(onCreated){
 }
 function chooseBulkValue(title,value,options,onSelect,allowNewGroup=false,returnFocus=null){
  const d=recipeBulkDialog(title,returnFocus),list=document.createElement('div');list.className='recipe-bulk-choice-list';let draft=value;
- function draw(){list.replaceChildren();for(const [key,text]of options()){const label=document.createElement('label');label.className='recipe-bulk-choice';const check=document.createElement('input');check.type='radio';check.name='bulk-choice';check.className='check';check.checked=draft===key;check.value=key;check.onchange=()=>{draft=key};label.append(check,document.createTextNode(text));list.append(label)}}
+ function draw(){list.replaceChildren();for(const [key,text]of options()){const label=document.createElement('label');label.className='recipe-bulk-choice';const check=document.createElement('input');check.type='radio';check.name='bulk-choice';check.checked=draft===key;check.value=key;check.onchange=()=>{draft=key};label.append(check,document.createTextNode(text));list.append(label)}}
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button');save.type='button';setIconButton(save,'save','Confirm '+title.toLowerCase());const cancel=document.createElement('button');cancel.type='button';setIconButton(cancel,'cancel','Cancel '+title.toLowerCase());save.onclick=()=>{onSelect(draft);d.close()};cancel.onclick=d.close;actions.append(save,cancel);d.panel.append(list);
  if(allowNewGroup)d.panel.append(newMealGroupButton(group=>{onSelect(group);d.close();bulkRecipeRender()}));
  d.panel.append(actions);draw();cancel.focus({preventScroll:true});
@@ -8030,27 +8038,29 @@ function bulkChoiceField(parent,label,options,onChange,allowNewGroup=false){
 }
 
 function chooseBulkGroups(value,onSelect,returnFocus){
- const d=recipeBulkDialog('Meal groups',returnFocus),list=document.createElement('div');list.className='recipe-bulk-choice-list';let operation=value?.operation||'add';const selected=new Set(value?.groups||[]),pending=[...(value?.newGroups||[])];
+ const sourceGroup=recipeBulkSourceGroup;if(sourceGroup===null)return;
+ const d=recipeBulkDialog('Meal groups',returnFocus),list=document.createElement('div');list.className='recipe-bulk-choice-list';let add=!!value?.add,remove=!!value?.remove;const selected=new Set(value?.groups||[]),pending=[...(value?.newGroups||[])];
  const plus=document.createElement('button');plus.type='button';plus.className='dialog-heading-add';setIconButton(plus,'add','New group');d.panel.firstElementChild.append(plus);
  const newRow=document.createElement('div');newRow.className='bulk-new-group-row';newRow.hidden=true;const field=document.createElement('input');field.type='text';field.placeholder='New group';field.setAttribute('aria-label','New group');const create=document.createElement('button');create.type='button';setIconButton(create,'save','Create group');newRow.append(field,create);
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
  plus.onclick=()=>{newRow.hidden=false;field.focus({preventScroll:true})};create.onclick=()=>{try{const name=validateNewMealGroupName(field.value,[...cats,...pending]);pending.push(name);selected.add(name);field.value='';newRow.hidden=true;error.textContent='';draw()}catch(e){error.textContent=e.message}};
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Confirm meal groups');setIconButton(cancel,'cancel','Cancel meal groups');
- function draw(){list.replaceChildren();for(const [key,text]of [['keep','Keep existing'],['add','Add to groups'],['remove','Remove from groups'],['replace','Replace groups']]){const label=document.createElement('label');label.className='recipe-bulk-choice';const check=document.createElement('input');check.type='radio';check.name='group-operation';check.checked=operation===key;check.onchange=()=>{operation=key;draw()};label.append(check,document.createTextNode(text));list.append(label)}
-  for(const name of [...cats,...pending]){const label=document.createElement('label');label.className='recipe-bulk-choice';const check=document.createElement('input');check.type='checkbox';check.checked=selected.has(name);check.disabled=operation==='keep';check.onchange=()=>{if(check.checked)selected.add(name);else selected.delete(name);update()};label.append(check,document.createTextNode(name));list.append(label)}update();
+ function choice(text,checked,change){const label=document.createElement('label');label.className='recipe-bulk-choice';const check=document.createElement('input');check.type='checkbox';check.checked=checked;check.onchange=()=>change(check.checked);const name=document.createElement('span');name.textContent=text;label.append(check,name);list.append(label)}
+ function draw(){list.replaceChildren();plus.hidden=!add;if(!add)newRow.hidden=true;choice('Add to groups',add,value=>{add=value;draw()});if(sourceGroup)choice('Remove from '+sourceGroup,remove,value=>{remove=value;draw()});
+  if(add)for(const name of [...cats,...pending].filter(name=>name!==sourceGroup))choice(name,selected.has(name),value=>{if(value)selected.add(name);else selected.delete(name);update()});update();
  }
- function update(){save.disabled=operation!=='keep'&&operation!=='replace'&&!selected.size}
- save.onclick=()=>{onSelect(operation==='keep'?null:{operation,groups:[...selected],newGroups:pending.filter(name=>selected.has(name))});d.close()};cancel.onclick=d.close;actions.append(save,cancel);d.panel.append(newRow,list,error,actions);draw();cancel.focus({preventScroll:true});
+ function update(){save.disabled=add&&!selected.size}
+ save.onclick=()=>{onSelect({sourceGroup,add,remove:!!sourceGroup&&remove,groups:[...selected],newGroups:pending});d.close()};cancel.onclick=d.close;actions.append(save,cancel);d.panel.append(newRow,list,error,actions);draw();cancel.focus({preventScroll:true});
 }
 function openRecipeBulkEditor(moveOnly=false){
- const ids=bulkRecipeSelected().map(m=>String(m.id));if(!ids.length)return;const d=recipeBulkDialog(moveOnly?'Move recipes':'Edit recipes'),body=document.createElement('div');body.className='recipe-bulk-fields';appendBulkRecipeNames(body,ids);
+ const ids=bulkRecipeSelected().map(m=>String(m.id));if(!ids.length||recipeBulkSourceGroup===null)return;const d=recipeBulkDialog(moveOnly?'Move recipes':'Edit recipes'),body=document.createElement('div');body.className='recipe-bulk-fields';appendBulkRecipeNames(body,ids);
  let groupChange=null,rotation='';const group=document.createElement('button'),status=document.createElement('button');for(const button of [group,status]){button.type='button';button.className='recipe-bulk-value';button.setAttribute('aria-haspopup','dialog')}
  group.setAttribute('aria-label','Meal groups');status.setAttribute('aria-label','Rotation status');body.append(group,status);
  const actions=document.createElement('div');actions.className='meal-unified-actions';const apply=document.createElement('button'),cancel=document.createElement('button');apply.type=cancel.type='button';setIconButton(apply,'save','Apply to selected recipes');setIconButton(cancel,'cancel','Cancel bulk edit');cancel.onclick=d.close;actions.append(apply,cancel);d.panel.append(body,actions);
- function changed(){group.textContent=groupChange?({add:'Add to groups',remove:'Remove from groups',replace:'Replace groups'})[groupChange.operation]+': '+(groupChange.groups.join(', ')||'Unassigned'):'Meal groups';status.textContent=rotation===''?'Rotation status':rotation==='true'?'In Rotation':'Ideas';apply.disabled=!groupChange&&rotation===''}
+ function changed(){const summary=[];if(groupChange?.add)summary.push('Add to '+groupChange.groups.join(', '));if(groupChange?.remove)summary.push('Remove from '+groupChange.sourceGroup);group.textContent=summary.join(' · ')||'Meal groups';status.textContent=rotation===''?'Rotation status':rotation==='true'?'In Rotation':'Ideas';apply.disabled=!bulkGroupChangePending(ids,groupChange)&&!ids.some(key=>rotation!==''&&!!meals.find(meal=>String(meal.id)===key)?.rotation!==(rotation==='true'))}
  group.onclick=()=>chooseBulkGroups(groupChange,value=>{groupChange=value;changed()},()=>group);
  status.onclick=()=>chooseBulkValue('Rotation status',rotation,()=>[['','Keep existing'],['true','In Rotation'],['false','Ideas']],value=>{rotation=value;changed()},false,()=>status);
- apply.onclick=async()=>{if(recipeBulkBusy)return;apply.disabled=true;try{const patch=rotation===''?{}:{rotation:rotation==='true'};applyRecipeBulk(ids,patch,groupChange?{bulkGroups:groupChange}:{});d.close()}catch(error){await showAppMessage('Bulk update could not be completed: '+error.message)}finally{if(d.overlay.isConnected)changed()}};changed();cancel.focus({preventScroll:true});
+ apply.onclick=async()=>{if(recipeBulkBusy)return;apply.disabled=true;try{const patch=rotation===''?{}:{rotation:rotation==='true'};const change=groupChange&&{...groupChange,groups:groupChange.add?groupChange.groups:[],newGroups:groupChange.add?groupChange.newGroups.filter(name=>groupChange.groups.includes(name)):[]};applyRecipeBulk(ids,patch,bulkGroupChangePending(ids,change)?{bulkGroups:change}:{});d.close()}catch(error){await showAppMessage('Bulk update could not be completed: '+error.message)}finally{if(d.overlay.isConnected)changed()}};changed();cancel.focus({preventScroll:true});
 }
 
 function bindGroupMealPress(name,meal){
@@ -8058,9 +8068,9 @@ function bindGroupMealPress(name,meal){
  const stop=()=>{clearTimeout(timer);timer=null};
  name.style.userSelect='none';name.style.webkitUserSelect='none';name.style.webkitTouchCallout='none';name.style.touchAction='pan-y';
  name.addEventListener('selectstart',e=>e.preventDefault());
- name.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;stop();pressed=true;held=false;pressPoint={x:e.clientX,y:e.clientY};timer=setTimeout(()=>{if(pressed){held=true;suppressClick=true;if(!showTop)beginRecipeBulk(meal)}},550)});
+ name.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;stop();pressed=true;held=false;pressPoint={x:e.clientX,y:e.clientY};timer=setTimeout(()=>{if(pressed){held=true;suppressClick=true;if(!showTop)beginRecipeBulk(meal,name.closest('.master-category-card')?.dataset.category)}},550)});
  name.addEventListener('pointermove',e=>{if(pressed&&pressPoint&&Math.hypot(e.clientX-pressPoint.x,e.clientY-pressPoint.y)>10){stop();pressed=false}});
- name.addEventListener('pointerup',e=>{stop();const wasHeld=pressed&&held;pressed=false;if(wasHeld){e.preventDefault();if(!showTop){if(!recipeBulkMode)beginRecipeBulk(meal)}else{suppressClick=true;openSavedMealRecipe(meal)}}});
+ name.addEventListener('pointerup',e=>{stop();const wasHeld=pressed&&held;pressed=false;if(wasHeld){e.preventDefault();if(!showTop){if(!recipeBulkMode)beginRecipeBulk(meal,name.closest('.master-category-card')?.dataset.category)}else{suppressClick=true;openSavedMealRecipe(meal)}}});
  ['pointerleave','pointercancel'].forEach(ev=>name.addEventListener(ev,()=>{stop();pressed=false}));
  name.addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopImmediatePropagation();suppressClick=false;return}openTopMealActionMenu(null,meal.cat,meal)});
  name.oncontextmenu=e=>e.preventDefault();
