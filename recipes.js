@@ -1188,14 +1188,13 @@ function renderTodayTodo(provided=null){
   if(rotationWeekOffset?item.plan.id!==activePlanId||item.scheduled<cookingLocalDate(start)||item.scheduled>=cookingLocalDate(end):item.due>today)return false;
   seen.add(id);return true;
  }).sort((a,b)=>Number(a.complete)-Number(b.complete)||a.due.localeCompare(b.due));
- if(!items.length){old?.remove();visibility?.remove();return}
+ if(!items.some(item=>!item.complete)){old?.remove();visibility?.remove();return}
  const section=old||document.createElement('section');section.id='todaysTodo';section.setAttribute('aria-labelledby','todaysTodoHeading');
  const heading=section.querySelector('.today-todo-heading')||document.createElement('div');heading.className='today-todo-heading';
  const title=heading.querySelector('h3')||document.createElement('h3');title.id='todaysTodoHeading';title.textContent=rotationWeekOffset?'Next Week’s To-Do':"Today's To-Do";
  const eye=heading.querySelector('.todo-completed-toggle')||visibility?.querySelector('button')||document.createElement('button');eye.type='button';eye.className='iconbtn todo-completed-toggle';eye.setAttribute('aria-pressed',String(makeAheadDisplayPrefs.showCompletedToday));eye.title=makeAheadDisplayPrefs.showCompletedToday?'Hide completed tasks':'Show completed tasks';eye.setAttribute('aria-label',eye.title);eye.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'+(makeAheadDisplayPrefs.showCompletedToday?'':'<path d="m3 3 18 18"/>')+'</svg>';
  eye.onclick=event=>{event.preventDefault();event.stopPropagation();makeAheadDisplayPrefs.showCompletedToday=!makeAheadDisplayPrefs.showCompletedToday;saveMakeAheadDisplayPrefs();renderTodayTodo();document.querySelector('.todo-completed-toggle')?.focus({preventScroll:true})};
  const shown=items.filter(item=>!item.complete||makeAheadDisplayPrefs.showCompletedToday);
- if(!shown.length){const control=visibility||document.createElement('div');control.id='todoVisibilityControl';control.replaceChildren(eye);old?.remove();header.after(control);return}
  const body=document.createElement('div');body.id='todoTaskItems';body.hidden=todoCollapsed[rotationWeekOffset];
  const collapse=heading.querySelector('.todo-collapse-toggle')||document.createElement('button');collapse.type='button';collapse.className='iconbtn todo-collapse-toggle';collapse.setAttribute('aria-controls',body.id);
  const refresh=()=>{body.hidden=todoCollapsed[rotationWeekOffset];collapse.setAttribute('aria-expanded',String(!body.hidden));setRecipeToolbarIcon(collapse,body.hidden?'expand':'collapse',body.hidden?'Expand to-do tasks':'Collapse to-do tasks')};
@@ -1204,9 +1203,9 @@ function renderTodayTodo(provided=null){
  visibility?.remove();if(!old)header.after(section);
 }
 let makeAheadDayTimer=null,makeAheadLocalDay=null;
-function syncMakeAheadLocalDay(){
+function syncMakeAheadLocalDay(event=null){
  clearTimeout(makeAheadDayTimer);if(document.hidden)return;
- const now=new Date(),today=cookingLocalDate(now);if(today!==makeAheadLocalDay){makeAheadLocalDay=today;if((allMealsActive||rotationWeekOffset)&&showTop&&!groceryTabActive&&editId===null)renderList();else renderTodayTodo()}
+ const now=new Date(),today=cookingLocalDate(now);if(today!==makeAheadLocalDay||['focus','pageshow','visibilitychange'].includes(event?.type)){makeAheadLocalDay=today;if((allMealsActive||rotationWeekOffset)&&showTop&&!groceryTabActive&&editId===null)renderList();else renderTodayTodo()}
  const midnight=new Date(now);midnight.setHours(24,0,0,50);makeAheadDayTimer=setTimeout(syncMakeAheadLocalDay,Math.max(100,midnight-now));
 }
 window.addEventListener('focus',syncMakeAheadLocalDay);window.addEventListener('pageshow',syncMakeAheadLocalDay);window.addEventListener('pagehide',()=>clearTimeout(makeAheadDayTimer));document.addEventListener('visibilitychange',syncMakeAheadLocalDay);

@@ -1364,6 +1364,17 @@ body input:is([type=text],[type=url],[type=search],[type=number],:not([type])):f
 .preparation-task-dialog summary[hidden],.preparation-task-dialog button[hidden]{display:none!important;}
 .preparation-task-dialog .make-ahead-task-editor{grid-template-columns:minmax(0,1fr);}.preparation-task-dialog .make-ahead-lead{display:flex;align-items:center;gap:8px;min-width:0;}.preparation-task-dialog input{min-width:0;width:100%;padding:9px;border:1px solid #ccc;border-radius:7px;font:inherit;}.preparation-task-dialog .make-ahead-days{flex:1;}
 .preparation-task-dialog .meal-editor-segmented{display:flex;gap:3px;padding:2px;}.preparation-task-dialog .meal-editor-segmented button{min-height:38px;padding:6px 10px;border:1px solid #e2e2e2;border-radius:5px;background:#fafafa;color:#626262;font-weight:400;}.preparation-task-dialog .meal-editor-segmented button[aria-pressed=true]{background:#fff;border-color:#aaa;box-shadow:0 1px 3px #0002;color:#242424;font-weight:600;}
+
+/* Use the existing native blue checkbox throughout, retaining each control's size. */
+input[type="checkbox"]{-webkit-appearance:auto!important;appearance:auto!important;accent-color:#315ba8!important;background:revert!important;border:revert!important;border-radius:revert!important;box-shadow:none!important;}
+input[type="checkbox"]::after{display:none!important;}
+.make-ahead-complete{opacity:1;}.make-ahead-complete>span,.make-ahead-complete>small{opacity:.6;}
+/* The sticky header's lower white mask must not cover the card's top corners. */
+#list .rotation-compact-header:has(+ #todaysTodo){box-shadow:-14px 0 #fff,14px 0 #fff!important;}
+#todaysTodo .make-ahead-reminder{display:grid;grid-template-columns:24px minmax(0,1fr);column-gap:7px;row-gap:3px;align-items:start;}
+#todaysTodo .make-ahead-reminder>input{grid-column:1;grid-row:1;}
+#todaysTodo .make-ahead-reminder>span{grid-column:2;min-width:0;white-space:normal;overflow-wrap:anywhere;}
+#todaysTodo .make-ahead-due{grid-column:2;width:auto;padding:0;margin:0;font-size:12px;line-height:1.3;color:#737b83;}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -3230,14 +3241,13 @@ function renderTodayTodo(provided=null){
   if(rotationWeekOffset?item.plan.id!==activePlanId||item.scheduled<cookingLocalDate(start)||item.scheduled>=cookingLocalDate(end):item.due>today)return false;
   seen.add(id);return true;
  }).sort((a,b)=>Number(a.complete)-Number(b.complete)||a.due.localeCompare(b.due));
- if(!items.length){old?.remove();visibility?.remove();return}
+ if(!items.some(item=>!item.complete)){old?.remove();visibility?.remove();return}
  const section=old||document.createElement('section');section.id='todaysTodo';section.setAttribute('aria-labelledby','todaysTodoHeading');
  const heading=section.querySelector('.today-todo-heading')||document.createElement('div');heading.className='today-todo-heading';
  const title=heading.querySelector('h3')||document.createElement('h3');title.id='todaysTodoHeading';title.textContent=rotationWeekOffset?'Next Week’s To-Do':"Today's To-Do";
  const eye=heading.querySelector('.todo-completed-toggle')||visibility?.querySelector('button')||document.createElement('button');eye.type='button';eye.className='iconbtn todo-completed-toggle';eye.setAttribute('aria-pressed',String(makeAheadDisplayPrefs.showCompletedToday));eye.title=makeAheadDisplayPrefs.showCompletedToday?'Hide completed tasks':'Show completed tasks';eye.setAttribute('aria-label',eye.title);eye.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'+(makeAheadDisplayPrefs.showCompletedToday?'':'<path d="m3 3 18 18"/>')+'</svg>';
  eye.onclick=event=>{event.preventDefault();event.stopPropagation();makeAheadDisplayPrefs.showCompletedToday=!makeAheadDisplayPrefs.showCompletedToday;saveMakeAheadDisplayPrefs();renderTodayTodo();document.querySelector('.todo-completed-toggle')?.focus({preventScroll:true})};
  const shown=items.filter(item=>!item.complete||makeAheadDisplayPrefs.showCompletedToday);
- if(!shown.length){const control=visibility||document.createElement('div');control.id='todoVisibilityControl';control.replaceChildren(eye);old?.remove();header.after(control);return}
  const body=document.createElement('div');body.id='todoTaskItems';body.hidden=todoCollapsed[rotationWeekOffset];
  const collapse=heading.querySelector('.todo-collapse-toggle')||document.createElement('button');collapse.type='button';collapse.className='iconbtn todo-collapse-toggle';collapse.setAttribute('aria-controls',body.id);
  const refresh=()=>{body.hidden=todoCollapsed[rotationWeekOffset];collapse.setAttribute('aria-expanded',String(!body.hidden));setRecipeToolbarIcon(collapse,body.hidden?'expand':'collapse',body.hidden?'Expand to-do tasks':'Collapse to-do tasks')};
@@ -3246,9 +3256,9 @@ function renderTodayTodo(provided=null){
  visibility?.remove();if(!old)header.after(section);
 }
 let makeAheadDayTimer=null,makeAheadLocalDay=null;
-function syncMakeAheadLocalDay(){
+function syncMakeAheadLocalDay(event=null){
  clearTimeout(makeAheadDayTimer);if(document.hidden)return;
- const now=new Date(),today=cookingLocalDate(now);if(today!==makeAheadLocalDay){makeAheadLocalDay=today;if((allMealsActive||rotationWeekOffset)&&showTop&&!groceryTabActive&&editId===null)renderList();else renderTodayTodo()}
+ const now=new Date(),today=cookingLocalDate(now);if(today!==makeAheadLocalDay||['focus','pageshow','visibilitychange'].includes(event?.type)){makeAheadLocalDay=today;if((allMealsActive||rotationWeekOffset)&&showTop&&!groceryTabActive&&editId===null)renderList();else renderTodayTodo()}
  const midnight=new Date(now);midnight.setHours(24,0,0,50);makeAheadDayTimer=setTimeout(syncMakeAheadLocalDay,Math.max(100,midnight-now));
 }
 window.addEventListener('focus',syncMakeAheadLocalDay);window.addEventListener('pageshow',syncMakeAheadLocalDay);window.addEventListener('pagehide',()=>clearTimeout(makeAheadDayTimer));document.addEventListener('visibilitychange',syncMakeAheadLocalDay);

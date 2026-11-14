@@ -1498,3 +1498,14 @@ body input:is([type=text],[type=url],[type=search],[type=number],:not([type])):f
 .preparation-task-dialog summary[hidden],.preparation-task-dialog button[hidden]{display:none!important;}
 .preparation-task-dialog .make-ahead-task-editor{grid-template-columns:minmax(0,1fr);}.preparation-task-dialog .make-ahead-lead{display:flex;align-items:center;gap:8px;min-width:0;}.preparation-task-dialog input{min-width:0;width:100%;padding:9px;border:1px solid #ccc;border-radius:7px;font:inherit;}.preparation-task-dialog .make-ahead-days{flex:1;}
 .preparation-task-dialog .meal-editor-segmented{display:flex;gap:3px;padding:2px;}.preparation-task-dialog .meal-editor-segmented button{min-height:38px;padding:6px 10px;border:1px solid #e2e2e2;border-radius:5px;background:#fafafa;color:#626262;font-weight:400;}.preparation-task-dialog .meal-editor-segmented button[aria-pressed=true]{background:#fff;border-color:#aaa;box-shadow:0 1px 3px #0002;color:#242424;font-weight:600;}
+
+/* Use the existing native blue checkbox throughout, retaining each control's size. */
+input[type="checkbox"]{-webkit-appearance:auto!important;appearance:auto!important;accent-color:#315ba8!important;background:revert!important;border:revert!important;border-radius:revert!important;box-shadow:none!important;}
+input[type="checkbox"]::after{display:none!important;}
+.make-ahead-complete{opacity:1;}.make-ahead-complete>span,.make-ahead-complete>small{opacity:.6;}
+/* The sticky header's lower white mask must not cover the card's top corners. */
+#list .rotation-compact-header:has(+ #todaysTodo){box-shadow:-14px 0 #fff,14px 0 #fff!important;}
+#todaysTodo .make-ahead-reminder{display:grid;grid-template-columns:24px minmax(0,1fr);column-gap:7px;row-gap:3px;align-items:start;}
+#todaysTodo .make-ahead-reminder>input{grid-column:1;grid-row:1;}
+#todaysTodo .make-ahead-reminder>span{grid-column:2;min-width:0;white-space:normal;overflow-wrap:anywhere;}
+#todaysTodo .make-ahead-due{grid-column:2;width:auto;padding:0;margin:0;font-size:12px;line-height:1.3;color:#737b83;}
