@@ -1593,3 +1593,11 @@ body.recipe-bulk-select .master-category-meal[data-up-next-star]>.recipe-bulk-ch
 .recipe-tweaking-popup>textarea{flex:1 1 auto;min-height:64px!important;max-height:40dvh;box-sizing:border-box;}
 .recipe-tweaking-popup>.meal-unified-actions{flex:0 0 auto;}
 .recipe-tweaking-popup>.recipe-tweaking-header,.recipe-tweaking-popup>label,.recipe-tweaking-popup>p{flex-shrink:0;}
+
+/* Bulk group actions stay available while destination groups scroll. */
+.bulk-group-actions{flex:none;}
+.bulk-group-actions .recipe-bulk-choice{border-bottom:0;}
+.bulk-group-destinations{border-top:1px solid #e5e8eb;padding-top:6px;flex:1 1 auto;}
+.bulk-groups-panel>.bulk-new-group-row,.bulk-groups-panel>.recipe-bulk-error{flex-shrink:0;}
+.recipe-bulk-picker{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.recipe-bulk-picker::after{content:"";flex:0 0 8px;width:8px;height:8px;border-top:1.9px solid currentColor;border-right:1.9px solid currentColor;transform:rotate(45deg);margin-right:4px;}

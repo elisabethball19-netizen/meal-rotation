@@ -73,12 +73,12 @@ def migration_and_actions(browser,name):
  assert not p.locator('.shared-meal-link-button').count() and not p.locator('[title="Shared across groups"]').count()
  assert not p.locator('[aria-label*=" in Ideas"]').count()
  # Star taps share across copies, place first within their portion, and preserve Favorite values.
- row(p,2).get_by_role('button',name='Unstar Zulu soon',exact=True).tap()
+ row(p,2).get_by_role('button',name='Unpin recipe',exact=True).tap()
  assert not record(p,2)['upNextStar'] and not record(p,12)['upNextStar'] and record(p,2)['favorite']
  assert get(p,'order()')==['3','13','2','12','6','4','8','5'];assert not p.locator('[role="dialog"],#recipeBulkToolbar').count()
  p.reload();assert not record(p,2)['upNextStar'] and get(p,'order()')==['3','13','2','12','6','4','8','5']
- get(p,'groups()');row(p,4).get_by_role('button',name='Star Legacy idea',exact=True).tap();assert get(p,'order()')[:3]==['4','3','13']
- row(p,4).get_by_role('button',name='Unstar Legacy idea',exact=True).tap();assert get(p,'order()')[2:5]==['4','2','12']
+ get(p,'groups()');row(p,4).get_by_role('button',name='Pin recipe',exact=True).tap();assert get(p,'order()')[:3]==['4','3','13']
+ row(p,4).get_by_role('button',name='Unpin recipe',exact=True).tap();assert get(p,'order()')[2:5]==['4','2','12']
  p.evaluate('establishDatedFixtureSchedule()');get(p,'seedProgress()');schedule=get(p,'schedule()');associated=get(p,'associated()')
  row(p,1).get_by_role('button',name='Move Active to Ideas',exact=True).tap()
  assert get(p,'order()')[0]=='1' and record(p,1)['upNextStar'] and record(p,1)['favorite']

@@ -1304,9 +1304,20 @@ function bindPreparationTaskPress(row,item){
  row.addEventListener('click',event=>{if(held){event.preventDefault();event.stopImmediatePropagation();held=false}},true);
  row.addEventListener('contextmenu',event=>event.preventDefault());
 }
+function makeAheadTaskDescription(item,today=false){
+ const task=String(item.task.description||'').trim().replace(/[.!?]+$/,'');
+ let text=task+' for '+item.entry.day+"’s "+(item.entry.meal.name||'meal');
+ if(today){
+  if(mealPlans.length>1)text+=' on the '+item.plan.name+' meal tab';
+  const start=cookingPlanningWeekStart(),next=new Date(start);next.setDate(next.getDate()+7);
+  if(item.scheduled>=cookingLocalDate(next))text+=' next week';
+  else if(item.scheduled<cookingLocalDate(start))text+=' on '+parseCookingLocalDate(item.scheduled).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+ }
+ return text+'.';
+}
 function makeAheadReminderRow(item,today=false){
  const label=document.createElement('label');label.className='make-ahead-reminder'+(item.complete?' make-ahead-complete':'');label.dataset.makeAheadKey=item.key;label.dataset.planId=String(item.plan.id);const check=document.createElement('input');check.type='checkbox';check.className='check';check.checked=item.complete;
- const text=document.createElement('span');text.textContent=item.task.description+' · for '+item.entry.day+"'s "+(item.entry.meal.name||'meal')+(today?' · '+item.plan.name:'');check.setAttribute('aria-label',text.textContent);
+ const text=document.createElement('span');text.textContent=makeAheadTaskDescription(item,today);check.setAttribute('aria-label',text.textContent);
  check.onchange=()=>setMakeAheadComplete(item,check.checked);label.append(check,text);bindPreparationTaskPress(label,item);return label;
 }
 function makeAheadTaskVisible(item,today=cookingLocalDate(new Date())){return typeof item.scheduled==='string'&&item.scheduled>=today}
