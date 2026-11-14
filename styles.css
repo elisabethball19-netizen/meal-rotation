@@ -1520,3 +1520,10 @@ input[type="checkbox"]{width:18px!important;height:18px!important;min-width:18px
 .manual-groceries h3{font-size:16px;margin:18px 0 4px;}.manual-grocery-item{min-height:44px;cursor:pointer;}.manual-grocery-text{white-space:pre-wrap;overflow-wrap:anywhere;}.manual-grocery-field{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font:inherit;}
 
 .grocery-checkbox-target{position:relative;display:flex;flex:0 0 18px;width:18px;height:18px;}.grocery-checkbox-target input{position:relative;z-index:1;}.grocery-checkbox-target::before{content:"";position:absolute;inset:-13px;}.manual-grocery-item,.master-grocery-item{min-height:44px;}
+
+/* Grocery heading controls wrap as one group; periods remain below. */
+#list .meal-plan-grocery .grocery-compact-header{display:flex!important;flex-wrap:wrap!important;gap:4px 12px!important;border:0!important;}
+#list .grocery-compact-header>h2{flex:1 0 auto!important;margin:0!important;}
+.grocery-header-icons{display:flex;align-items:center;gap:2px;margin-left:auto;flex:0 0 auto;}
+.grocery-header-icons>button{flex:0 0 44px;min-width:44px!important;min-height:44px!important;margin:0!important;}
+#list .meal-plan-grocery>.master-grocery-plan-filters{display:flex!important;margin:8px 0 10px!important;padding:0 0 6px!important;border-bottom:1px solid #e1e1e1!important;}

@@ -1466,7 +1466,7 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  }
  // Capture the exact state before this rotation, including cross-tab meal overrides.
  // A manual move stages its destination first; keep its true pre-change Undo/Cycle Back state.
- const undoBefore=beforeState||JSON.parse(captureState()),{lastRotationBefore:oldRotationHistory,...rotationBefore}=undoBefore;
+ const undoBefore=beforeState||JSON.parse(captureState()),{lastRotationBefore:oldRotationHistory,manualGroceriesUndo,...rotationBefore}=undoBefore;
  const rotationRecord={...rotationBefore,cycledAt:rotationNow.toISOString(),rotationOccurrences:beforeState?beforeState.mealPlans.flatMap(plan=>rotationWeekEntries(plan,beforeState).map(item=>({planId:plan.id,planName:plan.name,day:item.day,cat:item.cat,mealId:String(item.meal.id),parentId:String(item.linkedTo??''),scheduledSlot:rotationGroupScheduled(plan,item.day,item.cat),...(item.occasional?{occasional:true}:{}),...(item.scheduleOnly?{scheduleOnly:true}:{})}))):rotationOccurrences,cookingCycledContexts:affected.concat(hiddenRotated).map(x=>({planId:x.planId,day:x.day,cat:x.cat,mealId:String(x.meal.id),parentId:String(x.linkedTo??''),exact:true}))};
  const linkedIds=new Set();
  for(const item of selected){const {meal,cat}=item,plan=mealPlans.find(p=>p.id===item.planId);if(!rotationAdvancesRecipe(item,plan,prior.get(plan.id)||[]))continue;if(dependentSideAutomatic(plan,item,prior.get(plan.id)||[])){linkedIds.add(String(meal.id));continue}
@@ -1802,6 +1802,11 @@ function editMealCookedDate(meal,onChanged=null,context=null){
 }
 // Rotate-out menu: keep the cooking-date choice between uses.
 const ROTATE_MARK_COOKED_KEY='mealRotationMarkRotatedCookedV1';
+function advanceWholeGroceryWeek(allTabs,markCooked){
+ const before=JSON.parse(captureState());before.manualGroceriesUndo=manualGroceryItems();const previous=history.at(-1);
+ moveDisplayedMealsToBottom(null,allTabs,markCooked,null,before);
+ if(history.at(-1)!==previous)saveManualGroceryItems(before.manualGroceriesUndo.filter(item=>!item.checked));
+}
 function openRotateOptions(allTabs=false){
  const overlay=document.createElement('div');
  overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10002;display:flex;align-items:center;justify-content:center;padding:18px';
@@ -1814,7 +1819,7 @@ function openRotateOptions(allTabs=false){
  label.append(check,document.createTextNode('Mark rotated recipes as cooked'));panel.append(label);
  const actions=document.createElement('div');actions.style.cssText='display:flex;flex-direction:column;gap:12px';
  function option(text,fn){const b=document.createElement('button');b.type='button';b.className='smallbtn';b.textContent=text;b.style.cssText='padding:12px 14px;width:100%;font-size:16px';b.onclick=()=>{const mark=check.checked;overlay.remove();fn(mark)};actions.append(b)}
- option('Rotate out all recipes',mark=>moveDisplayedMealsToBottom(null,allTabs,mark));
+ option('Rotate out all recipes',mark=>advanceWholeGroceryWeek(allTabs,mark));
  option('Select recipes to rotate out',mark=>openMoveMealChooser(allTabs,mark));
  panel.append(actions);overlay.append(panel);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
  overlay.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();overlay.remove()}});document.body.append(overlay);

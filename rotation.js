@@ -749,6 +749,7 @@ function snapshot(state=captureState()){dismissOnboardingHint();if(history[histo
 function captureScheduleUndoChecks(){return Object.fromEntries([...captureGroceryCheckStates()].map(([id,item])=>[id,item.checked]))}
 function captureHistoryCounterpart(target){
  const current=JSON.parse(captureState());
+ if(target.manualGroceriesUndo)current.manualGroceriesUndo=manualGroceryItems();
  if(target.recipePhotoUndo)current.recipePhotoUndo={refs:recipePhotoReferences(Object.keys(target.recipePhotoUndo.refs))};
  if(target.scheduleChangeUndo)current.scheduleChangeUndo={...target.scheduleChangeUndo,checks:captureScheduleUndoChecks()};
  if(target.groupUndoIngredientSelections){const selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');current.groupUndoIngredientSelections=Object.fromEntries(Object.keys(target.groupUndoIngredientSelections).map(key=>[key,Object.hasOwn(selected,key)?selected[key]:null]));current.skippedCookingState=JSON.parse(JSON.stringify({keys:target.skippedCookingState?.keys||[],sessions:cookingSessions.occurrences,scales:occurrenceScales.occurrences}))}
