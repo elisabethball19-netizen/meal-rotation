@@ -177,13 +177,14 @@ function rotationWeekControls(existing=[]){
 function renderRotationWeekPreview(list){
  const upcoming=previewNextWeekPlans(),source=upcoming.find(item=>item.plan.id===activePlanId),heading=document.createElement('h2');heading.className='view-page-title';heading.textContent=(source?.plan.name?.trim()?'My '+source.plan.name.trim()+' Rotation':'My Rotation')+' · Next week';const header=document.createElement('div');header.className='rotation-compact-header';header.append(heading,rotationWeekControls());list.append(header);
  if(!source)return;const start=cookingPlanningWeekStart();start.setDate(start.getDate()+7);const tasks=makeAheadDisplayPrefs.showMakeAheadReminders?scheduledMakeAheadTasks(true,upcoming).filter(item=>item.plan.id===activePlanId):[];
+ renderTodayTodo(tasks);
  for(const day of orderedDays()){
   const date=cookingLocalDate(cookingDateInWeek(day,start)),card=document.createElement('section');card.className='all-meals-day';card.dataset.date=date;card.style.backgroundColor=colorForDay(day);
   const title=document.createElement('h3');title.textContent=day+' · '+parseCookingLocalDate(date).toLocaleDateString(undefined,{month:'short',day:'numeric'});card.append(title);
   const entries=source.entries.filter(entry=>entry.day===day&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:source.plan.id},source.plan.rotationCalendar))===date);
   if(!entries.length){const empty=document.createElement('div');empty.className='muted';empty.textContent='—';card.append(empty)}
   for(const entry of entries){const row=document.createElement('div');row.className='meal';const name=document.createElement('button');name.type='button';name.className='mealname';name.textContent=entry.meal.name;name.onclick=()=>openSavedMealRecipe(meals.find(meal=>String(meal.id)===String(entry.meal.id))||entry.meal);row.append(name);card.append(row)}
-  appendMakeAheadDay(card,day,tasks,start);list.append(card);
+  list.append(card);
  }
 }
 function previewNextWeekPlans(){
@@ -3727,7 +3728,7 @@ function openViewedRecipeEditor(){
 }
 function applyViewerRecipeMutation(edit,before){
  const source=meals.find(m=>String(m.id)===edit.sourceId);if(!source)throw Error('This recipe no longer exists.');
- const allowed=new Set(['ingredients','instructions','url','originalRecipeUrl','recipeSourceHidden','notes','ingredientStepLinks']);if(Object.keys(edit.fields).some(key=>!allowed.has(key)))throw Error('Unsupported recipe content field.');
+ const allowed=new Set(['ingredients','instructions','url','originalRecipeUrl','recipeSourceHidden','notes','ingredientStepLinks','makeAheadTasks']);if(Object.keys(edit.fields).some(key=>!allowed.has(key)))throw Error('Unsupported recipe content field.');
  if(edit.fields.ingredients){
   const selections=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');let changed=false;
   for(const member of sharedRecipeMembers(source)){
@@ -3738,6 +3739,7 @@ function applyViewerRecipeMutation(edit,before){
   if(changed)localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selections));
  }
  assignSharedRecipeFields(source,edit.fields);
+ if(edit.fields.makeAheadTasks){const ids=new Set(sharedRecipeMembers(source).map(meal=>String(meal.id)));for(const plan of mealPlans)for(const item of plan.makeAheadPending||[]){if(!ids.has(String(item.entry?.meal?.id)))continue;const task=edit.fields.makeAheadTasks.find(task=>task.id===item.task.id);if(task){item.task={...task};item.due=cookingLocalDate(makeAheadDueDate(parseCookingLocalDate(item.scheduled),task))}}}
 }
 function compatiblePreviewProgress(progress,oldMeal,meal){
  const next=JSON.parse(JSON.stringify(progress)),items=cookingItemTokens(meal);

@@ -1492,3 +1492,9 @@ body input:is([type=text],[type=url],[type=search],[type=number],:not([type])):f
 .meal-linked-dialog>div{overflow:hidden!important;min-height:0;}
 .meal-linked-dialog>div>strong,.meal-linked-dialog-search,.meal-linked-dialog-actions{flex-shrink:0;}
 .meal-linked-dialog .meal-linked-dialog-options{flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;}
+
+#todaysTodo .today-todo-heading h3{flex:1;min-width:0;}#todaysTodo .todo-collapse-toggle{padding:4px;}
+#todoVisibilityControl{display:flex;justify-content:flex-end;margin:2px 0 8px;}#todoVisibilityControl .iconbtn{width:44px;height:44px;}#todoVisibilityControl svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;}
+.preparation-task-dialog summary[hidden],.preparation-task-dialog button[hidden]{display:none!important;}
+.preparation-task-dialog .make-ahead-task-editor{grid-template-columns:minmax(0,1fr);}.preparation-task-dialog .make-ahead-lead{display:flex;align-items:center;gap:8px;min-width:0;}.preparation-task-dialog input{min-width:0;width:100%;padding:9px;border:1px solid #ccc;border-radius:7px;font:inherit;}.preparation-task-dialog .make-ahead-days{flex:1;}
+.preparation-task-dialog .meal-editor-segmented{display:flex;gap:3px;padding:2px;}.preparation-task-dialog .meal-editor-segmented button{min-height:38px;padding:6px 10px;border:1px solid #e2e2e2;border-radius:5px;background:#fafafa;color:#626262;font-weight:400;}.preparation-task-dialog .meal-editor-segmented button[aria-pressed=true]{background:#fff;border-color:#aaa;box-shadow:0 1px 3px #0002;color:#242424;font-weight:600;}

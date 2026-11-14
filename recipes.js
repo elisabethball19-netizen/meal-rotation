@@ -1178,15 +1178,30 @@ function setMakeAheadComplete(item,checked){
  snapshot();plan.makeAheadChecks={...(plan.makeAheadChecks||{}),[item.key]:checked};saveActiveMealPlan();
  for(const row of document.querySelectorAll('[data-make-ahead-key]')){const current=mealPlans.find(plan=>String(plan.id)===row.dataset.planId),complete=current?makeAheadTaskComplete(current,row.dataset.makeAheadKey):false;row.querySelector('input[type="checkbox"]').checked=complete;row.classList.toggle('make-ahead-complete',complete)}if(allMealsActive||rotationWeekOffset)renderList();else renderTodayTodo();
 }
-function renderTodayTodo(){
- const old=document.getElementById('todaysTodo'),header=document.querySelector('#list>.rotation-week-controls')||document.querySelector('#list>.rotation-compact-header');
- if(!header||!showTop||allMealsActive||groceryTabActive||rotationWeekOffset||!makeAheadDisplayPrefs.showMakeAheadReminders){old?.remove();return}
- const today=cookingLocalDate(new Date()),seen=new Set(),items=scheduledMakeAheadTasks().filter(item=>{const id=JSON.stringify([item.plan.id,item.key]);if(!makeAheadTaskVisible(item,today)||(item.due!==today&&!(item.due<today&&!item.complete))||seen.has(id))return false;seen.add(id);return true}).sort((a,b)=>Number(a.complete)-Number(b.complete));
- if(!items.length){old?.remove();return}
- const section=old||document.createElement('section');section.id='todaysTodo';section.setAttribute('aria-labelledby','todaysTodoHeading');const heading=section.querySelector('.today-todo-heading')||document.createElement('div');heading.className='today-todo-heading';const title=heading.querySelector('h3')||document.createElement('h3');title.id='todaysTodoHeading';title.textContent="Today's To-Do";
- const eye=heading.querySelector('button')||document.createElement('button');eye.type='button';eye.className='iconbtn';eye.setAttribute('aria-pressed',String(makeAheadDisplayPrefs.showCompletedToday));eye.title=makeAheadDisplayPrefs.showCompletedToday?'Hide completed tasks':'Show completed tasks';eye.setAttribute('aria-label',eye.title);eye.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'+(makeAheadDisplayPrefs.showCompletedToday?'':'<path d="m3 3 18 18"/>')+'</svg>';eye.onclick=event=>{event.preventDefault();event.stopPropagation();makeAheadDisplayPrefs.showCompletedToday=!makeAheadDisplayPrefs.showCompletedToday;saveMakeAheadDisplayPrefs();renderTodayTodo();document.querySelector('#todaysTodo .today-todo-heading button')?.focus({preventScroll:true})};heading.append(title,eye);section.replaceChildren(heading);
- const shown=items.filter(item=>!item.complete||makeAheadDisplayPrefs.showCompletedToday);for(const item of shown)section.append(makeAheadReminderRow(item,true));if(!shown.length){const done=document.createElement('p');done.className='today-todo-done';done.textContent='All done!';section.append(done)}
- if(!old)header.after(section);
+const todoCollapsed={0:false,1:false};
+function renderTodayTodo(provided=null){
+ const old=document.getElementById('todaysTodo'),visibility=document.getElementById('todoVisibilityControl'),header=document.querySelector('#list>.rotation-compact-header');
+ if(!header||!showTop||allMealsActive||groceryTabActive||!makeAheadDisplayPrefs.showMakeAheadReminders){old?.remove();visibility?.remove();return}
+ const today=cookingLocalDate(new Date()),start=cookingPlanningWeekStart();start.setDate(start.getDate()+7);const end=new Date(start);end.setDate(end.getDate()+7);
+ const seen=new Set(),items=(provided||scheduledMakeAheadTasks()).filter(item=>{
+  const id=JSON.stringify([item.plan.id,item.key]);if(!makeAheadTaskVisible(item,today)||seen.has(id))return false;
+  if(rotationWeekOffset?item.plan.id!==activePlanId||item.scheduled<cookingLocalDate(start)||item.scheduled>=cookingLocalDate(end):item.due>today)return false;
+  seen.add(id);return true;
+ }).sort((a,b)=>Number(a.complete)-Number(b.complete)||a.due.localeCompare(b.due));
+ if(!items.length){old?.remove();visibility?.remove();return}
+ const section=old||document.createElement('section');section.id='todaysTodo';section.setAttribute('aria-labelledby','todaysTodoHeading');
+ const heading=section.querySelector('.today-todo-heading')||document.createElement('div');heading.className='today-todo-heading';
+ const title=heading.querySelector('h3')||document.createElement('h3');title.id='todaysTodoHeading';title.textContent=rotationWeekOffset?'Next Week’s To-Do':"Today's To-Do";
+ const eye=heading.querySelector('.todo-completed-toggle')||visibility?.querySelector('button')||document.createElement('button');eye.type='button';eye.className='iconbtn todo-completed-toggle';eye.setAttribute('aria-pressed',String(makeAheadDisplayPrefs.showCompletedToday));eye.title=makeAheadDisplayPrefs.showCompletedToday?'Hide completed tasks':'Show completed tasks';eye.setAttribute('aria-label',eye.title);eye.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'+(makeAheadDisplayPrefs.showCompletedToday?'':'<path d="m3 3 18 18"/>')+'</svg>';
+ eye.onclick=event=>{event.preventDefault();event.stopPropagation();makeAheadDisplayPrefs.showCompletedToday=!makeAheadDisplayPrefs.showCompletedToday;saveMakeAheadDisplayPrefs();renderTodayTodo();document.querySelector('.todo-completed-toggle')?.focus({preventScroll:true})};
+ const shown=items.filter(item=>!item.complete||makeAheadDisplayPrefs.showCompletedToday);
+ if(!shown.length){const control=visibility||document.createElement('div');control.id='todoVisibilityControl';control.replaceChildren(eye);old?.remove();header.after(control);return}
+ const body=document.createElement('div');body.id='todoTaskItems';body.hidden=todoCollapsed[rotationWeekOffset];
+ const collapse=heading.querySelector('.todo-collapse-toggle')||document.createElement('button');collapse.type='button';collapse.className='iconbtn todo-collapse-toggle';collapse.setAttribute('aria-controls',body.id);
+ const refresh=()=>{body.hidden=todoCollapsed[rotationWeekOffset];collapse.setAttribute('aria-expanded',String(!body.hidden));setRecipeToolbarIcon(collapse,body.hidden?'expand':'collapse',body.hidden?'Expand to-do tasks':'Collapse to-do tasks')};
+ collapse.onclick=()=>{todoCollapsed[rotationWeekOffset]=!todoCollapsed[rotationWeekOffset];refresh()};refresh();heading.replaceChildren(collapse,title,eye);section.replaceChildren(heading,body);
+ for(const item of shown){const row=makeAheadReminderRow(item,true);if(rotationWeekOffset){const due=document.createElement('small');due.className='make-ahead-due';due.textContent='Due '+parseCookingLocalDate(item.due).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'});row.append(due)}body.append(row)}
+ visibility?.remove();if(!old)header.after(section);
 }
 let makeAheadDayTimer=null,makeAheadLocalDay=null;
 function syncMakeAheadLocalDay(){
@@ -1200,7 +1215,7 @@ window.addEventListener('focus',syncMakeAheadLocalDay);window.addEventListener('
 function validMakeAheadLead(task){return Number.isFinite(task.daysBefore)&&task.daysBefore>=0&&task.daysBefore<=36600&&(task.hoursBefore===undefined||Number.isFinite(task.hoursBefore)&&task.hoursBefore>=0&&task.hoursBefore<=878400)}
 function recipeMakeAheadTasks(meal){return (Array.isArray(meal.makeAheadTasks)?meal.makeAheadTasks:[]).filter(t=>t&&typeof t.id==='string'&&typeof t.description==='string'&&t.description.trim()&&validMakeAheadLead(t))}
 function makeAheadTiming(days,hours){return hours!==undefined?hours===0?'Same day':hours+' hour'+(hours===1?'':'s')+' before':days===0?'Same day':days===1?'1 day before':days+' days before'}
-function buildMakeAheadEditor(meal){
+function buildMakeAheadEditor(meal,before=$('editorNotesSection')){
  const group=mealEditorSubsection('ahead','Make Ahead','recipeMakeAhead',meal),box=group.details,body=group.content;body.classList.add('make-ahead-editor');
  const changed=()=>box.dispatchEvent(new Event('change',{bubbles:true}));
  function taskRow(task={},after=null){
@@ -1220,9 +1235,9 @@ function buildMakeAheadEditor(meal){
   row.append(description,remove,timing,hint);if(after)after.after(row);else body.append(row);return row;
  }
  const saved=Array.isArray(meal.makeAheadTasks)?meal.makeAheadTasks:[];saved.filter(t=>t&&typeof t==='object').forEach(task=>taskRow(task));if(!saved.length)taskRow();
- $('editorNotesSection').before(box);
+ before.before(box);
  box.readDraft=()=>[...body.querySelectorAll('.make-ahead-task-editor')].map(row=>row.readDraft()).filter(t=>t.description);
- box.validDraft=()=>[...body.querySelectorAll('.make-ahead-task-editor')].every(row=>row.validDraft());
+ box.validDraft=()=>[...body.querySelectorAll('.make-ahead-task-editor')].every(row=>row.validDraft());return box;
 }
 function makeAheadWeekStart(){const plan=mealPlans.find(p=>p.id===activePlanId);return parseCookingLocalDate(plan?.rotationCalendar?.weekStart)||cookingPlanningWeekStart()}
 function makeAheadTaskComplete(plan,key){
@@ -1235,7 +1250,7 @@ function scheduledMakeAheadTasks(includeUpcoming=true,upcoming=null){
   const plan=source.plan,entries=source.entries||getDisplayedWeekdayMealsForPlan(plan),calendar=rotationCalendarForPlan(plan,entries),real=mealPlans.find(item=>item.id===plan.id)||plan;
   for(const entry of entries){const occurrence=rotationOccurrenceKey({...entry,planId:plan.id}),scheduled=parseCookingLocalDate(calendar.occurrences?.[occurrence])||cookingDateInWeek(entry.day,parseCookingLocalDate(calendar.weekStart)||start);if(!scheduled)continue;
    for(const task of recipeMakeAheadTasks(entry.meal)){
-    const due=new Date(scheduled);if(task.hoursBefore!==undefined)due.setTime(due.getTime()-task.hoursBefore*3600000);else if(Number.isInteger(task.daysBefore))due.setDate(due.getDate()-task.daysBefore);else due.setTime(due.getTime()-task.daysBefore*86400000);
+    const due=makeAheadDueDate(scheduled,task);
     const key=JSON.stringify([occurrence,cookingLocalDate(scheduled),source.preview?'preview':calendar.assignedAt?.[occurrence]||'',task.id]),identity=JSON.stringify([plan.id,occurrence,cookingLocalDate(scheduled),task.id]);if(seen.has(identity))continue;seen.add(identity);
     rows.push({plan:real,entry,task,key,due:cookingLocalDate(due),scheduled:cookingLocalDate(scheduled),complete:makeAheadTaskComplete(real,key)});
    }
@@ -1251,10 +1266,36 @@ function retainDueMakeAheadTasks(){
   if(!pending.some(saved=>saved.key===item.key))pending.push({key:item.key,due:item.due,scheduled:item.scheduled,task:{...item.task},entry:{day:item.entry.day,cat:item.entry.cat,meal:{id:item.entry.meal.id,name:item.entry.meal.name}}});plan.makeAheadPending=pending;
  }
 }
+function makeAheadDueDate(scheduled,task){
+ const due=new Date(scheduled);if(task.hoursBefore!==undefined)due.setTime(due.getTime()-task.hoursBefore*3600000);else if(Number.isInteger(task.daysBefore))due.setDate(due.getDate()-task.daysBefore);else due.setTime(due.getTime()-task.daysBefore*86400000);return due;
+}
+function editPreparationTask(item){
+ if(document.querySelector('.preparation-task-dialog'))return;
+ const meal=meals.find(meal=>String(meal.id)===String(item.entry.meal.id)),task=meal&&recipeMakeAheadTasks(meal).find(task=>task.id===item.task.id);if(!task)return;
+ const baseline=JSON.stringify(task),d=recipeBulkDialog('Edit preparation task'),mount=document.createElement('div');d.overlay.classList.add('preparation-task-dialog');d.panel.append(mount);
+ const editor=buildMakeAheadEditor({...meal,makeAheadTasks:[{...task}]},mount);editor.id='preparationTaskDraft';editor.open=true;editor.querySelector('summary').hidden=true;mount.remove();
+ editor.querySelectorAll('[aria-label="Remove preparation task"],[aria-label="Add preparation task"]').forEach(button=>button.hidden=true);
+ const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');const actions=document.createElement('div');actions.className='meal-unified-actions';
+ const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save preparation task');setIconButton(cancel,'cancel','Cancel preparation edit');cancel.onclick=d.close;let saving=false;
+ save.onclick=()=>{if(saving)return;const draft=editor.readDraft()[0];if(!draft||!editor.validDraft()){error.textContent='Enter a task and a valid lead time.';return}
+  const current=meals.find(record=>String(record.id)===String(meal.id)),existing=current&&recipeMakeAheadTasks(current).find(record=>record.id===task.id);
+  if(!existing||JSON.stringify(existing)!==baseline){error.textContent='This reminder changed. Cancel and reopen it to edit the latest version.';return}
+  saving=true;try{applyRecipeBulk([String(current.id)],{}, {render:false,viewerEdit:{sourceId:String(current.id),fields:{makeAheadTasks:current.makeAheadTasks.map(record=>record?.id===task.id?{...draft,id:task.id}:record)},owner:'preparation:'+current.id+':'+task.id}});d.close();renderList();const parent=document.querySelector('[data-make-ahead-recipe]');if(parent){const record=meals.find(meal=>String(meal.id)===parent.dataset.makeAheadRecipe);parent.remove();if(record)openMakeAheadTasks(record)}}catch(e){error.textContent='Reminder could not be saved: '+e.message}finally{saving=false}
+ };
+ actions.append(save,cancel);d.panel.append(error,actions);fitOneTimeMealViewport(d.overlay,d.panel);editor.querySelector('input')?.focus({preventScroll:true});
+}
+function bindPreparationTaskPress(row,item){
+ let timer=null,start=null,held=false;const stop=()=>{clearTimeout(timer);timer=null};
+ row.addEventListener('pointerdown',event=>{if(event.button!==0)return;stop();held=false;start={x:event.clientX,y:event.clientY};timer=setTimeout(()=>{held=true;editPreparationTask(item)},550)});
+ row.addEventListener('pointermove',event=>{if(start&&Math.hypot(event.clientX-start.x,event.clientY-start.y)>10){stop();start=null}});
+ for(const event of ['pointerup','pointercancel','pointerleave'])row.addEventListener(event,()=>{stop();start=null});
+ row.addEventListener('click',event=>{if(held){event.preventDefault();event.stopImmediatePropagation();held=false}},true);
+ row.addEventListener('contextmenu',event=>event.preventDefault());
+}
 function makeAheadReminderRow(item,today=false){
  const label=document.createElement('label');label.className='make-ahead-reminder'+(item.complete?' make-ahead-complete':'');label.dataset.makeAheadKey=item.key;label.dataset.planId=String(item.plan.id);const check=document.createElement('input');check.type='checkbox';check.className='check';check.checked=item.complete;
  const text=document.createElement('span');text.textContent=item.task.description+' · for '+item.entry.day+"'s "+(item.entry.meal.name||'meal')+(today?' · '+item.plan.name:'');check.setAttribute('aria-label',text.textContent);
- check.onchange=()=>setMakeAheadComplete(item,check.checked);label.append(check,text);return label;
+ check.onchange=()=>setMakeAheadComplete(item,check.checked);label.append(check,text);bindPreparationTaskPress(label,item);return label;
 }
 function makeAheadTaskVisible(item,today=cookingLocalDate(new Date())){return typeof item.scheduled==='string'&&item.scheduled>=today}
 function makeAheadCardDate(item){return item.due}
@@ -1263,7 +1304,7 @@ function appendMakeAheadDay(card,day,rows,start=makeAheadWeekStart()){
 }
 function makeAheadIndicator(meal){if(!makeAheadDisplayPrefs.showMakeAheadReminders||!recipeMakeAheadTasks(meal).length)return null;const b=document.createElement('button');b.type='button';b.className='recipe-personal-icon';setRecipeToolbarIcon(b,'prep','Make ahead: '+(meal.name||'Recipe'));b.onclick=e=>{e.preventDefault();e.stopPropagation();openMakeAheadTasks(meal)};for(const event of ['pointerdown','pointerup','touchstart','touchend','dblclick'])b.addEventListener(event,e=>e.stopPropagation());return b}
 function openMakeAheadTasks(meal){
- const shade=document.createElement('div');shade.className='recipe-timer-dialog';shade.setAttribute('role','dialog');shade.setAttribute('aria-label','Make ahead: '+meal.name);const panel=document.createElement('div'),heading=document.createElement('strong');heading.textContent=meal.name||'Make ahead';panel.append(heading);
+ const shade=document.createElement('div');shade.className='recipe-timer-dialog';shade.setAttribute('role','dialog');shade.setAttribute('aria-label','Make ahead: '+meal.name);shade.dataset.makeAheadRecipe=String(meal.id);const panel=document.createElement('div'),heading=document.createElement('strong');heading.textContent=meal.name||'Make ahead';panel.append(heading);
  const rows=scheduledMakeAheadTasks().filter(item=>String(item.entry.meal.id)===String(meal.id)&&makeAheadTaskVisible(item));if(rows.length)for(const item of rows){const line=makeAheadReminderRow(item),date=document.createElement('small');date.textContent=item.due+' · '+item.plan.name;line.append(date);panel.append(line)}else for(const task of recipeMakeAheadTasks(meal)){const p=document.createElement('p');p.textContent=task.description+' · '+makeAheadTiming(task.daysBefore,task.hoursBefore);panel.append(p)}
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close make ahead');close.onclick=()=>shade.remove();panel.append(close);shade.append(panel);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.onkeydown=e=>{if(e.key==='Escape')shade.remove()};document.body.append(shade);close.focus({preventScroll:true});
 }
