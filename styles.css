@@ -1699,3 +1699,5 @@ input.preference-switch:checked{background:#5876ad!important;border-color:#5876a
 #list.top-summary .plan-meal-card .mealname{padding:0!important;margin:0!important;font-size:calc(16px * var(--meal-text-factor,1));line-height:1.3;}
 #list.top-summary .plan-card-recipe{display:flex;align-items:flex-start;gap:4px;}.plan-card-recipe>.recipe-personal-name{flex:1;min-width:0;}
 #list.top-summary .plan-card-recipe .needs-tweaking-icon{min-width:24px;width:24px;min-height:24px;height:24px;padding:4px;margin:0;}
+.meal-slot-manager .meal-unified-actions{display:grid!important;grid-template-columns:repeat(5,minmax(44px,1fr));gap:2px!important;width:100%;}
+.meal-slot-manager .meal-unified-actions>button{min-width:44px!important;width:44px!important;max-width:100%;min-height:44px!important;justify-self:center;padding:6px;}

@@ -147,12 +147,12 @@ def weeks_and_dialog(browser,name):
 
 
 def slot_management(browser,name):
- c,p,errors,prefix=setup_review(browser,name)
+ c,p,errors,prefix=setup_review(browser,name,320)
  p.get_by_role('tab',name='Lunch',exact=True).tap();assert p.get_by_role('tab',name='Lunch',exact=True).get_attribute('aria-selected')=='true';p.get_by_role('tab',name='Dinner',exact=True).tap()
  before=p.evaluate('plan120.state()');tabs=p.locator('.meal-plan-tabs');first=p.get_by_role('tab',name='Dinner',exact=True)
  # A hold opens only on release; rename/reorder drafts cancel together.
  box=first.bounding_box();p.mouse.move(box['x']+20,box['y']+20);p.mouse.down();p.wait_for_timeout(620);assert not p.get_by_role('dialog',name='Rename meal slot',exact=True).count();p.mouse.up()
- d=p.get_by_role('dialog',name='Rename meal slot',exact=True);d.wait_for(state='visible');assert d.get_by_role('button',name='Delete meal slot',exact=True).is_visible();d.get_by_role('textbox',name='Meal slot name',exact=True).fill('Changed');d.get_by_role('button',name='Move slot right',exact=True).tap();d.get_by_role('button',name='Cancel meal slot changes',exact=True).tap();assert_state(p.evaluate('plan120.state()'),before)
+ d=p.get_by_role('dialog',name='Rename meal slot',exact=True);d.wait_for(state='visible');bounds=d.locator(':scope>div').bounding_box();assert d.locator('.meal-unified-actions button').evaluate_all('(xs)=>xs.every(x=>x.getBoundingClientRect().width>=44)');assert all(button.bounding_box()['x']>=bounds['x'] and button.bounding_box()['x']+button.bounding_box()['width']<=bounds['x']+bounds['width'] for button in d.locator('.meal-unified-actions button').all());assert d.get_by_role('button',name='Delete meal slot',exact=True).is_visible();d.get_by_role('textbox',name='Meal slot name',exact=True).fill('Changed');d.get_by_role('button',name='Move slot right',exact=True).tap();d.get_by_role('button',name='Cancel meal slot changes',exact=True).tap();assert_state(p.evaluate('plan120.state()'),before)
  # Accessible ordering shares stable IDs; saving rename does not change schedules.
  first=p.get_by_role('tab',name='Dinner',exact=True);first.focus();p.keyboard.press('Alt+ArrowRight');assert p.evaluate('review120.groups()')[1]['id']=='original';p.locator('#undo').tap();assert_state(p.evaluate('plan120.state()'),before)
  p.evaluate("review120.manage('original')");d=p.get_by_role('dialog',name='Rename meal slot',exact=True);d.get_by_role('textbox',name='Meal slot name',exact=True).fill('Evening');d.get_by_role('button',name='Save meal slot',exact=True).tap();assert p.get_by_role('tab',name='Evening',exact=True).get_attribute('aria-selected')=='true'
