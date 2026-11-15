@@ -1,6 +1,6 @@
 APP EXPERIENCE AND ACCEPTED BEHAVIOR
 Updated: 2026-11-15
-Scope: intended/accepted original-app behavior. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
+Scope: intended/accepted original-app behavior, including approved NOT YET IMPLEMENTED designs in #120-#124. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
 
 LOOK AND FEEL
 Warm Harvest Kitchen palette; muted pastel weekday cards; neutral surfaces; rounded corners; soft shadows; readable dark text.
@@ -9,31 +9,33 @@ Small blue checkboxes; radio dots for exclusive choices; consistent outline chev
 Dialogs scroll in foreground, lock background, and keep actions usable with keyboard/landscape. Preserve accessible keyboard focus.
 
 NAVIGATION AND PLANS
-Main views: My Rotation, Weekly Overview, Groceries, Meal Groups. Compact bottom-right navigation.
-Separate renameable/reorderable meal tabs, e.g. Breakfast/Lunch/Dinner.
-Show meal tabs hides/reveals tabs without deleting plans; visible plus adds a plan even with one existing tab. No Add Meal Tab Settings button.
-Current week and generated next-week preview are distinct. General editing of generated future schedules has not been approved.
+Approved #120: My Rotation becomes My Meal Plan (nav label Meals). Views: Meals, Week (Weekly Overview), Groceries, Meal Groups.
+Fixed bottom icon+label navigation visible while scrolling; hidden for keyboard/popups and group selection bar; content clears it.
+Raised This week / Next week tabs; viewing preview never advances/mutates schedule. Generated future schedule editing remains unapproved.
+Breakfast/Lunch/Dinner/custom slots become smaller text selector, selected bold/underlined, single horizontally scrolling row (no wrap), comfortable targets. Plus adds slots; retain rename/reorder/delete and saved identities.
+Provisional setting "Use multiple meal slots"; helper "Plan breakfast, lunch, dinner, or your own meals separately." Wording to revisit later.
+Off: single view, selector and separate Weekly Overview page/nav hidden; My Meal Plan serves as overview. On restores access. Preserve hidden plans/data and existing active-plan/grocery scope; do not merge/delete.
+Weekday above meals, small muted date on same line e.g. MONDAY · NOV 16; viewed week accurate even when not advanced. No date setting/side column.
 Ordinary page changes go top; targeted navigation finds exact occurrence.
-Aggregate-page tab policy remains a status/design-confirmation item; do not invent scope.
 
 ROTATION
 Assign groups to weekdays; configurable weekday order; multiple groups/day; empty days allowed.
-Select outside the assigned group through searchable group/recipe picker.
-Rotate Meals controls advance selected occurrences according to group order; preserve other plans/weeks/manual choices.
-Short tap opens recipe; long-press options. A popup action dispatches once, responds promptly, and prevents tap-through.
-Last cooked: actual cooked date recorded for outgoing occurrence, otherwise scheduled local date, never simply button-press date.
-Scaling is ALREADY implemented: occurrence multiplier 1/2x, 1x, 1 1/2x, 2x, 3x; original recipe unchanged, groceries proportional.
+Select outside assigned group through searchable group/recipe picker.
+Internal group order, occurrence/plan/week isolation and manual-choice protection remain. Approved #120 replaces main Rotate Meals/Rotate out with "Start next week →". Remove Rotate Back; Undo restores whole advance including groceries/checks/manual cleanup, prep and cooked dates. No algorithm rewrite.
+Dialog title "Start next week"; helper "Unselected meals will be reused in next week's meal plan."
+Direct eligible meal-occurrence checklist, initially all selected, grouped by meal slot when applicable and labeled weekday. No Replace all/intermediate chooser.
+Separate "Mark replaced meals as cooked" checkbox retains existing preference/default; top-right X cancels unchanged; "Start next week →" confirms once. Unchecked meals carry forward; preserve existing eligible scope/manual protections.
+Popup actions respond promptly, dispatch once, no tap-through.
+Last cooked: actual cooked date for outgoing occurrence, otherwise scheduled local date, not button-press date.
+Scaling ALREADY implemented: occurrence multiplier 1/2x, 1x, 1 1/2x, 2x, 3x; recipe unchanged, groceries proportional.
 
 MEAL OPTIONS
-Header recipe name, Favorite heart, X; compact Last cooked date/pencil beneath.
-Standard rounded outlined buttons: Change meal; Add or edit sides; Edit recipe; Edit groceries.
-No redundant Open recipe, separate rotate, or separate skip action here.
-Change meal picker shows:
-1. Use next recipe.
-2. Leave Tuesday empty (tabs hidden), or Leave Tuesday's dinner empty (tabs shown); actual names.
-3. Choose a different meal with search/groups already displayed.
-Empty means only selected occurrence, not other dishes on the day.
-Skipped dash retains long-press access; no duplicate Auto-Populate action.
+Approved #120: compact expandable cards, collapsed name + linked sides; chevron reveals six labeled icon actions.
+Planning: Use next recipe / Choose a different meal / Leave this meal empty.
+Editing: Edit recipe / Edit groceries / Add or edit sides.
+Favorite heart and Last cooked/date pencil near expanded heading. Replace need for long-press popup; Choose opens existing searchable group picker directly.
+No redundant Open recipe or separate skip/rotate action. Empty changes selected occurrence only; preserve skipped/empty access and linked-side protections.
+Retain palette, rounded cards and soft shadows; no colored left stripe.
 
 DUPLICATE MEAL
 Heading: "[Recipe] is already planned for [weekday]."
@@ -43,7 +45,7 @@ First automatically replaces source using normal eligible selection; second keep
 GROUPS AND IDEAS
 Two statuses: In Rotation and Ideas, NOT three.
 In Rotation eligible for automatic rotation; Ideas manually schedulable without promotion.
-Ideas pins: outlined/filled, left column; pinned first. Pin/unpin brings first in corresponding portion. Long-press drag within each portion, shared persistent order across memberships, hidden relative order preserved.
+Ideas pins: outlined/filled, left column; pinned first. Pin/unpin brings first in corresponding portion. Manual drag within each portion, shared persistent order across memberships, hidden relative order preserved.
 In Rotation down arrow directly moves to Ideas, pins first; Ideas up arrow directly promotes to top of In Rotation. No status popup from arrows or visible reorder arrows.
 Hearts are Favorites, separate from priority pins; preserve underlying values and adjustment notes.
 Many group memberships represent one logical recipe; no multi-group chain clutter.
@@ -53,13 +55,15 @@ Add meals button, "Add meals to [group]" picker; standard chevrons; Copy keeps o
 Search multi-word AND; optional Match word order off by default.
 
 BULK EDIT
-First selection establishes source group; restrict selection to it until Done/deselect all. Toolbar group/count; Select all respects filters.
-Independent Remove from [source] and Add to groups. Preserve other memberships; destinations required for Add; no named memberships -> Unassigned. Omit Remove from Unassigned.
-New groups and changes pending until outer final check; X cancels.
-Status Keep existing/In Rotation/Ideas, mixed values preserved by Keep existing.
-No bulk Favorite/Needs Adjusting or redundant Move toolbar.
+Approved #121: group heading expands/collapses recipes; pencil opens that group's bottom editing bar with none selected. Preserve existing group rename/settings/reorder access. No second editing chevron or Organize label.
+Long press opens same mode selecting pressed recipe. Source-group-only selection; no cross-group selection until Done/clear.
+Bottom icon+label actions Groups / Status / Delete / Done, with group/count; hide main navigation. Groups/Status directly open their controls, no intermediate Edit recipes dialog.
+Select all/Deselect all above list beside count, group/filter scope. None -> Select all. Initial long-press auto-selected recipe -> still Select all. After another recipe manually selected -> Deselect all even partial; all selected -> Deselect all. Clears immediately; track entry exception, not count-one shortcut.
+Handles only in organizing and supported reorder contexts: Ideas with pinned/unpinned portions; groups in existing group reorder. No In Rotation recipe handles/manual reordering.
+Retain independent Remove from [source] and Add to groups (move/copy semantics), other memberships preserved; destinations required for Add; no named memberships -> Unassigned; omit Remove from Unassigned.
+New groups/changes pending outer final check; X cancels. Status Keep existing/In Rotation/Ideas, mixed preserved by Keep existing. No bulk Favorite/Needs Adjusting or extra Move toolbar.
 Picker heading/actions/footer fixed, destination list scrolls, chevrons on subpicker rows.
-Delete selected names with "Delete these recipes?" and note "Unselected linked recipes will not be deleted."
+Delete names with "Delete these recipes?" and "Unselected linked recipes will not be deleted."
 
 BUILT-IN SIDES AND PREFERENCES
 App-provided Sides group has stable identity, can rename/reorder, cannot delete. Reuse existing group without duplicate migration; In Rotation/Ideas remain.
@@ -82,13 +86,16 @@ Reload persistence required; session Undo works, persistent Undo after reload no
 
 GROCERIES
 Heading Groceries; toolbar alongside or flush-left wrapped.
-Independent This week/Next week checkboxes; included-plan choices. Combined list default.
-Checked items move top; Select All/Deselect All/Hide Selected. Preserve checks when adding/editing; newly rotated-in sources unchecked without resetting others.
-Manual items add/check/edit/delete, long-press edit; survive filters, week switches, reload, individual rotation.
-Explicit whole-week advance clears checked manual items only; unchecked stay; Undo/Redo restores/removes. No calendar cleanup.
-Recipe-generated shopping text edits do not change recipe ingredients.
-Compact expanded source names clickable -> correct ingredient in internal viewer. Association survives wording/scaling. Split-view linked-step positioning incomplete/deferred.
-Ambiguous combining and edited-quantity scaling remain deferred; preserve existing handling without pretending solved.
+Independent This week/Next week checkboxes; included-plan choices; combined list default.
+Checked items move top; Select All/Deselect All/Hide Selected. Preserve checks adding/editing; newly scheduled sources unchecked without resetting others.
+Manual items add/check/edit/delete; survive filters/week switches/reload/individual meal replacement.
+Explicit whole-week advance clears checked manual items only; unchecked stay; Undo/Redo restores/removes; no calendar cleanup.
+Approved #122: every ingredient row has chevron; text/chevron expands, checkbox checks only. Total with muted inline count for multiple source meal occurrences e.g. "3 cups rice (2)"; no extra count line, one-source no count.
+Expanded one source per line, amount + clickable source recipe + shopping-wording pencil. Multiple sources have individual grocery checkboxes; parent all/none/partial. Partial parent selects all, fully checked parent clears. Required total stays; Hide Selected must not hide unchecked contributions.
+Source link -> correct ingredient/occurrence, association survives wording/scaling. Split-view linked-step repair remains deferred.
+Fix custom-wording scaling: preserve wording, derive quantity from canonical source/occurrence multiplier, original recipe unchanged. Stable IDs, no compounded display scaling, independent sources/checks/overrides; preserve supported manual quantities and ambiguous free text rather than guessing.
+Helper: "Changes apply only to your grocery list. Quantities still update when you scale the recipe."
+Broad combining/matching refinement remains deferred.
 
 TASKS / OVERVIEW
 Due dates from scheduled occurrence + lead time, can precede meal week.
@@ -98,7 +105,8 @@ Today's To-Do only kept visible by eligible incomplete due-today/overdue tasks. 
 Next Week's To-Do includes prep due before that week; hide all complete.
 Compact wording "[task] for Sunday's dinner", no duplicated recipe title/"meal tab". User text preserved.
 Text tap -> exact meal/plan/week; checkbox only completes; long-press edits. No heavy blue title box; subtle card shadow intended but visibility unconfirmed.
-Compact task padding/alignment desired; some polish deferred.
+Keep useful advance prep (defrost/marinate), no detailed manual wash/chop lists or extra recipe/date subtext. Automatic useful task extraction is only an unscoped future idea.
+Approved #120: remove olive vertical bar beside task, keep checkbox/text and modest spacing; no replacement stripe/box. Other polish deferred.
 
 RECIPES / COOKING
 Internal recipe viewer, source URL retained.
@@ -107,7 +115,8 @@ Split view narrow draggable divider; landscape ingredients left/instructions rig
 Explicit ingredient-step links: highlighting, optional auto-completion, next-incomplete-step scroll, manual ingredient uncheck; optional complete previous steps.
 Long-press step links ingredients inline. Viewer may reorder by use while saved ingredient order unchanged.
 Linked-recipe tabs optional, main first, scroll position per tab, scroll/reorder, truncate long names, hide single-tab bar.
-Edit/scale near title, consistent split/reset/settings; keep screen awake capability.
+Edit/scale near title, consistent split/reset/settings.
+Approved #120: visible screen/sun Keep screen awake icon, toggled/highlighted, last preference globally remembered. Replace settings checkbox; migrate choice. Only acquire while recipe/app visible; release on close/background, reacquire on return if enabled/supported. Display actual lock availability honestly.
 Editor substantial sections independently collapsible, no outer gray boxes; unsaved edits/links preserved.
 Linked selector initially collapsed groups, reference/Unassigned included, shared selection across memberships, search expands matches, clear restores expansion, final check/X.
 Android Back returns once to origin, not an extra hop.
@@ -115,10 +124,17 @@ Needs Adjusting optional note editable without autofocus; no Edit note intermedi
 Labels, times, notes, source, ingredient upload/import and recipe status retained.
 
 ONBOARDING / IMPORT / DATA
-First usable path: Create Recipe -> group checkbox list + inline New group -> day/meal time -> My Rotation. No intermediate setup screen.
-Spotlight Rotate Meals on first group assignment with shadow/arrow/X:
-"When you rotate Monday's dinner, the next recipe from the Chicken group will take its place on your weekly meal plan."
-Substitute actual names; point at real button.
-Website, structured/file and photo/camera import are existing product areas; actual supported formats must be verified when relevant. Conservative cleanup preserves useful prep words/quantities. Detailed import onboarding pending.
-Backups preserve full data/preferences, validate/restore safely; no site-data clearing.
-Android installable PWA, saved data persists. Test app isolated. Original app and rebuild separate.
+Existing create-first path retained: Create Recipe -> group checkbox list + inline New group -> day/meal time -> My Meal Plan; no intermediate setup.
+Approved #120 spotlight teaching copy: "Start next week to move to your next meal plan and update your grocery list." Retain first-assignment trigger, shadow/arrow/standard X pointing at real action; supersedes rotation wording.
+Approved #123: Settings Recipes = Import recipes / Export recipes / Refresh from RecipeSage. Backups = Save backup / Restore backup (Start fresh in #124).
+One Import recipes popup: Website link / Photo or camera / Paste text / Recipe file / Trello board link. Show only selected method fields; standard X; formats under Recipe file. Preserve actual supported formats and existing parsers/cleanup; do not promise new services.
+Single import review via existing editor; bulk keeps existing bulk flow, no forced per-recipe review.
+RecipeSage refresh explanation/chooser/action in own popup; keep matching, customizations, notes, safety backup and uncertain-match skips.
+Confirmed Sides suggestion: single "Add this recipe to Sides?" or compact bulk check/uncheck review; preserve other memberships, strong metadata over name, uncertain unclassified, never silent.
+Approved #124 optional empty-app choices Try an example / Start my collection. Small working sample of groups/recipes/weekday assignments/linked side. Editable ordinary data, user may customize as permanent collection.
+Dismissible Example collection banner with Start my collection entry; X dismissal persists, never deletes. No separate collections/switcher/merge/Keep setting.
+Starting fresh from examples uses same explicit confirmation, never silently resets edits.
+Settings Backups -> Start fresh: "Erase this collection and start fresh?" Warning "This permanently removes all recipes, meal groups, scheduled meals, and grocery data in this collection."
+Offer Save full backup (organization/settings included) and Export recipes (recipes only), leaving confirmation open; then Cancel or separate destructive Erase and start fresh. Export success/failure/cancel never erases automatically.
+Reset only app-owned collection/state, not browser site data/unrelated/test keys; initialize required built-ins normally, prevent Undo resurrection and reseeding. Test reset on isolated fixtures, not live user data.
+Backups validate/restore full data/preferences safely; installed Android PWA persists data; test app isolated; original app/rebuild separate.
