@@ -1654,3 +1654,5 @@ body.meal-keyboard-open #mealBottomNav,body.recipe-bulk-select #mealBottomNav,bo
 #list.top-summary .top-meal-title-line:has(.meal-actions-toggle){grid-template-columns:minmax(0,1fr) auto 44px;gap:6px!important;}
 .linked-side-actions{width:100%;min-width:0;}.linked-side-title-line{display:flex;align-items:center;gap:6px;}.linked-side-title-line>button:first-child{flex:1;min-width:0;}
 body:has([aria-modal=true]) #mealBottomNav,body:has([data-recipe-edit-draft]) #mealBottomNav{display:none!important;}
+
+#recipeViewer .recipe-viewer-bar{grid-template-columns:repeat(6,minmax(44px,1fr));gap:2px;}#recipeViewer .recipe-toolbar-icon.recipe-keep-awake{grid-column:5;}#recipeViewer .recipe-toolbar-icon.recipe-open-recipes{grid-column:6;}

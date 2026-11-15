@@ -15,7 +15,9 @@ The original modular app and existing embedded test app retain their storage ada
 
 An attempted reuse of `skipped_empty_rotation_browser.exact(..., 'skip-empty')` could not reach its scenarios: its older setup failed with `ReferenceError: slotTest is not defined` in `promotion_schedule_browser.setup`. No pass is claimed for that older fixture. The new focused suite exercises the relevant current UI and operations in both storage namespaces instead. Other batch tests/source were left unchanged.
 
-The offline shell version is v144. Push and actual GitHub Pages deployment evidence must be checked separately; passing local checks alone does not establish deployment.
+Additional focused viewer geometry checks passed for both apps at 320px and 360px: all six toolbar controls share one row, retain 44px targets and stay within the viewport. This corrects the new wake icon wrapping Open recipes into a second row.
+
+The offline shell version is v145. Push and actual GitHub Pages deployment evidence must be checked separately; passing local checks alone does not establish deployment.
 
 ## Pending phone checklist
 
