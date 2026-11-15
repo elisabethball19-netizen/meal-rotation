@@ -1,0 +1,58 @@
+DEVELOPMENT AND HANDOFF PREFERENCES
+Updated: 2026-11-15
+
+ROLE
+Help decide behavior, track work, and prepare precise Codex tasks. Do not implement app changes merely because the user is brainstorming. When feedback arrives in several messages, collect it until the user says finished.
+
+CREDITS
+- Batch related changes into coherent tasks.
+- A tiny cosmetic item usually waits for related work rather than getting its own task.
+- Blocking bugs can justify a focused task.
+- Reuse existing components and domain operations.
+- Make targeted edits; no whole-app rewrites, unnecessary refactoring, repeated investigations, speculative optimization, or broad audits.
+- Detailed scope can save correction rounds; brevity alone does not guarantee fewer credits.
+- Once focused checks pass, don't repeat/broaden them without new evidence.
+- Do not repeatedly retry deferred cosmetic fixes.
+- Direct model-selection notes to the user (e.g. Select Sol Light), not to Codex inside the task.
+
+ORIGINAL APP WORKFLOW
+Repository: https://github.com/elisabethball19-netizen/meal-rotation
+Use current main and current modular vanilla HTML/CSS/JavaScript files. Do not reconstruct an older single-file app from memory.
+Work directly on main, commit and push within authorized implementation tasks. No branch/PR overhead unless necessary.
+Preserve features, styling, saved data, localStorage compatibility, and architecture.
+Update the existing meal-rotation-test.html equivalently where applicable, preserving isolated test storage and test-only features. No extra test-app versions.
+Regular installed Android PWA is hosted through GitHub Pages.
+Never clear site data: it contains the user's recipes.
+Never invent commit, deployment, or testing results.
+For file-based tasks, edit the supplied latest source; do not silently substitute repository/older files. Normal HTML delivery index.html; test file only when requested.
+Keep corrections in the feature's current Codex thread. Start a new thread at a completed feature boundary.
+
+TASK QUALITY
+Define behavior, edge cases, exact wording, scope, screenshot references, preservation rules, and focused verification.
+Reuse actual stored identities and occurrence paths rather than matching names or indexes.
+Use real user flows and realistic fixtures for reported bugs.
+Separate measured root cause from speculation.
+A guard throwing an error is not fixed by removing the guard.
+Performance fixes must improve measured work, not hide blocking behind a spinner/timer.
+Preserve atomicity, cancel, Undo/Redo, unaffected checks, week isolation, and data.
+Report limitations honestly. Code inspection is not phone verification.
+
+HANDOFF SYSTEM
+Root AGENTS.md is the short entry point.
+docs/handoff/01-app-vision.txt = lasting goals.
+docs/handoff/02-development-preferences.txt = collaboration/work rules.
+docs/handoff/03-app-experience.txt = latest accepted product behavior.
+docs/handoff/04-remaining-work.txt = project state and actionable backlog.
+
+Read only relevant documents for small tasks; don't repeatedly load the full history.
+Documents hold lasting decisions. GitHub issues hold precise implementation batches.
+Before a handoff, update only changed facts, remove conflicting superseded decisions, and move completed work out of the active backlog.
+New implementation issues should contain acceptance criteria and phone checks. Follow the issue with a short Codex instruction referencing it and a phone checklist for the user.
+User authorization to use this workflow permits preparing scoped issues when a batch is approved; it is not authorization to implement speculative features.
+Keep statuses distinct: proposed; approved; implemented/code-checked; awaiting phone test; phone-confirmed; deferred.
+A pushed commit alone is not proof of phone correctness.
+Fetch current repository facts when needed; do not infer what Codex did in another thread.
+If GitHub cannot be accessed in a handoff app, provide portable copies/relevant excerpts.
+
+REBUILD
+No confirmed rebuild repository is recorded. Do not overwrite the original or silently transfer its verified status to a rebuild. The older standalone fresh-build AGENTS.md is a historical specification, not this original repository's operating instruction.
