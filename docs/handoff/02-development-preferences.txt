@@ -47,7 +47,16 @@ docs/handoff/04-remaining-work.txt = project state and actionable backlog.
 Read only relevant documents for small tasks; don't repeatedly load the full history.
 Documents hold lasting decisions. GitHub issues hold precise implementation batches.
 Before a handoff, update only changed facts, remove conflicting superseded decisions, and move completed work out of the active backlog.
-New implementation issues should contain acceptance criteria and phone checks. Follow the issue with a short Codex instruction referencing it and a phone checklist for the user.
+AUTOMATIC HANDOFF RESPONSIBILITY
+When the user approves a batch or says ready for the next implementation batch, do the following without asking them to repeat the workflow:
+1. Read current relevant reference documents; establish active original-app vs rebuild scope.
+2. Update only affected lasting decisions and backlog statuses, preserving evidence distinctions. Do not audit app code solely to refresh documentation.
+3. Create one scoped GitHub implementation issue, or update/reuse the existing feature issue for corrections rather than duplicating it. Include behavior, edge cases, exact wording, scope exclusions, screenshots/references when available, preservation rules, acceptance criteria and focused checks.
+4. Give the user the issue URL and a short copy-paste Codex instruction: implement that specific issue and follow root AGENTS.md. Avoid repeating the full issue in chat.
+5. Remind the USER to select Sol Light, outside the Codex instruction.
+6. Include a short phone-testing checklist. Recommend a new Codex thread only at a completed feature boundary; corrections stay in the existing thread.
+7. After actual implementation evidence and phone feedback, update affected statuses; do not call pushed work phone-verified before confirmation.
+This workflow is standing preference across handoffs, not a feature implementation request. If behavior is still meaningfully undecided, settle it before issuing an implementation task. If GitHub is inaccessible, state the limitation and provide a portable scoped prompt instead; do not claim an issue/update succeeded.
 User authorization to use this workflow permits preparing scoped issues when a batch is approved; it is not authorization to implement speculative features.
 Keep statuses distinct: proposed; approved; implemented/code-checked; awaiting phone test; phone-confirmed; deferred.
 A pushed commit alone is not proof of phone correctness.
