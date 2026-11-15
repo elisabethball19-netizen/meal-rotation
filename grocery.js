@@ -153,20 +153,19 @@ function getMasterGroceryItems(){
   // Show all four destinations, highlighting the active view.
   const current=!showTop?'groups':groceryTabActive?'grocery':allMealsActive?'all':'top';
   const destinations=[
-   ['top','Home','<path d="M3 10.2 12 3l9 7.2V21h-6.5v-7h-5v7H3z"/>',()=>{showTop=true;groceryTabActive=false;allMealsActive=false;render()}],
+   ['top','Meals','<path d="M3 10.2 12 3l9 7.2V21h-6.5v-7h-5v7H3z"/>',()=>{showTop=true;groceryTabActive=false;allMealsActive=false;render()}],
    ['groups','Meal Groups','<path d="M4 6h16M4 12h16M4 18h16"/>',()=>openMasterCategories()],
-   ['all','Weekly Overview','<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h3M14 14h3M8 18h3M14 18h3"/>',()=>{showTop=true;groceryTabActive=false;allMealsActive=true;render()}],
-   ['grocery','Grocery List','<circle cx="9" cy="20" r="1"/><circle cx="19" cy="20" r="1"/><path d="M2 3h2l2.5 12h12L22 7H5"/>',()=>{showTop=true;allMealsActive=false;groceryTabActive=true;render()}]
+   ['all','Week','<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h3M14 14h3M8 18h3M14 18h3"/>',()=>{showTop=true;groceryTabActive=false;allMealsActive=true;render()}],
+   ['grocery','Groceries','<circle cx="9" cy="20" r="1"/><circle cx="19" cy="20" r="1"/><path d="M2 3h2l2.5 12h12L22 7H5"/>',()=>{showTop=true;allMealsActive=false;groceryTabActive=true;render()}]
   ];
-  const visibleDestinations=destinations.filter(([key])=>key!=='all'||(showMealPlanTabs&&mealPlans.length>1));
-  visibleDestinations.forEach(([key,title,art,action],index)=>{
-   const b=document.createElement('button');b.type='button';b.className='smallbtn add-meal-floating unified-nav-fab';
+  document.getElementById('mealBottomNav')?.remove();const nav=document.createElement('nav');nav.id='mealBottomNav';nav.setAttribute('aria-label','Main navigation');document.body.append(nav);
+  const order=['top','all','grocery','groups'];const visibleDestinations=destinations.filter(([key])=>key!=='all'||showMealPlanTabs).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
+  visibleDestinations.forEach(([key,title,art,action])=>{
+   const b=document.createElement('button');b.type='button';b.className='smallbtn unified-nav-fab';
    b.title=title;b.setAttribute('aria-label',title);b.dataset.destination=key;
    if(key===current){b.classList.add('current-view');b.setAttribute('aria-current','page');}
-   const visibleCount=visibleDestinations.length;
-   b.style.bottom='calc('+(14+(visibleCount-1-index)*51)+'px + env(safe-area-inset-bottom,0px))';
-   b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+art+'</svg>';
-   b.onclick=()=>navigateAfterSettings(()=>{if(key==='groups'&&tutorialStage==='1')setTutorialStage('2');action();window.scrollTo(0,0);requestAnimationFrame(()=>{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0})});document.body.append(b);
+   b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+art+'</svg>';const label=document.createElement('span');label.textContent=title;b.append(label);
+   b.onclick=()=>navigateAfterSettings(()=>{if(key==='groups'&&tutorialStage==='1')setTutorialStage('2');action();window.scrollTo(0,0);requestAnimationFrame(()=>{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0})});nav.append(b);
   });
  }
  function renderMasterGroceryTab(list){
@@ -268,3 +267,8 @@ function getMasterGroceryItems(){
   groceryTabActive=!groceryTabActive;groceryTabOpen=groceryTabActive;if(groceryTabActive)allMealsActive=false;
   editId=null;renderList();
  }
+function updateMealNavigationKeyboard(){
+ const target=document.activeElement,editing=target?.matches('textarea,input:not([type=checkbox]):not([type=radio]):not([type=button]),[contenteditable=true]');
+ document.body.classList.toggle('meal-keyboard-open',!!editing||!!(window.visualViewport&&window.visualViewport.height<window.innerHeight*.75));
+}
+document.addEventListener('focusin',updateMealNavigationKeyboard);document.addEventListener('focusout',()=>requestAnimationFrame(updateMealNavigationKeyboard));window.visualViewport?.addEventListener('resize',updateMealNavigationKeyboard);

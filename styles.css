@@ -1618,3 +1618,39 @@ body.recipe-bulk-select .master-category-meal[data-up-next-star]>.recipe-bulk-ch
 .occurrence-side-editor .meal-dialog-radio-choices[hidden]{display:none!important;}
 
 .occurrence-side-editor .simple-side-fields input[type=radio]{width:20px;height:20px;min-height:20px;padding:0;}.occurrence-side-editor .simple-side-fields details{margin:4px 0;}
+
+/* Issue #120: meal-plan navigation and direct occurrence actions. */
+body{padding-bottom:calc(90px + env(safe-area-inset-bottom,0px));}
+#mealBottomNav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:760px;display:flex;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));background:#fff;border-top:1px solid #ddd;z-index:1000;}
+#mealBottomNav .unified-nav-fab{position:static!important;transform:none!important;flex:1;min-width:0;width:auto!important;height:58px!important;display:flex!important;flex-direction:column;justify-content:center;align-items:center;gap:3px;font-size:12px!important;line-height:1.2;border:0!important;box-shadow:none!important;background:transparent!important;padding:3px!important;}
+#mealBottomNav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;}
+#mealBottomNav .current-view{font-weight:700;color:#315ba8;}
+body.meal-keyboard-open #mealBottomNav,body.recipe-bulk-select #mealBottomNav,body:has([role=dialog]) #mealBottomNav,body:has(#recipeViewer) #mealBottomNav,body:has(.editor) #mealBottomNav,body:has(.modal-overlay) #mealBottomNav{display:none!important;}
+.overview-home-fab{display:none!important;}
+.add-meal-floating:not(.unified-nav-fab){bottom:calc(84px + env(safe-area-inset-bottom,0px))!important;}
+.meal-plan-tabs{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto;max-width:100%;gap:4px!important;scroll-padding-inline:16px;scrollbar-width:thin;}
+.meal-plan-tab{flex:none!important;border:0!important;box-shadow:none!important;background:transparent!important;border-radius:0!important;}
+.meal-plan-tab-name{white-space:nowrap;font-size:14px!important;min-height:44px;padding:8px 10px!important;}
+.meal-plan-tab.selected .meal-plan-tab-name{font-weight:700;text-decoration:underline;text-underline-offset:6px;}
+.meal-plan-add{flex:none;}
+.week-selector{display:flex;gap:8px;margin:8px 0 14px;}
+.week-selector button{flex:1;min-height:44px;border:1px solid #ccc;border-radius:12px;background:#fff;padding:8px 14px;}
+.week-selector button[aria-pressed=true]{font-weight:600;border-color:#5876ad;box-shadow:0 2px 7px #2c44703d;}
+.weekday-date{font-size:11px;font-weight:400;color:#777;letter-spacing:.04em;text-transform:uppercase;}
+.rotation-week-controls{flex-wrap:wrap;}.rotation-week-controls .rotation-labeled-button{width:auto!important;min-height:44px;white-space:nowrap;}
+.start-week-header{display:flex;align-items:center;justify-content:space-between;gap:8px;}.start-week-header strong{min-width:0;}
+.start-week-checklist{overflow-y:auto;min-height:0;overscroll-behavior:contain;}.start-week-checklist label,.start-next-week-dialog>div>label{display:flex;gap:10px;align-items:center;min-height:44px;padding:6px 0;}.start-week-checklist h4{margin:10px 0 2px;}
+.expanded-meal-actions[hidden]{display:none!important;}.expanded-meal-actions{padding:4px 0 10px;}.expanded-meal-heading{display:flex;align-items:center;gap:8px;}.expanded-meal-heading button{border:0;background:transparent;min-height:40px;color:#637080;font-size:12px;}
+.meal-actions-toggle{margin-left:auto;flex:none;min-width:44px;min-height:44px;}.meal-actions-toggle[aria-expanded=true] svg{transform:rotate(180deg);}
+.meal-action-group{display:grid;gap:2px;margin-top:6px;}.meal-action-group+.meal-action-group{padding-top:5px;border-top:1px solid #ddd;}
+.meal-inline-action{display:flex;gap:9px;align-items:center;width:100%;min-height:44px;padding:6px 0;border:0;background:transparent;color:inherit;text-align:left;font-size:14px;}.meal-inline-action svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;}
+#list.top-summary .meal:has(.expanded-meal-actions){height:auto!important;min-height:44px;align-items:start;}
+#list.top-summary .mealbody:has(.expanded-meal-actions[hidden])>.times,#list.top-summary .mealbody:has(.expanded-meal-actions[hidden])>.meal-last-cooked{display:none;}
+.make-ahead-reminder{border-left:0!important;padding-left:0;}
+.recipe-keep-awake[aria-pressed=true]{color:#5876ad;}.recipe-keep-awake.active{background:#e8eefb!important;border-radius:8px;}
+
+#list .meal-plan-tab,#list .meal-plan-tab.selected{border:0!important;box-shadow:none!important;background:transparent!important;margin:0!important;}
+#list .meal-plan-tab.selected::after{display:none!important;}
+#list.top-summary .top-meal-title-line:has(.meal-actions-toggle){grid-template-columns:minmax(0,1fr) auto 44px;gap:6px!important;}
+.linked-side-actions{width:100%;min-width:0;}.linked-side-title-line{display:flex;align-items:center;gap:6px;}.linked-side-title-line>button:first-child{flex:1;min-width:0;}
+body:has([aria-modal=true]) #mealBottomNav,body:has([data-recipe-edit-draft]) #mealBottomNav{display:none!important;}

@@ -887,7 +887,7 @@ try{
   const nav=performance.getEntriesByType('navigation')[0];
   isPageReload=nav?nav.type==='reload':performance.navigation?.type===1;
 }catch(e){}
-// Start on My Rotation when there are no recipes, including after a test reset.
+// Start on My Meal Plan when there are no recipes, including after a test reset.
 if(isPageReload&&meals.length){
   try{
     const previousView=sessionStorage.getItem(currentViewKey);
@@ -910,6 +910,7 @@ function captureScheduleUndoChecks(){return Object.fromEntries([...captureGrocer
 function captureHistoryCounterpart(target){
  const current=JSON.parse(captureState());
  if(target.manualGroceriesUndo)current.manualGroceriesUndo=manualGroceryItems();
+ if(target.startWeekUndo){current.startWeekUndo=true;current.skippedCookingState=JSON.parse(JSON.stringify({keys:target.skippedCookingState.keys,sessions:cookingSessions.occurrences,scales:occurrenceScales.occurrences}))}
  if(target.recipePhotoUndo)current.recipePhotoUndo={refs:recipePhotoReferences(Object.keys(target.recipePhotoUndo.refs))};
  if(target.scheduleChangeUndo)current.scheduleChangeUndo={...target.scheduleChangeUndo,checks:captureScheduleUndoChecks()};
  if(target.groupUndoIngredientSelections){const selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');current.groupUndoIngredientSelections=Object.fromEntries(Object.keys(target.groupUndoIngredientSelections).map(key=>[key,Object.hasOwn(selected,key)?selected[key]:null]));current.skippedCookingState=JSON.parse(JSON.stringify({keys:target.skippedCookingState?.keys||[],sessions:cookingSessions.occurrences,scales:occurrenceScales.occurrences}))}
@@ -1086,7 +1087,7 @@ function showTutorialHint(){
  const hint=document.createElement('div');hint.className='meal-tutorial-hint';hint.setAttribute('role','status');
  hint.style.cssText='position:fixed;z-index:10005;width:min(260px,calc(100vw - 110px));background:#fffdf3;border:1px solid #d6c48e;border-radius:11px;padding:11px 12px;box-shadow:0 4px 18px #0003;color:#303030;font:14px/1.4 system-ui,sans-serif';
  const message=document.createElement('div');
- message.textContent=tutorialStage==='1'?'Tap the Menu button to open your meal groups.':tutorialStage==='2'?'Tap the + beside a group to add a recipe.':'Your recipe is saved! Tap Home, then tap a weekday to choose its meal group.';
+ message.textContent=tutorialStage==='1'?'Tap Meal Groups to open your recipes.':tutorialStage==='2'?'Tap the + beside a group to add a recipe.':'Your recipe is saved! Tap Meals, then tap a weekday to choose its meal group.';
  const arrow=document.createElement('span');arrow.textContent='→';arrow.style.cssText='font-size:22px;display:block;text-align:right;margin-top:2px';
  const skip=document.createElement('button');skip.type='button';skip.textContent='Skip tutorial';skip.style.cssText='background:transparent;border:0;padding:4px 0;color:#555;text-decoration:underline;font:12px system-ui;cursor:pointer';skip.onclick=()=>setTutorialStage('done');
  hint.append(message,arrow,skip);document.body.append(hint);
@@ -1101,19 +1102,18 @@ function openHelpModal(){
  const overlay=document.createElement('div');overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10020;display:flex;align-items:center;justify-content:center;padding:16px';
  const box=document.createElement('div');box.style.cssText='background:var(--panel,#fff);color:var(--text,#222);border-radius:14px;width:100%;max-width:520px;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 8px 30px #0004;overflow:hidden';
  const header=document.createElement('div');header.style.cssText='padding:18px 20px 10px;flex:0 0 auto;border-bottom:1px solid var(--border,#ddd);display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--panel,#fff)';
- const title=document.createElement('h2');title.textContent=top?'My Rotation help':'Meal Groups help';title.style.cssText='margin:0';
+ const title=document.createElement('h2');title.textContent=top?'My Meal Plan help':'Meal Groups help';title.style.cssText='margin:0';
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close');close.style.flex='0 0 44px';close.onclick=()=>overlay.remove();header.append(title,close);
  const content=document.createElement('div');content.style.cssText='padding:10px 20px 20px;overflow-y:auto;overscroll-behavior:contain';
- const intro=document.createElement('p');intro.textContent=top?'My Rotation displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into In Rotation and Ideas. Expand a group to manage its meals.';content.append(intro);
+ const intro=document.createElement('p');intro.textContent=top?'My Meal Plan displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into In Rotation and Ideas. Expand a group to manage its meals.';content.append(intro);
  const items=top?[
   ['Meal-plan tabs','Choose a tab to see its own weekday assignments. Long-press a tab to rename, reorder, or delete it.'],
-  ['Tap a displayed meal','Open its meal actions, including recipe options, editing, grocery list, and last-cooked date where available.'],
+  ['Tap a displayed meal','Open the recipe. Use its chevron for planning, editing, groceries, sides, Favorite and Last cooked.'],
   ['Long-press a displayed meal','Open the weekday meal-change and grocery-list options.'],
-  ['Rotate out arrow','Tap to rotate out all displayed recipes or select specific recipes. Long-pressing this arrow does nothing.'],
-  ['Rotate across tabs','Use the all-tabs rotation control to rotate recipes across your meal-plan tabs.'],
+  ['Start next week','Select which scheduled meals to replace, then start next week. Unselected meals carry forward.'],
   ['Weekday group headings','Tap a group name in a weekday card to open that group in Meal Groups.'],
-  ['Navigation buttons','Use the floating buttons to switch between My Rotation, Meal Groups, Weekly Overview, and Grocery List.'],
-  ['Weekly Overview','See weekday meals across tabs and expand their ingredient lists. Tap a meal to return to it in My Rotation.'],
+  ['Navigation buttons','Use the bottom bar to open Meals, Week, Groceries, or Meal Groups.'],
+  ['Weekly Overview','See weekday meals across tabs and expand their ingredient lists. Tap a meal to return to it in My Meal Plan.'],
   ['Grocery List','Review ingredients from the tabs you include; select, deselect, or hide checked groceries.'],
   ['Settings and backups','Configure display and weekday options, export or restore backups. Review changes before saving or discarding.']
  ]:[
@@ -1125,7 +1125,7 @@ function openHelpModal(){
   ['Recipe status','Choose In Rotation or Ideas in the recipe status control.'],
   ['Linked meals','Linked recipes can appear in more than one group; linked changes may affect their other appearances.'],
   ['Last cooked','Shows the latest recorded cooking date when enabled.'],
-  ['Navigation','Use the floating buttons to open My Rotation, Weekly Overview, or Grocery List. The Menu button returns here with groups collapsed.']
+  ['Navigation','Use the bottom bar to open Meals, Week, Groceries, or Meal Groups.']
  ];
  items.forEach(([gesture,desc])=>{const h=document.createElement('strong');h.textContent=gesture;h.style.display='block';h.style.marginTop='12px';const d=document.createElement('div');d.textContent=desc;d.style.color='var(--muted,#666)';d.style.fontSize='14px';content.append(h,d)});
  const tutorialButton=document.createElement('button');tutorialButton.type='button';tutorialButton.className='smallbtn';tutorialButton.textContent='Start Tutorial';tutorialButton.style.marginTop='16px';tutorialButton.onclick=()=>{overlay.remove();startMealTutorial()};content.prepend(tutorialButton);
@@ -1158,7 +1158,7 @@ let promptFrame=0;
 function fitPrompt(){if(!shade.isConnected)return;cancelAnimationFrame(promptFrame);promptFrame=requestAnimationFrame(()=>{if(!shade.isConnected)return;const vv=window.visualViewport;const top=vv?vv.offsetTop:0;const height=vv?vv.height:window.innerHeight;const bottom=top+height;shade.style.top=top+'px';shade.style.bottom='auto';shade.style.height=height+'px';shade.style.alignItems='center';shade.style.overflowY='auto';panel.style.maxHeight=Math.max(160,height-24)+'px';panel.style.overflowY='auto';});}
 if(kind==='prompt'){window.visualViewport?.addEventListener('resize',fitPrompt);window.visualViewport?.addEventListener('scroll',fitPrompt);fitPrompt();}
 if(field){field.focus({preventScroll:true});field.select();setTimeout(fitPrompt,120);field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();actions.firstChild.click()}}}})}
-const appIconSvg={settings:'<path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/>','chevrons-down':'<path d="m6 4 6 6 6-6M6 12l6 6 6-6"/>','chevrons-up':'<path d="m6 20 6-6 6 6M6 12l6-6 6 6"/>',left:'<path d="M15 18l-6-6 6-6"/>',right:'<path d="m9 18 6-6-6-6"/>',save:'<path d="M5 12l5 5L20 7"/>',cancel:'<path d="M5 5l14 14M19 5L5 19"/>',delete:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',rename:'<path d="M4 20h16M6 16l10-10 3 3-10 10-4 1z"/>',add:'<path d="M12 5v14M5 12h14"/>',move:'<path d="M5 12h14m-6-6 6 6-6 6"/>'};function setIconButton(b,type,label){b.textContent='';b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+appIconSvg[type]+'</svg>';b.title=label;b.setAttribute('aria-label',label);b.style.cssText='border:0;background:transparent;color:#444;display:grid;place-items:center;min-width:42px;min-height:42px;padding:6px'}
+const appIconSvg={down:'<path d="m6 9 6 6 6-6"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',grocery:'<path d="M3 3h2l3 12h11l3-9H6M9 20h1M18 20h1"/>',settings:'<path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/>','chevrons-down':'<path d="m6 4 6 6 6-6M6 12l6 6 6-6"/>','chevrons-up':'<path d="m6 20 6-6 6 6M6 12l6-6 6 6"/>',left:'<path d="M15 18l-6-6 6-6"/>',right:'<path d="m9 18 6-6-6-6"/>',save:'<path d="M5 12l5 5L20 7"/>',cancel:'<path d="M5 5l14 14M19 5L5 19"/>',delete:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',rename:'<path d="M4 20h16M6 16l10-10 3 3-10 10-4 1z"/>',add:'<path d="M12 5v14M5 12h14"/>',move:'<path d="M5 12h14m-6-6 6 6-6 6"/>'};function setIconButton(b,type,label){b.textContent='';b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+appIconSvg[type]+'</svg>';b.title=label;b.setAttribute('aria-label',label);b.style.cssText='border:0;background:transparent;color:#444;display:grid;place-items:center;min-width:42px;min-height:42px;padding:6px'}
   function normalizeSearchText(value){
     return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim().replace(/\s+/g,' ');
   }
