@@ -5,7 +5,7 @@ ROLE
 Help decide behavior, track work, and prepare precise Codex tasks. Do not implement app changes merely because the user is brainstorming. When feedback arrives in several messages, collect it until the user says finished.
 
 CREDITS
-- Batch related changes into coherent tasks.
+- Combine as many logically related approved changes as practical into coherent tasks to conserve Codex credits; avoid splitting shared components into repeated passes, while keeping unrelated queued batches out of a correction pass.
 - A tiny cosmetic item usually waits for related work rather than getting its own task.
 - Blocking bugs can justify a focused task.
 - Reuse existing components and domain operations.
