@@ -6,8 +6,8 @@ ACTIVE PROJECT
 Original app: https://github.com/elisabethball19-netizen/meal-rotation
 Modular vanilla HTML/CSS/JS; installed Android PWA on GitHub Pages.
 Current exact implementation commit/deployment: fetch when needed; not established by this document.
-Active implementation issue: none newly assigned by this handoff setup. Do not infer old issues are active without checking.
-Current priority: plan the next useful feature batch; do not repeat resolved investigations.
+Approved implementation queue: #120-#124, created 2026-11-15. All APPROVED / NOT IMPLEMENTED; no app code changed by this planning/documentation task. Next handoff #120 only; remaining issues queued, not a command to implement the entire backlog.
+Current priority: implement/test one scoped batch at a time; keep corrections in that batch's existing Codex thread. Do not repeat resolved investigations.
 Separate rebuild: initialization AGENTS.md and Product Vision produced, repository/status unconfirmed. Original-app verification does not apply to rebuild. Earlier standalone documents predate subsequent decisions.
 
 RECENTLY RESOLVED / PHONE EVIDENCE
@@ -19,20 +19,38 @@ RECENTLY RESOLVED / PHONE EVIDENCE
 - Grocery source reaches correct ingredient; split-view steps remain separate deferred item.
 Other historical completed batches worked reasonably well in phone use, not exhaustively verified.
 
-NEXT FEATURE CANDIDATES — DESIGN BEFORE CODING
-1. Multiple simultaneous cooking timers.
-   User wants this; no agreed detailed design. Discuss creation, labels/recipe-step association, pause/reset/delete, multiple expiry, navigation/reload persistence and realistic Android background alert limits. Do not invent full behavior or claim alarms when closed without evidence.
-2. Import Recipes onboarding.
-   Pending; no fully approved detailed flow. Prioritize simple choices and current actual import capability, avoid resurrecting old speculative flows.
-3. Import Sides suggestions — APPROVED DIRECTION, NOT IMPLEMENTED.
-   Suggest adding likely side recipes to built-in Sides, pending user confirmation.
-   Single import can offer Add this recipe to Sides? Bulk file offers compact review of likely sides with check/uncheck.
-   Preserve imported other memberships. Metadata/categories/tags stronger evidence than name; uncertain recipes unclassified rather than silent assignment.
-   Combine with import batch, not standalone task.
+APPROVED BATCH QUEUE — NOT IMPLEMENTED
+Recommended order minimizes repeated work in shared components; test each before next. Issues hold exact scope/checklists. Preserve existing modular app; no rewrite/broad audit. These are accepted designs, not audited current implementation.
+1. #120 My Meal Plan, weeks/navigation, expandable actions and nearby polish.
+   https://github.com/elisabethball19-netizen/meal-rotation/issues/120
+   This/Next week tabs; scrolling text meal selector/custom slots; single-view overview policy; muted dates; Start next week checklist/carry-over/Undo; bottom nav; six direct card actions; wake icon; remove olive task stripe.
+2. #121 Single-group editing and reorder handles.
+   https://github.com/elisabethball19-netizen/meal-rotation/issues/121
+   Group pencil -> existing bottom bar; Groups/Status/Delete/Done; precise Select all/Deselect all entry exception; supported Ideas/group handles only. Preserve source-group restriction and membership semantics.
+3. #122 Grocery breakdown + custom-wording scaling bug.
+   https://github.com/elisabethball19-netizen/meal-rotation/issues/122
+   All rows expandable; inline (2); per-source amount/name/pencil/check; partial parent checkbox; fix scaling without losing custom wording or checks; exact helper copy.
+4. #123 Import and settings organization.
+   https://github.com/elisabethball19-netizen/meal-rotation/issues/123
+   One import popup; Recipes/Backups separation; own RecipeSage refresh popup; preserve supported formats/validation/cleanup; confirmed Sides suggestions from prior backlog.
+5. #124 Editable sample onboarding and safe Start fresh.
+   https://github.com/elisabethball19-netizen/meal-rotation/issues/124
+   After #120/#123. Optional small example; dismissible banner; customize as own collection. No separate collection databases/merge/keep setting. Reset warning, backup/export, explicit erase; existing user data never auto-seeded/reset.
+
+ACCEPTED / NO NEW FEATURE NEEDED
+- Keep existing palette/rounded cards/shadows, no left accent stripe/date side column.
+- Editor sections already intended collapsible: retain; inspect relevant sections when touched, no duplicate redesign.
+- Keep concise advance prep such as defrosting/marinating; no extra recipe/date subtext or detailed hand-authored washing/chopping lists.
+- Single-group selection stays; no manual reordering In Rotation.
+- "Use multiple meal slots" provisional wording to revisit later.
+- User-requested date/count/visual defaults, no extra display settings.
+
+FUTURE DESIGN — ON HOLD
+- Multiple simultaneous cooking timers: explicitly on hold while smaller batches proceed. No detailed design yet; eventual Android background limits need honest verification.
+- Automatically extracting genuinely useful advance-prep tasks: possible future idea, not approved implementation. Do not add manual detailed to-do authoring.
 
 EXPLICITLY DEFERRED FUNCTIONAL REFINEMENTS
 - Matching grocery ingredient combination, including across weeks. User says current issue doesn't hurt workflow; don't spend credits now.
-- Scaled quantities in manually edited grocery text. Example 2 cloves garlic edited to remove minced remains 2 after scaling. Preserve wording while changing quantity in future fix.
 - Grocery source linked-step scroll in split view: ingredient pane works, instruction pane did not in phone testing. No guessing links; deferred.
 - Optional Grocery Group by meal with collapsible sections; combined list remains default.
 - Alternating weekday groups (Soup one week, Salad next).
@@ -49,8 +67,8 @@ VERY LOW PRIORITY POLISH — BUNDLE ONLY WHEN RELATED
 - Settings on/off switches discussed as possible future settings pass, NOT authorized app-wide replacement. Persistent feature settings might use switches; selections/completion checkboxes and exclusive radio choices remain. Must resolve immediate vs final-save semantics before implementation.
 
 OLDER STATUS-UNCONFIRMED ITEMS — DON'T INVESTIGATE UNTIL RELEVANT
-- Meal tabs hidden on aggregate pages: desired exact policy/current result not settled.
-- Next-week title wording/button readability: listed for a past interface batch; no precise final acceptance established here.
+- Hidden meal-slot policy now accepted in #120: hide separate Weekly Overview, preserve hidden plans/data and existing active-plan/grocery scope. Verify affected path during that batch; not already implemented.
+- Next-week wording now accepted in #120; verify during implementation, no separate speculative task.
 Do not schedule speculative fixes; inspect only relevant paths when nearby work needs them.
 
 ACCEPTANCE / STATUS MAINTENANCE
