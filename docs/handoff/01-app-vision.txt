@@ -26,7 +26,9 @@ DESIGN PRINCIPLES
 - Small reversible visual imperfections can wait.
 
 SUCCESS
-A user can create/import recipes, organize groups, assign weekdays, rotate meals, see prep due today, shop from an accurate list, and cook from readable instructions with little ongoing management.
+A user can create/import recipes, organize groups, assign weekdays, start the next meal plan, see useful advance prep, shop from an accurate list, and cook from readable instructions with little ongoing management.
+
+Approved presentation direction (2026-11-15; implementation pending): users need not understand rotation mechanics. Describe the outcome as My Meal Plan / Start next week. Prefer a clear default over adding display settings. Optional editable examples can become the user's collection through normal use; no separate collection-management or merge workflow. Preparation focuses on advance needs such as defrosting/marinating, not detailed manual task authoring.
 
 PRODUCT BOUNDARY
 Reference recipes such as cleaners or play-doh can live in groups excluded from meal rotation. Avoid separate application areas unless necessary.
