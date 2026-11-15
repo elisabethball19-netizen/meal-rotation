@@ -1187,9 +1187,9 @@ function populateMakeAheadSetting(parent){
 }
 function setMakeAheadComplete(item,checked){
  const plan=mealPlans.find(plan=>plan.id===item.plan.id);if(!plan)return;
- if(!scheduledMakeAheadTasks().some(current=>current.plan.id===plan.id&&current.key===item.key)){renderTodayTodo();return}
- snapshot();plan.makeAheadChecks={...(plan.makeAheadChecks||{}),[item.key]:checked};saveActiveMealPlan();
- for(const row of document.querySelectorAll('[data-make-ahead-key]')){const current=mealPlans.find(plan=>String(plan.id)===row.dataset.planId),complete=current?makeAheadTaskComplete(current,row.dataset.makeAheadKey):false;row.querySelector('input[type="checkbox"]').checked=complete;row.classList.toggle('make-ahead-complete',complete)}if(allMealsActive||rotationWeekOffset)renderList();else renderTodayTodo();
+ const tasks=scheduledMakeAheadTasks();if(!tasks.some(current=>current.plan.id===plan.id&&current.key===item.key)){renderTodayTodo();return}
+ snapshot();plan.makeAheadChecks={...(plan.makeAheadChecks||{}),[item.key]:checked};saveActiveMealPlan(false);
+ for(const row of document.querySelectorAll('[data-make-ahead-key]')){const current=mealPlans.find(plan=>String(plan.id)===row.dataset.planId),complete=current?makeAheadTaskComplete(current,row.dataset.makeAheadKey):false;row.querySelector('input[type="checkbox"]').checked=complete;row.classList.toggle('make-ahead-complete',complete)}if(allMealsActive||rotationWeekOffset)renderList({readOnly:true});else renderTodayTodo(tasks.map(current=>({...current,complete:makeAheadTaskComplete(current.plan,current.key)})));
 }
 const todoCollapsed={0:false,1:false};
 function renderTodayTodo(provided=null){

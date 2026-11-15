@@ -176,9 +176,13 @@ function openOccurrenceServeWith(planId,entry,expectedKey=null){
 }
 
 function normalizeServeWith(value){return [...new Map((Array.isArray(value)?value:[]).filter(v=>typeof v==='string').map(v=>v.trim()).filter(v=>serveWithWords(v)).map(v=>[serveWithWords(v),v])).values()]}
-function serveWithMatches(title,preferences){const text=' '+serveWithWords(title)+' ';return normalizeServeWith(preferences).some(value=>{const term=serveWithWords(value),exact=text.includes(' '+term+' ');if(exact)return true;return SERVE_WITH_SYNONYMS.some(words=>words.some(word=>serveWithWords(word)===term)&&words.some(word=>text.includes(' '+serveWithWords(word)+' ')))})}
+function serveWithMatches(title,preferences,derived=null){
+ const key=derived&&JSON.stringify([title,preferences]);if(derived?.matches.has(key))return derived.matches.get(key);
+ const text=' '+serveWithWords(title)+' ',result=normalizeServeWith(preferences).some(value=>{const term=serveWithWords(value),exact=text.includes(' '+term+' ');if(exact)return true;return SERVE_WITH_SYNONYMS.some(words=>words.some(word=>serveWithWords(word)===term)&&words.some(word=>text.includes(' '+serveWithWords(word)+' ')))});
+ if(derived)derived.matches.set(key,result);return result;
+}
 function sideServeWith(plan,day,side,entries){const parent=pairedMainGroup(plan,day,side),main=parent&&entries?.find(item=>item.day===day&&item.cat===parent)?.meal;return normalizeServeWith(main?.serveWith)}
-function automaticSlotCandidates(plan,day,cat,library=meals,entries=null){return dependentSideCandidates(plan,day,cat,library,entries||getDisplayedWeekdayMealsForPlan(plan))}
+function automaticSlotCandidates(plan,day,cat,library=meals,entries=null,derived=null){return dependentSideCandidates(plan,day,cat,library,entries||getDisplayedWeekdayMealsForPlan(plan),derived)}
 function hasDependentSideSlots(){return mealPlans.some(plan=>Object.values(plan.sideGroupPairs||{}).some(pairs=>Object.keys(pairs||{}).length))}
 function dependentSideKey(day,cat){const id=groupIdentity(cat);return id?JSON.stringify([day,id]):null}
 function sharedRecipeIdentity(meal){return meal?.linkGroup?'shared:'+meal.linkGroup:'recipe:'+String(meal?.id)}
@@ -214,17 +218,17 @@ async function preparePreferredSideChanges(source,preferences){
  }
  if(notices.size)await showAppMessage([...notices].join(' '));return changes;
 }
-function dependentSideCandidates(plan,day,cat,library,entries){
+function dependentSideCandidates(plan,day,cat,library,entries,derived=null){
  if(isBuiltinSides(cat)){
   if(!rotationGroupScheduled(plan,day,cat))return [];
   const result=builtinSidePreferenceResult(plan,day,entries),choice=plan.cycleSlotChoices?.[weekdaySlotKey(day,cat)];if(result.conflict)return [];
   const links=entries.filter(entry=>entry.day===day&&entry.cat!==cat).flatMap(entry=>(entry.meal.linkedMealIds||[]).map(id=>library.find(meal=>String(meal.id)===String(id))).filter(Boolean));
-  return automaticRecipeCandidates(cat,[],library,plan).filter(meal=>(!choice?.skipReplacement||!(choice.excludedMealIds||[]).includes(String(meal.id)))&&(!result.preferences.length||serveWithMatches(meal.name,result.preferences))&&!links.some(link=>link.cat!==cat&&sharedRecipeIdentity(link)===sharedRecipeIdentity(meal)));
+  return automaticRecipeCandidates(cat,[],library,plan,derived).filter(meal=>(!choice?.skipReplacement||!(choice.excludedMealIds||[]).includes(String(meal.id)))&&(!result.preferences.length||serveWithMatches(meal.name,result.preferences,derived))&&!links.some(link=>link.cat!==cat&&sharedRecipeIdentity(link)===sharedRecipeIdentity(meal)));
  }
- const parent=pairedMainGroup(plan,day,cat);if(!parent)return automaticRecipeCandidates(cat,[],library,plan);
+ const parent=pairedMainGroup(plan,day,cat);if(!parent)return automaticRecipeCandidates(cat,[],library,plan,derived);
  if(!entries.some(item=>item.day===day&&item.cat===parent))return [];
- const preferences=sideServeWith(plan,day,cat,entries),pool=automaticRecipeCandidates(cat,[],library,plan);
- return preferences.length?pool.filter(meal=>serveWithMatches(meal.name,preferences)):pool;
+ const preferences=sideServeWith(plan,day,cat,entries),pool=automaticRecipeCandidates(cat,[],library,plan,derived);
+ return preferences.length?pool.filter(meal=>serveWithMatches(meal.name,preferences,derived)):pool;
 }
 // Only the selected source membership advances; other side-group queues stay intact.
 function advanceDependentSource(plan,meal){
@@ -483,10 +487,10 @@ mealPlans.forEach(plan=>{
 });
 pinnedCats=[...(mealPlans.find(p=>p.id===activePlanId)?.pinnedCats||[])];
 if(isFirstMealPlanSetup){try{localStorage.setItem('mealRotationPlansV1',JSON.stringify({plans:mealPlans,activeId:activePlanId}));localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs))}catch(e){}}
-function saveActiveMealPlan(){
+function saveActiveMealPlan(reconcile=true){
  const plan=mealPlans.find(p=>p.id===activePlanId);
  if(plan){plan.weekdayCategories=JSON.parse(JSON.stringify(weekdayCategories));plan.weekdayMealOverrides={...weekdayMealOverrides};plan.autoPinTopCategories=autoPinTopCategories;plan.pinnedCats=[...pinnedCats];plan.weekdayRecipeFilters=JSON.parse(JSON.stringify(weekdayRecipeFilters));}
- reconcileRotationCalendars();
+ if(reconcile)reconcileRotationCalendars();
  try{localStorage.setItem(mealPlansKey,JSON.stringify({plans:mealPlans,activeId:activePlanId}))}catch(e){}
 }
 function loadMealPlan(planId,renderView=true){

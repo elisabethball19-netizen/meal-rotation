@@ -51,16 +51,22 @@ function bindGroceryTextPress(name,line,refresh){
  for(const type of ['pointercancel','pointerleave'])name.addEventListener(type,()=>{clearTimeout(timer);start=null;held=false});
  name.addEventListener('click',e=>{if(held){held=false;e.preventDefault();e.stopImmediatePropagation()}},true);name.oncontextmenu=e=>e.preventDefault();
 }
+// A checkbox operation changes checks, not schedules. Never retain this snapshot across events.
+let groceryCheckSchedules=null;
+function withGroceryCheckSchedules(action){
+ if(groceryCheckSchedules)return action();groceryCheckSchedules=new Map();try{return action()}finally{groceryCheckSchedules=null}
+}
 function groceryPeriodSchedules(period=groceryPeriod){
  if(period==='none')return [];
- const current=mealPlans.map(plan=>({plan,entries:getDisplayedWeekdayMealsForPlan(plan),preview:false}));if(period==='rotation')return current;
+ const cacheable=period==='both'||period==='next';if(cacheable&&groceryCheckSchedules?.has(period))return groceryCheckSchedules.get(period);
+ const current=mealPlans.map(saved=>{const plan=saved.id===activePlanId?{...saved,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:saved;return {plan,entries:getDisplayedWeekdayMealsForPlan(plan),preview:false}});if(period==='rotation')return current;
  const start=cookingPlanningWeekStart(),next=new Date(start);next.setDate(next.getDate()+7);const end=new Date(next);end.setDate(end.getDate()+7);
  const within=(source,from,to)=>({...source,entries:source.entries.filter(entry=>{const date=scheduledOccurrenceDate({...entry,planId:source.plan.id},source.plan.rotationCalendar);return date>=from&&date<to})});
  const upcoming=period==='next'||period==='both'?previewNextWeekPlans().map(source=>within(source,next,end)):[];
- return (period==='next'?[]:current).concat(upcoming);
+ const result=(period==='next'?[]:current).concat(upcoming);if(cacheable&&groceryCheckSchedules)groceryCheckSchedules.set(period,result);return result;
 }
 function getGroceryContributions(allPlans=false,period='rotation'){
- if(period==='rotation')saveActiveMealPlan();let selected={};try{selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
+ let selected={};try{selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
  const result=[],observed=new Set(),legacyOwners=new Map(),ingredientTokens=new Map();
  for(const {plan,entries,preview}of groceryPeriodSchedules(period)){
   if(!allPlans&&!(showMealPlanTabs&&mealPlans.length>1)&&plan.id!==activePlanId)continue;
@@ -186,13 +192,13 @@ function getMasterGroceryItems(){
     if(localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true'&&groceryItemChecked(key,line))return;
     const row=document.createElement('div');row.className='master-grocery-item';
     const check=document.createElement('input');check.type='checkbox';check.checked=groceryItemChecked(key,line);
-    check.onchange=()=>{
+    check.onchange=()=>withGroceryCheckSchedules(()=>{
      setGroceryItemChecked(key,line,check.checked);
      try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}
      // Refresh the grocery rows after each selection so the hide-selected
      // preference is applied immediately, without leaving a stale checked row.
      updateRows();
-    };
+    });
     const details=document.createElement('span');details.className='grocery-item-details';
     const name=document.createElement('button');name.type='button';name.className='grocery-ingredient-name';
     name.textContent=groceryDisplayText(line);bindGroceryTextPress(name,line,updateRows);
