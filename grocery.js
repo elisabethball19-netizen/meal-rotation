@@ -173,14 +173,10 @@ function getMasterGroceryItems(){
   const panel=document.createElement('section');panel.className='meal-plan-grocery';panel.setAttribute('aria-label','Master grocery list');
   const heading=document.createElement('h2');heading.textContent='Groceries';
   const groceryHeader=document.createElement('div');groceryHeader.className='grocery-compact-header';groceryHeader.append(heading);const addManual=document.createElement('button');addManual.type='button';addManual.className='iconbtn grocery-add-manual';setIconButton(addManual,'add','Add grocery item');addManual.onclick=()=>openManualGroceryEditor(null,updateRows);panel.append(groceryHeader);
-  const filters=document.createElement('div');filters.className='master-grocery-plan-filters';
-  const periods=document.createElement('div');periods.className='grocery-week-options';periods.setAttribute('role','group');periods.setAttribute('aria-label','Grocery period');const weekChecks={};
-  for(const [value,text]of [['current','This week'],['next','Next week']]){const label=document.createElement('label'),check=document.createElement('input'),name=document.createElement('span');check.type='checkbox';check.checked=groceryPeriod===value||groceryPeriod==='both';name.textContent=text;weekChecks[value]=check;
-   check.onchange=()=>{const previous=groceryPeriod,next=weekChecks.current.checked?(weekChecks.next.checked?'both':'current'):(weekChecks.next.checked?'next':'none');try{localStorage.setItem(GROCERY_PERIOD_KEY,next);groceryPeriod=next;updateRows()}catch(e){weekChecks.current.checked=previous==='current'||previous==='both';weekChecks.next.checked=previous==='next'||previous==='both';showAppMessage(e.message)}};label.append(check,name);periods.append(label);
-  }filters.append(periods);
+  const weekSummary=document.createElement('span');weekSummary.className='grocery-week-summary';groceryHeader.append(weekSummary);
   const rows=document.createElement('div');rows.className='master-grocery-list';
   function updateRows(){
-   rows.replaceChildren();
+   rows.replaceChildren();weekSummary.textContent={current:'This week',next:'Next week',both:'Both weeks',none:'No weeks selected'}[groceryPeriod];
    const groceries=getMasterGroceryItems();
    if(!groceries.size){
     const msg=document.createElement('p');msg.className='muted';
@@ -231,8 +227,11 @@ function getMasterGroceryItems(){
    const title=document.createElement('h3');title.textContent='Choose Meals';title.style.margin='0 0 6px';box.append(title);
    const hint=document.createElement('p');hint.textContent='Choose which meals to include in your grocery list. Your meal rotation will not change.';hint.style.cssText='font-size:14px;color:#666;margin:0 0 12px';box.append(hint);
    const body=document.createElement('div');body.style.cssText='overflow-y:auto;min-height:0;flex:1';
-   const schedules=groceryPeriodSchedules();
    const excludedPlans=new Set(masterGroceryExcludedPlanIds),excludedMeals=new Set(masterGroceryExcludedMealKeys);
+   const weeks=document.createElement('fieldset');weeks.className='grocery-filter-weeks';const legend=document.createElement('legend');legend.textContent='Weeks';weeks.append(legend);const weekChecks={};
+   for(const [value,text]of [['current','This week'],['next','Next week']]){const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=groceryPeriod===value||groceryPeriod==='both';weekChecks[value]=check;label.append(check,document.createTextNode(text));weeks.append(label);check.onchange=()=>{const previous=groceryPeriod,next=weekChecks.current.checked?(weekChecks.next.checked?'both':'current'):(weekChecks.next.checked?'next':'none');try{localStorage.setItem(GROCERY_PERIOD_KEY,next);groceryPeriod=next;updateRows();renderMealChoices()}catch(error){weekChecks.current.checked=previous==='current'||previous==='both';weekChecks.next.checked=previous==='next'||previous==='both';showAppMessage(error.message)}}}
+   const mealsHeading=document.createElement('h4');mealsHeading.textContent='Meals';box.append(weeks,mealsHeading);
+   function renderMealChoices(){body.replaceChildren();const schedules=groceryPeriodSchedules();
    for(const plan of (showMealPlanTabs&&mealPlans.length>1?mealPlans:mealPlans.filter(p=>p.id===activePlanId))){
     const section=document.createElement('section');section.style.cssText='border-top:1px solid #ddd;padding:12px 0';
     const header=document.createElement('label');header.style.cssText='display:flex;align-items:center;gap:10px;font-weight:700;margin-bottom:8px';
@@ -251,6 +250,7 @@ function getMasterGroceryItems(){
     planCheck.onchange=()=>{if(planCheck.checked)excludedPlans.delete(String(plan.id));else excludedPlans.add(String(plan.id));mealChecks.forEach(cb=>cb.disabled=!planCheck.checked)};
     body.append(section);
    }
+   }renderMealChoices();
    box.append(body);
    const footer=document.createElement('div');footer.style.cssText='display:flex;align-items:center;justify-content:center;gap:18px;padding-top:12px';
    const save=document.createElement('button');save.type='button';setIconButton(save,'save','Save meal selections');
@@ -259,7 +259,7 @@ function getMasterGroceryItems(){
    footer.append(save,cancel);box.append(footer);overlay.append(box);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay);
   };
   const toolbar=list.querySelector(':scope > .top-controls');
-  const icons=document.createElement('div');icons.className='grocery-header-icons';icons.append(chooseMeals);if(toolbar){icons.append(...toolbar.children);toolbar.remove()}icons.append(addManual);groceryHeader.append(icons);panel.append(filters);
+  const icons=document.createElement('div');icons.className='grocery-header-icons';icons.append(chooseMeals);if(toolbar){icons.append(...toolbar.children);toolbar.remove()}icons.append(addManual);groceryHeader.append(icons);
   panel.append(rows);list.append(panel);updateRows();
  }
  function toggleMasterGroceryTab(){

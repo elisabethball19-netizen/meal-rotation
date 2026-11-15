@@ -6,7 +6,7 @@ ACTIVE PROJECT
 Original app: https://github.com/elisabethball19-netizen/meal-rotation
 Modular vanilla HTML/CSS/JS; installed Android PWA on GitHub Pages.
 Current exact implementation commit/deployment: fetch when needed; not established by this document.
-Implementation queue: #120 initial implementation/code checks recorded; user phone review found defects, approved correction pass pending; #121-#124 remain APPROVED / NOT IMPLEMENTED. Only #120 was handed off for implementation. See tests/meal_plan_batch120_test_report.md for focused evidence.
+Implementation queue: #120 initial implementation and approved phone-review corrections implemented/code-checked; awaiting renewed phone testing; #121-#124 remain APPROVED / NOT IMPLEMENTED. Only #120 was handed off for implementation. See tests/meal_plan_batch120_test_report.md for focused evidence.
 Current priority: implement/test one scoped batch at a time; keep corrections in that batch's existing Codex thread. Do not repeat resolved investigations.
 Separate rebuild: initialization AGENTS.md and Product Vision produced, repository/status unconfirmed. Original-app verification does not apply to rebuild. Earlier standalone documents predate subsequent decisions.
 
@@ -21,9 +21,9 @@ Other historical completed batches worked reasonably well in phone use, not exha
 
 IMPLEMENTATION QUEUE
 Recommended order minimizes repeated work in shared components; test each before next. Issues hold exact scope/checklists. Preserve existing modular app; no rewrite/broad audit. These are accepted designs, not audited current implementation.
-1. #120 My Meal Plan + phone-review corrections — INITIAL CODE COMPLETE, CORRECTIONS APPROVED / NOT IMPLEMENTED; NOT PHONE-ACCEPTED.
+1. #120 My Meal Plan + phone-review corrections — CORRECTIONS IMPLEMENTED / CODE-CHECKED; AWAITING PHONE TEST; NOT PHONE-ACCEPTED.
    https://github.com/elisabethball19-netizen/meal-rotation/issues/120
-   Latest issue body supersedes original presentation: compact week buttons; meal-slot tabs after title; integrated left date column approved via Saturday mockup; compact two-column action grid; one expanded heart; display details collapsed by setting; linked side no panel; inline empty actions; colored advance checklist/cooked switch; viewer icon/overlap/collapse/footer corrections; overview spacing; grocery filter consolidation. Investigate mixed dates/preview mismatch using occurrence model, no cosmetic date reset. User screenshots establish defects, not all functional test outcomes. Keep correction in existing #120 Codex thread before #121.
+   Latest issue body supersedes original presentation: compact week buttons; meal-slot tabs after title; integrated left date column approved via Saturday mockup; compact two-column action grid; one expanded heart; display details collapsed by setting; linked side no panel; inline empty actions; colored advance checklist/cooked switch; viewer icon/overlap/collapse/footer corrections; overview spacing; grocery filter consolidation. Investigate mixed dates/preview mismatch using occurrence model, no cosmetic date reset. Focused correction checks and inspected mobile screenshots are recorded in tests/meal_plan_batch120_test_report.md; original user screenshots established the defects. Keep correction in existing #120 Codex thread before #121.
 2. #121 Single-group editing and reorder handles.
    https://github.com/elisabethball19-netizen/meal-rotation/issues/121
    Group pencil -> existing bottom bar; Groups/Status/Delete/Done; precise Select all/Deselect all entry exception; supported Ideas/group handles only. Preserve source-group restriction and membership semantics.
@@ -67,7 +67,7 @@ VERY LOW PRIORITY POLISH — BUNDLE ONLY WHEN RELATED
 - App-wide control consistency now APPROVED direction: switches for independent preferences, radios for exclusive choices, checkbox multi-select/completion. Preserve existing immediate/final-save/cancel semantics. #120 converts touched controls (including cooked switch); remaining unrelated controls need later focused batch, not incidental broad rewrite.
 
 OLDER STATUS-UNCONFIRMED ITEMS — DON'T INVESTIGATE UNTIL RELEVANT
-- Hidden meal-slot policy now accepted in #120: hide separate Weekly Overview, preserve hidden plans/data and existing active-plan/grocery scope. Verify affected path during that batch; not already implemented.
+- Hidden meal-slot policy now accepted in #120: hide separate Weekly Overview, preserve hidden plans/data and existing active-plan/grocery scope. Implemented/code-checked in #120; renewed phone verification pending.
 - Next-week wording now accepted in #120; verify during implementation, no separate speculative task.
 Do not schedule speculative fixes; inspect only relevant paths when nearby work needs them.
 

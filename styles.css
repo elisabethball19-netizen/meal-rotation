@@ -1656,3 +1656,46 @@ body.meal-keyboard-open #mealBottomNav,body.recipe-bulk-select #mealBottomNav,bo
 body:has([aria-modal=true]) #mealBottomNav,body:has([data-recipe-edit-draft]) #mealBottomNav{display:none!important;}
 
 #recipeViewer .recipe-viewer-bar{grid-template-columns:repeat(6,minmax(44px,1fr));gap:2px;}#recipeViewer .recipe-toolbar-icon.recipe-keep-awake{grid-column:5;}#recipeViewer .recipe-toolbar-icon.recipe-open-recipes{grid-column:6;}
+
+/* #120 approved phone-review corrections: retain the existing card palette. */
+#list>.meal-plan-title{margin:8px 2px 10px!important;font-size:20px;line-height:1.3;}
+#list .meal-plan-tabs{margin:0 0 6px!important;padding:0!important;gap:4px!important;}
+#list .meal-plan-tab{flex:none;border:1px solid transparent!important;border-bottom:0!important;border-radius:9px 9px 0 0!important;}
+#list .meal-plan-tab.selected{border-color:#cfd1d4!important;background:#fff!important;box-shadow:0 -1px 4px #23303c0d!important;}
+#list .meal-plan-tab-name{font-size:14px!important;min-height:44px;padding:8px 12px!important;text-decoration:none!important;}
+#list .rotation-compact-header{position:static!important;margin:0 0 8px!important;padding:0!important;box-shadow:none!important;display:block!important;}
+.week-selector{width:100%;display:flex;justify-content:flex-start;align-items:center;gap:5px;margin:0 0 8px;padding:0;}
+.week-selector button{flex:0 0 auto;min-width:0;min-height:44px;padding:6px 9px;border-radius:7px;font-size:12px;white-space:nowrap;}
+.week-selector button[aria-pressed=true]{box-shadow:0 1px 3px #0002;border-color:#aaa;}
+.week-selector .start-week-text{margin-left:auto;border:0!important;box-shadow:none!important;background:transparent!important;padding:6px 0 6px 7px;color:#444;font-size:12px;}
+#list.top-summary>.top-recipe-wrap.plan-meal-card{display:grid!important;grid-template-columns:46px minmax(0,1fr) 36px;column-gap:9px;align-items:start;min-height:72px!important;padding:10px 9px 10px 0!important;margin:0 0 8px!important;border-radius:8px!important;box-shadow:0 2px 5px #0000000a;border:0;}
+.plan-meal-card .plan-date{grid-column:1;grid-row:1;align-self:stretch;display:flex;flex-direction:column;align-items:center;gap:3px;padding:1px 5px;background:transparent;border:0;border-right:1px solid #56626c24;color:#3c4850;font:inherit;min-height:48px;}
+.plan-date strong{font-size:14px;line-height:1.2;font-weight:650;letter-spacing:.02em;}.plan-date span{font-size:13px;line-height:1.3;font-weight:400;}
+.plan-meal-card .plan-card-content{grid-column:2;min-width:0;}.plan-meal-card .plan-card-group{display:block!important;padding:0!important;margin:0 0 2px!important;border:0;background:transparent;color:#637080;font-size:10px;line-height:1.3;text-transform:uppercase;letter-spacing:.06em;text-align:left;}
+.plan-meal-card .plan-card-recipe{line-height:1.3;}.plan-meal-card .mealname{font-size:calc(16px * var(--meal-text-factor,1));line-height:1.3;overflow-wrap:anywhere;}
+.plan-meal-card>.meal-actions-toggle{grid-column:3;grid-row:1;justify-self:end;margin:-3px -5px 0 0;min-width:44px;width:44px;min-height:44px;background:transparent!important;}
+.plan-meal-card .top-inline-linked,.plan-meal-card .simple-side-names{font-size:12px;color:#637080;line-height:1.3;margin-top:3px;}
+.plan-linked-names button{display:block;border:0;background:transparent;font:inherit;color:inherit;text-align:left;padding:2px 0;min-height:24px;}
+.plan-card-details{font-size:11px;line-height:1.4;color:#637080;}.plan-detail{margin-top:3px;}
+.plan-meal-card:not(.plan-card-expanded) .plan-detail[data-collapsed-visible=false],.plan-card-expanded .plan-cooked-detail{display:none!important;}
+.plan-meal-card .make-ahead-reminder{padding:2px 0;margin:0;gap:4px;align-items:start;font-size:11px;}.plan-meal-card .make-ahead-task-link{font-size:11px;min-height:28px;}.plan-meal-card .make-ahead-reminder .check{width:18px;height:18px;min-width:18px;flex-basis:18px;margin:3px 0;}
+.plan-meal-card .expanded-meal-actions{margin:4px -36px 0 0;padding:0;}.expanded-meal-heading{gap:3px;flex-wrap:nowrap;}.expanded-meal-heading .meal-options-last-cooked{padding:2px 0;text-align:left;line-height:1.3;}
+.expanded-meal-actions:not(.empty-plan-actions){display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;}.expanded-meal-actions[hidden]{display:none!important;}.expanded-meal-heading{grid-column:1/-1;}
+.expanded-meal-actions .meal-action-group{display:flex;flex-direction:column;margin:0;padding:0;border:0;gap:0;}.meal-action-group .meal-inline-action{display:flex;align-items:center;gap:5px;font-size:12px;line-height:1.3;min-height:48px;padding:4px 0;}.meal-inline-action svg{flex:none;width:17px;height:17px;}.meal-inline-action span{overflow-wrap:anywhere;}
+.empty-plan-actions .meal-inline-action{font-size:13px;min-height:44px;}
+.start-week-checklist .start-week-choice{display:grid;grid-template-columns:22px minmax(0,1fr) 35px;gap:9px;padding:9px 10px;margin-bottom:5px;border-radius:8px;min-height:48px;}.start-week-choice>span{overflow-wrap:anywhere;}.start-week-choice-day{font-size:11px;font-weight:600;text-align:right;color:#52606b;}
+input.preference-switch{appearance:none!important;-webkit-appearance:none!important;display:inline-block!important;flex:none!important;width:38px!important;min-width:38px!important;height:23px!important;border:1px solid #a9afb4!important;border-radius:20px!important;background:#d8dce0!important;position:relative;vertical-align:middle;cursor:pointer;}
+input.preference-switch::after{content:''!important;position:absolute!important;width:17px!important;height:17px!important;left:2px!important;top:2px!important;right:auto!important;border-radius:50%;background:white!important;box-shadow:0 1px 2px #0002;transform:none!important;}
+input.preference-switch:checked{background:#5876ad!important;border-color:#5876ad!important;}input.preference-switch:checked::after{left:17px!important;}
+.meal-slot-manager input{width:100%;min-height:44px;border:1px solid #ccc;border-radius:7px;padding:8px;font:inherit;}.meal-slot-manager .meal-unified-actions{gap:4px;}
+.grocery-week-summary{font-size:12px;color:#637080;white-space:nowrap;}.grocery-compact-header{flex-wrap:wrap;}.grocery-filter-weeks{display:flex;flex-wrap:wrap;gap:8px 16px;padding:4px 0 10px;border:0;}.grocery-filter-weeks legend{font-weight:600;}.grocery-filter-weeks label{display:flex;align-items:center;gap:6px;min-height:44px;font-size:14px;}.grocery-meal-dialog-overlay h4{margin:4px 0;}
+.all-meals-day .make-ahead-reminder{padding:3px 0;margin:3px 0;gap:7px;align-items:start;min-height:0;}.all-meals-day .make-ahead-task-link{padding:2px 0;min-height:24px;line-height:1.4;}.all-meals-day .make-ahead-reminder .check{margin-top:2px;}.all-meals-day{padding-bottom:9px!important;}
+#recipeViewer .recipe-viewer-bar>button.recipe-current-step{grid-column:1/-1;justify-self:end;width:auto;min-height:44px;height:44px;display:flex;gap:5px;font-size:11px;padding:0 5px;background:transparent;box-shadow:none;position:static;}
+#recipeViewer .recipe-viewer-bar>.recipe-current-step::after{content:'First unfinished step';}#recipeViewer .recipe-viewer-bar>.recipe-current-step[hidden]{display:none;}
+#recipeViewer .recipe-footer-linked,#recipeViewer .recipe-original{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:8px 0;margin:0;border:0;background:transparent;text-align:left;font-size:14px;line-height:1.4;color:#36434d;text-decoration:none;min-height:40px;}
+#recipeViewer .recipe-footer-linked svg,#recipeViewer .recipe-original svg{width:18px;height:18px;flex:none;stroke:currentColor;stroke-width:1.8;fill:none;}#recipeViewer .recipe-original{color:#737d86;font-size:12px;}
+#recipeViewer .recipe-needs-tweaking{display:flex;align-items:center;gap:7px;border:0!important;border-radius:0;background:transparent;padding:8px 0;margin:3px 0;min-height:40px;font-size:13px;}#recipeViewer .recipe-needs-tweaking svg{fill:none;stroke:currentColor;width:18px;height:18px;}
+
+#list.top-summary .plan-meal-card .mealname{padding:0!important;margin:0!important;font-size:calc(16px * var(--meal-text-factor,1));line-height:1.3;}
+#list.top-summary .plan-card-recipe{display:flex;align-items:flex-start;gap:4px;}.plan-card-recipe>.recipe-personal-name{flex:1;min-width:0;}
+#list.top-summary .plan-card-recipe .needs-tweaking-icon{min-width:24px;width:24px;min-height:24px;height:24px;padding:4px;margin:0;}
