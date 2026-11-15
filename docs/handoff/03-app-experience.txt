@@ -1,6 +1,6 @@
 APP EXPERIENCE AND ACCEPTED BEHAVIOR
 Updated: 2026-11-15
-Scope: intended/accepted original-app behavior. #120 and its phone-review corrections are implemented/code-checked, awaiting phone confirmation. #121-#124 remain approved NOT YET IMPLEMENTED designs. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
+Scope: intended/accepted original-app behavior. #120 previous corrections are implemented/code-checked; renewed phone review found failures and approved a combined follow-up in issue #120, not yet implemented. #121-#124 remain approved NOT YET IMPLEMENTED designs. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
 
 LOOK AND FEEL
 Warm Harvest Kitchen palette; muted pastel weekday cards; neutral surfaces; rounded corners; soft shadows; readable dark text.
@@ -12,6 +12,7 @@ NAVIGATION AND PLANS
 Implemented #120 (awaiting phone testing): My Rotation becomes My Meal Plan (nav label Meals). Views: Meals, Week (Weekly Overview), Groceries, Meal Groups.
 Fixed bottom icon+label navigation visible while scrolling; hidden for keyboard/popups and group selection bar; content clears it.
 Implemented correction #120 (awaiting phone testing): title -> meal-slot tabs -> week controls -> cards. Week controls are compact content-width This week / Next week buttons with plain text Start next week → aligned right on same row, no border/background on action. Same header order in preview/current; preview viewing never mutates/advances. No future schedule editing.
+Approved renewed phone review: restore outlined rounded-top/shadowed tabs with shaded inactive and raised white selected appearance; phone hold/drag and hold/release currently reported failing, repair required. Week buttons on Meals AND Overview match Hours/Days: selected white/darker border/shadow/bold, deselected pale/light border/muted regular.
 Meal slots are actual horizontally scrolling tabs, no wrap, + at end; no permanent X on tabs. Tap switches; long press/release opens rename/delete; long press/drag reorders with edge auto-scroll without triggering rename. Compact management controls, accessible reorder alternative, preserve identities/current selection/saved data.
 Provisional setting "Use multiple meal slots"; helper "Plan breakfast, lunch, dinner, or your own meals separately." Wording to revisit later.
 Off: single view, selector and separate Weekly Overview page/nav hidden; My Meal Plan serves as overview. On restores access. Preserve hidden plans/data and existing active-plan/grocery scope; do not merge/delete.
@@ -32,9 +33,10 @@ Scaling ALREADY implemented: occurrence multiplier 1/2x, 1x, 1 1/2x, 2x, 3x; rec
 MEAL OPTIONS
 Implemented #120 (awaiting phone testing): compact expandable cards, collapsed name + linked sides; chevron reveals six labeled icon actions.
 Planning: Use next recipe / Choose a different meal / Leave this meal empty.
+Approved renewed phone review: completed planning changes (including Resume) collapse the affected card; edit recipe/groceries/sides returns expanded; favorite/date changes and cancellation keep it expanded. Preserve scroll and stable occurrence identity; never expand another day. Tighten expanded metadata/action-row gaps while preserving touch targets. Vertically center collapsed content, left-align text, align chevron/adjustment indicator to recipe-name block.
 Editing: Edit recipe / Edit groceries / Add or edit sides.
 Implemented correction (awaiting phone testing): six actions in compact two-column/three-row grid, planning left/editing right. One outline/filled favorite heart beside Last cooked in expanded metadata only; no collapsed hearts. Preserve algorithm.
-Display preferences under shared heading Show on collapsed meal cards: on = small muted cook/marinade/date/make-ahead details collapsed, off = available expanded; no duplicates/blank space. Existing make-ahead task scheduling unchanged.
+Display preferences under shared heading Show on collapsed meal cards apply to cook/marinade/date details: on = compact collapsed, off = available expanded; no duplicates/blank space. Make Ahead Reminders is a separate optional preference; no reminder checklists in collapsed or expanded meal cards. Preserve task data/dates/checks; use separate collapsible To-Do above cards, hiding entire section when no eligible incomplete tasks remain.
 Linked accompaniment has muted name opening viewer, no own edit chevron/panel; independent Sides occurrence keeps normal controls.
 Empty/skipped active card uses inline chevron with Choose a meal and Resume planned meal only when applicable; hide unavailable actions, no popup.
 Preview/current share compact left-aligned content/date/group/linked layout, empty card minimum height same as ordinary single-meal; preview read-only. Choose opens searchable group picker directly.
