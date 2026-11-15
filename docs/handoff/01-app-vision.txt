@@ -1,0 +1,39 @@
+APP VISION
+Updated: 2026-11-15
+Scope: lasting product goals; not an implementation-status report.
+
+PURPOSE
+A practical kitchen companion that reduces repeated decisions about what to cook, what to prepare, and what to buy.
+
+Two complementary pillars:
+1. Simplicity, beginning with onboarding and continuing through daily use.
+2. Fully customizable, automated meal and grocery planning.
+
+Users should reach a useful first meal plan quickly, without understanding the whole system. Advanced choices remain available without becoming compulsory setup or repeated questions. Automation should handle routine planning while users remain free to change recipes, days, groups, sides, quantities, and preparation.
+
+The app is more than a recipe library or a static calendar: dependable meals cycle through user-defined groups and weekday assignments. Groceries and preparation follow dated meal occurrences. The user can retain ideas without adding them to regular rotation.
+
+DESIGN PRINCIPLES
+- Clear everyday wording; describe outcomes rather than internal mechanics.
+- Minimize nested dialogs and repeated confirmations.
+- One coherent editor is preferable to a chain of managers, sub-editors, and save dialogs.
+- Ask when a meaningful manual choice would otherwise be overwritten.
+- Automatic changes must be predictable and scoped.
+- Recipes, planned occurrences, and shopping edits are distinct: changing one must not unexpectedly rewrite another.
+- Prioritize reliable functionality and responsiveness over cosmetic perfection.
+- Preserve data and provide trustworthy backup/restore.
+- Make daily tasks glanceable and touch interactions consistent.
+- Small reversible visual imperfections can wait.
+
+SUCCESS
+A user can create/import recipes, organize groups, assign weekdays, rotate meals, see prep due today, shop from an accurate list, and cook from readable instructions with little ongoing management.
+
+PRODUCT BOUNDARY
+Reference recipes such as cleaners or play-doh can live in groups excluded from meal rotation. Avoid separate application areas unless necessary.
+Do not automatically promote a tried or manually scheduled Idea into regular rotation.
+Do not substitute complex classification/status systems for a simple priority marker.
+
+PROJECT SEPARATION
+The original app is an active modular Android PWA:
+https://github.com/elisabethball19-netizen/meal-rotation
+A separate fresh rebuild was also discussed and initialization files created. Its repository and implementation status are unconfirmed here. Never treat the rebuild as replacing the original, or apply original-app fixes to it, without explicit direction.
