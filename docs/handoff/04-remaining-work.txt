@@ -1,0 +1,63 @@
+REMAINING WORK AND CURRENT PROJECT STATE
+Updated: 2026-11-15
+Evidence: latest explicit user decisions and phone reports in the handoff conversation. No comprehensive code audit performed for this document.
+
+ACTIVE PROJECT
+Original app: https://github.com/elisabethball19-netizen/meal-rotation
+Modular vanilla HTML/CSS/JS; installed Android PWA on GitHub Pages.
+Current exact implementation commit/deployment: fetch when needed; not established by this document.
+Active implementation issue: none newly assigned by this handoff setup. Do not infer old issues are active without checking.
+Current priority: plan the next useful feature batch; do not repeat resolved investigations.
+Separate rebuild: initialization AGENTS.md and Product Vision produced, repository/status unconfirmed. Original-app verification does not apply to rebuild. Earlier standalone documents predate subsequent decisions.
+
+RECENTLY RESOLVED / PHONE EVIDENCE
+- Empty/skipped destination meal-selection correction: user reported latest fix works. Do not repeat investigation without a new failure.
+- Built-in Sides and preferred-side correction batch: user reported all works well.
+- Significant app-wide interaction lag: performance update reported working/improving responsiveness. No known active performance blocker based on latest report; do not claim exhaustive benchmarks.
+- Simple-side edit/removal persists after reload; session Undo works. Undo after reload was not a requirement.
+- Recipe-tab scrolling/reordering and checked groceries moving top were confirmed working.
+- Grocery source reaches correct ingredient; split-view steps remain separate deferred item.
+Other historical completed batches worked reasonably well in phone use, not exhaustively verified.
+
+NEXT FEATURE CANDIDATES — DESIGN BEFORE CODING
+1. Multiple simultaneous cooking timers.
+   User wants this; no agreed detailed design. Discuss creation, labels/recipe-step association, pause/reset/delete, multiple expiry, navigation/reload persistence and realistic Android background alert limits. Do not invent full behavior or claim alarms when closed without evidence.
+2. Import Recipes onboarding.
+   Pending; no fully approved detailed flow. Prioritize simple choices and current actual import capability, avoid resurrecting old speculative flows.
+3. Import Sides suggestions — APPROVED DIRECTION, NOT IMPLEMENTED.
+   Suggest adding likely side recipes to built-in Sides, pending user confirmation.
+   Single import can offer Add this recipe to Sides? Bulk file offers compact review of likely sides with check/uncheck.
+   Preserve imported other memberships. Metadata/categories/tags stronger evidence than name; uncertain recipes unclassified rather than silent assignment.
+   Combine with import batch, not standalone task.
+
+EXPLICITLY DEFERRED FUNCTIONAL REFINEMENTS
+- Matching grocery ingredient combination, including across weeks. User says current issue doesn't hurt workflow; don't spend credits now.
+- Scaled quantities in manually edited grocery text. Example 2 cloves garlic edited to remove minced remains 2 after scaling. Preserve wording while changing quantity in future fix.
+- Grocery source linked-step scroll in split view: ingredient pane works, instruction pane did not in phone testing. No guessing links; deferred.
+- Optional Grocery Group by meal with collapsible sections; combined list remains default.
+- Alternating weekday groups (Soup one week, Salad next).
+- General schedule editing of generated next-week preview: explicitly excluded from prior correction tasks, future discussion rather than approved implementation.
+- Development-tracker Site paused; do not resume.
+
+VERY LOW PRIORITY POLISH — BUNDLE ONLY WHEN RELATED
+- To-do navigation blue title box removed, but subtle whole-card shadow wasn't visible in phone test.
+- Less vertical padding above/below to-do text.
+- Pin centering was reported imperfect; later fix included with simple sides, latest exact alignment not individually confirmed. Verify before repeating.
+- Pin tap delay was previously reported; later app-wide performance fix worked. Do not list it as a confirmed remaining bug without retesting.
+- Further small font/icon spacing/title wrapping details.
+- Optional charcoal checkboxes instead of current functional blue, exploratory only.
+- Settings on/off switches discussed as possible future settings pass, NOT authorized app-wide replacement. Persistent feature settings might use switches; selections/completion checkboxes and exclusive radio choices remain. Must resolve immediate vs final-save semantics before implementation.
+
+OLDER STATUS-UNCONFIRMED ITEMS — DON'T INVESTIGATE UNTIL RELEVANT
+- Meal tabs hidden on aggregate pages: desired exact policy/current result not settled.
+- Next-week title wording/button readability: listed for a past interface batch; no precise final acceptance established here.
+Do not schedule speculative fixes; inspect only relevant paths when nearby work needs them.
+
+ACCEPTANCE / STATUS MAINTENANCE
+- Phone reports above close the reported scope only, not all possible edge cases.
+- Preserve corrected schedules, sides, manual protection, groceries, and responsiveness in future work.
+- When a batch is approved, create one scoped issue with exact behavior, edge cases, preservation rules, verification and phone checklist.
+- Update just affected reference sections. Record issue/commit when actually retrieved, never invented.
+- Mark implementation awaiting phone testing until user confirms.
+- Remove resolved items from active backlog; keep only brief useful evidence here.
+- Do not revive superseded Up Next/Back Burner statuses, stars, nested side confirmation chains, or standalone skip/rotate actions in the main meal popup.
