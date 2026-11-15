@@ -40,8 +40,34 @@ function groupIdentity(name,create=false){const ids=readGroupIdentities();if(!Ob
 function groupNameForIdentity(id){const ids=readGroupIdentities();return cats.find(cat=>Object.hasOwn(ids,cat)&&ids[cat]===id)||null}
 function renameGroupIdentity(oldName,newName){const ids=readGroupIdentities();if(Object.hasOwn(ids,oldName)){ids[newName]=ids[oldName];delete ids[oldName];localStorage.setItem(GROUP_IDENTITIES_KEY,JSON.stringify(ids))}const next=JSON.parse(JSON.stringify(occurrenceScales));let changed=false;for(const entry of Object.values(next.occurrences))if(entry.context.cat===oldName){entry.context.cat=newName;changed=true}if(changed)writeOccurrenceScales(next)}
 function removeGroupIdentity(name){const ids=readGroupIdentities();if(Object.hasOwn(ids,name)){delete ids[name];localStorage.setItem(GROUP_IDENTITIES_KEY,JSON.stringify(ids))}}
+// The backed-up role points to an existing group ID; display names remain editable.
+const BUILTIN_SIDES_ROLE='mealRotationBuiltinSidesGroupV1';
+let builtinSidesMigrationNotice='';
+function builtinSidesGroup(){const id=JSON.parse(localStorage.getItem(BUILTIN_SIDES_ROLE)||'null');return id?groupNameForIdentity(id):null}
+function isBuiltinSides(cat){const id=JSON.parse(localStorage.getItem(BUILTIN_SIDES_ROLE)||'null');return !!id&&!!cat&&groupIdentity(cat)===id}
+function initializeBuiltinSides(){
+ if(mealPersistence.paused)return;
+ const ids=readGroupIdentities(),role=JSON.parse(localStorage.getItem(BUILTIN_SIDES_ROLE)||'null');if(role){if(!groupNameForIdentity(role))builtinSidesMigrationNotice='The saved Sides group could not be found. No groups were changed. Restore a backup to recover it.';return}
+ const matches=cats.filter(cat=>cat.trim().toLocaleLowerCase()==='sides');
+ if(matches.length>1){builtinSidesMigrationNotice='Multiple groups are named Sides (ignoring case). No groups were merged. Rename one to disambiguate, then reload.';return}
+ const name=matches[0]||'Sides',adding=!matches.length,next={...ids,[name]:ids[name]||'group-'+(crypto.randomUUID?.()||Date.now()+'-'+Math.random().toString(36).slice(2))};if(adding)cats.push(name);
+ mealPersistence.transaction(()=>{localStorage.setItem(GROUP_IDENTITIES_KEY,JSON.stringify(next));localStorage.setItem(BUILTIN_SIDES_ROLE,JSON.stringify(next[name]));if(adding)localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))});
+}
+function builtinSidePreferenceResult(plan,day,entries){
+ const side=builtinSidesGroup(),paired=side&&pairedMainGroup(plan,day,side),parents=entries.filter(entry=>entry.day===day&&entry.cat!==side&&(!paired||entry.cat===paired)&&entry.linkedTo==null&&normalizeServeWith(entry.meal?.serveWith).length),sets=new Map();
+ for(const parent of parents){const values=normalizeServeWith(parent.meal.serveWith);sets.set(JSON.stringify(values.map(serveWithWords).sort()),values)}
+ return {preferences:sets.size===1?[...sets.values()][0]:[],conflict:sets.size>1};
+}
+function builtinSideProvenance(plan,day,cat,mealId){
+ const key=weekdaySlotKey(day,cat),choice=plan.cycleSlotChoices?.[key];
+ if(choice?.sideSelection==='manual'||manualWeekdayMealChoice(plan,day,cat,mealId))return 'manual';
+ if(choice?.sideSelection==='automatic'||choice?.substitution===false)return 'automatic';
+ const state=plan.dependentSideState?.[dependentSideKey(day,cat)];if(state?.automatic&&state.mealId===String(mealId))return 'automatic';
+ const raw=plan.weekdayCategories?.[day],groups=Array.isArray(raw)?raw:[raw],chosen=plan.weekdayMealOverrides?.[key]??(groups[0]===cat?plan.weekdayMealOverrides?.[day]:null);
+ return chosen==null&&!plan.cycleRetainedSlots?.[key]?'automatic':'unknown';
+}
 function renameDependentGroupState(oldName,newName){
- const id=groupIdentity(newName),relevant=mealPlans.some(p=>Object.values(p.sideGroupPairs||{}).some(pairs=>Object.hasOwn(pairs,id)||Object.values(pairs).includes(id)));if(!id||!relevant)return;
+ const id=groupIdentity(newName),relevant=id===JSON.parse(localStorage.getItem(BUILTIN_SIDES_ROLE)||'null')||mealPlans.some(p=>Object.values(p.sideGroupPairs||{}).some(pairs=>Object.hasOwn(pairs,id)||Object.values(pairs).includes(id)));if(!id||!relevant)return;
  for(const plan of mealPlans){for(const day of weekdays)for(const field of ['cycleRetainedSlots','cycleSlotChoices']){const map=plan[field],old=weekdaySlotKey(day,oldName);if(map&&Object.hasOwn(map,old)){map[weekdaySlotKey(day,newName)]=map[old];delete map[old]}}
   for(const key of Object.keys(plan.favoriteRotationScores||{})){let parts;try{parts=JSON.parse(key)}catch(e){continue}if(Array.isArray(parts)&&parts[0]===oldName){parts[0]=newName;plan.favoriteRotationScores[JSON.stringify(parts)]=plan.favoriteRotationScores[key];delete plan.favoriteRotationScores[key]}}
  }
@@ -160,7 +186,41 @@ function dependentSideAutomatic(plan,entry,entries){return !!entry?.dependentSid
 function rememberDependentSideState(plan,entries,replace=false){
  for(const day of weekdays){const raw=plan.weekdayCategories?.[day];for(const cat of Array.isArray(raw)?raw:[raw]){if(!cat)continue;const parent=pairedMainGroup(plan,day,cat);if(!parent)continue;const key=dependentSideKey(day,cat);if(!replace&&plan.dependentSideState?.[key])continue;const main=entries.find(item=>item.day===day&&item.cat===parent),side=entries.find(item=>item.day===day&&item.cat===cat);plan.dependentSideState={...(plan.dependentSideState||{}),[key]:{mainId:main?String(main.meal.id):'',mealId:side?String(side.meal.id):'',automatic:dependentSideAutomatic(plan,side,entries)&&plan.cycleSlotChoices?.[weekdaySlotKey(day,parent)]?.preserveSideQueue!==true}}}}
 }
+function builtinSideIssue(plan,day,entries){
+ const side=builtinSidesGroup();if(!side||!rotationGroupScheduled(plan,day,side))return '';
+ const result=builtinSidePreferenceResult(plan,day,entries);if(result.conflict)return 'Conflicting side preferences. Choose a side.';
+ return result.preferences.length&&!dependentSideCandidates(plan,day,side,meals,entries).length?'No matching side in rotation.':'';
+}
+async function preparePreferredSideChanges(source,preferences){
+ const canonical=value=>JSON.stringify(normalizeServeWith(value).map(serveWithWords).sort());if(canonical(source.serveWith)===canonical(preferences))return [];
+ const side=builtinSidesGroup();if(!side)return [];
+ const changes=[],notices=new Set(),week=cookingPlanningWeekStart(),end=new Date(week);end.setDate(end.getDate()+7);
+ for(const plan of mealPlans){
+  const entries=recipePlanEntries(plan.id),days=new Set(entries.filter(entry=>entry.cat!==side&&entry.linkedTo==null&&sharedRecipeIdentity(entry.meal)===sharedRecipeIdentity(source)).map(entry=>entry.day));
+  for(const day of days){
+   if(!rotationGroupScheduled(plan,day,side)||weekSchedule(plan).slots[temporarySlotKey(day,side)]||weekSchedule(plan).slots[temporarySlotKey(day,null)])continue;
+   const parents=entries.filter(entry=>entry.day===day&&entry.cat!==side&&entry.linkedTo==null&&sharedRecipeIdentity(entry.meal)===sharedRecipeIdentity(source));if(!parents.some(entry=>{const date=scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar);return date>=week&&date<end}))continue;
+   const current=entries.filter(entry=>entry.day===day&&entry.cat===side);if(current.length>1){notices.add('Multiple side occurrences on '+day+'. Existing sides kept.');continue}
+   const old=current[0];if(old){const date=scheduledOccurrenceDate({...old,planId:plan.id},plan.rotationCalendar);if(date<week||date>=end)continue}
+   const proposed=entries.map(entry=>sharedRecipeIdentity(entry.meal)===sharedRecipeIdentity(source)?{...entry,meal:{...entry.meal,serveWith:preferences}}:entry),result=builtinSidePreferenceResult(plan,day,proposed);
+   if(result.conflict){notices.add('Conflicting side preferences on '+day+'. Existing side kept.');continue}
+   const pool=automaticSlotCandidates(plan,day,side,meals,proposed);if(old&&pool.some(meal=>String(meal.id)===String(old.meal.id)))continue;
+   if(old?.linkedTo!=null){notices.add('The linked side on '+day+' was kept. Edit its link to change it.');continue}
+   if(!pool.length){notices.add('No matching side in rotation for '+day+'. Existing side kept.');continue}
+   if(old&&builtinSideProvenance(plan,day,side,old.meal.id)!=='automatic'&&!await confirmPreferredSideReplacement(day,old.meal.name,plan.name))continue;
+   const used=new Set(entries.filter(entry=>entry!==old).map(entry=>String(entry.meal.id))),next=pool.find(meal=>!used.has(String(meal.id)))||pool[0],date=old?cookingLocalDate(scheduledOccurrenceDate({...old,planId:plan.id},plan.rotationCalendar)):cookingLocalDate(scheduledOccurrenceDate({...parents[0],planId:plan.id},plan.rotationCalendar));
+   changes.push({planId:plan.id,day,category:side,key:old?simpleSideOccurrenceKey(plan,old):null,mealId:String(next.id),date});
+  }
+ }
+ if(notices.size)await showAppMessage([...notices].join(' '));return changes;
+}
 function dependentSideCandidates(plan,day,cat,library,entries){
+ if(isBuiltinSides(cat)){
+  if(!rotationGroupScheduled(plan,day,cat))return [];
+  const result=builtinSidePreferenceResult(plan,day,entries),choice=plan.cycleSlotChoices?.[weekdaySlotKey(day,cat)];if(result.conflict)return [];
+  const links=entries.filter(entry=>entry.day===day&&entry.cat!==cat).flatMap(entry=>(entry.meal.linkedMealIds||[]).map(id=>library.find(meal=>String(meal.id)===String(id))).filter(Boolean));
+  return automaticRecipeCandidates(cat,[],library,plan).filter(meal=>(!choice?.skipReplacement||!(choice.excludedMealIds||[]).includes(String(meal.id)))&&(!result.preferences.length||serveWithMatches(meal.name,result.preferences))&&!links.some(link=>link.cat!==cat&&sharedRecipeIdentity(link)===sharedRecipeIdentity(meal)));
+ }
  const parent=pairedMainGroup(plan,day,cat);if(!parent)return automaticRecipeCandidates(cat,[],library,plan);
  if(!entries.some(item=>item.day===day&&item.cat===parent))return [];
  const preferences=sideServeWith(plan,day,cat,entries),pool=automaticRecipeCandidates(cat,[],library,plan);
@@ -377,7 +437,8 @@ function clearWeekdayOverride(day,cat){
 let weekdayMealOverrides={};try{const wo=JSON.parse(localStorage.getItem('mealRotationWeekdayMealOverridesV1')||'{}');if(wo&&typeof wo==='object')weekdayMealOverrides=wo}catch(e){}function saveWeekdayMealOverrides(){try{localStorage.setItem('mealRotationWeekdayMealOverridesV1',JSON.stringify(weekdayMealOverrides))}catch(e){}if(typeof mealPlans!=='undefined')saveActiveMealPlan()}
 migrateSavedIngredientFractions();
 let meals=[];let hasValidSavedData=false;try{const saved=localStorage.getItem('mealRotationDataV1');if(saved){const d=JSON.parse(saved);if(Array.isArray(d.cats)&&Array.isArray(d.meals)){cats=d.cats;meals=d.meals.map(m=>normalizeRecipeStatus({...m,ingredients:Array.isArray(m.ingredients)?m.ingredients:[]}));for(const meal of meals)if(meal.linkGroup)meal.upNextStar=meals.some(peer=>peer.linkGroup===meal.linkGroup&&peer.upNextStar===true);id=Math.max(0,...meals.map(m=>Number(m.id)||0))+1;active=cats.includes(d.active)?d.active:(cats[0]||'Chicken');hasValidSavedData=true}}}catch(e){}
-// New installations begin with three editable example groups and no recipes.
+initializeBuiltinSides();
+// The built-in Sides group starts empty and unassigned.
 weekdayColors={...weekdayColorDefaults};saveWeekdayColors();
 // Keep Top Recipes as the default landing page, but restore the current view
 // when this browser tab refreshes. A fresh navigation still opens Top Recipes.
@@ -848,7 +909,7 @@ function captureHistoryCounterpart(target){
  if(target.recipePhotoUndo)current.recipePhotoUndo={refs:recipePhotoReferences(Object.keys(target.recipePhotoUndo.refs))};
  if(target.scheduleChangeUndo)current.scheduleChangeUndo={...target.scheduleChangeUndo,checks:captureScheduleUndoChecks()};
  if(target.groupUndoIngredientSelections){const selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');current.groupUndoIngredientSelections=Object.fromEntries(Object.keys(target.groupUndoIngredientSelections).map(key=>[key,Object.hasOwn(selected,key)?selected[key]:null]));current.skippedCookingState=JSON.parse(JSON.stringify({keys:target.skippedCookingState?.keys||[],sessions:cookingSessions.occurrences,scales:occurrenceScales.occurrences}))}
- if(target.groupUndoGrocery)current.groupUndoGrocery=groupGrocerySnapshot(target.groupUndoGrocery,captureGroceryCheckStates());
+ if(target.groupUndoGrocery){current.groupUndoGrocery=groupGrocerySnapshot(target.groupUndoGrocery,captureGroceryCheckStates());if(target.skippedCookingState)current.skippedCookingState=JSON.parse(JSON.stringify({keys:target.skippedCookingState.keys,sessions:cookingSessions.occurrences,scales:occurrenceScales.occurrences}))}
  return JSON.stringify(current);
 }
 // Group history owns only grocery occurrences changed by that group operation.

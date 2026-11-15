@@ -315,7 +315,7 @@ function validateSavedRecords(data,requireCore=false){
  const objectKeys=['mealRotationWeekdayCategoriesV1','mealRotationWeekdayMealOverridesV1','mealRotationWeekdayRecipeFiltersV1','mealRotationSelectedIngredientsV1','mealRotationTopCountsV1','mealRotationGroupIdentitiesV1','mealRotationWeekdayColorsV1','mealRotationCategoryColorsV1','mealRotationFractionMigrationBackupV2'];
  const nullableObjects=['mealRotationTimeVisibilityV1','mealRotationRecipeViewPrefsV1','mealRotationMakeAheadDisplayV1','mealRotationEditorSectionsV1','mealRotationGroupSectionExpansionV1'];
  const arrayKeys=['mealRotationCheckedIngredientsV1','mealRotationPinnedCategoriesV1','mealRotationExpandedCategoriesV1','mealRotationRecipeLabelCatalogV1','mealRotationGroupDisplayOrderV1','mealRotationMasterGroceryExcludedPlansV1','mealRotationMasterGroceryExcludedMealsV1'];
- const otherKeys=['mealRotationUpNextOrderV1','mealRotationGroupRotationV1','mealRotationDataV1','mealRotationPlansV1','mealRotationCookingSessionsV1','mealRotationOccurrenceScalesV1','mealRotationGroceryOccurrenceChecksV1','mealRotationCookingTimerV1','mealRotationLastRotationBeforeV1','mealRotationManualGroceriesV1','mealRotationGroceryTextOverridesV1'];
+ const otherKeys=['mealRotationBuiltinSidesGroupV1','mealRotationUpNextOrderV1','mealRotationGroupRotationV1','mealRotationDataV1','mealRotationPlansV1','mealRotationCookingSessionsV1','mealRotationOccurrenceScalesV1','mealRotationGroceryOccurrenceChecksV1','mealRotationCookingTimerV1','mealRotationLastRotationBeforeV1','mealRotationManualGroceriesV1','mealRotationGroceryTextOverridesV1'];
  for(const [key,value]of Object.entries(data)){
   if(typeof value!=='string')throw Error('Invalid saved value: '+key);
   const structured=objectKeys.includes(key)||nullableObjects.includes(key)||arrayKeys.includes(key)||otherKeys.includes(key)||key.startsWith('mealRotationLastTopMealIdsV1:');
@@ -323,6 +323,7 @@ function validateSavedRecords(data,requireCore=false){
   try{parsed[key]=JSON.parse(value)}catch(e){throw Error('Unreadable saved JSON: '+key)}
   const v=parsed[key];if(objectKeys.includes(key)&&!object(v)||nullableObjects.includes(key)&&v!==null&&!object(v)||arrayKeys.includes(key)&&!(key==='mealRotationMasterGroceryExcludedPlansV1'||key==='mealRotationMasterGroceryExcludedMealsV1'?Array.isArray(v)&&v.every(id):strings(v))||key.startsWith('mealRotationLastTopMealIdsV1:')&&(!Array.isArray(v)||v.some(x=>!id(x))))throw Error('Invalid saved record type: '+key);
  }
+ if(Object.hasOwn(parsed,'mealRotationBuiltinSidesGroupV1')&&(typeof parsed.mealRotationBuiltinSidesGroupV1!=='string'||!parsed.mealRotationBuiltinSidesGroupV1))throw Error('Invalid built-in Sides identity');
  if(Object.hasOwn(parsed,'mealRotationUpNextOrderV1')&&(!Array.isArray(parsed.mealRotationUpNextOrderV1)||parsed.mealRotationUpNextOrderV1.some(v=>typeof v!=='string')||new Set(parsed.mealRotationUpNextOrderV1).size!==parsed.mealRotationUpNextOrderV1.length))throw Error('Invalid Ideas order');
  if(Object.hasOwn(parsed,'mealRotationGroupRotationV1')&&(!object(parsed.mealRotationGroupRotationV1)||Object.values(parsed.mealRotationGroupRotationV1).some(v=>typeof v!=='boolean')))throw Error('Invalid group rotation settings');
  if(Object.hasOwn(parsed,'mealRotationGroceryTextOverridesV1'))validateGroceryTextOverrides(parsed.mealRotationGroceryTextOverridesV1);
