@@ -1,21 +1,21 @@
 APP EXPERIENCE AND ACCEPTED BEHAVIOR
 Updated: 2026-11-15
-Scope: intended/accepted original-app behavior, including implemented/code-checked #120 (awaiting phone testing) and approved NOT YET IMPLEMENTED designs in #121-#124. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
+Scope: intended/accepted original-app behavior, including initial implemented/code-checked #120 with phone-review corrections APPROVED / NOT IMPLEMENTED and approved NOT YET IMPLEMENTED designs in #121-#124. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
 
 LOOK AND FEEL
 Warm Harvest Kitchen palette; muted pastel weekday cards; neutral surfaces; rounded corners; soft shadows; readable dark text.
 Compact spacing, predictable icon columns, naturally wrapped names, comfortable touch targets. Avoid icon-induced blank rows, overlapping text, excessive padding, solid triangle disclosure icons, or gray boxes around every editor section.
-Small blue checkboxes; radio dots for exclusive choices; consistent outline chevrons and check/trash/X icons.
+Control policy: switches for independent preferences, radios for mutually exclusive choices, checkboxes for multi-selection/completion. Preserve existing save/cancel semantics/stored values. Apply touched controls in #120; remaining app-wide conversion queued separately. Consistent outline chevrons/check/trash/X.
 Dialogs scroll in foreground, lock background, and keep actions usable with keyboard/landscape. Preserve accessible keyboard focus.
 
 NAVIGATION AND PLANS
 Implemented #120 (awaiting phone testing): My Rotation becomes My Meal Plan (nav label Meals). Views: Meals, Week (Weekly Overview), Groceries, Meal Groups.
 Fixed bottom icon+label navigation visible while scrolling; hidden for keyboard/popups and group selection bar; content clears it.
-Raised This week / Next week tabs; viewing preview never advances/mutates schedule. Generated future schedule editing remains unapproved.
-Breakfast/Lunch/Dinner/custom slots become smaller text selector, selected bold/underlined, single horizontally scrolling row (no wrap), comfortable targets. Plus adds slots; retain rename/reorder/delete and saved identities.
+Approved correction #120: title -> meal-slot tabs -> week controls -> cards. Week controls are compact content-width This week / Next week buttons with plain text Start next week → aligned right on same row, no border/background on action. Same header order in preview/current; preview viewing never mutates/advances. No future schedule editing.
+Meal slots are actual horizontally scrolling tabs, no wrap, + at end; no permanent X on tabs. Tap switches; long press/release opens rename/delete; long press/drag reorders with edge auto-scroll without triggering rename. Compact management controls, accessible reorder alternative, preserve identities/current selection/saved data.
 Provisional setting "Use multiple meal slots"; helper "Plan breakfast, lunch, dinner, or your own meals separately." Wording to revisit later.
 Off: single view, selector and separate Weekly Overview page/nav hidden; My Meal Plan serves as overview. On restores access. Preserve hidden plans/data and existing active-plan/grocery scope; do not merge/delete.
-Weekday above meals, small muted date on same line e.g. MONDAY · NOV 16; viewed week accurate even when not advanced. No date setting/side column.
+Approved replacement date layout: narrow left column INSIDE full-color card, weekday abbreviation above number, weekday slightly larger/semibold and at least as prominent as number. Faint vertical divider. Small muted group name above recipe; chevron alone far right. Saturday SAT/14 mint mockup accepted. No extra date setting. Verify actual occurrence dates before changing mixed-week displays; never cosmetically rebase saved dates.
 Ordinary page changes go top; targeted navigation finds exact occurrence.
 
 ROTATION
@@ -24,7 +24,7 @@ Select outside assigned group through searchable group/recipe picker.
 Internal group order, occurrence/plan/week isolation and manual-choice protection remain. Implemented #120 (awaiting phone testing) replaces main Rotate Meals/Rotate out with "Start next week →". Remove Rotate Back; Undo restores whole advance including groceries/checks/manual cleanup, prep and cooked dates. No algorithm rewrite.
 Dialog title "Start next week"; helper "Unselected meals will be reused in next week's meal plan."
 Direct eligible meal-occurrence checklist, initially all selected, grouped by meal slot when applicable and labeled weekday. No Replace all/intermediate chooser.
-Separate "Mark replaced meals as cooked" checkbox retains existing preference/default; top-right X cancels unchanged; "Start next week →" confirms once. Unchecked meals carry forward; preserve existing eligible scope/manual protections.
+Weekday-colored checklist rows, abbreviated weekday in reserved right column, checkbox left. Separate "Mark replaced meals as cooked" SWITCH retains existing preference/default; top-right X cancels unchanged; "Start next week →" confirms once. Unchecked meals carry forward; preserve existing eligible scope/manual protections.
 Popup actions respond promptly, dispatch once, no tap-through.
 Last cooked: actual cooked date for outgoing occurrence, otherwise scheduled local date, not button-press date.
 Scaling ALREADY implemented: occurrence multiplier 1/2x, 1x, 1 1/2x, 2x, 3x; recipe unchanged, groceries proportional.
@@ -33,7 +33,11 @@ MEAL OPTIONS
 Implemented #120 (awaiting phone testing): compact expandable cards, collapsed name + linked sides; chevron reveals six labeled icon actions.
 Planning: Use next recipe / Choose a different meal / Leave this meal empty.
 Editing: Edit recipe / Edit groceries / Add or edit sides.
-Favorite heart and Last cooked/date pencil near expanded heading. Replace need for long-press popup; Choose opens existing searchable group picker directly.
+Approved correction: six actions in compact two-column/three-row grid, planning left/editing right. One outline/filled favorite heart beside Last cooked in expanded metadata only; no collapsed hearts. Preserve algorithm.
+Display preferences under shared heading Show on collapsed meal cards: on = small muted cook/marinade/date/make-ahead details collapsed, off = available expanded; no duplicates/blank space. Existing make-ahead task scheduling unchanged.
+Linked accompaniment has muted name opening viewer, no own edit chevron/panel; independent Sides occurrence keeps normal controls.
+Empty/skipped active card uses inline chevron with Choose a meal and Resume planned meal only when applicable; hide unavailable actions, no popup.
+Preview/current share compact left-aligned content/date/group/linked layout, empty card minimum height same as ordinary single-meal; preview read-only. Choose opens searchable group picker directly.
 No redundant Open recipe or separate skip/rotate action. Empty changes selected occurrence only; preserve skipped/empty access and linked-side protections.
 Retain palette, rounded cards and soft shadows; no colored left stripe.
 
@@ -86,7 +90,7 @@ Reload persistence required; session Undo works, persistent Undo after reload no
 
 GROCERIES
 Heading Groceries; toolbar alongside or flush-left wrapped.
-Independent This week/Next week checkboxes; included-plan choices; combined list default.
+Approved #120 correction: remove top meal selector/+ from Groceries and Weekly Overview. Grocery Weeks choices inside existing filter popup with Meals section, independent This week/Next week checkboxes (both allowed); preserve included-plan choices. Heading summary This week / Next week / Both weeks, explicit empty scope if applicable. No external week-checkbox row. Combined list default.
 Checked items move top; Select All/Deselect All/Hide Selected. Preserve checks adding/editing; newly scheduled sources unchecked without resetting others.
 Manual items add/check/edit/delete; survive filters/week switches/reload/individual meal replacement.
 Explicit whole-week advance clears checked manual items only; unchecked stay; Undo/Redo restores/removes; no calendar cleanup.
@@ -98,6 +102,7 @@ Helper: "Changes apply only to your grocery list. Quantities still update when y
 Broad combining/matching refinement remains deferred.
 
 TASKS / OVERVIEW
+Approved #120 correction: Overview compact content-width week buttons, no top meal selector/+. Meal labels inside cards stay. Reduce excessive bottom padding below task checkbox/final text line; single/multiline natural sizing, not oversized fixed space.
 Due dates from scheduled occurrence + lead time, can precede meal week.
 Overview tasks on actual due dates; checking doesn't move date.
 Overdue incomplete task may stay until associated planned day passes then hide.
@@ -116,7 +121,8 @@ Explicit ingredient-step links: highlighting, optional auto-completion, next-inc
 Long-press step links ingredients inline. Viewer may reorder by use while saved ingredient order unchanged.
 Linked-recipe tabs optional, main first, scroll position per tab, scroll/reorder, truncate long names, hide single-tab bar.
 Edit/scale near title, consistent split/reset/settings.
-Implemented #120 (awaiting phone testing): visible screen/sun Keep screen awake icon, toggled/highlighted, last preference globally remembered. Replace settings checkbox; migrate choice. Only acquire while recipe/app visible; release on close/background, reacquire on return if enabled/supported. Display actual lock availability honestly.
+Implemented #120 (awaiting phone testing): visible outline lightbulb Keep screen awake icon (approved correction replaces monitor), toggled/highlighted, last preference globally remembered. Replace settings checkbox; migrate choice. Only acquire while recipe/app visible; release on close/background, reacquire on return if enabled/supported. Display actual lock availability honestly.
+Approved #120 recipe corrections: first-unselected-step jump uses reserved control space, never overlays instructions/linked footer in normal/split view. Needs Adjusting collapse remembered per recipe across reopen/reload; heading visible, note data unchanged. Footer uses compact dark linked-name rows/chevrons, muted original-source row/external-link icon, alert icon+text Needs Adjusting rather than bordered button; preserve links/actions.
 Editor substantial sections independently collapsible, no outer gray boxes; unsaved edits/links preserved.
 Linked selector initially collapsed groups, reference/Unassigned included, shared selection across memberships, search expands matches, clear restores expansion, final check/X.
 Android Back returns once to origin, not an extra hop.
