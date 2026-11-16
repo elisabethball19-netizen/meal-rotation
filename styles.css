@@ -1880,3 +1880,15 @@ body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{
 
 #recipeImportDialog h2{position:sticky;top:-20px;background:#fff;z-index:2;padding:6px 0;}
 #recipeImportDialog p,#recipeImportDialog fieldset{margin-block:10px;}
+
+/* Large import review: one internal scroller, stable header and final actions. */
+#recipeImportDialog.bulk-recipe-import>div>*{flex:none;}
+#recipeImportDialog.bulk-recipe-import>div>.bulk-import-body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 2px;}
+#recipeImportDialog.bulk-recipe-import h2{position:static;margin:0;padding:0;font-size:20px;}
+.bulk-import-body .import-side-review{max-height:none;overflow:visible;margin:14px 0;}
+.bulk-import-body .import-side-review label{align-items:flex-start;padding:8px 0;overflow-wrap:anywhere;}
+.bulk-import-body .import-side-review input{margin-top:3px;}
+.bulk-import-footer{padding-top:8px;border-top:1px solid #e5e5e5;flex-wrap:wrap;}
+.first-recipe-launcher{display:block;max-width:100%;margin:12px 0 16px;padding:10px 14px;min-height:44px;line-height:1.4;text-align:left;white-space:normal;}
+
+.bulk-import-selection .iconbtn{width:44px;min-width:44px;min-height:44px;}

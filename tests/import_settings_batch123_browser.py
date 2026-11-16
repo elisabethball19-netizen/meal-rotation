@@ -11,9 +11,7 @@ fixture.HOOK+='''window.spec123={
  state:()=>JSON.stringify({meals:meals.filter(m=>m.id!==newRecipeDraftId),plans:mealPlans,checks:groceryOccurrenceChecks,scales:occurrenceScales}),
  storage:()=>captureBackupStorage(),records:()=>JSON.parse(JSON.stringify(meals)),
  undo:()=>{const v=JSON.parse(history.pop());redoHistory.push(captureHistoryCounterpart(v));restoreState(v)},redo:()=>{const v=JSON.parse(redoHistory.pop());history.push(captureHistoryCounterpart(v));restoreState(v)},
- refreshSeed:()=>{const m=meals.find(m=>m.id===1);m.recipeSageId='12345678-1234-4234-8234-123456789abc';m.importSourceId=m.recipeSageId;m.notes='Personal notes stay';persist()},
  ocr:()=>{ingredientPhotoIsBlank=async()=>false;recognizeIngredientPhoto=async()=>'''+json.dumps(TEXT)+'''},
- delayBackup:()=>{const original=storeRecipeSageSafetyBackup;storeRecipeSageSafetyBackup=(...args)=>new Promise(resolve=>{window.release123=()=>original(...args).then(resolve)});window.restore123=()=>{storeRecipeSageSafetyBackup=original}},
  normalized:records=>records.map(normalizeRecipeStatus),sideId:()=>groupIdentity(builtinSidesGroup()),validate:()=>validateBackupStorage(captureBackupStorage())
 };'''
 OUT=Path('/workspace/work/screenshots123');OUT.mkdir(exist_ok=True)
@@ -28,7 +26,7 @@ def settings(p):
 def run(b,name):
  c,p,errors,prefix=fixture.setup(b,name);p.set_default_timeout(8000)
  settings(p)
- assert p.locator('[data-settings-group=recipes]').get_by_role('button').all_text_contents()==['Import recipes','Export recipes','Refresh from RecipeSage']
+ assert p.locator('[data-settings-group=recipes]').get_by_role('button').all_text_contents()==['Import recipes','Export recipes']
  assert p.locator('[data-settings-group=backups]').get_by_role('button').all_text_contents()==['Save backup','Restore backup']
  assert not p.locator('#recipeSageRefresh').count()
  columns=p.locator('#settingsPanel .settings-display-option').evaluate_all('(rows)=>rows.map(r=>[r.querySelector(".preference-switch-control").getBoundingClientRect().left,r.querySelector(".settings-display-option-copy").getBoundingClientRect().left])')
@@ -73,15 +71,6 @@ def run(b,name):
  board={'lists':[{'id':'list','name':'Sides'}],'cards':[{'id':'a','name':'Board carrots','idList':'list','desc':'Ingredients\n- 2 carrots\nInstructions\nRoast carrots.'},{'id':'b','name':'Board rice','idList':'list','desc':'Ingredients\n- 1 cup rice'}]}
  p.route('https://trello.com/b/abcdef12.json',lambda route:route.fulfill(status=200,content_type='application/json',body=json.dumps(board)))
  p.evaluate("spec123.import('trello')");popup(p).get_by_role('textbox',name='Trello board link',exact=True).fill('https://trello.com/b/abcdef12');popup(p).get_by_role('button',name='Read board').click();d=p.get_by_role('dialog',name='Choose meal groups',exact=True);d.wait_for();p.go_back();p.wait_for_timeout(150);assert not d.count()
- # Refresh popup retains safety-backup logic and personal notes; cancellation and Undo.
- p.evaluate('spec123.refreshSeed()');settings(p);p.get_by_role('button',name='Refresh from RecipeSage',exact=True).click();d=p.get_by_role('dialog',name='Refresh from RecipeSage',exact=True);before=p.evaluate('spec123.state()');close(p,'Refresh from RecipeSage');assert p.evaluate('spec123.state()')==before
- p.get_by_role('button',name='Refresh from RecipeSage',exact=True).click();d=p.get_by_role('dialog',name='Refresh from RecipeSage',exact=True);d.locator('input[type=file]').set_input_files({'name':'sage.json','mimeType':'application/json','buffer':json.dumps([{**RAW,'identifier':SAGE,'recipeInstructions':['Updated cooking step.']}]).encode()});d.get_by_role('button',name='Refresh Recipes',exact=True).wait_for();p.wait_for_function('!document.querySelector("#recipeSageRefresh button:last-of-type").disabled')
- with p.expect_download()as download:d.get_by_role('button',name='Refresh Recipes',exact=True).click()
- assert 'before-recipesage-refresh' in download.value.suggested_filename
- p.wait_for_function('document.querySelector("#recipeSageRefresh [role=status]").textContent.includes("recipes refreshed")');assert p.evaluate('spec123.records().find(m=>m.id===1).notes')=='Personal notes stay';assert 'Updated cooking' in str(p.evaluate('spec123.records().find(m=>m.id===1).instructions'));close(p,'Refresh from RecipeSage');p.evaluate('spec123.undo()');assert 'Updated cooking' not in str(p.evaluate('spec123.records().find(m=>m.id===1).instructions'))
- # Closing during the awaited safety backup must prevent the refresh write.
- settings(p);p.get_by_role('button',name='Refresh from RecipeSage',exact=True).click();d=p.get_by_role('dialog',name='Refresh from RecipeSage',exact=True);before=p.evaluate('spec123.state()');p.evaluate('spec123.delayBackup()')
- d.locator('input[type=file]').set_input_files({'name':'sage.json','mimeType':'application/json','buffer':json.dumps([{**RAW,'identifier':SAGE,'recipeInstructions':['Must not save this step.']}]).encode()});p.wait_for_function('!document.querySelector("#recipeSageRefresh button:last-of-type").disabled');d.get_by_role('button',name='Refresh Recipes',exact=True).click();p.wait_for_function('typeof release123==="function"');close(p,'Refresh from RecipeSage');p.evaluate('release123()');p.evaluate('restore123()');assert p.evaluate('spec123.state()')==before
  # Real narrow/landscape and app extra-text layouts, plus keyboard-like reduced viewport.
  for width,height,suffix in [(320,640,'narrow'),(740,360,'landscape'),(360,360,'keyboard')]:
   p.set_viewport_size({'width':width,'height':height});p.evaluate("document.body.dataset.mealTextSize='extra';spec123.import('text')");popup(p).get_by_role('textbox',name='Recipe text').fill(TEXT);popup(p).locator('>div').evaluate('(e)=>e.scrollTop=e.scrollHeight');p.screenshot(path=str(OUT/(name+'-'+suffix+'.png')));assert p.evaluate('document.documentElement.scrollWidth<=innerWidth');close(p)
@@ -96,7 +85,7 @@ def run(b,name):
  with p.expect_navigation(wait_until='load'):chooser.value.set_files({'name':'backup.json','mimeType':'application/json','buffer':json.dumps(backup).encode()})
  assert p.evaluate('spec123.records()')==saved_meals,[(x,y)for x,y in zip(saved_meals,p.evaluate('spec123.records()'))if x!=y]
  if prefix:assert p.evaluate('localStorage.getItem("mealRotationDataV1")')=='WORKING SENTINEL'
- assert not errors,errors;c.close();print('PASS',name,'unified methods/parsers, review, Sides, status, refresh safety, Undo/Redo, cancellation/Back, mobile geometry')
+ assert not errors,errors;c.close();print('PASS',name,'unified methods/parsers, review, Sides, status, exports/restore, Undo/Redo, cancellation/Back, mobile geometry')
 if __name__=='__main__':
  with sync_playwright()as pw:
   browser=pw.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])

@@ -583,8 +583,7 @@ let closeSettings=document.createElement('button');closeSettings.textContent='Cl
  planCheck.setAttribute('aria-labelledby',planLabel.id);planCheck.setAttribute('aria-describedby',planHint.id);
  planCopy.append(planLabel,planHint);planOption.append(planCheck,planCopy);planGroup.content.append(planOption);
  const recipeGroup=makeSettingsGroup('recipes','Recipes'),recipeRow=document.createElement('div');recipeRow.className='settings-backup-controls';
- const refresh=document.createElement('button');refresh.type='button';refresh.textContent='Refresh from RecipeSage';refresh.onclick=()=>openRecipeSageRefresh({capture:captureBackupStorage,validate:validateBackupStorage,database:'meal-rotation-recipesage-safety'});
- recipeRow.append(importBtn,exportRecipesBtn,refresh);const recipeHint=document.createElement('p');recipeHint.className='muted';recipeHint.textContent='Import or share recipes without replacing your collection.';recipeGroup.content.append(recipeHint,recipeRow);panel.append(recipeGroup.details);
+ recipeRow.append(importBtn,exportRecipesBtn);const recipeHint=document.createElement('p');recipeHint.className='muted';recipeHint.textContent='Import or share recipes without replacing your collection.';recipeGroup.content.append(recipeHint,recipeRow);panel.append(recipeGroup.details);
  const backupGroup=makeSettingsGroup('backups','Backups'),backupRow=document.createElement('div');backupRow.className='settings-backup-controls';backupRow.append(exportBtn,restoreBtn);const backupHint=document.createElement('p');backupHint.className='muted';backupHint.textContent='Save or restore your full collection, meal plans, progress and settings.';backupGroup.content.append(backupHint,backupRow);panel.append(backupGroup.details);
  panel.append(makeSettingsFooter());decoratePreferenceSwitches(panel);
  const help=document.createElement('button');help.id='help';help.className='iconbtn';help.title='Help and gestures';help.setAttribute('aria-label','Help and gestures');help.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01" stroke-linecap="round"/></svg>';help.onclick=()=>openHelpModal();actions.append(help);settings.onclick=async()=>{
@@ -3749,7 +3748,7 @@ async function importIngredientsFromWebsite(value,externalSignal,expectedName=''
    ingredients.recipeDetails=details;return ingredients;
   }finally{clearTimeout(timer);externalSignal?.removeEventListener('abort',abort)}
  }
- const complete=result=>result?.recipeDetails?.instructions?.some(block=>block.type==='step');let partial=null;
+ const complete=result=>result?.length&&result?.recipeDetails?.instructions?.some(block=>block.type==='step');let partial=null;
  if(parsed.protocol==='https:'){try{const result=await request(address,4500);if(complete(result))return result;partial=result}catch(e){if(externalSignal?.aborted)throw e}}
  if(externalSignal?.aborted)throw Error('Recipe import cancelled.');
  const results=await Promise.allSettled(readers.map(endpoint=>request(endpoint)));
@@ -4569,7 +4568,8 @@ $('ingredientPhotoButton').onclick=()=>$('ingredientGalleryInput').click();
 $('ingredientCameraButton').onclick=()=>$('ingredientCameraInput').click();
 installRecipeIngredientLinkEditor(m);
 const indicatorRoot=document.querySelector('#editor .editor');
-indicatorRoot.refreshIndicators=()=>{
+indicatorRoot.refreshIndicators=event=>{
+ if(event?.target.closest?.('#recipeStatus'))return;
  const names=[...normalizeServeWith(serveWithDraft),...simpleSidesDraft.map(side=>side.name)],linked=new Set(linkedMealDraft.map(String)),count=meals.filter(record=>linked.has(String(record.id))).length;
  const values={serve:names.length===1?names[0]:names.length?names.length+' selected':'',linked:count?count+' linked':'',recipe:[$('ingredients').value,$('recipeInstructions').value,$('url').value,$('editNeedsTweakingNote').value].some(value=>value.trim())||$('editNeedsTweaking').checked?'Added':'',notes:$('recipeNotes').value.trim()||$('recipeMakeAhead').readDraft().length?'Added':''};
  for(const [key,value]of Object.entries(values)){const label=indicatorRoot.querySelector('[data-editor-summary="'+key+'"]');if(label&&label.textContent!==value)label.textContent=value}
@@ -4822,7 +4822,7 @@ function installRecipeStatusEditor(meal){
  control.hidden=true;control.checked=recipeStatus(meal)==='rotation';group.append(control);
  for(const [status,title]of recipeStatusChoices()){
   const label=document.createElement('label'),radio=document.createElement('input');radio.type='radio';radio.name='editorRecipeStatus';radio.value=status;radio.checked=status===recipeStatus(meal);radio.disabled=control.disabled;
-  radio.onchange=()=>{if(!radio.checked)return;group.dataset.status=status;control.checked=status==='rotation';group.dispatchEvent(new Event('change',{bubbles:true}))};label.append(radio,document.createTextNode(title));group.append(label);
+  radio.onchange=()=>{if(!radio.checked)return;group.dataset.status=status;control.checked=status==='rotation'};label.append(radio,document.createTextNode(title));group.append(label);
  }
  group.dataset.status=recipeStatus(meal);old.replaceWith(group);document.querySelector('#editor .time-keyboard-tools').after(group);
  const observer=new MutationObserver(()=>{for(const radio of group.querySelectorAll('input[type=radio]'))radio.disabled=control.disabled});observer.observe(control,{attributes:true,attributeFilter:['disabled']});new MutationObserver((_,watch)=>{if(!group.isConnected){observer.disconnect();watch.disconnect()}}).observe($('editor'),{childList:true,subtree:true});
