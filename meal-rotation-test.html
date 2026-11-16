@@ -6693,11 +6693,15 @@ function appendWeekdayDate(heading,date){
  const label=document.createElement('small');label.className='weekday-date';label.textContent=' · '+date.toLocaleDateString(undefined,{month:'short',day:'numeric'});heading.append(label);
 }
 function mealPlanWeekStart(plan){return parseCookingLocalDate(plan.mealPlanWeekStartV1)||parseCookingLocalDate(plan.rotationCalendar?.weekStart)||cookingPlanningWeekStart()}
-function copyOccurrenceDate(plan,entry,date,carry=true){
+function carryRepairedPendingTasks(plan,key,oldDate,date){
+ if(Array.isArray(plan.makeAheadPending))plan.makeAheadPending=plan.makeAheadPending.map(item=>{try{const parts=JSON.parse(item.key);if(parts[0]!==key||parts[1]!==oldDate||parts[2]==='preview'||item.scheduled!==oldDate||!item.task)return item;parts[1]=date;return {...item,key:JSON.stringify(parts),scheduled:date,due:cookingLocalDate(makeAheadDueDate(parseCookingLocalDate(date),item.task))}}catch(_){return item}});
+}
+function copyOccurrenceDate(plan,entry,date,carry=true,repairPending=false){
  const calendar=plan.rotationCalendar,key=rotationOccurrenceKey({...entry,planId:plan.id}),oldDate=calendar.occurrences[key],oldSideKey=simpleSideOccurrenceKey(plan,entry,calendar);if(oldDate===date)return;
  const sides=plan.simpleSideOccurrences?.[oldSideKey];calendar.occurrences[key]=date;calendar.slots[rotationCalendarSlot(entry)]=date;if(!calendar.assignedOn[key]||calendar.assignedOn[key]>date)calendar.assignedOn[key]=date;if(!calendar.assignedAt[key])calendar.assignedAt[key]=new Date().toISOString();
  if(sides)plan.simpleSideOccurrences={...(plan.simpleSideOccurrences||{}),[simpleSideOccurrenceKey(plan,entry,calendar)]:copySimpleSides(sides)};
  if(carry)for(const [taskKey,value]of Object.entries(plan.makeAheadChecks||{})){try{const parts=JSON.parse(taskKey);if(parts[0]===key&&parts[1]===oldDate){parts[1]=date;plan.makeAheadChecks[JSON.stringify(parts)]=value}}catch(e){}}
+ if(repairPending)carryRepairedPendingTasks(plan,key,oldDate,date);
 }
 function stableGrocerySource(source){const token=JSON.parse(source.id);return JSON.stringify([source.planId,source.day,source.cat,String(source.mealId),source.parentId||'',source.simpleSideId||'',token[1],token[2]])}
 function carryDatedGroceryChecks(before,retained){
@@ -8350,13 +8354,22 @@ function legacyLocalDateRepairs(){
   }
  }return fixes;
 }
+function recordedPendingDateRepairs(){
+ const repairs=[];for(const plan of mealPlans)for(const [key,proof]of Object.entries(plan.occurrenceDateRepairsV1||{})){
+  const from=parseCookingLocalDate(proof?.from),to=parseCookingLocalDate(proof?.to);if(proof?.reason!=='local-replacement-rollover'||!from||!to||plan.rotationCalendar?.occurrences?.[key]!==proof.to)continue;
+  const next=new Date(to);next.setDate(next.getDate()+7);if(cookingLocalDate(next)!==proof.from)continue;
+  if(!getDisplayedWeekdayMealsForPlan(plan).some(entry=>rotationOccurrenceKey({...entry,planId:plan.id})===key))continue;
+  if((plan.makeAheadPending||[]).some(item=>{try{const parts=JSON.parse(item.key);return parts[0]===key&&parts[1]===proof.from&&parts[2]!=='preview'&&item.scheduled===proof.from&&!!item.task}catch(_){return false}}))repairs.push({planId:plan.id,key,from:proof.from,to:proof.to});
+ }return repairs;
+}
 function repairLegacyCurrentPlanDates(){
- if(legacyLocalDatesChecked||bulkRecipeStorageDraft||!recipeBulkBackupAPI||groceryCheckStorageInvalid||cookingStorageInvalid)return;legacyLocalDatesChecked=true;const fixes=legacyLocalDateRepairs();if(!fixes.length)return;
+ if(legacyLocalDatesChecked||bulkRecipeStorageDraft||!recipeBulkBackupAPI||groceryCheckStorageInvalid||cookingStorageInvalid)return;legacyLocalDatesChecked=true;const fixes=legacyLocalDateRepairs(),pendingRepairs=recordedPendingDateRepairs();if(!fixes.length&&!pendingRepairs.length)return;
  const undoBefore=captureState(),memory={mealPlans,groceryOccurrenceChecks},before=recipeBulkBackupAPI.capture(),grocery=captureGroceryCheckStates();
  try{
   recipeBulkBackupAPI.validate(before);bulkRecipeStorageDraft=new Map(Array.from({length:testStorage.length},(_,i)=>{const key=testStorage.key(i);return [key,testStorage.getItem(key)]}));mealPlans=JSON.parse(JSON.stringify(mealPlans));groceryOccurrenceChecks=JSON.parse(JSON.stringify(groceryOccurrenceChecks));
-  for(const fix of fixes){const plan=mealPlans.find(p=>p.id===fix.planId),entries=getDisplayedWeekdayMealsForPlan(plan),entry=entries.find(e=>rotationOccurrenceKey({...e,planId:plan.id})===fix.key);if(!entry)continue;plan.occurrenceDateRepairsV1={...(plan.occurrenceDateRepairsV1||{}),[fix.key]:{from:fix.from,to:fix.to,assignedOn:plan.rotationCalendar.assignedOn[fix.key],reason:'local-replacement-rollover'}};copyOccurrenceDate(plan,entry,fix.to);for(const side of entries.filter(e=>e.day===entry.day&&String(e.linkedTo)===String(entry.meal.id)&&!rotationGroupScheduled(plan,e.day,e.cat)))copyOccurrenceDate(plan,side,fix.to);plan.rotationCalendar=rotationCalendarForPlan(plan,entries)}
-  carryDatedGroceryChecks(grocery,null);testStorage.setItem(mealPlansKey,JSON.stringify({plans:mealPlans,activeId:activePlanId}));const proposed=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(proposed);bulkRecipeStorageDraft=null;recipeBulkBackupAPI.restore(proposed,{id:'local-date-repair:'+JSON.stringify(fixes),kind:'plan-date-repair',ownerId:null});snapshot(undoBefore);
+  for(const fix of fixes){const plan=mealPlans.find(p=>p.id===fix.planId),entries=getDisplayedWeekdayMealsForPlan(plan),entry=entries.find(e=>rotationOccurrenceKey({...e,planId:plan.id})===fix.key);if(!entry)continue;plan.occurrenceDateRepairsV1={...(plan.occurrenceDateRepairsV1||{}),[fix.key]:{from:fix.from,to:fix.to,assignedOn:plan.rotationCalendar.assignedOn[fix.key],reason:'local-replacement-rollover'}};copyOccurrenceDate(plan,entry,fix.to,true,true);for(const side of entries.filter(e=>e.day===entry.day&&String(e.linkedTo)===String(entry.meal.id)&&!rotationGroupScheduled(plan,e.day,e.cat)))copyOccurrenceDate(plan,side,fix.to,true,true);plan.rotationCalendar=rotationCalendarForPlan(plan,entries)}
+  for(const fix of pendingRepairs){const plan=mealPlans.find(plan=>plan.id===fix.planId);carryRepairedPendingTasks(plan,fix.key,fix.from,fix.to)}
+  if(fixes.length)carryDatedGroceryChecks(grocery,null);testStorage.setItem(mealPlansKey,JSON.stringify({plans:mealPlans,activeId:activePlanId}));const proposed=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(proposed);bulkRecipeStorageDraft=null;recipeBulkBackupAPI.restore(proposed,{id:'local-date-repair:'+JSON.stringify({fixes,pendingRepairs}),kind:'plan-date-repair',ownerId:null});snapshot(undoBefore);
  }catch(error){bulkRecipeStorageDraft=null;({mealPlans,groceryOccurrenceChecks}=memory);showAppMessage('The local replacement date repair could not be saved. Existing data was retained. '+error.message)}finally{bulkRecipeStorageDraft=null}
 }
 function scheduledCalendarEntries(plan){
