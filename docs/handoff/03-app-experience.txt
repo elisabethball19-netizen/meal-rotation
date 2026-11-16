@@ -2,6 +2,8 @@ APP EXPERIENCE AND ACCEPTED BEHAVIOR
 Updated: 2026-11-15
 Scope: intended/accepted original-app behavior. #120 renewed phone-review follow-up is implemented/code-checked, awaiting physical-phone acceptance. #121 combined phone-review follow-up is implemented/code-checked, awaiting phone acceptance; #122-#124 remain approved NOT YET IMPLEMENTED designs. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
 
+LATEST ACCEPTED GROCERY REFINEMENT (deferred, not implemented): expanded content shows recipe names only, no repeated ingredient/source quantities; checkbox per contribution only when multiple; one pencil beside first recipe name, hidden collapsed, applies wording to all included contributions of displayed aggregate. Preserve per-source quantities/scaling/checks and recipe originals; #122 latest review supersedes older per-source edit description. Other #122 functionality user reports working. #123 approved next: imports/settings plus aligned Display rows and recipe-editor inline In Rotation/Ideas radios below times, no visible status heading/popup; main save/cancel semantics preserved.
+
 LOOK AND FEEL
 Warm Harvest Kitchen palette; muted pastel weekday cards; neutral surfaces; rounded corners; soft shadows; readable dark text.
 Compact spacing, predictable icon columns, naturally wrapped names, comfortable touch targets. Avoid icon-induced blank rows, overlapping text, excessive padding, solid triangle disclosure icons, or gray boxes around every editor section.
