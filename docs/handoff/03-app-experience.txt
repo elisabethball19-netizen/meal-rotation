@@ -1,6 +1,6 @@
 APP EXPERIENCE AND ACCEPTED BEHAVIOR
 Updated: 2026-11-15
-Scope: intended/accepted original-app behavior. #120 renewed phone-review follow-up is implemented/code-checked, awaiting physical-phone acceptance. #121 is implemented/code-checked, awaiting phone testing; #122-#124 remain approved NOT YET IMPLEMENTED designs. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
+Scope: intended/accepted original-app behavior. #120 renewed phone-review follow-up is implemented/code-checked, awaiting physical-phone acceptance. #121 initial implementation is code-checked; combined phone-review follow-up approved/not yet implemented; #122-#124 remain approved NOT YET IMPLEMENTED designs. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
 
 LOOK AND FEEL
 Warm Harvest Kitchen palette; muted pastel weekday cards; neutral surfaces; rounded corners; soft shadows; readable dark text.
@@ -36,7 +36,7 @@ Implemented #120 (awaiting phone testing): compact expandable cards, collapsed n
 Planning: Use next recipe / Choose a different meal / Leave this meal empty.
 Implemented renewed follow-up (awaiting phone testing): completed planning changes (including Resume) collapse the affected card; edit recipe/groceries/sides returns expanded; favorite/date changes and cancellation keep it expanded. Preserve scroll and stable occurrence identity; never expand another day. Tighten expanded metadata/action-row gaps while preserving touch targets. Vertically center collapsed content, left-align text, align chevron/adjustment indicator to recipe-name block.
 Editing: Edit recipe / Edit groceries / Add or edit sides.
-Implemented correction (awaiting phone testing): six actions in compact two-column/three-row grid, planning left/editing right. One outline/filled favorite heart beside Last cooked in expanded metadata only; no collapsed hearts. Preserve algorithm.
+Implemented correction (awaiting phone testing): six actions in compact two-column/three-row grid, planning left/editing right. Latest approved #121 follow-up moves the single expanded outline/filled heart to recipe-name row, separate from Last cooked; no collapsed hearts. Preserve algorithm.
 Display preferences under shared heading Show on collapsed meal cards apply to cook/marinade/date details: on = compact collapsed, off = available expanded; no duplicates/blank space. Make Ahead Reminders is a separate optional preference; no reminder checklists in collapsed or expanded meal cards. Preserve task data/dates/checks; use separate collapsible To-Do above cards, hiding entire section when no eligible incomplete tasks remain.
 Linked accompaniment has muted name opening viewer, no own edit chevron/panel; independent Sides occurrence keeps normal controls.
 Empty/skipped active card uses inline chevron with Choose a meal and Resume planned meal only when applicable; hide unavailable actions, no popup.
@@ -61,16 +61,16 @@ Use for meal rotation off = plain reference list, no new rotation assignments; s
 Add meals button, "Add meals to [group]" picker; standard chevrons; Copy keeps original membership, Move removes it; no "Add meals by:" heading.
 Search multi-word AND; optional Match word order off by default.
 
-BULK EDIT
-Implemented #121 (awaiting phone testing): group heading expands/collapses recipes; pencil opens that group's bottom editing bar with none selected. Preserve existing group rename/settings/reorder access. No second editing chevron or Organize label.
-Long press opens same mode selecting pressed recipe. Source-group-only selection; no cross-group selection until Done/clear.
-Bottom icon+label actions Groups / Status / Delete / Done, with group/count; hide main navigation. Groups/Status directly open their controls, no intermediate Edit recipes dialog.
-Select all/Deselect all above list beside count, group/filter scope. None -> Select all. Initial long-press auto-selected recipe -> still Select all. After another recipe manually selected -> Deselect all even partial; all selected -> Deselect all. Clears immediately; track entry exception, not count-one shortcut.
-Handles only in organizing and supported reorder contexts: Ideas with pinned/unpinned portions; groups in existing group reorder. No In Rotation recipe handles/manual reordering.
-Retain independent Remove from [source] and Add to groups (move/copy semantics), other memberships preserved; destinations required for Add; no named memberships -> Unassigned; omit Remove from Unassigned.
-New groups/changes pending outer final check; X cancels. Status Keep existing/In Rotation/Ideas, mixed preserved by Keep existing. No bulk Favorite/Needs Adjusting or extra Move toolbar.
-Picker heading/actions/footer fixed, destination list scrolls, chevrons on subpicker rows.
-Delete names with "Delete these recipes?" and "Unselected linked recipes will not be deleted."
+BULK EDIT / GROUP-VIEW FOLLOW-UP — APPROVED, NOT YET IMPLEMENTED
+Latest #121 issue replaces original controls/status popup design.
+Normal group header: icon-only Organize meals checklist (three checked boxes/single lines, no clipboard), Edit group pencil, Add meal +. Accessible labels/long-press tooltips. Pencil opens group name/rotation switch/delete directly; remove nested gear access, duplicate Add meals and popup reorder arrows/explanation. Preserve drag reorder and accessibility, Sides protections/assignment guards.
+Selection limited to one source group AND one subgroup In Rotation or Ideas. Long press establishes subgroup/selected recipe; header Organize begins with none and first selection establishes subgroup. Show checkboxes only in active subgroup once established. Bottom Groups/Delete/Done; no Status popup or batch up/down. Existing individual status arrows remain.
+Two fixed Select all / Deselect all icons beside count reuse Groceries boxed check/minus; scope to active subgroup/filter only. No changing text or entry exception. Ideas handles retain pinned portions/shared ordering; no In Rotation manual ordering.
+Android Back closes child popup first using cancel semantics; from selection acts like Done, clears selection/stays on Meal Groups at same scroll, never jumps to plan.
+Groups popup immediately lists source first checked plus destination groups; no Remove/Add wrapper controls or subtext. Source kept + destination = copy, source unchecked + destination = move; source unchecked alone removes only source. Other memberships untouched unless explicitly changed. Per-group change tracking preserves original per-recipe/mixed memberships; no common-set overwrite. New groups pending final check; X/Back cancel. Derived Unassigned if no named group.
+Meal Groups recipe name tap opens viewer, long press selects; separate far-right chevron expands inline Edit recipe/Edit groceries/Schedule meal, replacing individual action popup. Status arrow immediately left of chevron, pin left, weekday near details; no redundant Open recipe action. One expanded recipe at a time, stable identity/scroll, no expansion while bulk selecting.
+Expanded heart appears on recipe-name row, separate from Last cooked/pencil below; outline/filled toggle keeps expanded. Same name-row heart placement on This week's meal plan, hidden collapsed. Collapsed favorite-only Groups hearts were suggested but not explicitly confirmed; expanded-only for this pass.
+Keep delete confirmations/linked protection, staged saves/cancel/Undo/Redo and existing operations. Exact acceptance in #121.
 
 BUILT-IN SIDES AND PREFERENCES
 App-provided Sides group has stable identity, can rename/reorder, cannot delete. Reuse existing group without duplicate migration; In Rotation/Ideas remain.
