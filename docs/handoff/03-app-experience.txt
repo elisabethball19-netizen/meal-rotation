@@ -50,6 +50,7 @@ Radio choices: "Use a different meal on [weekday]" / "Keep [Recipe] on [weekday]
 First automatically replaces source using normal eligible selection; second keeps both. Destination/source update safely together; cancel leaves no partial change. Empty destinations and Ideas choices must work. No eligible replacement should not silently corrupt either day.
 
 GROUPS AND IDEAS
+Approved #122 prerequisite, not yet verified implemented: nonrotation/reference group lists every member recipe regardless saved rotation status. Disabling group rotation never hides/deletes its In Rotation recipes or resets statuses/memberships; re-enable preserves status. All reference recipes have left pin-to-top control with pinned-first behavior. Exact checks in #122.
 Two statuses: In Rotation and Ideas, NOT three.
 In Rotation eligible for automatic rotation; Ideas manually schedulable without promotion.
 Ideas pins: outlined/filled, left column; pinned first. Pin/unpin brings first in corresponding portion. Manual drag within each portion, shared persistent order across memberships, hidden relative order preserved.
@@ -65,6 +66,8 @@ Renewed #121 corrections implemented/code-checked, awaiting phone acceptance: co
 
 Latest #121 completion pass implemented/code-checked, awaiting phone acceptance: organize-entry parity/Ideas handles; individual status arrows in organizing; group-header handles only separate group reorder via icon in Edit group (preserve drafts); expanded Groups heart/status in bottom actions; chevron/name + weekday alignment; Schedule [name] title; Use multiple meal tabs wording; Meals/Overview week radios, continuous tab baseline and previously approved compact sticky controls. Other deferred work/#122–#124 stay queued.
 Latest accepted behavior is the completion section in #121; it supersedes previous implemented presentation described below.
+
+Latest user disposition: remaining #121 micro-polish deferred; #122 next with nonrotation visibility/pins prerequisite. Latest lasting deferred designs: recipe-editor inline status radios below times/no heading; reorder Done exits to group list/no reopened editor; remove touch-only radio outline/stray card-top line; fix inactive tab baseline; align grocery summary baseline. Preserve outer save/cancel/keyboard focus and resolve unsaved group edits before reorder. Do not infer these are implemented.
 
 BULK EDIT / GROUP-VIEW FOLLOW-UP — IMPLEMENTED / CODE-CHECKED; AWAITING PHONE ACCEPTANCE
 Latest #121 issue replaces original controls/status popup design.
