@@ -28,6 +28,8 @@ Recommended order minimizes repeated work in shared components; test each before
 2. #121 Group editing / inline recipe actions — COMBINED FOLLOW-UP IMPLEMENTED / CODE-CHECKED; AWAITING PHONE ACCEPTANCE.
    https://github.com/elisabethball19-netizen/meal-rotation/issues/121
    Implemented/code-checked combined follow-up (phone acceptance pending) supersedes initial controls: checklist Organize/pencil Edit group/+ direct header actions; one subgroup selection; Groups/Delete/Done without batch Status; fixed Groceries-style check/minus selection icons; direct membership list/source first with explicit-change-only preservation; Android Back exits selection locally; inline recipe actions/name tap viewer/status arrow + far-right chevron; one expanded row; expanded heart on name row also on This week's plan. Existing #121 holds full scope/checklist. Keep other deferred #120 items deferred.
+   Renewed #121 correction approved/not yet implemented: compact group-header action cluster and lighter outline organize icon; organize-entry auto-scroll; far-right handles; status arrows expanded-only; icon-only recipe actions/calendar; aligned times/date with underlined Last cooked value; expanded times regardless switches; Groups favorites visible collapsed; Groups editor/scheduling close collapses card; compact atomic multi-day scheduling with inline weekday checkboxes and conditional per-day Meal group radios, hidden tabs use active plan. Preserve other memberships/schedules and original operations.
+
 3. #122 Grocery breakdown + custom-wording scaling bug.
    https://github.com/elisabethball19-netizen/meal-rotation/issues/122
    All rows expandable; inline (2); per-source amount/name/pencil/check; partial parent checkbox; fix scaling without losing custom wording or checks; exact helper copy.
@@ -51,6 +53,8 @@ FUTURE DESIGN — ON HOLD
 - Automatically extracting genuinely useful advance-prep tasks: possible future idea, not approved implementation. Do not add manual detailed to-do authoring.
 
 EXPLICITLY DEFERRED FUNCTIONAL REFINEMENTS
+- Restore continuous tab baseline under inactive tabs/gaps, interrupted only under selected tab; bundle with header polish (11368/old11290).
+- Week radios on Meals/Overview and pale rounded bottom-nav active highlight discussed/recommended; approval not explicit, settle before implementation.
 Latest phone review, explicitly nonurgent; bundle only with related larger work, not #121:
 - Groceries reported working; align meal-inclusion checkboxes with week checkboxes (11312), retain wrapped text alignment. Bundle with #122.
 - Tuesday still shows Nov17 instead of Nov10 in current plan while Wed11–Sun15 now correct (11310). Unresolved; revisit with scheduling work, no cosmetic stored-date rebase.
