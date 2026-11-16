@@ -28,6 +28,7 @@ For file-based tasks, edit the supplied latest source; do not silently substitut
 Keep corrections in the feature's current Codex thread. Start a new thread at a completed feature boundary.
 
 TASK QUALITY
+Own routine UI decisions: resolve spacing/alignment, icon sizing/placement, text wrapping/justification, control order and consistency from established app patterns. Ask only for material workflow/data decisions, not pixel-level polish. Before handoff consolidate into one current specification, removing superseded conflicts. Before delivery inspect realistic phone-sized screenshots (long names, both expansion states, narrow/landscape/large text) and complete open/save/cancel/Android Back/return-position flows in touched scope; fix obvious defects autonomously. Passing code checks is not visual acceptance. Avoid repeated broad testing; use focused existing checks and one coherent related batch to conserve credits. User phone review confirms results, not first design QA.
 Define behavior, edge cases, exact wording, scope, screenshot references, preservation rules, and focused verification.
 Reuse actual stored identities and occurrence paths rather than matching names or indexes.
 Use real user flows and realistic fixtures for reported bugs.
