@@ -97,7 +97,7 @@ function mergeSimpleSide(list,side){
  return {sides:existing?list.map(item=>item===existing?result:item):[...list,result],side:result};
 }
 function simpleSideOccurrenceKey(plan,entry,calendar=plan.rotationCalendar){return JSON.stringify([...JSON.parse(groceryOccurrenceIdentity(plan,entry)),cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},calendar))])}
-function simpleSidesForEntry(plan,entry){return plan.simpleSideOccurrences?.[simpleSideOccurrenceKey(plan,entry)]||[]}
+function simpleSidesForEntry(plan,entry){if(plan.servingSidesV1?.[simpleSideOccurrenceKey(plan,entry)])return plan.servingSidesV1[simpleSideOccurrenceKey(plan,entry)].filter(s=>s.type==='simple').map(({id,name,ingredients})=>({id,name,ingredients}));if(Array.isArray(entry.meal.serveWithEntriesV1))return servingSides(plan,entry).filter(side=>side.type==='simple');return plan.simpleSideOccurrences?.[simpleSideOccurrenceKey(plan,entry)]||[]}
 function initializeSimpleSideOccurrence(plan,entry,calendar=plan.rotationCalendar){
  const sides=copySimpleSides(entry.meal.simpleSides);if(!sides.length&&!plan.simpleSideOccurrences)return;
  plan.simpleSideOccurrences={...(plan.simpleSideOccurrences||{}),[simpleSideOccurrenceKey(plan,entry,calendar)]:sides};
@@ -113,7 +113,7 @@ function restoreSimpleSideOccurrence(plan,entry,old,calendar,prior){
 }
 function appendSimpleSideNames(parent,plan,entry){
  const sides=simpleSidesForEntry(plan,entry);if(!sides.length)return;
- const line=document.createElement('div');line.className='top-inline-linked simple-side-names';line.textContent=sides.map(side=>side.name).join(' · ');parent.append(line);
+ for(const side of sides){const line=document.createElement('div');line.className='top-inline-linked simple-side-names';line.textContent=side.name;parent.append(line)}
 }
 function simpleSideDefaultsFingerprint(meal){return JSON.stringify(sharedRecipeMembers(meal).map(record=>[String(record.id),record.simpleSides||[]]))}
 function applySimpleSideMutation(change){
@@ -975,7 +975,7 @@ function restoreGroupGroceryUndo(saved){
 }
 function restoreScheduleUndoState(saved){
  const current=JSON.parse(captureState()),meta=saved.scheduleChangeUndo;
- const fields=['weekdayCategories','weekdayMealOverrides','weekdayRecipeFilters','cycleSlotChoices','cycleRetainedSlots','weekSchedule','rotationCalendar','simpleSideOccurrences','favoriteRotationScores','dependentSideState','occasionalMeals',...(meta.restoreMakeAhead?['makeAheadPending','makeAheadChecks']:[])];
+ const fields=['weekdayCategories','weekdayMealOverrides','weekdayRecipeFilters','cycleSlotChoices','cycleRetainedSlots','weekSchedule','rotationCalendar','simpleSideOccurrences','favoriteRotationScores','dependentSideState','occasionalMeals','servingSidesV1','sideRuleStateV1','pendingNextWeekV1','alternatingGroupsV1',...(meta.restoreMakeAhead?['makeAheadPending','makeAheadChecks']:[])];
  current.mealPlans=current.mealPlans.map(plan=>{const old=saved.mealPlans.find(p=>p.id===plan.id);if(!old)return plan;for(const key of fields){if(Object.hasOwn(old,key))plan[key]=JSON.parse(JSON.stringify(old[key]));else delete plan[key]}return plan});
  for(const key of ['weekdayCategories','weekdayMealOverrides','weekdayRecipeFilters','activePlanId','lastRotationBefore'])current[key]=saved[key];
  if(meta.restoreOrder){const records=new Map(meals.map(m=>[String(m.id),m]));current.meals=saved.meals.map(m=>records.get(String(m.id))).filter(Boolean).concat(meals.filter(m=>!saved.meals.some(old=>String(old.id)===String(m.id))))}
@@ -1190,7 +1190,7 @@ function fitPrompt(){if(!shade.isConnected)return;cancelAnimationFrame(promptFra
 if(kind==='prompt'){window.visualViewport?.addEventListener('resize',fitPrompt);window.visualViewport?.addEventListener('scroll',fitPrompt);fitPrompt();}
 if(field){field.focus({preventScroll:true});field.select();setTimeout(fitPrompt,120);field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();actions.firstChild.click()}}}})}
 const weekCalendarArtwork='<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h3M14 14h3M8 18h3M14 18h3"/>';
-const appIconSvg={calendar:weekCalendarArtwork,down:'<path d="m6 9 6 6 6-6"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',grocery:'<path d="M3 3h2l3 12h11l3-9H6M9 20h1M18 20h1"/>',settings:'<path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/>','chevrons-down':'<path d="m6 4 6 6 6-6M6 12l6 6 6-6"/>','chevrons-up':'<path d="m6 20 6-6 6 6M6 12l6-6 6 6"/>',left:'<path d="M15 18l-6-6 6-6"/>',right:'<path d="m9 18 6-6-6-6"/>',save:'<path d="M5 12l5 5L20 7"/>',cancel:'<path d="M5 5l14 14M19 5L5 19"/>',delete:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',rename:'<path d="M4 20h16M6 16l10-10 3 3-10 10-4 1z"/>',add:'<path d="M12 5v14M5 12h14"/>',move:'<path d="M5 12h14m-6-6 6 6-6 6"/>'};function setIconButton(b,type,label){b.textContent='';b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+appIconSvg[type]+'</svg>';b.title=label;b.setAttribute('aria-label',label);b.style.cssText='border:0;background:transparent;color:#444;display:grid;place-items:center;min-width:42px;min-height:42px;padding:6px'}
+const appIconSvg={calendar:weekCalendarArtwork,up:'<path d="m6 15 6-6 6 6"/>',down:'<path d="m6 9 6 6 6-6"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',grocery:'<path d="M3 3h2l3 12h11l3-9H6M9 20h1M18 20h1"/>',settings:'<path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/>','chevrons-down':'<path d="m6 4 6 6 6-6M6 12l6 6 6-6"/>','chevrons-up':'<path d="m6 20 6-6 6 6M6 12l6-6 6 6"/>',left:'<path d="M15 18l-6-6 6-6"/>',right:'<path d="m9 18 6-6-6-6"/>',save:'<path d="M5 12l5 5L20 7"/>',cancel:'<path d="M5 5l14 14M19 5L5 19"/>',delete:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',rename:'<path d="M4 20h16M6 16l10-10 3 3-10 10-4 1z"/>',add:'<path d="M12 5v14M5 12h14"/>',move:'<path d="M5 12h14m-6-6 6 6-6 6"/>'};function setIconButton(b,type,label){b.textContent='';b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+appIconSvg[type]+'</svg>';b.title=label;b.setAttribute('aria-label',label);b.style.cssText='border:0;background:transparent;color:#444;display:grid;place-items:center;min-width:42px;min-height:42px;padding:6px'}
   function normalizeSearchText(value){
     return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim().replace(/\s+/g,' ');
   }

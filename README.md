@@ -99,11 +99,15 @@ If an older installation replaced the other app, export backups before removing 
 
 ## Grocery and future-plan controls
 
-Groceries defaults to **Combined list**; **Group by meal** uses collapsible dated meal sections with the same checks, amounts and manual items. Expanded ingredient rows show recipe names and one pencil for the displayed aggregate's shopping wording.
+Groceries defaults to **Combined list**. The saved **Group by meal** switch sits beside the heading, with the week scope below. Grouped headers open the exact occurrence recipe; their separate chevrons collapse ingredients. Each ingredient has its source-only check and visible shopping-wording pencil. Combined keeps its existing source details. Expand/collapse-all controls share the toolbar.
 
-The weekday assignment editor can alternate a group through an ordered repeating sequence. Only **Start next week** advances it; Undo restores the prior position. Next-week meal cards support saved choices that immediately feed groceries and prep, survive reload and become active on advance. Explicit future choices use the existing overwrite/duplicate safeguards.
+Weekday/date tap and **Settings → Weekday Setup** edit the same ordered, checked group sequence for that day and meal plan: one group repeats, several alternate, none leaves the day empty. Only **Start next week** advances the sequence; Undo restores it. Legacy multi-main days require explicit main/side review, preserving source identities. Current and next cards share the same action layout and saved future-choice safeguards.
 
-**Scale Recipe** has independent **Remember for this recipe** and **Scale linked recipes too** switches, both off each opening. Remember saves a future scheduling default while retaining other scheduled amounts. Linked scaling uses the same multiplier for direct links only. Originals remain unchanged. #126 is code-checked and awaiting phone testing; see `tests/planning_grocery126_test_report.md`.
+**Serve with** in the recipe editor and inline **Add/edit sides** support fixed existing recipes, rotating one-from-group choices and simple named sides with optional ingredients. **Always serve this side with [parent]?** defaults on; off saves only that serving and removes its future default, retaining other already scheduled copies. One outer check/X saves/cancels the side draft. Child recipe/grocery edits save separately. Current-only choices do not advance side rules; explicit scheduled servings advance them.
+
+**Scale Recipe** uses a compact preset grid, **Other**, **Remember** and applicable **Scale linked recipe** switches, both off on opening, then check/X. All changes stay pending until check; Back/outside cancels. Remember saves a future default while retaining other scheduled amounts; linked scaling uses the same multiplier for the actual direct attached recipes only. Originals remain unchanged.
+
+Overview is available with meal tabs off and uses the active plan's saved week and actual occurrences; recipe names open their exact context. Today's To-Do filters actual local task due dates. #126's scoped follow-up is code-checked and awaiting phone acceptance. See [focused evidence and limitations](tests/followup126_test_report.md). The exact Tuesday saved-data case still needs the phone's read-only meal-date diagnostic.
 
 ## Updates and deployment
 
@@ -369,17 +373,9 @@ Meal name, Group and In rotation remain visible. Four independent sections start
 No recipe data or group keys were renamed. Visible group wording is consistent across the editor and related controls. See [Today's To-Do and editor verification](tests/today_editor_test_report.md) for isolated-data tests and physical-device checks.
 
 
-## Serve with and dependent side slots
+## Legacy side compatibility
 
-In **Edit Meal → Organization → Serve with**, choose Rice, Potatoes, Pasta, Vegetables or Bread, and optionally add custom keywords. Select multiple or leave empty. Confirm the selector, then Save the recipe normally. Preferences are shared across the recipe's existing linked memberships. No side classification or additional Meal Groups are needed.
-
-Weekday assignments remain Independent by default. In the existing weekday group popup, configure a side slot as **Dependent side for [main group]**. The designated main can be anywhere in that day's assignments. The dependent slot selects only In Rotation recipes in its own assigned group. Serve with filters their titles using whole words/phrases, punctuation-insensitive case folding, basic plural handling and the small offline bidirectional dictionary `SERVE_WITH_SYNONYMS`. Exact and synonym matches are equally eligible; existing queue, last-cooked and favorite selection rules choose among them.
-
-Main changes through rotation, manual selection, promotion or Skip coordinate the dependent side using the existing mechanisms. A manual side may be outside the title filter and remains until its own applicable rotation or the designated main changes. Empty preferences use the normal unrestricted side pool. No matching side leaves a clear, tappable unselected-side message opening the existing chooser. Explicit linked recipes retain priority and unambiguous dependent placement. No preference change resets queues or records cooking events.
-
-The previous Preferred Side Groups control and cross-group candidate matching are retired. Legacy `preferredSideGroupIds` values are retained safely in complete backups but ignored for selection. They are not converted automatically because group names are not reliable recipe keywords. Existing groups, memberships, independent/dependent assignments and historical records remain intact. Older backups without `serveWith` mean no keyword restriction. Full and partial Cycle Back continue using the existing history and stable recipe identities.
-
-See [Serve with verification](tests/serve_with_test_report.md). The older dependent-side/preferred-side test commands delegate to the current keyword suite; their prior direct-source fixtures remain available to tests as historical fixtures.
+Existing linked recipe IDs and simple sides map into the unified Serve with editor. Saved keyword preferences, preferred-side group metadata, independent/dependent assignments and histories remain in their existing records and complete backups. They are not guessed into new recipe links. Legacy dependent-side selection retains its existing title matching and safeguards until the user explicitly reviews or replaces that assignment. New weekday setup uses ordered alternating groups and one main card; additional dishes belong to the main's Serve with entries.
 
 ## Meal-action cooked-date caption
 
@@ -423,7 +419,7 @@ Expand an item's sources and tap a recipe to open the existing viewer at its ass
 
 Sides is provided automatically and keeps a stable group ID when renamed or reordered. Existing Sides groups retain their memberships, ordering, assignments and settings. The built-in group cannot be deleted. Case-insensitive duplicate Sides names are left untouched; rename one to disambiguate and reload. Full backups preserve the built-in association.
 
-When Sides is assigned, Serve with types filter its eligible In Rotation recipes using the existing title matching and ordering. With no types selected, normal Sides eligibility applies. Unassigned Sides does not generate recipes from preferences; linked recipes and simple sides remain separate. Saving changed preferences re-evaluates applicable current-week sides, retaining an already valid side. Manual or uncertain older choices require confirmation before replacement; X keeps the side while saving the preferences. Missing matches and conflicting parent preferences retain the scheduled side and display an explanation.
+For an existing legacy dependent Sides assignment, saved Serve with keywords still filter its eligible In Rotation recipes using the existing title matching and ordering. With no types selected, normal Sides eligibility applies. Unassigned Sides does not generate recipes from preferences; linked recipes and simple sides remain separate. Saving changed preferences re-evaluates applicable current-week sides, retaining an already valid side. Manual or uncertain older choices require confirmation before replacement; X keeps the side while saving the preferences. Missing matches and conflicting parent preferences retain the scheduled side and display an explanation.
 
 Deferred to the future import batch: suggest adding likely side recipes to the built-in Sides group, with user confirmation. Preserve other memberships and do not silently classify uncertain recipes. This import behavior is not implemented.
 
