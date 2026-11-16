@@ -188,7 +188,7 @@ base.HOOK+='''window.renewed121={
  count:()=>history.length, prefs:()=>({time:timeDisplayPrefs.category,cooked:showLastCooked}),raw:()=>recipeBulkBackupAPI.capture()
 };'''
 
-def show_schedule(p,id=103):renewed_open=row(p,id).locator('.group-inline-panel').count();inline(p,id) if not renewed_open else None;row(p,id).get_by_role('button',name='Schedule meal',exact=True).tap();return p.get_by_role('dialog',name='Schedule meal',exact=True)
+def show_schedule(p,id=103):renewed_open=row(p,id).locator('.group-inline-panel').count();inline(p,id) if not renewed_open else None;row(p,id).get_by_role('button',name='Schedule meal',exact=True).tap();return p.get_by_role('dialog',name='Schedule ',exact=False)
 def day(p,d,name):d.get_by_role('checkbox',name=name,exact=True).click()
 def dest(d,weekday,group):d.locator('.schedule-day[data-day="'+weekday+'"]').get_by_role('radio',name=group,exact=True).check()
 def submit(p,d):d.get_by_role('button',name='Schedule selected days',exact=True).tap()

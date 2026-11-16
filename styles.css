@@ -1789,3 +1789,44 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 .master-category-header>.group-organize svg{width:26px;height:26px;stroke-width:1.4;fill:none;}
 .master-categories .master-meal-info>.times{display:flex;flex-wrap:wrap;column-gap:8px;row-gap:0;}
 .master-category-card>.master-category-header{top:var(--page-heading-sticky-top,0px);}
+
+/* #121 completion: name-aligned weekday controls and one shared action row. */
+.master-categories .master-category-meal[data-group-has-status="false"]:not(.meal-card-edit-mode){grid-template-columns:minmax(0,1fr);}
+.master-categories .master-category-meal[data-up-next-star][data-group-has-status="false"]:not(.meal-card-edit-mode){grid-template-columns:36px minmax(0,1fr);}
+.master-categories .shared-meal-name-line{padding-right:100px;min-height:44px;align-content:center;}
+.master-categories .shared-meal-name-line>.group-row-actions{right:0;top:50%;width:96px;gap:0;transform:translateY(-50%);}
+.master-categories .group-row-actions>.master-meal-weekdays{display:block;flex:1;min-width:0;width:auto;margin:0;text-align:right;font-size:11px;line-height:1.3;color:#637080;white-space:normal;overflow-wrap:normal;}
+.master-categories .group-row-actions>.group-recipe-toggle{flex:0 0 40px;width:40px;min-width:40px;}
+.group-inline-actions{gap:0;justify-content:space-between;max-width:300px;}
+.group-inline-actions>button{display:grid;place-items:center;flex:0 0 44px;width:44px;min-width:44px!important;height:44px;min-height:44px!important;margin:0;padding:7px!important;border:0;background:transparent;}
+.group-inline-actions>button svg{width:24px;height:24px;}
+body.recipe-bulk-select .master-categories .master-category-meal:not(.meal-card-edit-mode){grid-template-columns:28px minmax(0,1fr) 44px 44px;}
+body.recipe-bulk-select .master-categories .master-category-meal>.organize-row-status{display:grid!important;grid-column:3;grid-row:1;width:44px;height:44px;align-self:center;margin:0;}
+body.recipe-bulk-select .master-categories .master-category-meal>.organize-drag-handle{grid-column:4;grid-row:1;}
+body.recipe-bulk-select .master-categories .shared-meal-name-line{padding-right:0;min-height:0;}
+body.recipe-bulk-select .master-categories .master-category-meal:not(:has(>.organize-drag-handle)){grid-template-columns:28px minmax(0,1fr) 44px;}
+body.recipe-bulk-select .master-categories .master-category-meal:not(:has(>.organize-row-status)){grid-template-columns:28px minmax(0,1fr);}
+.schedule-multiple-panel>[role=heading]{overflow-wrap:anywhere;line-height:1.3;}
+/* Whole radio labels are comfortable touch targets; the advance action is independent. */
+.week-selector{gap:8px;flex-wrap:wrap;margin:0;}
+.week-selector>label{display:flex;align-items:center;gap:5px;min-height:44px;font-size:12px;color:#555;cursor:pointer;}
+.week-selector>label:has(input:checked){color:#242424;}
+.week-selector input[type=radio]{width:16px;height:16px;flex:0 0 16px;margin:0;accent-color:#546d8b;}
+.week-selector>label:focus-within{outline:2px solid #5876ad;outline-offset:1px;border-radius:4px;}
+.week-selector>.start-week-text{font-size:12px;}
+#list .meal-controls-sticky,#list .overview-week-sticky{position:sticky;top:var(--page-heading-sticky-top,0px);z-index:35;background:#fff;box-shadow:0 1px #dedede;}
+#list .meal-controls-sticky>.rotation-compact-header{position:static!important;margin:0!important;border:0!important;}
+#list .all-meals-overview>h2{position:static!important;}
+#list .meal-controls-sticky>.meal-plan-tabs{margin-bottom:0!important;background:linear-gradient(to bottom,transparent calc(100% - 1px),#aeb8c0 calc(100% - 1px))!important;border-bottom:0!important;}
+#list .meal-plan-tab{position:relative;}
+#list .meal-plan-tab.selected::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:#fff;}
+#list .plan-meal-card{scroll-margin-top:calc(var(--page-heading-sticky-top,0px) + var(--meal-controls-height,0px) + 8px);}
+body.meal-keyboard-open .meal-controls-sticky,body.meal-keyboard-open .overview-week-sticky,body:has([role=dialog]) .meal-controls-sticky,body:has([role=dialog]) .overview-week-sticky{position:static!important;}
+.master-categories .master-category-meal .shared-meal-name-line>.group-row-actions{right:0;}
+.master-categories .group-row-actions>button.group-recipe-toggle{width:44px;min-width:44px;min-height:44px;flex-basis:44px;}
+
+body:has(#editor:not(:empty)) .meal-controls-sticky,body:has(#editor:not(:empty)) .overview-week-sticky{position:static!important;}
+.master-category-meal .group-inline-actions>.recipe-section-move{margin:0;}
+.master-category-meal.featured-top-meal .group-inline-actions>.recipe-section-move svg{transform:none;}
+
+body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{visibility:hidden;pointer-events:none;}

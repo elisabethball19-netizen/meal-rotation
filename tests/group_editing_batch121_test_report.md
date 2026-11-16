@@ -1,47 +1,33 @@
-# Issue #121 — latest renewed corrections
+# Issue #121 — latest approved completion pass
 
-Implemented/code-checked; awaiting phone acceptance. Started from clean current main `6c19e8a`. This report supersedes earlier #121 presentation and keep-expanded Groups editor-return wording. Only remaining approved #121 work was implemented; unrelated deferred items and #122–#124 remain queued.
+Implemented/code-checked; **awaiting phone acceptance**. Started from current main `82dce44`. Latest completion instructions supersede older #121 presentation. Deferred To-Do/date/settings/grocery work and #122–#124 remain queued.
 
-## Targeted changes
+Changes reuse existing status moves, shared recipe identities, Ideas/pinned ordering, group-order persistence/history, favorite and multi-day scheduling operations. Organize entry exposes the same Ideas handles before selection; individual status moves remove selected logical recipes without changing the subgroup lock. Group handles are absent during recipe organizing.
 
-- Lighter two-checkbox outline Organize icon, tighter header action cluster, Organize visible only while expanded. Header Organize entry scrolls once to the existing visible top inset; later selections retain position and long-press entry keeps the recipe reachable. Ideas handles use the far-right column without unused trailing space. The test app's existing banner inset is respected.
-- Status arrows are expanded-only. Inline editing/scheduling controls are icons only, with existing pencil/cart artwork and the same calendar artwork as Week navigation, accessible names and hold labels. Favorites retain one filled name-row heart collapsed; nonfavorites show outline only expanded. Favorite algorithm/storage and current-plan expanded-only heart policy are unchanged.
-- Expanded Groups rows show saved prep/cook/total/marinade independent of collapsed switches. Time/date text aligns with the name, without duplicate rows or trailing dot separators. Last cooked underlines its value/Never; its whole button opens the existing date editor. The same date treatment applies to current meal-plan cards, retaining their previous editing lifecycle.
-- Closing Groups Edit recipe, Edit groceries or Schedule meal collapses only its originating row on Save, Cancel or Back. Favorite/date changes stay expanded; list position and stable identity remain. Current-plan editor returns stay expanded.
-- Compact scheduling shows all seven weekdays immediately, initially unchecked. One destination auto-resolves; multiple destinations show per-day Meal group radios; none uses existing day-only scheduling. There are no native selects or redundant Meal slot fields. Styled meal-tab radios are available when enabled; hidden tabs use the exact active stored plan. Plan/day changes discard stale destination choices.
+Edit group offers an icon-only Reorder groups action. Dedicated compact group reorder stages order in memory until Done; Cancel/Android Back restores the original order. Both exits restore expansion/position and reopen the untouched name/rotation draft for explicit Save/Cancel. Done uses the original group-order writer and one Undo entry.
 
-## Atomic scheduling / reuse
+Expanded Groups recipes have five separate 44px bottom actions: pencil, groceries, calendar, favorite, status. Collapsed favorite hearts stay beside the name. Weekdays share the reserved right area immediately before the name-aligned chevron. Current-plan action placement is unchanged. Scheduling has one wrapping Schedule [name] heading; multi-day transaction behavior is unchanged.
 
-The single-destination scheduling validation and operation are reused for every selected day inside the existing complete-backup atomic transaction. Existing duplicate confirmation/replacement logic was extracted for shared use, without a new allocator. Decisions complete before scheduling writes begin; cancelling a duplicate child or the parent leaves no partial schedule. One final check creates one Undo entry.
-
-Pure scheduling preserves original untouched-plan provenance rather than adding generic bulk-edit retain flags to hidden plans. Explicit duplicate replacement continues using the existing replacement and queue-protection operation. Whole-operation Undo/Redo includes affected cooking/scaling contexts, grocery source checks/amounts and make-ahead pending/check metadata. This fixed a focused failure where Undo restored the schedule but left a pending task created by duplicate replacement.
-
-No memberships/statuses are changed by scheduling. Existing same-day duplicate rejection, manual-side protections, dates and lead-time rules remain. No date rebasing, data reset, new schema or unrelated calendar/selection algorithm was introduced. Existing test-app storage adapter/banner/features remain; shell version is **v150**.
+Meals and Overview use labeled week radios, retaining keyboard focus through rerender. Meals tabs/week controls and Overview week controls alone stick; titles/icons/To-Do scroll away. Dialogs/keyboard/editor release sticky positioning. Existing test banner inset is retained. Tab baseline spans inactive tabs/gaps and is interrupted only under the selected tab. Setting reads Use multiple meal tabs, with unchanged storage/helper. Shell **v151**.
 
 ## Focused evidence
 
-Extended the existing `tests/group_editing_batch121_browser.py` fixture/checks only for these remaining failures. The focused suite passed for both `index.html` and `meal-rotation-test.html`; additional manual-side and inset checks passed after screenshot inspection:
+`python3 tests/completion121_browser.py` uses disposable browser contexts/storage and the existing fixture for both modular and isolated apps:
 
-- Header visibility/icon artwork, one-time scroll, no selection scroll reset, far-right handle bounds, expanded-only status arrows, collapsed filled/expanded outline favorite behavior.
-- Saved time fields with switches off, no duplicate/separator row, underlined date save retaining expansion, icon-only pencil/cart/calendar actions; 320×800 and 740×360 layouts.
-- Groups recipe/grocery Save and Cancel collapse; scheduling Back cancels/collapses; current meal-plan editor cancellation retains expansion.
-- Multi-day 0/1/multiple destinations and different per-day choices; no preselection/native selects; one final Undo entry. Injected plan-storage failure rolls back all days, then retries successfully.
-- Manual side retained despite a different linked side on the incoming recipe. Its checked cooking progress, multiplier and partial grocery amount survive, along with other days/plans, memberships and statuses. Whole Undo/Redo and reload preserve the result.
-- Hidden slots schedule only in the active Lunch plan, keeping hidden Dinner data intact. Visible plan change clears stale destinations and preserves the active plan; same-day conflict rejects the entire request before writes.
-- Existing duplicate Back/cancel, Keep and Use a different meal decisions remain atomic across multiple destinations and Undo.
+- Header/long-press entry, zero-selection Ideas handles, subgroup lock/count after individual moves, no checkbox toggling or group handles, status Undo/Redo.
+- Keyboard and real CDP touch Ideas/group handle reorder, pin-partition preservation, touch cancellation, Undo/Redo and reload.
+- Group reorder draft restoration, Cancel/Back, explicit group Save/Cancel, no recipe controls, original expansion restoration, order commit/Undo/Redo/reload.
+- Five 44px targets on one row at 320px, one favorite, weekday/chevron name placement with long name and linked side, single Schedule heading, Back cancellation/collapse.
+- Meals/Overview radio switching and keyboard arrows, sticky geometry (including isolated banner inset), keyboard release, portrait/landscape and Extra Large app text without horizontal overflow; second selected/overflow-end tab screenshots and hidden-tab spacing.
 
-Captured and visually inspected mobile screenshots for the compact scheduling popup, inline group details, icons/date alignment and handle placement in both apps, portrait and landscape. Inspection also corrected the isolated banner/header inset. These are Chromium browser/touch/history checks, not physical Android verification. Earlier passing membership/Back/viewer investigations were not broadly rerun.
+Focused existing regression functions `remaining_closing`, `remaining_multi`, `remaining_scope_duplicates`, `remaining_plan_changes` in `tests/group_editing_batch121_browser.py` passed for both apps: recipe/grocery save/cancel/Back/return behavior; 0/1/multiple schedule destinations; distinct day choices; atomic storage-failure rollback/retry; manual side, other meals/plans/memberships, cooking/scaling/grocery checks retained; hidden active plan; plan change clears stale destinations; duplicate cancel/keep/replace; whole-operation Undo/Redo/reload.
 
-Additional checks: `python3 tests/quota_backup_static.py` (modular/embedded syntax/parity), `bash scripts/post-merge.sh`, syntax checks on changed JavaScript modules/service worker, and `git diff --check`.
+Also passed: `python3 tests/quota_backup_static.py`, `bash scripts/post-merge.sh`, Node syntax checks for changed scripts and `git diff --check`. No site data was cleared.
 
-## Phone checklist
+## Screenshot review
 
-1. Expand/collapse groups; check the two-box Organize icon, action spacing, one-time entry scroll and right-edge Ideas handles. Long-press selection must keep the recipe reachable.
-2. Check collapsed favorites, expanded nonfavorite outline, status arrow visibility and icon-only pencil/cart/calendar actions. Turn collapsed time switches off, expand a saved-time recipe, and edit the underlined date.
-3. Save/cancel each Groups editing/scheduling action: only that row should collapse and position should remain. Favorite/date should remain open; current-plan editor returns should keep their existing behavior.
-4. Select several scheduling days with zero/one/multiple groups and different per-day destinations. Switch plan, cancel/X/Back, confirm, Undo/Redo and reload. Hidden tabs must use the active plan, not Breakfast or merged hidden plans.
-5. Test duplicate cancellation/Keep/Replace, protected manual sides, checked groceries/progress/scales and lead-time tasks. Confirm no partial days or unrelated meals change.
+Actual Chromium touch-browser screenshots inspected in `/workspace/work/complete121/screenshots/`, both apps: collapsed/expanded long-name Groups at 320×800; Extra Large text; 740×360 expanded Groups; dedicated reorder; long Schedule title; sticky Meals portrait/landscape and Overview landscape. Corrected inherited off-screen chevron positioning, sticky release selector, and legacy status-arrow margin/offset after visual inspection. These are emulated browser checks, not physical-phone verification.
 
-Phone-testing link: https://elisabethball19-netizen.github.io/meal-rotation/index.html
+## Phone acceptance pending
 
-Actual commit/push and Pages deployment evidence are reported after publishing. Awaiting physical-phone acceptance; no physical Android/PWA verification is claimed. Never clear site data.
+At https://elisabethball19-netizen.github.io/meal-rotation/index.html test header/long-press Organize parity, per-row arrows/counts, pin-safe dragging, Edit group draft → reorder → Done/Back/Cancel → Save/Cancel, Undo/Redo, long names/weekdays/linked sides and all five expanded actions. Check week radios, scrolling tab baseline, sticky controls with keyboard/dialogs in portrait/landscape, and scheduling save/cancel/Back with existing saved meals and grocery checks. **Never clear site data.** Deployment status is reported separately after push; code checks do not establish phone acceptance.

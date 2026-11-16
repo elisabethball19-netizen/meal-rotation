@@ -547,7 +547,7 @@ function scheduleMealFromGroups(mealId,target,options={}){
 }
 function openScheduleMealDialog(meal){
  if(editId!==null){showAppMessage('Save or cancel the open recipe first.');return}
- const d=recipeBulkDialog('Schedule meal');d.panel.classList.add('schedule-multiple-panel');const name=document.createElement('p');name.className='schedule-recipe-name';name.textContent=meal.name||'Untitled meal';d.panel.append(name);
+ const d=recipeBulkDialog('Schedule '+(meal.name||'Untitled meal'));d.panel.classList.add('schedule-multiple-panel');d.panel.firstElementChild.setAttribute('role','heading');d.panel.firstElementChild.setAttribute('aria-level','2');
  const body=document.createElement('div');body.className='schedule-multiple-body';let planId=activePlanId,busy=false;const selected=new Set(),destinations=new Map();
  const days=document.createElement('div');days.className='schedule-days';const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Schedule selected days');setIconButton(cancel,'cancel','Cancel scheduling');cancel.onclick=d.close;
@@ -646,6 +646,7 @@ const validMasterGroupOrder=value=>Array.isArray(value)&&value.every(x=>typeof x
 try{const raw=localStorage.getItem(MASTER_GROUP_ORDER_KEY);if(raw!==null){const value=JSON.parse(raw);if(validMasterGroupOrder(value))masterGroupOrder=value}}catch(e){/* Keep unknown legacy storage intact until an explicit reorder/reset. */}
 function masterOrderedGroups(automatic){return masterGroupOrder===null?automatic:[...masterGroupOrder.filter(c=>cats.includes(c)),...cats.filter(c=>!masterGroupOrder.includes(c))]}
 function writeMasterGroupOrder(next,recordHistory=true){
+ if(typeof groupReorderState!=='undefined'&&groupReorderState){masterGroupOrder=next===null?null:[...next];return true}
  try{if(next===null)localStorage.removeItem(MASTER_GROUP_ORDER_KEY);else localStorage.setItem(MASTER_GROUP_ORDER_KEY,JSON.stringify(next))}catch(e){showAppMessage('Group order could not be saved. Your previous order and meal data are unchanged.');return false}
  if(recordHistory)snapshot();masterGroupOrder=next===null?null:[...next];return true;
 }
@@ -661,7 +662,7 @@ function installMasterGroupDragging(wrap,reset){
  const on=(target,event,handler,options={})=>target.addEventListener(event,handler,{...options,signal});
  const cards=()=>[...wrap.querySelectorAll(':scope>.master-category-card')].filter(card=>cats.includes(card.dataset.category));
  const eligible=target=>{
-  if(recipeBulkMode&&!target.closest('.organize-drag-handle'))return null;const card=target.closest('.master-category-card');if(!card||!cats.includes(card.dataset.category)||target.closest('.master-category-meal,.editor,[contenteditable="true"]'))return null;
+  if(recipeBulkMode)return null;const card=target.closest('.master-category-card');if(!card||!cats.includes(card.dataset.category)||target.closest('.master-category-meal,.editor,[contenteditable="true"]'))return null;
   const control=target.closest('button,a,input,select,textarea,summary,[role="button"]');
   if(control&&!control.classList.contains('organize-drag-handle')&&(!control.classList.contains('master-category-title')||target.closest('svg')))return null;
   return card;
@@ -677,7 +678,7 @@ function installMasterGroupDragging(wrap,reset){
    const final=accepted?drag.order:drag.before,top=drag.card.getBoundingClientRect().top;
    for(const category of final){const card=drag.nodes.find(card=>card.dataset.category===category);if(card){card.style.removeProperty('order');card.style.removeProperty('--group-closed-height');wrap.append(card)}}
    wrap.classList.remove('master-group-drag-active');drag.card.classList.remove('master-group-dragging');drag.ghost?.remove();
-   reset.hidden=!weekdayGroupOrderNeedsReset();
+   reset.hidden=!!groupReorderState||!weekdayGroupOrderNeedsReset();
    if(accepted&&changed){window.scrollBy({top:drag.card.getBoundingClientRect().top-top,behavior:'instant'})}else window.scrollTo({top:drag.originalScroll,behavior:'instant'});
    drag.focus?.isConnected&&drag.focus.focus({preventScroll:true});
   }

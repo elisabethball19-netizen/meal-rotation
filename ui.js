@@ -185,10 +185,10 @@ function addOverviewHomeButton(){
  b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" style="width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round"><path d="M3 10.2 12 3l9 7.2V21h-6.5v-7h-5v7H3z"/></svg>';
  b.onclick=()=>{groceryTabActive=false;allMealsActive=false;renderList()};document.body.append(b);
 }
-let overviewWeekOffset=0,rotationWeekOffset=0;
+let overviewWeekOffset=0,rotationWeekOffset=0,weekSelectorId=0;
 function weekSelector(offset,onChange){
- const row=document.createElement('div');row.className='week-selector';row.setAttribute('role','group');row.setAttribute('aria-label','Displayed week');
- for(const [value,label]of [[0,'This week'],[1,'Next week']]){const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-pressed',String(offset===value));button.onclick=()=>onChange(value);row.append(button)}return row;
+ const row=document.createElement('div');row.className='week-selector';row.setAttribute('role','radiogroup');row.setAttribute('aria-label','Displayed week');const name='displayed-week-'+(++weekSelectorId);
+ for(const [value,text]of [[0,'This week'],[1,'Next week']]){const label=document.createElement('label'),input=document.createElement('input');input.type='radio';input.name=name;input.value=value;input.checked=offset===value;input.onchange=()=>{if(!input.checked)return;const focused=document.activeElement===input;onChange(value);if(focused)document.querySelector((row.classList.contains('rotation-week-controls')?'.rotation-week-controls':'.overview-week-sticky')+' input[value="'+value+'"]')?.focus({preventScroll:true})};label.append(input,document.createTextNode(text));row.append(label)}return row;
 }
 function rotationWeekControls(){
  const controls=weekSelector(rotationWeekOffset,value=>{rotationWeekOffset=value;renderList({readOnly:true})});controls.classList.add('rotation-week-controls');
@@ -298,7 +298,7 @@ function renderAllMealsOverview(list){
   section.setAttribute('aria-label','Weekly Overview weekly overview');
   const heading=document.createElement('h2');heading.textContent='Weekly Overview';section.append(heading);
   const current=mealPlans.map(plan=>({plan,entries:getDisplayedWeekdayMealsForPlan(plan)})),upcoming=previewNextWeekPlans(),start=cookingPlanningWeekStart();start.setDate(start.getDate()+overviewWeekOffset*7);
-  section.append(weekSelector(overviewWeekOffset,value=>{overviewWeekOffset=value;renderList({readOnly:true})}));
+  const week=weekSelector(overviewWeekOffset,value=>{overviewWeekOffset=value;renderList({readOnly:true})});week.classList.add('overview-week-sticky');section.append(week);
   const byPlan=overviewWeekOffset?upcoming:current,prepRows=makeAheadDisplayPrefs.showMakeAheadReminders?scheduledMakeAheadTasks(true,upcoming):[];
   let selected={};try{selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
   const hideChecked=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';
@@ -576,7 +576,7 @@ let closeSettings=document.createElement('button');closeSettings.textContent='Cl
  const planCheck=document.createElement('input');planCheck.type='checkbox';planCheck.setAttribute('role','switch');planCheck.className='preference-switch';planCheck.checked=showMealPlanTabs;
  planCheck.onchange=()=>{showMealPlanTabs=planCheck.checked;if(!showMealPlanTabs)allMealsActive=false;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs));renderList()};
  const planCopy=document.createElement('span');planCopy.className='settings-display-option-copy';
- const planLabel=document.createElement('span');planLabel.id='mealPlanTabsLabel';planLabel.textContent='Use multiple meal slots';
+ const planLabel=document.createElement('span');planLabel.id='mealPlanTabsLabel';planLabel.textContent='Use multiple meal tabs';
  const planHint=document.createElement('small');planHint.id='mealPlanTabsHint';planHint.className='settings-display-option-help';planHint.textContent='Plan breakfast, lunch, dinner, or your own meals separately.';
  planCheck.setAttribute('aria-labelledby',planLabel.id);planCheck.setAttribute('aria-describedby',planHint.id);
  planCopy.append(planLabel,planHint);planOption.append(planCheck,planCopy);planGroup.content.append(planOption);
@@ -1376,7 +1376,7 @@ function recipeSectionMoveButton(meal){
  const button=document.createElement('button');button.type='button';button.className='recipe-section-move';
  const rotation=recipeStatus(meal)==='rotation',label='Move '+(meal.name||'recipe')+' to '+(rotation?'Ideas':'In Rotation');button.title=label;button.setAttribute('aria-label',label);
  button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(rotation?'m6 10 6 6 6-6M12 16V3':'m6 14 6-6 6 6M12 8v13')+'"/></svg>';
- button.onclick=e=>{e.preventDefault();e.stopPropagation();try{applyRecipeBulk([String(meal.id)],rotation?{status:'up-next',upNextStar:true}:{status:'rotation'},rotation?{upNextFirst:String(meal.id)}:{promoteQueue:true});setMasterRecipeSectionOpen(meal.cat,rotation?'up-next':'rotation',true);renderList()}catch(error){showAppMessage('Recipe could not be moved. '+error.message)}};return button;
+ button.onclick=e=>{e.preventDefault();e.stopPropagation();try{const organizing=recipeBulkMode,moved=selectedSharedRecipeIds([String(meal.id)]);applyRecipeBulk([String(meal.id)],rotation?{status:'up-next',upNextStar:true}:{status:'rotation'},{...(rotation?{upNextFirst:String(meal.id)}:{promoteQueue:true}),...(organizing?{render:false}:{})});if(organizing)for(const id of moved)recipeBulkIds.delete(String(id));setMasterRecipeSectionOpen(meal.cat,rotation?'up-next':'rotation',true);if(organizing)bulkRecipeRender({readOnly:true});else renderList()}catch(error){showAppMessage('Recipe could not be moved. '+error.message)}};return button;
 }
 // A recipe rotating out advances in every plan where it was being shown.
 // Other visible recipes are preserved with explicit overrides so a category
@@ -2070,14 +2070,25 @@ function bindMasterCategoryMove(button,m,direction,onMove=singleStep=>moveMaster
  button.addEventListener('click',e=>{if(held){e.preventDefault();e.stopImmediatePropagation();held=false;return}onMove(false)},true);
  button.oncontextmenu=e=>{e.preventDefault();onMove(true)};
 }
-function openMasterCategoryEditMenu(category){
+function openMasterCategoryEditMenu(category,draft=null){
  if(!cats.includes(category))return;
- const d=recipeBulkDialog('Edit group'),field=document.createElement('input');field.type='text';field.value=category;field.setAttribute('aria-label','Group name');field.className='recipe-bulk-new-group';
- const label=document.createElement('label');label.className='settings-display-option';const use=document.createElement('input');use.type='checkbox';use.className='preference-switch';use.setAttribute('role','switch');use.checked=groupUsesRotation(category);label.append(use,document.createTextNode('Use for meal rotation'));
+ const d=recipeBulkDialog('Edit group'),field=document.createElement('input');field.type='text';field.value=draft?.name??category;field.setAttribute('aria-label','Group name');field.className='recipe-bulk-new-group';
+ const label=document.createElement('label');label.className='settings-display-option';const use=document.createElement('input');use.type='checkbox';use.className='preference-switch';use.setAttribute('role','switch');use.checked=draft?.use??groupUsesRotation(category);label.append(use,document.createTextNode('Use for meal rotation'));
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
  const actions=document.createElement('div');actions.className='meal-unified-actions';
  for(const [kind,title,action]of [['save','Save group changes',()=>{try{saveMealGroupSettings(category,field.value.trim(),use.checked);d.close()}catch(problem){error.textContent=problem.message}}],['delete','Delete group',()=>{d.close();groupHistorySettled.then(()=>openCategoryDeleteDialog(category))}],['cancel','Cancel group editing',()=>d.close()]]){const button=document.createElement('button');button.type='button';setIconButton(button,kind,title);button.onclick=action;if(kind==='delete')button.disabled=isBuiltinSides(category);actions.append(button)}
- d.panel.append(field,label,error,actions);decoratePreferenceSwitches(d.panel);
+ const reorder=organizeDragHandle('Reorder groups',()=>{});reorder.title='Reorder groups';reorder.onclick=()=>{const pending={name:field.value,use:use.checked};d.close();groupHistorySettled.then(()=>beginGroupReorder(category,pending))};actions.insertBefore(reorder,actions.lastElementChild);d.panel.append(field,label,error,actions);decoratePreferenceSwitches(d.panel);
+}
+let groupReorderState=null;
+function beginGroupReorder(category,draft){
+ const state={category,draft,original:masterGroupOrder===null?null:[...masterGroupOrder],initial:currentMasterGroupOrder(),expanded:new Set(masterExpandedCategories),scroll:scrollY};groupReorderState=state;document.body.classList.add('group-reorder-active');
+ renderList({readOnly:true});const overlay=document.querySelector('.master-categories');state.finishHistory=trackGroupPopup(overlay,()=>finishGroupReorder(false));
+}
+function finishGroupReorder(commit){
+ const state=groupReorderState;if(!state)return;const next=masterGroupOrder===null?state.initial:[...masterGroupOrder];masterGroupOrder=state.original;groupReorderState=null;
+ if(commit&&JSON.stringify(next)!==JSON.stringify(state.initial)&&!writeMasterGroupOrder(next)){groupReorderState=state;masterGroupOrder=next;return}
+ document.body.classList.remove('group-reorder-active');state.finishHistory?.();masterExpandedCategories.clear();for(const category of state.expanded)masterExpandedCategories.add(category);renderList({readOnly:true});scrollTo({top:state.scroll,behavior:'instant'});
+ groupHistorySettled.then(()=>{openMasterCategoryEditMenu(state.category,state.draft);scrollTo({top:state.scroll,behavior:'instant'});requestAnimationFrame(()=>scrollTo({top:state.scroll,behavior:'instant'}))});
 }
 function saveMealGroupSettings(category,name,use){
  if(!name)throw Error('Enter a group name.');if(name!==category&&cats.some(cat=>cat!==category&&cat.toLocaleLowerCase()===name.toLocaleLowerCase()))throw Error('A group with that name already exists.');
@@ -2126,9 +2137,9 @@ function endRecipeBulk(render=true){recipeBulkMode=false;endGroupSelectionHistor
 function toggleRecipeBulk(meal,checked=null,group){const prior=recipeBulkSubgroup;selectRecipeBulkFromGroup(meal,group,checked??!recipeBulkIds.has(String(meal.id)));if(prior===null&&recipeBulkSubgroup!==null)bulkRecipeRender({readOnly:true});else updateRecipeBulkUI()}
 function bindRecipeBulkRow(row,meal){
  let hold=null,start=null;const stop=()=>{clearTimeout(hold);hold=null;start=null};
- row.addEventListener('pointerdown',e=>{if(recipeBulkMode){if(e.target.closest('.organize-drag-handle'))return;recipeBulkSuppress=null;e.stopImmediatePropagation();return}if(recipeStatus(meal)==='up-next'&&groupUsesRotation(meal.cat))return;if(e.pointerType==='mouse'&&e.button!==0||e.target.closest('button,input,a,select'))return;start={x:e.clientX,y:e.clientY};hold=setTimeout(()=>{if(start)beginRecipeBulk(meal,row.closest('.master-category-card')?.dataset.category)},550)},{capture:true});
+ row.addEventListener('pointerdown',e=>{if(recipeBulkMode){if(e.target.closest('.organize-drag-handle,.organize-row-status'))return;recipeBulkSuppress=null;e.stopImmediatePropagation();return}if(recipeStatus(meal)==='up-next'&&groupUsesRotation(meal.cat))return;if(e.pointerType==='mouse'&&e.button!==0||e.target.closest('button,input,a,select'))return;start={x:e.clientX,y:e.clientY};hold=setTimeout(()=>{if(start)beginRecipeBulk(meal,row.closest('.master-category-card')?.dataset.category)},550)},{capture:true});
  row.addEventListener('pointermove',e=>{if(start&&Math.hypot(e.clientX-start.x,e.clientY-start.y)>10)stop()});for(const event of ['pointerup','pointercancel','pointerleave'])row.addEventListener(event,stop);
- row.addEventListener('click',e=>{if(!recipeBulkMode||e.target.closest('.organize-drag-handle'))return;if(recipeBulkSuppress!==null){recipeBulkSuppress=null;e.preventDefault();e.stopImmediatePropagation();return}if(e.target.closest('.recipe-bulk-check'))return;e.preventDefault();e.stopImmediatePropagation();toggleRecipeBulk(meal,null,row.closest('.master-category-card')?.dataset.category)},{capture:true});
+ row.addEventListener('click',e=>{if(!recipeBulkMode||e.target.closest('.organize-drag-handle,.organize-row-status'))return;if(recipeBulkSuppress!==null){recipeBulkSuppress=null;e.preventDefault();e.stopImmediatePropagation();return}if(e.target.closest('.recipe-bulk-check'))return;e.preventDefault();e.stopImmediatePropagation();toggleRecipeBulk(meal,null,row.closest('.master-category-card')?.dataset.category)},{capture:true});
 }
 function eligibleBulkRecipes(){
  if(recipeBulkSourceGroup===null||recipeBulkSubgroup===null)return [];const unique=new Map();for(const meal of meals){if(meal.cat!==recipeBulkSourceGroup||bulkRecipeSubgroup(meal)!==recipeBulkSubgroup||recipeBulkFilter?.query&&!mealMatchesSearch(meal,recipeBulkFilter.query)||recipeBulkFilter?.groups.length&&!recipeBulkFilter.groups.includes(meal.cat))continue;const key=meal.linkGroup||'recipe:'+meal.id;if(!unique.has(key))unique.set(key,meal)}return [...unique.values()];
@@ -2501,7 +2512,7 @@ function installUpNextDragging(wrap){
   if(event.cancelable===false){end(true);return}event.preventDefault();event.stopImmediatePropagation();
   const delta=y-drag.previousY;if(delta)drag.direction=Math.sign(delta);drag.previousY=y;drag.y=y;
  };
- on(wrap,'touchstart',e=>{if(gesture||e.touches.length!==1){end(true);return}const t=e.changedTouches[0];begin(e.target,t.clientX,t.clientY,'touch',t.identifier);if(gesture&&e.target.closest('.organize-drag-handle'))e.preventDefault()},{passive:false});
+ on(wrap,'touchstart',e=>{if(gesture||e.touches.length!==1){end(true);return}const t=e.changedTouches[0];begin(e.target,t.clientX,t.clientY,'touch',t.identifier);if(gesture&&e.target.closest('.organize-drag-handle,.organize-row-status'))e.preventDefault()},{passive:false});
  on(document,'touchmove',e=>{const drag=gesture;if(drag?.source!=='touch')return;const t=[...e.changedTouches].find(t=>t.identifier===drag.id);if(t)move(t.clientX,t.clientY,e)},{capture:true,passive:false});
  on(document,'touchend',e=>{const drag=gesture;if(drag?.source!=='touch'||![...e.changedTouches].some(t=>t.identifier===drag.id))return;if(['drag','held'].includes(drag.phase)){if(e.cancelable)e.preventDefault();e.stopImmediatePropagation()}end()},{capture:true,passive:false});
  on(document,'touchcancel',()=>{if(gesture?.source==='touch')end(true)},{capture:true});
@@ -2532,13 +2543,13 @@ function groupMealTimes(info,meal,expanded){
 function appendGroupInlineActions(row,info,nameLine,meal,category){
  const key=groupRecipeKey(meal,category),open=!recipeBulkMode&&expandedGroupRecipe===key;row.classList.toggle('group-recipe-expanded',open);
  groupMealTimes(info,meal,open);
- const controls=document.createElement('div');controls.className='group-row-actions';row.dataset.groupHasStatus=String(open&&!!category&&groupUsesRotation(category));if(open&&category&&groupUsesRotation(category))controls.append(recipeSectionMoveButton(meal));
+ const controls=document.createElement('div');controls.className='group-row-actions';row.dataset.groupHasStatus='false';
  const toggle=document.createElement('button');toggle.type='button';toggle.className='iconbtn group-recipe-toggle';setIconButton(toggle,'down','Recipe actions for '+meal.name);if(open)toggle.querySelector('svg').innerHTML='<path d="m6 15 6-6 6 6"/>';toggle.setAttribute('aria-expanded',String(open));toggle.disabled=recipeBulkMode;toggle.onclick=e=>{e.preventDefault();e.stopPropagation();groupReturnScroll=scrollY;expandedGroupRecipe=open?null:key;renderList({readOnly:true})};controls.append(toggle);nameLine.append(controls);
- if(!recipeBulkMode&&(open||meal.favorite===true)){const heart=recipeFavoriteButton(meal),favorite=heart.onclick;heart.classList.add('expanded-name-heart');heart.onclick=e=>groupInlineAction(()=>favorite(e));nameLine.append(heart)}
+ if(!recipeBulkMode&&!open&&meal.favorite===true){const heart=recipeFavoriteButton(meal),favorite=heart.onclick;heart.classList.add('expanded-name-heart');heart.onclick=e=>groupInlineAction(()=>favorite(e));nameLine.append(heart)}
  const cooked=document.createElement('button');cooked.type='button';cooked.className='meal-options-last-cooked group-last-cooked';setLastCookedValue(cooked,meal);cooked.setAttribute('aria-label','Edit last cooked date for '+meal.name);cooked.onclick=e=>{e.stopPropagation();groupInlineAction(()=>editMealCookedDate(meal))};
  if(!open){if(showLastCooked)info.append(cooked);return}
  const panel=document.createElement('div');panel.className='group-inline-panel';panel.append(cooked);
- const actions=document.createElement('div');actions.className='group-inline-actions';for(const [title,icon,action]of [['Edit recipe','rename',()=>openEditor(meal.id,false,captureMealEditorOrigin())],['Edit groceries','grocery',()=>openTopIngredientChooser(meal)],['Schedule meal','calendar',()=>openScheduleMealDialog(meal)]]){const button=document.createElement('button');button.type='button';button.className='meal-inline-action';setIconButton(button,icon,title);button.style.cssText='';bindGroupControlLabel(button);button.onclick=e=>{e.preventDefault();e.stopPropagation();groupInlineAction(action,key)};actions.append(button)}panel.append(actions);row.append(panel);
+ const actions=document.createElement('div');actions.className='group-inline-actions';for(const [title,icon,action]of [['Edit recipe','rename',()=>openEditor(meal.id,false,captureMealEditorOrigin())],['Edit groceries','grocery',()=>openTopIngredientChooser(meal)],['Schedule meal','calendar',()=>openScheduleMealDialog(meal)]]){const button=document.createElement('button');button.type='button';button.className='meal-inline-action';setIconButton(button,icon,title);button.style.cssText='';bindGroupControlLabel(button);button.onclick=e=>{e.preventDefault();e.stopPropagation();groupInlineAction(action,key)};actions.append(button)}const heart=recipeFavoriteButton(meal),favorite=heart.onclick;heart.onclick=e=>groupInlineAction(()=>favorite(e));actions.append(heart);if(category&&groupUsesRotation(category))actions.append(recipeSectionMoveButton(meal));panel.append(actions);row.append(panel);
 }
 function bindGroupMealPress(name,meal){
  if(recipeStatus(meal)==='up-next'&&groupUsesRotation(meal.cat)){name.style.cssText+=';user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:pan-y';name.onclick=()=>openSavedMealRecipe(meal,null,captureMealEditorOrigin());name.oncontextmenu=e=>e.preventDefault();name.addEventListener('keydown',e=>{if(e.altKey&&['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();moveUpNextRecipe(meal,e.key==='ArrowUp'?-1:1,masterRecipeOrder(meal.cat).filter(m=>recipeStatus(m)==='up-next'&&m.upNextStar===meal.upNextStar))}});return}
@@ -2630,10 +2641,7 @@ function appendScheduledRecipeWeekdays(row,meal,scheduledDaysByMeal){
  const scheduledDays=scheduledDaysByMeal.get(String(meal.id));
  if(!scheduledDays?.size)return;
  const dayTag=document.createElement('span');dayTag.className='master-meal-weekdays';
- dayTag.textContent=orderedDays().filter(day=>scheduledDays.has(day)).map(day=>day.slice(0,3).toUpperCase()).join(' · ');
- if(row.classList.contains('master-category-meal')&&scheduledDays.size>1){
-  const days=dayTag.textContent.split(' · ');dayTag.replaceChildren();days.forEach((day,index)=>{if(index){const separator=document.createElement('span');separator.className='master-weekday-separator';separator.textContent=' · ';separator.setAttribute('aria-hidden','true');dayTag.append(separator)}const token=document.createElement('span');token.className='master-weekday-token';token.textContent=day;dayTag.append(token)});
- }
+ dayTag.textContent=orderedDays().filter(day=>scheduledDays.has(day)).map(day=>row.classList.contains('master-category-meal')?day.slice(0,3):day.slice(0,3).toUpperCase()).join(row.classList.contains('master-category-meal')?', ':' · ');
  dayTag.title='Scheduled: '+[...scheduledDays.entries()].map(([day,entries])=>day+' ('+[...new Set(entries.map(entry=>entry.planName))].join(', ')+')').join('; ');
  row.append(dayTag);
 }
@@ -2769,7 +2777,7 @@ function renderMasterCategories(list){
  const {featuredColorById,scheduledDaysByMeal,scheduledEntries}=scheduledRecipeHighlights(null,{activePlanBadgesOnly:true});
  const hasUnassigned=meals.some(meal=>meal.cat==='');
  const heading=document.createElement('div');heading.className='master-categories-heading';
- const title=document.createElement('h2');title.textContent='Meal Groups';heading.append(title);
+ const title=document.createElement('h2');title.textContent=groupReorderState?'Reorder groups':'Meal Groups';heading.append(title);
  const controls=document.createElement('div');controls.className='master-expansion-controls';
  const addGroup=document.createElement('button');addGroup.type='button';addGroup.className='iconbtn master-add-group';addGroup.textContent='+';addGroup.title='Add group';addGroup.setAttribute('aria-label','Add group');
  addGroup.onclick=async()=>{let n=await appDialog('New group name','','prompt');if(n&&n.trim()){try{n=createMealGroup(n)}catch(e){await showAppMessage(e.message);return}active=n;persist();const groupResult=await chooseExistingMealsForNewGroup(n.trim());if(groupResult==='delete'){cats=cats.filter(c=>c!==n.trim());active=cats[0]||'';persist();openMasterCategories()}else openMasterCategories(n.trim())}};
@@ -2777,8 +2785,8 @@ function renderMasterCategories(list){
   const button=document.createElement('button');button.type='button';button.className='iconbtn';setIconButton(button,icon,label);
   button.onclick=()=>{masterExpansionInitialized=true;masterExpandedCategories.clear();if(expand){masterDisplayOrder().forEach(c=>masterExpandedCategories.add(c));if(hasUnassigned)masterExpandedCategories.add('')}renderList()};controls.append(button);
  }
- controls.append(addGroup);heading.append(controls);wrap.append(heading);appendRotationSetupPrompt(wrap);
- const resetOrder=document.createElement('button');resetOrder.type='button';resetOrder.className='master-order-reset';resetOrder.textContent='Reset to Weekday Order';resetOrder.hidden=!weekdayGroupOrderNeedsReset();resetOrder.onclick=()=>{if(resetWeekdayGroupOrder())renderList()};wrap.append(resetOrder);
+ controls.append(addGroup);if(groupReorderState){controls.replaceChildren();for(const [icon,label,commit]of [['save','Finish reordering groups',true],['cancel','Cancel reordering groups',false]]){const button=document.createElement('button');button.type='button';button.className='iconbtn';setIconButton(button,icon,label);button.onclick=()=>finishGroupReorder(commit);controls.append(button)}}heading.append(controls);wrap.append(heading);if(!groupReorderState)appendRotationSetupPrompt(wrap);
+ const resetOrder=document.createElement('button');resetOrder.type='button';resetOrder.className='master-order-reset';resetOrder.textContent='Reset to Weekday Order';resetOrder.hidden=!!groupReorderState||!weekdayGroupOrderNeedsReset();resetOrder.onclick=()=>{if(resetWeekdayGroupOrder())renderList()};wrap.append(resetOrder);
  // With visible tabs, group headers summarize the actual recipes scheduled
  // across all tabs. With tabs hidden, retain the existing single-plan display.
  const scheduledDaysByGroup=new Map();
@@ -2807,7 +2815,7 @@ function renderMasterCategories(list){
   }
  }
  const displayedGroups=masterOrderedGroups([...baseGroupOrder.filter(cat=>activeGroupNames.has(cat)),...baseGroupOrder.filter(cat=>!activeGroupNames.has(cat))]);
- if(hasUnassigned)displayedGroups.unshift('');
+ if(hasUnassigned&&!groupReorderState)displayedGroups.unshift('');
  for(const category of displayedGroups){ 
   const categoryMeals=masterRecipeOrder(category,{scheduledEntries});
   if(!manualRecipeOrdering&&groupUsesRotation(category)){
@@ -2818,9 +2826,9 @@ function renderMasterCategories(list){
   }
   const card=document.createElement('section');card.className='master-category-card';card.dataset.category=category;
   const header=document.createElement('div');header.className='master-category-header';header.style.background='#f8f9fa';if(activeGroupNames.has(category)){card.classList.add('master-category-this-week');}
-  const expanded=masterExpandedCategories.has(category);
+  const expanded=!groupReorderState&&masterExpandedCategories.has(category);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(expanded));
-  toggle.onclick=()=>{masterExpansionInitialized=true;const opening=!masterExpandedCategories.has(category);if(opening){if(!recipeBulkMode)masterExpandedCategories.clear();masterExpandedCategories.add(category)}else masterExpandedCategories.delete(category);if(recipeBulkMode){recipeBulkFocus={cat:category,rotation:true};bulkRecipeRender()}else renderList();if(opening&&!recipeBulkMode)requestAnimationFrame(()=>{const target=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category);if(target)target.scrollIntoView({behavior:'smooth',block:'start'});});};
+  toggle.onclick=()=>{if(groupReorderState)return;masterExpansionInitialized=true;const opening=!masterExpandedCategories.has(category);if(opening){if(!recipeBulkMode)masterExpandedCategories.clear();masterExpandedCategories.add(category)}else masterExpandedCategories.delete(category);if(recipeBulkMode){recipeBulkFocus={cat:category,rotation:true};bulkRecipeRender()}else renderList();if(opening&&!recipeBulkMode)requestAnimationFrame(()=>{const target=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category);if(target)target.scrollIntoView({behavior:'smooth',block:'start'});});};
   const chevron=document.createElementNS('http://www.w3.org/2000/svg','svg');chevron.setAttribute('viewBox','0 0 24 24');chevron.setAttribute('aria-hidden','true');chevron.innerHTML=expanded?'<path d="m6 15 6-6 6 6"/>':'<path d="m6 9 6 6 6-6"/>';toggle.append(chevron);
   const name=document.createElement('strong');name.textContent=category||'Unassigned';toggle.append(name);
   const count=document.createElement('span');count.className='master-category-count';count.textContent=categoryMeals.length+' '+(categoryMeals.length===1?'meal':'meals');toggle.append(count);
@@ -2828,12 +2836,12 @@ function renderMasterCategories(list){
   header.append(toggle);
   {
   const organize=document.createElement('button');organize.type='button';organize.className='iconbtn group-organize';setIconButton(organize,'save','Organize meals');organize.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="8" height="8" rx="1"/><path d="m3.8 6 1.6 1.6 2.8-3M15 6h7"/><rect x="2" y="14" width="8" height="8" rx="1"/><path d="m3.8 18 1.6 1.6 2.8-3M15 18h7"/></svg>';bindGroupControlLabel(organize);organize.onclick=()=>beginRecipeBulkGroup(category);if(expanded)header.append(organize);
-  if(category){const edit=document.createElement('button');edit.type='button';edit.className='iconbtn group-settings';setIconButton(edit,'rename','Edit group');bindGroupControlLabel(edit);edit.onclick=()=>openMasterCategoryEditMenu(category);header.append(edit)}
-  if(recipeBulkMode&&category)header.prepend(organizeDragHandle('Reorder group '+category,dir=>{const ids=currentMasterGroupOrder(),at=ids.indexOf(category),next=at+dir;if(next<0||next>=ids.length)return;[ids[at],ids[next]]=[ids[next],ids[at]];if(writeMasterGroupOrder(ids))bulkRecipeRender({readOnly:true})}));
+  if(category&&!groupReorderState){const edit=document.createElement('button');edit.type='button';edit.className='iconbtn group-settings';setIconButton(edit,'rename','Edit group');bindGroupControlLabel(edit);edit.onclick=()=>openMasterCategoryEditMenu(category);header.append(edit)}
+  if(groupReorderState&&category)header.prepend(organizeDragHandle('Reorder group '+category,dir=>{const ids=currentMasterGroupOrder(),at=ids.indexOf(category),next=at+dir;if(next<0||next>=ids.length)return;[ids[at],ids[next]]=[ids[next],ids[at]];if(writeMasterGroupOrder(ids)){const cards=[...wrap.querySelectorAll(':scope>.master-category-card')];for(const id of ids){const card=cards.find(card=>card.dataset.category===id);if(card)wrap.append(card)}}}));
   }
   const addMeal=document.createElement('button');addMeal.type='button';addMeal.className='iconbtn';addMeal.title='Add meal';addMeal.setAttribute('aria-label',addMeal.title);addMeal.textContent='+';addMeal.style.cssText='font-size:24px';
   bindGroupControlLabel(addMeal);addMeal.disabled=addingGroupRecipe||newRecipeDraftId!==null;addMeal.onclick=()=>addRecipeToGroup(category);
-  header.append(addMeal);
+  if(!groupReorderState)header.append(addMeal);
   card.append(header);
   if(expanded){
    const items=document.createElement('div');items.className='master-category-meals';
@@ -2876,8 +2884,8 @@ function renderMasterCategories(list){
      }
 
      row.append(mealInfo,...manualMoves);
-     appendGroupInlineActions(row,mealInfo,nameLine,m,category);bindRecipeBulkRow(row,m);if(recipeBulkMode&&category===recipeBulkSourceGroup&&recipeBulkSubgroup==='up-next'&&rot==='up-next'){row.append(organizeDragHandle('Reorder '+m.name,dir=>moveUpNextRecipe(m,dir,groupMeals.filter(other=>other.upNextStar===m.upNextStar))))}
-     appendScheduledRecipeWeekdays(row,m,scheduledDaysByMeal);{const weekdays=row.querySelector(':scope>.master-meal-weekdays');if(weekdays)mealInfo.append(weekdays)}
+     appendGroupInlineActions(row,mealInfo,nameLine,m,category);bindRecipeBulkRow(row,m);if(recipeBulkMode&&category&&groupUsesRotation(category)){const status=recipeSectionMoveButton(m);status.classList.add('organize-row-status');row.append(status)}if(recipeBulkMode&&category===recipeBulkSourceGroup&&rot==='up-next'){row.append(organizeDragHandle('Reorder '+m.name,dir=>moveUpNextRecipe(m,dir,groupMeals.filter(other=>other.upNextStar===m.upNextStar))))}
+     appendScheduledRecipeWeekdays(row,m,scheduledDaysByMeal);{const weekdays=row.querySelector(':scope>.master-meal-weekdays');if(weekdays)nameLine.querySelector('.group-row-actions').prepend(weekdays)}
      
      sectionBody.append(row);
     }
@@ -2986,7 +2994,7 @@ function renderList(options={}){mealSlotDragCleanup?.();mealSlotDragCleanup=null
   tabBar.after(menu);
  }
 }
- if(!allMealsActive&&!groceryTabActive){const title=document.createElement('h2');title.className='view-page-title meal-plan-title';title.textContent='My Meal Plan';list.prepend(title);const header=document.createElement('div');header.className='rotation-compact-header';header.append(rotationWeekControls());list.append(header)}
+ if(!allMealsActive&&!groceryTabActive){const title=document.createElement('h2');title.className='view-page-title meal-plan-title';title.textContent='My Meal Plan';list.prepend(title);const header=document.createElement('div');header.className='rotation-compact-header';header.append(rotationWeekControls());const sticky=document.createElement('div');sticky.className='meal-controls-sticky';const tabs=list.querySelector(':scope>.meal-plan-tabs');if(tabs)sticky.append(tabs);sticky.append(header);list.append(sticky)}
  if(!allMealsActive&&!groceryTabActive&&rotationWeekOffset){renderRotationWeekPreview(list);addFloatingViewButtons();return;}
  if(groceryTabActive){renderGroceryViewToolbar(list);renderMasterGroceryTab(list);addFloatingViewButtons();return;}
 const topControls=document.createElement('div');topControls.className='top-controls';appendMealPlanSettingsGear(topControls);list.append(topControls);placeViewToolbar(topControls);
@@ -4775,10 +4783,11 @@ if(!mealPersistence.recovery){
 /* Detect when each page-specific header actually reaches its sticky position.
    Page renders replace these elements, so re-evaluate after DOM changes. */
 (()=>{
-  const selector='#list .rotation-compact-header, #list .meal-plan-grocery .grocery-compact-header, #list .all-meals-overview > h2';
-  let queued=false;
+  const selector='#list .meal-controls-sticky, #list .meal-plan-grocery .grocery-compact-header, #list .overview-week-sticky';
+  let queued=false,observed=null;const sizeObserver=new ResizeObserver(schedule);
   function update(){
     queued=false;
+    const compact=document.querySelector('.meal-controls-sticky,.overview-week-sticky');if(compact!==observed){sizeObserver.disconnect();observed=compact;if(compact)sizeObserver.observe(compact)}document.documentElement.style.setProperty('--meal-controls-height',compact?compact.getBoundingClientRect().height+'px':'0px');
     document.querySelectorAll(selector).forEach(header=>{
       const stickyTop=parseFloat(getComputedStyle(header).top)||0;
       const stuck=window.scrollY>0 && header.getBoundingClientRect().top<=stickyTop+1;
