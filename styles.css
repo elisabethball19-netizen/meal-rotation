@@ -1914,3 +1914,28 @@ body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{
 #list .meal-controls-sticky,#list .overview-week-sticky{margin-bottom:8px;}
 
 @media(prefers-reduced-motion:reduce){#list .plan-meal-card.preparation-meal-target{animation:none;filter:drop-shadow(0 2px 6px rgba(35,48,60,.22));}}
+
+/* Approved phone-review corrections: reserved controls and compact shared rows. */
+#recipeViewer .recipe-step-return{justify-content:center;min-height:44px;}
+#recipeViewer .recipe-step-return .recipe-current-step{justify-content:center;min-width:72px;min-height:44px;padding:3px 16px;}
+#recipeViewer .recipe-step-return .recipe-current-step::after{content:none;}
+#recipeViewer .recipe-step-return .recipe-current-step svg{width:32px;height:32px;stroke-width:2.2;}
+#list .preparation-meal-target{animation:preparation-phone-feedback 2.2s ease-out forwards!important;}
+@keyframes preparation-phone-feedback{0%,55%{filter:drop-shadow(0 3px 9px rgba(35,48,60,.48));}100%{filter:drop-shadow(0 0 0 transparent);}}
+@media(prefers-reduced-motion:reduce){#list .preparation-meal-target{animation:none!important;filter:drop-shadow(0 3px 8px rgba(35,48,60,.4));}}
+.recipe-source-action{flex:0 1 auto!important;height:auto!important;border:0;background:transparent;display:inline-flex!important;align-items:center;gap:7px;width:auto!important;min-height:44px;padding:4px 0!important;font:inherit!important;}
+.recipe-source-action span{white-space:normal;}
+.recipe-source-action svg{flex:none;}
+#editor #recipeStatus[hidden]{display:none!important;}
+#editor .meal-card-linked-heading,#editor .meal-group-editor-heading{font-size:calc(15px * var(--meal-text-factor,1))!important;font-weight:650!important;}
+#editor .meal-editor-fields>.meal-card-linked{margin:0!important;}
+#editor .meal-group-editor-heading,#editor .meal-linked-picker-trigger{gap:8px!important;align-items:center;min-height:44px;}
+#editor .meal-group-editor-heading .meal-group-assigned-list,#editor .meal-editor-fields>.meal-card-linked .meal-card-linked-names{white-space:normal!important;overflow:visible!important;overflow-wrap:anywhere!important;}
+#editor .meal-card-linked-heading{flex:0 1 auto;}
+#recipeBulkToolbar{background:#f0f3f6!important;border-top:1px solid #cbd3dc;box-shadow:0 -3px 9px #26334220;}
+#recipeBulkToolbar button[aria-label="Done"]{font-weight:700;color:#263b50;}
+.group-reorder-done{display:inline-flex!important;align-items:center;width:auto!important;gap:5px;font-weight:700;}
+#list .meal-plan-grocery .grocery-compact-header{align-items:baseline;column-gap:12px;}
+.grocery-week-summary{margin-left:auto;text-align:right;white-space:normal;}
+
+#editor .meal-editor-section>summary{padding-left:0!important;padding-right:0!important;}
