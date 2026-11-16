@@ -1,6 +1,6 @@
 APP EXPERIENCE AND ACCEPTED BEHAVIOR
 Updated: 2026-11-15
-Scope: intended/accepted original-app behavior. #120 renewed phone-review follow-up is implemented/code-checked, awaiting physical-phone acceptance. #121 initial implementation is code-checked; combined phone-review follow-up approved/not yet implemented; #122-#124 remain approved NOT YET IMPLEMENTED designs. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
+Scope: intended/accepted original-app behavior. #120 renewed phone-review follow-up is implemented/code-checked, awaiting physical-phone acceptance. #121 combined phone-review follow-up is implemented/code-checked, awaiting phone acceptance; #122-#124 remain approved NOT YET IMPLEMENTED designs. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
 
 LOOK AND FEEL
 Warm Harvest Kitchen palette; muted pastel weekday cards; neutral surfaces; rounded corners; soft shadows; readable dark text.
@@ -61,7 +61,7 @@ Use for meal rotation off = plain reference list, no new rotation assignments; s
 Add meals button, "Add meals to [group]" picker; standard chevrons; Copy keeps original membership, Move removes it; no "Add meals by:" heading.
 Search multi-word AND; optional Match word order off by default.
 
-BULK EDIT / GROUP-VIEW FOLLOW-UP — APPROVED, NOT YET IMPLEMENTED
+BULK EDIT / GROUP-VIEW FOLLOW-UP — IMPLEMENTED / CODE-CHECKED; AWAITING PHONE ACCEPTANCE
 Latest #121 issue replaces original controls/status popup design.
 Normal group header: icon-only Organize meals checklist (three checked boxes/single lines, no clipboard), Edit group pencil, Add meal +. Accessible labels/long-press tooltips. Pencil opens group name/rotation switch/delete directly; remove nested gear access, duplicate Add meals and popup reorder arrows/explanation. Preserve drag reorder and accessibility, Sides protections/assignment guards.
 Selection limited to one source group AND one subgroup In Rotation or Ideas. Long press establishes subgroup/selected recipe; header Organize begins with none and first selection establishes subgroup. Show checkboxes only in active subgroup once established. Bottom Groups/Delete/Done; no Status popup or batch up/down. Existing individual status arrows remain.

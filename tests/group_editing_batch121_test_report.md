@@ -1,39 +1,41 @@
-# Issue #121 — single-group editing and supported handles
+# Issue #121 — approved combined phone-review follow-up
 
-Implemented/code-checked; awaiting phone testing. Started from clean current main `edb28a0`, including the explicit deferral of the latest #120 phone feedback. No #120 follow-up or #122–#124 implementation is included.
+Implemented/code-checked; awaiting phone acceptance. This report supersedes the initial pencil/Status popup/changing Select-all design. Started from clean current main `cb79eb0`. Other deferred changes and #122–#124 remain queued; the expanded name-row heart is the only meal-plan presentation change in this pass.
 
-## Changes
+## Targeted implementation
 
-- Group heading/chevron expands recipes; pencil opens that group's selection bar with zero selected. Long press selects the exact pressed recipe. A settings gear in the organizing header retains the existing group rename, order, rotation-use and deletion menu. Renaming keeps the selection attached to its source; deleting the source exits cleanly.
-- Bottom bar shows group/count and Groups / Status / Delete / Done. Navigation is hidden; dialogs and keyboard retain foreground priority. Groups and Status open existing controls directly, without an intermediate Edit recipes dialog.
-- Above-list Select all/Deselect all explicitly tracks the initial auto-selected long-press exception. Manual selection ends that exception; partial selections can clear immediately, including 11 of 12. Empty selection and filtered scope work without allowing cross-group selection.
-- Groups keeps independent Remove from source / Add to groups, unrelated memberships and Unassigned behavior. Destinations/new groups remain drafts until the final check; X cancels them. Status keeps mixed Keep existing / In Rotation / Ideas. Existing transaction validation, atomic backup writer, failure rollback, deletion names and linked-recipe protection are reused; no saved-data migration or clearing occurs.
-- Visible handles only appear while organizing: source-group Ideas and existing group display ordering. They use the existing shared persistent Ideas order, pinned/unpinned boundaries and group-order writer. Handles accept touch/mouse dragging and Alt+Up/Down. In Rotation has no new handle or manual-order operation. Normal long-press shortcuts remain available outside organizing.
-- Existing isolated test HTML mirrors these changes, retaining its sandbox adapter, banner and test-only features. Offline shell is `v148`.
+- Normal group headers expose three separate 44px targets: Organize meals checklist, Edit group pencil and Add meal +. Hold labels are available. Group settings directly edits name and the existing rotation preference as a switch, with protected Delete and Save/Cancel. No gear, nested rename popup, Add meals duplication or popup ordering arrows/explanation. Existing group drag/handle keyboard ordering remains. Built-in Sides keeps its identity/nondeletability; assigned groups cannot silently disable rotation.
+- Selection locks to one source and one subgroup. Organize starts empty; first selection establishes In Rotation/Ideas (plain-list reference groups retain their scope). Long press selects the exact recipe/subgroup without opening its viewer. Other subgroups have no selectable checkboxes. The bar is Groups / Delete / Done; individual promotion/demotion arrows remain direct operations. There is no bulk Status action.
+- Fixed Select all/Deselect all controls reuse the exact Groceries SVG assets, with appropriate disabled states, subgroup/filter scope and accessible/hold labels. No entry exception or changing-text control remains.
+- The immediate membership list puts the named source first and shows original checked/mixed states. Only explicit per-group changes feed the existing per-recipe membership/atomic-save operation, preserving untouched mixed memberships. Copy, move, remove, derived Unassigned, existing record aliases and pending new groups retain their semantics. X/Back cancels; an unchecked pending group is not created. Injected save failure retains data and selections for retry.
+- Browser history now records selection and child layers. Back cancels a child first, then exits selection locally at the same position/expansion. Existing editor pending-save handling remains authoritative. Dirty grocery close retains its existing save/discard prompt. Settings-to-delete transitions wait for the old history layer to settle, preventing a stale frame from sending Back to the prior page.
+- Group recipe names open the internal viewer. Separate status arrow/chevron targets reveal one compact inline Edit recipe / Edit groceries / Schedule meal panel, keyed by stable group/recipe IDs. Last cooked/pencil has its own line. One expanded Favorite heart sits on the name row, remains open on toggle, and is hidden collapsed. Current meal-plan hearts use the same name-row placement without changing their existing actions/lifecycle.
+- Group setting name/preference changes reuse the existing rename operation and atomic backup writer; Undo snapshots include the optional existing rotation-preference record compatibly. The isolated test HTML mirrors all applicable changes with its original adapter/banner/features. No site data is cleared or schema replaced. Offline shell: **v149**.
 
-## Focused checks
+## Focused evidence
 
-`python3 tests/group_editing_batch121_browser.py` reuses the existing disposable mobile/storage fixture and checks both `index.html` and `meal-rotation-test.html`:
+Extended `tests/group_editing_batch121_browser.py`, reusing its existing disposable mobile/storage fixture. The focused suite and additional checks exercised both `index.html` and `meal-rotation-test.html`:
 
-- Heading expansion, pencil with zero selected, empty-action disabled states, main navigation visibility, exact real-touch long press and initial Select all exception.
-- Manual second/one selection, 11/12 immediate clearing, source-group isolation, filtered Select all and clean Done.
-- Direct membership picker, staged destination/new-group cancellation, copy/removal preserving other memberships, Unassigned, injected storage failure retaining the dialog/selections/data, and successful retry.
-- Direct mixed status Keep existing/cancel/apply, existing deletion confirmation/names, unselected linked-recipe protection and Undo.
-- Ideas handle touch drag/cancel, pin boundaries, shared membership order, unchanged selection/scheduling, Undo/Redo, group touch/keyboard reorder/cancel and persistent reload.
-- Group settings/rename retaining source selection, pending new groups committed only by the final check, source-group deletion removing the toolbar/handles cleanly, and exact Undo/Redo.
-- 320×800 and 740×360 toolbar/picker bounds and targets; regular/test storage sentinels and saved memberships survive reload.
+- Direct controls, actual hold label, long group names, settings Back/cancel/save, assigned guard, Sides protection, injected settings-save rollback and Undo/Redo.
+- First-selection subgroup lock, fixed check/minus/filter scope, long-press dispatch, child membership/search/Delete Back, pending-group cancellation and top-level selection Back with preserved position.
+- Source-first and mixed membership states; copy/move/remove; explicit mixed check/uncheck; untouched memberships; Unassigned; pending/unchecked new groups; injected storage failure/retry; reload and Undo/Redo.
+- Existing scheduled source copied into an extra membership and that extra membership removed: exact scheduling, checked cooking progress, multipliers and effective grocery checks/amounts remain unchanged, including Undo/Redo.
+- Inline singleton expansion, name-to-viewer, saved/cancelled recipe/grocery/schedule actions, dirty grocery Back/discard, direct status arrows/pin ordering and current-plan heart placement.
+- Ideas touch/keyboard handles, cancellation, pin portions/shared order, selected IDs, group ordering, Delete cancellation, persistence and Undo/Redo. In Rotation has no manual handle.
+- Search subgroup transfer and viewer routes; existing working-data/test-storage sentinels remain intact.
 
-Additional checks: `python3 tests/quota_backup_static.py` (modular/embedded syntax and relevant mirror checks), `bash scripts/post-merge.sh`, `node --check rotation.js`, `node --check service-worker.js`, and `git diff --check`.
+Captured and visually inspected 320×800 and 740×360 screenshots for normal/long group headers, subgroup selection, collapsed/expanded/long recipe rows, arrows/chevrons, membership popup, and current-plan name-row heart. Inspection corrected chevron alignment beside multiline names and prevented the meal count from squeezing a long group name into an unreadable column. These are Chromium mobile/touch/browser-history checks, not physical Android verification. Unrelated #120 investigations/viewer audits were not repeated.
 
-Captured and visually inspected mobile screenshots for the selection header, Ideas-only handles, four-action toolbar, preserved test banner and portrait/landscape membership dialogs. Selected counts, labels and final check/X fit; the destination list scrolls independently in landscape. These are Chromium browser checks/screenshots, not physical-phone verification. Unrelated batches and viewer checks were not rerun.
+Additional checks: `python3 tests/quota_backup_static.py` (modular/embedded syntax and relevant parity), `bash scripts/post-merge.sh`, JavaScript syntax checks on changed modules/service worker, and `git diff --check`.
 
-## Phone checklist
+## Pending phone checklist
 
-1. Reopen online without clearing site data. Expand a group; tap its pencil. Check zero selected and Groups / Status / Delete / Done. Open the gear to confirm existing group controls are accessible.
-2. Long-press one recipe: Select all should remain. Manually select another: Deselect all should clear immediately, including a nearly complete selection. Confirm another source group cannot join the selection.
-3. Try Groups copy/remove/new-group drafts and X; preserve other memberships and Unassigned. Try mixed Status Keep existing, cancel, apply, Delete cancellation and Done. Check Undo/Redo.
-4. Drag Ideas handles within each pinned/unpinned portion; verify shared order and reload. Confirm no In Rotation handle. Try group ordering and cancellation.
-5. Check narrow/landscape layouts, dialog scrolling and keyboard visibility.
+1. Check Organize checklist / Edit pencil / + targets and hold labels, including a long group name. Edit name/rotation directly; test cancel/save, assigned-group guard and Sides protection.
+2. Organize empty, select one subgroup, check fixed Select/Deselect scope and filters. Long press a recipe; confirm no accidental viewer or cross-subgroup selection. Test individual status arrows separately.
+3. Copy/move/remove memberships with different existing groups; leave mixed boxes untouched, then explicitly check/uncheck mixed. Test pending new group, X/Back, failure/cancellation, Undo/Redo and reload.
+4. Back from a child popup should cancel it first. Back from selection should act like Done without moving to the meal plan or jumping scroll. Try dirty grocery/editor close prompts.
+5. Tap a recipe name, expand its separate chevron, edit/save/cancel/schedule, and switch expanded recipes. Check separate name-row heart and Last cooked below, including current meal-plan cards. No collapsed heart should appear.
+6. Drag Ideas within pinned/unpinned portions and group order; verify selected IDs, shared order and reload. Check narrow/landscape layout.
 
 Phone-testing link: https://elisabethball19-netizen.github.io/meal-rotation/index.html
 
