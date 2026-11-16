@@ -118,6 +118,9 @@ function settingsFlatGroup(title){
  const body=document.createElement('div');body.className='settings-flat-content';
  wrap.append(heading,body);return {wrap,body};
 }
+function decoratePreferenceSwitches(root=document){
+ for(const input of root.querySelectorAll('input.preference-switch')){if(input.parentElement?.classList.contains('preference-switch-control'))continue;const wrap=document.createElement('span');wrap.className='preference-switch-control';input.before(wrap);const track=document.createElement('span');track.className='preference-switch-track';track.setAttribute('aria-hidden','true');const thumb=document.createElement('span');thumb.className='preference-switch-thumb';track.append(thumb);wrap.append(input,track)}
+}
 function populateCookedDateSetting(parent){
  const label=document.createElement('label');label.className='settings-display-option';
  const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=showLastCooked;
@@ -172,15 +175,39 @@ function rotationWeekControls(){
 function appendWeekdayDate(heading,date){
  const label=document.createElement('small');label.className='weekday-date';label.textContent=' · '+date.toLocaleDateString(undefined,{month:'short',day:'numeric'});heading.append(label);
 }
-function previewMealPlanAdvance(selectedSlots=null,retainedSlots=null){
- // Simulate precisely the current plan's confirmation operation, in isolated memory/storage.
- const saved={meals,mealPlans,weekdayMealOverrides,storage:bulkRecipeStorageDraft};
+function mealPlanWeekStart(plan){return parseCookingLocalDate(plan.mealPlanWeekStartV1)||parseCookingLocalDate(plan.rotationCalendar?.weekStart)||cookingPlanningWeekStart()}
+function copyOccurrenceDate(plan,entry,date,carry=true){
+ const calendar=plan.rotationCalendar,key=rotationOccurrenceKey({...entry,planId:plan.id}),oldDate=calendar.occurrences[key],oldSideKey=simpleSideOccurrenceKey(plan,entry,calendar);if(oldDate===date)return;
+ const sides=plan.simpleSideOccurrences?.[oldSideKey];calendar.occurrences[key]=date;calendar.slots[rotationCalendarSlot(entry)]=date;if(!calendar.assignedOn[key]||calendar.assignedOn[key]>date)calendar.assignedOn[key]=date;if(!calendar.assignedAt[key])calendar.assignedAt[key]=new Date().toISOString();
+ if(sides)plan.simpleSideOccurrences={...(plan.simpleSideOccurrences||{}),[simpleSideOccurrenceKey(plan,entry,calendar)]:copySimpleSides(sides)};
+ if(carry)for(const [taskKey,value]of Object.entries(plan.makeAheadChecks||{})){try{const parts=JSON.parse(taskKey);if(parts[0]===key&&parts[1]===oldDate){parts[1]=date;plan.makeAheadChecks[JSON.stringify(parts)]=value}}catch(e){}}
+}
+function stableGrocerySource(source){const token=JSON.parse(source.id);return JSON.stringify([source.planId,source.day,source.cat,String(source.mealId),source.parentId||'',source.simpleSideId||'',token[1],token[2]])}
+function carryDatedGroceryChecks(before,retained){
+ const old=new Map([...before.values()].map(item=>[stableGrocerySource(item.source),item]));
+ for(const source of getGroceryContributions(true)){if(retained){const plan=mealPlans.find(p=>p.id===source.planId),entry=plan&&getDisplayedWeekdayMealsForPlan(plan).find(e=>e.day===source.day&&e.cat===source.cat&&String(e.meal.id)===String(source.mealId));if(!entry||!retained.has(rotationOccurrenceKey({...entry,planId:plan.id})))continue;}const item=old.get(stableGrocerySource(source));if(!item)continue;groceryOccurrenceChecks.checks[source.id]=item.checked;if(item.amount)(groceryOccurrenceChecks.quantities??={})[source.id]={...item.amount}}
+ saveGroceryOccurrenceChecks();
+}
+function advanceMealPlanWeek(selectedSlots=null,allTabs=false,markCooked=false,retainedSlots=null,beforeState=null,preview=false){
+ const scope=mealPlans.filter(plan=>allTabs||plan.id===activePlanId),anchors=new Map(scope.map(plan=>[plan.id,mealPlanWeekStart(plan)])),retainedKeys=new Set(),selectedByPlan=new Map();
+ for(const plan of scope){const selected=rotationSelectionEntries(plan).filter(item=>rotationSelectable(item,plan)&&(!selectedSlots||selectedSlots.has((allTabs?plan.id+'||':'')+weekdaySlotKey(item.day,item.cat))));selectedByPlan.set(plan.id,selected);const entries=getDisplayedWeekdayMealsForPlan(plan),affected=cycleAffectedEntries(entries,selected,plan);for(const entry of entries)if(!affected.some(item=>rotationOccurrenceKey({...item,planId:plan.id})===rotationOccurrenceKey({...entry,planId:plan.id})))retainedKeys.add(rotationOccurrenceKey({...entry,planId:plan.id}))}
+ if(![...selectedByPlan.values()].some(items=>items.length))return retainedKeys;
+ const grocery=preview?null:captureGroceryCheckStates();moveDisplayedMealsToBottom(selectedSlots,allTabs,markCooked,retainedSlots,beforeState,preview);
+ for(const plan of mealPlans.filter(plan=>selectedByPlan.get(plan.id)?.length)){
+  const start=new Date(anchors.get(plan.id));start.setDate(start.getDate()+7);const current=cookingPlanningWeekStart();if(start<current)start.setTime(current.getTime());plan.mealPlanWeekStartV1=cookingLocalDate(start);
+  for(const entry of getDisplayedWeekdayMealsForPlan(plan)){const key=rotationOccurrenceKey({...entry,planId:plan.id});const target=cookingLocalDate(cookingDateInWeek(entry.day,start)),prior=plan.rotationCalendar.occurrences[key];copyOccurrenceDate(plan,entry,retainedKeys.has(key)&&prior>target?prior:target,retainedKeys.has(key))}
+  plan.rotationCalendar=rotationCalendarForPlan(plan,getDisplayedWeekdayMealsForPlan(plan));
+ }
+ if(!preview){carryDatedGroceryChecks(grocery,retainedKeys);saveActiveMealPlan();renderList({readOnly:true})}return retainedKeys;
+}
+function previewMealPlanAdvance(selectedSlots=null,retainedSlots=null,planId=activePlanId){
+ const saved={meals,mealPlans,weekdayMealOverrides,storage:bulkRecipeStorageDraft,activePlanId,weekdayCategories,weekdayRecipeFilters,pinnedCats,autoPinTopCategories};
  try{
-  meals=JSON.parse(JSON.stringify(meals));mealPlans=JSON.parse(JSON.stringify(mealPlans));weekdayMealOverrides={...weekdayMealOverrides};
+  meals=JSON.parse(JSON.stringify(meals));mealPlans=JSON.parse(JSON.stringify(mealPlans));const active=mealPlans.find(p=>p.id===activePlanId);Object.assign(active,{weekdayCategories:JSON.parse(JSON.stringify(weekdayCategories)),weekdayMealOverrides:{...weekdayMealOverrides},weekdayRecipeFilters:JSON.parse(JSON.stringify(weekdayRecipeFilters))});
+  activePlanId=planId;const target=mealPlans.find(p=>p.id===planId);weekdayCategories=JSON.parse(JSON.stringify(target.weekdayCategories));weekdayMealOverrides={...target.weekdayMealOverrides};weekdayRecipeFilters=JSON.parse(JSON.stringify(target.weekdayRecipeFilters||{}));pinnedCats=[...(target.pinnedCats||[])];
   bulkRecipeStorageDraft=new Map(Array.from({length:localStorage.length},(_,i)=>{const key=localStorage.key(i);return [key,localStorage.getItem(key)]}));
-  moveDisplayedMealsToBottom(selectedSlots,false,false,retainedSlots,null,true);if(hasDependentSideSlots())coordinateDependentSides();
-  const plan=mealPlans.find(plan=>plan.id===activePlanId);return {plan,entries:getDisplayedWeekdayMealsForPlan(plan),preview:true};
- }finally{meals=saved.meals;mealPlans=saved.mealPlans;weekdayMealOverrides=saved.weekdayMealOverrides;bulkRecipeStorageDraft=saved.storage}
+  const retainedKeys=advanceMealPlanWeek(selectedSlots,false,false,retainedSlots,null,true);if(hasDependentSideSlots())coordinateDependentSides();const plan=mealPlans.find(p=>p.id===planId);return {plan,entries:getDisplayedWeekdayMealsForPlan(plan),preview:true,retainedKeys};
+ }finally{({meals,mealPlans,weekdayMealOverrides,activePlanId,weekdayCategories,weekdayRecipeFilters,pinnedCats,autoPinTopCategories}=saved);bulkRecipeStorageDraft=saved.storage}
 }
 function renderRotationWeekPreview(list){
  const source=previewMealPlanAdvance();if(!source)return;
@@ -196,8 +223,15 @@ function planInlineAccompaniments(plan,entries){
  const hidden=new Set(),byParent=new Map();
  for(const entry of entries){if(!entry.meal||!entry.linkedTo||rotationGroupScheduled(plan,entry.day,entry.cat))continue;const parent=entries.find(other=>other.day===entry.day&&String(other.meal?.id)===String(entry.linkedTo));if(!parent)continue;hidden.add(entry);const key=entry.day+'|'+parent.meal.id;if(!byParent.has(key))byParent.set(key,[]);byParent.get(key).push(entry)}return {hidden,byParent};
 }
+const expandedPlanCards=new Set();let planCardReturnScroll=null;
+function planCardIdentity(plan,entry){return JSON.stringify([plan.id,rotationWeekOffset,entry.day,entry.cat?groupIdentity(entry.cat,true):'@day',String(entry.meal?.id||'empty'),String(entry.linkedTo||''),entry.meal?cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar)):emptyWeekSlotContext(plan,entry.day,entry.cat).date])}
+function setPlanCardExpanded(card,open){const key=card.dataset.cardIdentity;if(open)expandedPlanCards.add(key);else expandedPlanCards.delete(key);card.classList.toggle('plan-card-expanded',open);const panel=card.querySelector('.expanded-meal-actions'),button=card.querySelector('.meal-actions-toggle');if(panel)panel.hidden=!open;button?.setAttribute('aria-expanded',String(open))}
+function keepPlanCardScroll(){planCardReturnScroll={planId:activePlanId,week:rotationWeekOffset,y:scrollY}}
+function restorePlanCardScroll(){if(!planCardReturnScroll)return;const position=planCardReturnScroll;requestAnimationFrame(()=>{if(position.planId===activePlanId&&position.week===rotationWeekOffset&&showTop&&!groceryTabActive&&!allMealsActive&&editId===null){scrollTo({top:position.y,behavior:'instant'});if(planCardReturnScroll===position)planCardReturnScroll=null}})}
+function watchPlanCardReturn(){const modal=[...document.querySelectorAll('[role=dialog]')].at(-1);if(!modal){restorePlanCardScroll();return}const observer=new MutationObserver(()=>{if(!modal.isConnected){observer.disconnect();restorePlanCardScroll()}});observer.observe(document.body,{childList:true,subtree:true})}
+function finishPlanCardAction(key,before){if(before!==JSON.stringify(recipePlanEntries(activePlanId).map(e=>[e.day,e.cat,e.meal.id,e.linkedTo||'']))){expandedPlanCards.delete(key);const card=[...document.querySelectorAll('.plan-meal-card')].find(card=>card.dataset.cardIdentity===key);if(card)setPlanCardExpanded(card,false)}}
 function renderPlanMealCard(plan,entry,{preview=false,linked=[],tasks=null}={}){
- const {day,cat,meal,linkedTo}=entry,card=document.createElement('section');card.className='top-recipe-wrap plan-meal-card'+(!meal?' empty-plan-card':'')+(preview?' preview-plan-card':'');card.style.background=colorForDay(day);card.dataset.scheduleDay=day;
+ const {day,cat,meal,linkedTo}=entry,card=document.createElement('section');card.className='top-recipe-wrap plan-meal-card'+(!meal?' empty-plan-card':'')+(preview?' preview-plan-card':'');card.style.background=colorForDay(day);card.dataset.scheduleDay=day;card.dataset.cardIdentity=planCardIdentity(plan,entry);
  if(!preview){card.dataset.weekRow='true';card.dataset.displayKey=scheduleDisplayKey(entry)}
  const date=meal?scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar):entry.temporaryEmpty?parseCookingLocalDate(emptyWeekSlotContext(plan,day,cat).date):cookingDateInWeek(day,parseCookingLocalDate(plan.rotationCalendar?.weekStart)||cookingPlanningWeekStart());card.dataset.date=cookingLocalDate(date);
  const stamp=document.createElement(preview?'div':'button');if(!preview){stamp.type='button';stamp.onclick=()=>openWeekdayCard(day);stamp.setAttribute('aria-label','Plan '+day+"'s meal")};stamp.className='plan-date';stamp.title=date.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});const weekday=document.createElement('strong');weekday.textContent=day.slice(0,3).toUpperCase();const number=document.createElement('span');number.textContent=date.getDate();stamp.append(weekday,number);card.append(stamp);
@@ -212,20 +246,20 @@ function renderPlanMealCard(plan,entry,{preview=false,linked=[],tasks=null}={}){
  }else{
   const message=document.createElement('span');message.className='mealname';message.textContent='—';title.append(message);
   if(!preview){const toggle=planCardDisclosure(card,'Meal actions for '+day+' empty meal'),panel=document.createElement('div');panel.className='expanded-meal-actions empty-plan-actions';panel.hidden=true;
-   const choose=document.createElement('button');choose.type='button';choose.className='meal-inline-action';choose.textContent='Choose a meal';choose.onclick=()=>openWeekdayMealChooser(day,cat==='@day'?null:cat,null,cat==='@day'||!getDayCategories(day).length,{slotContext:entry.temporaryEmpty?emptyWeekSlotContext(plan,day,cat):null});panel.append(choose);
-   if(entry.temporaryEmpty&&underlyingSlotMeal(plan,day,cat)){const resume=document.createElement('button');resume.type='button';resume.className='meal-inline-action';resume.textContent='Resume planned meal';resume.onclick=()=>resumeWeekSlot(day,cat);panel.append(resume)}
-   toggle.onclick=e=>{e.preventDefault();e.stopPropagation();panel.hidden=!panel.hidden;card.classList.toggle('plan-card-expanded',!panel.hidden);toggle.setAttribute('aria-expanded',String(!panel.hidden))};body.append(panel);
+   const choose=document.createElement('button');choose.type='button';choose.className='meal-inline-action';choose.textContent='Choose a meal';choose.onclick=()=>{keepPlanCardScroll();openWeekdayMealChooser(day,cat==='@day'?null:cat,null,cat==='@day'||!getDayCategories(day).length,{slotContext:entry.temporaryEmpty?emptyWeekSlotContext(plan,day,cat):null,cardIdentity:card.dataset.cardIdentity})};panel.append(choose);
+   if(entry.temporaryEmpty&&underlyingSlotMeal(plan,day,cat)){const resume=document.createElement('button');resume.type='button';resume.className='meal-inline-action';resume.textContent='Resume planned meal';resume.onclick=()=>{keepPlanCardScroll();if(resumeWeekSlot(day,cat)){expandedPlanCards.delete(card.dataset.cardIdentity);renderList({readOnly:true})}};panel.append(resume)}
+   toggle.onclick=e=>{e.preventDefault();e.stopPropagation();setPlanCardExpanded(card,panel.hidden)};body.append(panel);
   }
- }return card;
+ }if(!preview)setPlanCardExpanded(card,expandedPlanCards.has(card.dataset.cardIdentity));return card;
 }
-function planCardDisclosure(card,label){const toggle=document.createElement('button');toggle.type='button';toggle.className='iconbtn meal-actions-toggle';setIconButton(toggle,'down',label);toggle.setAttribute('aria-expanded','false');card.append(toggle);return toggle}
+function planCardDisclosure(card,label){const toggle=document.createElement('button');toggle.type='button';toggle.className='iconbtn meal-actions-toggle';setIconButton(toggle,'down',label);toggle.setAttribute('aria-expanded','false');(card.querySelector('.plan-card-recipe')||card).append(toggle);return toggle}
 function planCardDetails(plan,entry,preview=false,tasks=null){
  const details=document.createElement('div');details.className='plan-card-details';const meal=entry.meal;
  const timed=(field,text,visible)=>{if(!text)return;const row=document.createElement('div');row.className='plan-detail '+field;row.dataset.collapsedVisible=String(visible);row.textContent=text;details.append(row)};
  const parts=[];for(const [key,label]of [['prep','prep'],['total','total']]){const raw=key==='total'?(meal.total||((Number(meal.prep)||0)+(Number(meal.cook)||0))):meal.prep;if(raw!==''&&raw!=null&&Number(raw)>0)parts.push(time(raw)+' '+label)}
  timed('plan-cooking-detail',parts.join(' · '),timeDisplayPrefs.top.cooking);timed('plan-marinate-detail',String(meal.marinate||'').trim()?displayMarinateTime(meal.marinate)+' marinate':'',timeDisplayPrefs.top.marinate);
  timed('plan-cooked-detail',(lastCookedLabel(meal)||'Last cooked Never').replace(/^Last cooked /,'Last cooked: '),showLastCooked);
- for(const item of (tasks||scheduledMakeAheadTasks(false)).filter(item=>item.plan.id===plan.id&&item.entry.day===entry.day&&String(item.entry.meal.id)===String(meal.id)&&String(item.entry.linkedTo||'')===String(entry.linkedTo||'')&&item.scheduled===cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar)))){const row=preview?document.createElement('div'):makeAheadReminderRow(item);if(preview)row.textContent=makeAheadTaskDescription(item);row.classList.add('plan-detail');row.dataset.collapsedVisible=String(makeAheadDisplayPrefs.showMakeAheadReminders);details.append(row)}return details;
+ return details;
 }
 function bindMealNamePress(name,entry,context=null){
  const meal=meals.find(meal=>String(meal.id)===String(entry.meal.id))||entry.meal;let timer=null,start=null,held=false;
@@ -236,23 +270,7 @@ function bindMealNamePress(name,entry,context=null){
  for(const event of ['pointerleave','pointercancel'])name.addEventListener(event,()=>{clearTimeout(timer);start=null;held=false});
  name.onclick=e=>{if(held){held=false;e.preventDefault();e.stopImmediatePropagation();return}openSavedMealRecipe(meal,context)};name.oncontextmenu=e=>e.preventDefault();
 }
-function previewNextWeekPlans(){
- const saved={meals,mealPlans,weekdayMealOverrides,storage:bulkRecipeStorageDraft};
- const nextStart=cookingPlanningWeekStart();nextStart.setDate(nextStart.getDate()+7);
- try{
-  meals=JSON.parse(JSON.stringify(meals));mealPlans=JSON.parse(JSON.stringify(mealPlans));weekdayMealOverrides={...weekdayMealOverrides};
-  bulkRecipeStorageDraft=new Map(Array.from({length:localStorage.length},(_,i)=>{const key=localStorage.key(i);return [key,localStorage.getItem(key)]}));
-  const slots=new Set();for(const plan of mealPlans)for(const item of rotationSelectionEntries(plan)){
-   const date=item.emptyWeek?parseCookingLocalDate(emptyWeekSlotContext(plan,item.day,item.cat).date):scheduledOccurrenceDate({...item,planId:plan.id},plan.rotationCalendar,new Date());if(!date||date<nextStart)slots.add(plan.id+'||'+weekdaySlotKey(item.day,item.cat));
-  }
-  moveDisplayedMealsToBottom(slots,true,false,null,null,true);if(hasDependentSideSlots())coordinateDependentSides();
-  return mealPlans.map(plan=>{
-   const entries=getDisplayedWeekdayMealsForPlan(plan),calendar=rotationCalendarForPlan(plan,entries);
-   for(const entry of entries){const key=rotationOccurrenceKey({...entry,planId:plan.id});const target=cookingDateInWeek(entry.day,nextStart),stored=parseCookingLocalDate(calendar.occurrences[key]);calendar.occurrences[key]=cookingLocalDate(stored&&stored>target?stored:target);calendar.assignedOn[key]=cookingLocalDate(nextStart);calendar.assignedAt[key]='preview';const actual=saved.mealPlans.find(item=>item.id===plan.id),sideKey=simpleSideOccurrenceKey(plan,entry,calendar);if(Object.hasOwn(actual?.simpleSideOccurrences||{},sideKey))plan.simpleSideOccurrences={...(plan.simpleSideOccurrences||{}),[sideKey]:copySimpleSides(actual.simpleSideOccurrences[sideKey])};else if(Object.hasOwn(actual?.rotationCalendar?.occurrences||{},key)&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},actual.rotationCalendar))===calendar.occurrences[key]){if(plan.simpleSideOccurrences)plan.simpleSideOccurrences[sideKey]=[]}else initializeSimpleSideOccurrence(plan,entry,calendar)}
-   return {plan:{...plan,rotationCalendar:calendar},entries,preview:true};
-  });
- }finally{meals=saved.meals;mealPlans=saved.mealPlans;weekdayMealOverrides=saved.weekdayMealOverrides;bulkRecipeStorageDraft=saved.storage}
-}
+function previewNextWeekPlans(){return mealPlans.map(plan=>previewMealPlanAdvance(null,null,plan.id))}
 function renderAllMealsOverview(list){
   const section=document.createElement('section');section.className='all-meals-overview';
   section.setAttribute('aria-label','Weekly Overview weekly overview');
@@ -474,9 +492,9 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
   });
 }
 ;let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24">'+appIconSvg.settings+'</svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
-const displayGroup=makeSettingsGroup('display','Display');const collapsedHeading=document.createElement('strong');collapsedHeading.textContent='Show on collapsed meal cards';displayGroup.content.append(collapsedHeading);populateTimeSettings(displayGroup.content);populateCookedDateSetting(displayGroup.content);populateMakeAheadSetting(displayGroup.content);
+const displayGroup=makeSettingsGroup('display','Display'),collapsedOptions=document.createElement('fieldset'),collapsedHeading=document.createElement('legend');collapsedOptions.className='collapsed-card-options';collapsedHeading.textContent='Show on collapsed meal cards';collapsedOptions.append(collapsedHeading);populateTimeSettings(collapsedOptions);populateCookedDateSetting(collapsedOptions);displayGroup.content.append(collapsedOptions);populateMakeAheadSetting(displayGroup.content);
  const manualOrderOption=document.createElement('label');manualOrderOption.className='settings-display-option';
- const manualOrderCheck=document.createElement('input');manualOrderCheck.type='checkbox';manualOrderCheck.checked=manualRecipeOrdering;
+ const manualOrderCheck=document.createElement('input');manualOrderCheck.type='checkbox';manualOrderCheck.setAttribute('role','switch');manualOrderCheck.className='preference-switch';manualOrderCheck.checked=manualRecipeOrdering;
  manualOrderCheck.onchange=()=>{manualRecipeOrdering=manualOrderCheck.checked;saveManualRecipeOrdering();renderList()};
  manualOrderOption.append(manualOrderCheck,document.createTextNode('Enable manual recipe ordering'));displayGroup.content.append(manualOrderOption);
 
@@ -541,7 +559,7 @@ let closeSettings=document.createElement('button');closeSettings.textContent='Cl
  planCheck.setAttribute('aria-labelledby',planLabel.id);planCheck.setAttribute('aria-describedby',planHint.id);
  planCopy.append(planLabel,planHint);planOption.append(planCheck,planCopy);planGroup.content.append(planOption);
  const backupGroup=makeSettingsGroup('backups','Data & Backups');const backupRow=document.createElement('div');backupRow.className='settings-backup-controls';backupRow.append(exportRecipesBtn,exportBtn,importBtn,restoreBtn);backupGroup.content.append(backupRow,buildRecipeSageRefresh({capture:captureBackupStorage,validate:validateBackupStorage,database:'meal-rotation-recipesage-safety'}));panel.append(backupGroup.details);
- panel.append(makeSettingsFooter());
+ panel.append(makeSettingsFooter());decoratePreferenceSwitches(panel);
  const help=document.createElement('button');help.id='help';help.className='iconbtn';help.title='Help and gestures';help.setAttribute('aria-label','Help and gestures');help.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01" stroke-linecap="round"/></svg>';help.onclick=()=>openHelpModal();actions.append(help);settings.onclick=async()=>{
  const opening=panel.classList.contains('hidden');
  if(!opening){await finishSettings('ask');render();return}
@@ -1761,8 +1779,8 @@ function rotationCalendarForPlan(plan,entries,now=new Date()){
   const on=dated?parseCookingLocalDate(saved.assignedOn?.[key]):null;
   let date=stored&&on&&on<=stored&&cookingWeekdays[stored.getDay()]===item.day?cookingLocalDate(stored):null;
   const known=dated&&Object.prototype.hasOwnProperty.call(saved.occurrences||{},key);
-  if(!known&&canAssign)date=nextScheduledCookingDate(item.day,now,null,saved?.slots?.[rotationCalendarSlot(item)]);
-  occurrences[key]=date;assignedOn[key]=known?saved.assignedOn?.[key]||null:date?cookingLocalDate(now):null;assignedAt[key]=known?saved.assignedAt?.[key]||null:date?now.toISOString():null;
+  if(!known&&canAssign){const prior=parseCookingLocalDate(saved?.slots?.[rotationCalendarSlot(item)]);date=prior?cookingLocalDate(prior):cookingLocalDate(cookingDateInWeek(item.day,mealPlanWeekStart(plan)))}
+  occurrences[key]=date;assignedOn[key]=known?saved.assignedOn?.[key]||null:date?(date<cookingLocalDate(now)?date:cookingLocalDate(now)):null;assignedAt[key]=known?saved.assignedAt?.[key]||null:date?now.toISOString():null;
  }
  // A linked-only attachment has its parent's scheduled date, not a separate week.
  for(const item of entries)if(item.linkedTo!=null&&!rotationGroupScheduled(plan,item.day,item.cat)){
@@ -1776,6 +1794,24 @@ function rotationCalendarForPlan(plan,entries,now=new Date()){
  if(dated&&saved.legacyCalendar)calendar.legacyCalendar=saved.legacyCalendar;
  else if(saved&&!dated)calendar.legacyCalendar=JSON.parse(JSON.stringify(saved));
  return calendar;
+}
+let legacyLocalDatesChecked=false;
+function legacyLocalDateRepairs(){
+ const fixes=[];for(const plan of mealPlans){const calendar=plan.rotationCalendar;if(calendar?.version!==2||!calendar.weekStart)continue;const start=mealPlanWeekStart(plan),end=new Date(start);end.setDate(end.getDate()+7);
+  for(const entry of getDisplayedWeekdayMealsForPlan(plan)){if(entry.occasional||entry.linkedTo||entry.meal.temporaryMeal||weekSchedule(plan).slots[temporarySlotKey(entry.day,entry.cat)])continue;const key=rotationOccurrenceKey({...entry,planId:plan.id}),choice=plan.cycleSlotChoices?.[weekdaySlotKey(entry.day,entry.cat)],date=parseCookingLocalDate(calendar.occurrences[key]),on=parseCookingLocalDate(calendar.assignedOn[key]),target=cookingDateInWeek(entry.day,start),next=new Date(target);next.setDate(next.getDate()+7);
+   if(!(choice?.skipReplacement||choice?.substitution||choice?.avoidMealId)||!date||!on||date.getTime()!==next.getTime()||on<=target||on>=end||cookingSession(cookingContext(plan.id,entry.day,entry.cat,entry.meal))?.cookedDate)continue;
+   fixes.push({planId:plan.id,key,day:entry.day,cat:entry.cat,from:cookingLocalDate(date),to:cookingLocalDate(target)});
+  }
+ }return fixes;
+}
+function repairLegacyCurrentPlanDates(){
+ if(legacyLocalDatesChecked||bulkRecipeStorageDraft||!recipeBulkBackupAPI||groceryCheckStorageInvalid||cookingStorageInvalid)return;legacyLocalDatesChecked=true;const fixes=legacyLocalDateRepairs();if(!fixes.length)return;
+ const memory={mealPlans,groceryOccurrenceChecks},before=recipeBulkBackupAPI.capture(),grocery=captureGroceryCheckStates();
+ try{
+  recipeBulkBackupAPI.validate(before);bulkRecipeStorageDraft=new Map(Array.from({length:localStorage.length},(_,i)=>{const key=localStorage.key(i);return [key,localStorage.getItem(key)]}));mealPlans=JSON.parse(JSON.stringify(mealPlans));groceryOccurrenceChecks=JSON.parse(JSON.stringify(groceryOccurrenceChecks));
+  for(const fix of fixes){const plan=mealPlans.find(p=>p.id===fix.planId),entries=getDisplayedWeekdayMealsForPlan(plan),entry=entries.find(e=>rotationOccurrenceKey({...e,planId:plan.id})===fix.key);if(!entry)continue;plan.occurrenceDateRepairsV1={...(plan.occurrenceDateRepairsV1||{}),[fix.key]:{from:fix.from,to:fix.to,assignedOn:plan.rotationCalendar.assignedOn[fix.key],reason:'local-replacement-rollover'}};copyOccurrenceDate(plan,entry,fix.to);for(const side of entries.filter(e=>e.day===entry.day&&String(e.linkedTo)===String(entry.meal.id)&&!rotationGroupScheduled(plan,e.day,e.cat)))copyOccurrenceDate(plan,side,fix.to);plan.rotationCalendar=rotationCalendarForPlan(plan,entries)}
+  carryDatedGroceryChecks(grocery,null);localStorage.setItem(mealPlansKey,JSON.stringify({plans:mealPlans,activeId:activePlanId}));const proposed=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(proposed);bulkRecipeStorageDraft=null;recipeBulkBackupAPI.restore(proposed,{id:'local-date-repair:'+JSON.stringify(fixes),kind:'plan-date-repair',ownerId:null});
+ }catch(error){bulkRecipeStorageDraft=null;({mealPlans,groceryOccurrenceChecks}=memory);showAppMessage('The local replacement date repair could not be saved. Existing data was retained. '+error.message)}finally{bulkRecipeStorageDraft=null}
 }
 function scheduledCalendarEntries(plan){
  // Tab-strip visibility does not affect scheduling. Deduplicate the same occurrence once.
@@ -1916,7 +1952,7 @@ function openRotateOptions(allTabs=false){
   if(!slots.size){d.close();return}
   const before=JSON.parse(captureState());before.manualGroceriesUndo=manualGroceryItems();const previous=history.at(-1),cookingBefore=JSON.parse(JSON.stringify({sessions:cookingSessions.occurrences,scales:occurrenceScales.occurrences}));
   localStorage.setItem(ROTATE_MARK_COOKED_KEY,String(cooked.checked));d.close();
-  moveDisplayedMealsToBottom(boxes.every(x=>x.check.checked)?null:slots,allTabs,cooked.checked,retained,before);
+  advanceMealPlanWeek(boxes.every(x=>x.check.checked)?null:slots,allTabs,cooked.checked,retained,before);
   if(history.at(-1)!==previous){
    saveManualGroceryItems(before.manualGroceriesUndo.filter(item=>!item.checked));
    const undo=JSON.parse(history.at(-1)),keys=new Set();
@@ -1924,7 +1960,7 @@ function openRotateOptions(allTabs=false){
    undo.startWeekUndo=true;undo.skippedCookingState={keys:[...keys],...cookingBefore};history[history.length-1]=JSON.stringify(undo);
   }
  };
- d.panel.append(list,label,apply);close.focus({preventScroll:true});
+ d.panel.append(list,label,apply);decoratePreferenceSwitches(d.panel);close.focus({preventScroll:true});
 }
 function displayedRotationSelectionEntries(plan){
  const days=orderedDays();return rotationSelectionEntries(plan).sort((a,b)=>days.indexOf(a.day)-days.indexOf(b.day));
@@ -2794,20 +2830,34 @@ function openMealSlotManager(planId){
  const remove=document.createElement('button');remove.type='button';setIconButton(remove,'delete','Delete meal slot');remove.disabled=mealPlans.length<2;remove.onclick=async()=>{if(!await appDialog('Delete meal plan “'+plan.name+'”? Recipes will be kept.',null,'yesno'))return;snapshot();saveActiveMealPlan();mealPlans=mealPlans.filter(p=>p.id!==planId);d.close();if(activePlanId===planId)loadMealPlan(mealPlans[0].id);else{saveActiveMealPlan();renderList()}};
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Cancel meal slot changes');close.onclick=d.close;actions.append(save,remove,close);d.panel.append(field,position,actions);close.focus({preventScroll:true});
 }
+let mealSlotSuppressClickUntil=0;
 function bindMealSlotGestures(button,plan,bar){
- let press=null,suppress=false,frame=0;const reset=()=>{cancelAnimationFrame(frame);clearTimeout(press?.timer);for(const tab of bar.querySelectorAll('.meal-plan-tab')){tab.style.opacity='';tab.style.outline=''}press=null};
- const reorderAt=x=>{if(!press||!press.drag)return;const target=[...bar.querySelectorAll('.meal-plan-tab')].find(tab=>{const r=tab.getBoundingClientRect();return x>=r.left&&x<=r.right});const moving=bar.querySelector('[data-plan-id="'+plan.id+'"]');if(target&&target!==moving){const box=target.getBoundingClientRect();bar.insertBefore(moving,x<box.left+box.width/2?target:target.nextSibling)}press.ids=[...bar.querySelectorAll('.meal-plan-tab')].map(tab=>tab.dataset.planId)};
+ let press=null,frame=0,events=null;
+ const reset=()=>{cancelAnimationFrame(frame);clearTimeout(press?.timer);events?.abort();events=null;for(const tab of bar.querySelectorAll('.meal-plan-tab'))tab.style.opacity='';press=null};
+ const reorderAt=x=>{if(!press?.drag)return;const target=[...bar.querySelectorAll('.meal-plan-tab')].find(tab=>{const r=tab.getBoundingClientRect();return x>=r.left&&x<=r.right}),moving=bar.querySelector('[data-plan-id="'+plan.id+'"]');if(target&&target!==moving){const box=target.getBoundingClientRect();bar.insertBefore(moving,x<box.left+box.width/2?target:target.nextSibling)}press.ids=[...bar.querySelectorAll('.meal-plan-tab')].map(tab=>tab.dataset.planId)};
  const edge=()=>{if(!press?.drag)return;const box=bar.getBoundingClientRect(),delta=press.x<box.left+35?-8:press.x>box.right-35?8:0;if(delta){bar.scrollLeft+=delta;reorderAt(press.x)}frame=requestAnimationFrame(edge)};
- const finish=(event,cancel=false)=>{if(!press)return;const held=press.held,drag=press.drag,ids=press.ids;reset();if(held){suppress=true;event?.preventDefault();event?.stopPropagation()}if(cancel){renderList({readOnly:true});return}if(drag){saveMealSlotOrder(ids);renderList({readOnly:true})}else if(held)requestAnimationFrame(()=>{if(button.isConnected)openMealSlotManager(plan.id)})};
- button.addEventListener('pointerdown',event=>{if(event.button!==0||press)return;press={x:event.clientX,startX:event.clientX,startY:event.clientY,held:false,drag:false,ids:mealPlans.map(plan=>plan.id)};press.timer=setTimeout(()=>{if(!press)return;press.held=true;bar.setPointerCapture?.(event.pointerId)},550)});
- bar.addEventListener('pointermove',event=>{if(!press)return;press.x=event.clientX;const dx=event.clientX-press.startX,dy=event.clientY-press.startY;if(!press.held){if(Math.hypot(dx,dy)>10)reset();return}if(!press.drag&&Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)){press.drag=true;bar.querySelector('[data-plan-id="'+plan.id+'"]').style.opacity='.6';edge()}if(press.drag){event.preventDefault();reorderAt(event.clientX)}});
- button.addEventListener('touchmove',event=>{if(press?.held)event.preventDefault()},{passive:false});button.setAttribute('aria-keyshortcuts','F2 Alt+ArrowLeft Alt+ArrowRight');button.title='Hold to rename or drag to reorder; F2 to manage';
- bar.addEventListener('pointerup',event=>finish(event));bar.addEventListener('pointercancel',event=>finish(event,true));bar.addEventListener('lostpointercapture',()=>{if(press)finish(null,true)});
- button.addEventListener('click',event=>{if(suppress){event.preventDefault();event.stopImmediatePropagation();suppress=false}},true);button.oncontextmenu=event=>event.preventDefault();
- button.addEventListener('keydown',event=>{if(event.altKey&&['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();const ids=mealPlans.map(plan=>plan.id),i=ids.indexOf(plan.id),j=i+(event.key==='ArrowLeft'?-1:1);if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];saveMealSlotOrder(ids);renderList({readOnly:true})}else if(event.key==='F2'){event.preventDefault();openMealSlotManager(plan.id)}});
- const abort=()=>{if(press)finish(null,true)};button.addEventListener('keydown',event=>{if(event.key==='Escape')abort()});
- const hidden=()=>{if(document.hidden)abort()};window.addEventListener('blur',abort);document.addEventListener('visibilitychange',hidden);const previous=mealSlotDragCleanup;mealSlotDragCleanup=()=>{previous?.();window.removeEventListener('blur',abort);document.removeEventListener('visibilitychange',hidden);reset()};
+ const finish=(event,cancel=false)=>{if(!press)return;const {held,drag,ids}=press;reset();if(held){mealSlotSuppressClickUntil=performance.now()+450;if(event?.cancelable)event.preventDefault();event?.stopPropagation()}if(cancel){if(held)renderList({readOnly:true});return}if(drag){saveMealSlotOrder(ids);renderList({readOnly:true})}else if(held)requestAnimationFrame(()=>{if(button.isConnected)openMealSlotManager(plan.id)})};
+ const move=(event,x,y)=>{if(!press)return;press.x=x;const dx=x-press.startX,dy=y-press.startY;if(!press.held){if(Math.hypot(dx,dy)>10)reset();return}if(event.cancelable)event.preventDefault();if(!press.drag&&Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)){press.drag=true;bar.querySelector('[data-plan-id="'+plan.id+'"]').style.opacity='.6';edge()}if(press.drag)reorderAt(x)};
+ const begin=(event,x,y,touchId=null)=>{if(press)return;events=new AbortController();press={x,startX:x,startY:y,held:false,drag:false,ids:mealPlans.map(p=>p.id),touchId,pointerId:event.pointerId};press.timer=setTimeout(()=>{if(!press)return;press.held=true;if(touchId===null)bar.setPointerCapture?.(event.pointerId)},550);
+  if(touchId!==null){
+   // Native touch events keep their original target while Android transfers/cancels
+   // implicit pointer capture. They also let ordinary swipes scroll before the hold.
+   document.addEventListener('touchmove',e=>{if(e.touches.length!==1){finish(e,true);return}const t=[...e.touches].find(t=>t.identifier===touchId);if(t)move(e,t.clientX,t.clientY)},{passive:false,signal:events.signal});
+   document.addEventListener('touchend',e=>{if([...e.changedTouches].some(t=>t.identifier===touchId))finish(e)},{passive:false,signal:events.signal});
+   document.addEventListener('touchcancel',e=>finish(e,true),{signal:events.signal});
+  }
+ };
+ button.addEventListener('touchstart',e=>{if(e.touches.length!==1){finish(e,true);return}const t=e.changedTouches[0];begin(e,t.clientX,t.clientY,t.identifier)},{passive:true});
+ button.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'||e.button!==0)return;begin(e,e.clientX,e.clientY)});
+ bar.addEventListener('pointermove',e=>{if(press?.touchId===null)move(e,e.clientX,e.clientY)});
+ bar.addEventListener('pointerup',e=>{if(press?.touchId===null)finish(e)});
+ bar.addEventListener('pointercancel',e=>{if(press?.touchId===null)finish(e,true)});
+ bar.addEventListener('lostpointercapture',e=>{if(e.target===bar&&press?.touchId===null)finish(e,true)});
+ button.addEventListener('click',e=>{if(performance.now()<mealSlotSuppressClickUntil){e.preventDefault();e.stopImmediatePropagation()}},true);button.oncontextmenu=e=>e.preventDefault();button.setAttribute('aria-keyshortcuts','F2 Alt+ArrowLeft Alt+ArrowRight');button.title='Hold to rename or drag to reorder; F2 to manage';
+ button.addEventListener('keydown',e=>{if(e.altKey&&['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();const ids=mealPlans.map(p=>p.id),i=ids.indexOf(plan.id),j=i+(e.key==='ArrowLeft'?-1:1);if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];saveMealSlotOrder(ids);renderList({readOnly:true})}else if(e.key==='F2'){e.preventDefault();openMealSlotManager(plan.id)}else if(e.key==='Escape')finish(e,true)});
+ const abort=()=>finish(null,true),hidden=()=>{if(document.hidden)abort()};window.addEventListener('blur',abort);document.addEventListener('visibilitychange',hidden);const previous=mealSlotDragCleanup;mealSlotDragCleanup=()=>{previous?.();window.removeEventListener('blur',abort);document.removeEventListener('visibilitychange',hidden);reset()};
 }
+
 function renderList(options={}){mealSlotDragCleanup?.();mealSlotDragCleanup=null;if(recipeBulkMode&&(showTop||editId!==null))endRecipeBulk();masterGroupDragCleanup?.();masterGroupDragCleanup=null;if(!options.readOnly)reconcileActiveLinkedMeals();rememberCurrentView();
  if(isOnboardingZeroState()){renderOnboardingWelcome();return}
  if(lowerSettingsVisible){
@@ -2815,7 +2865,7 @@ function renderList(options={}){mealSlotDragCleanup?.();mealSlotDragCleanup=null
   if(old)lowerOpenGroups=new Set([...old.querySelectorAll('details[data-settings-group][open]')].map(d=>d.dataset.settingsGroup));
  }
  if(!showMealPlanTabs&&allMealsActive)allMealsActive=false;
- document.body.classList.toggle('overview-without-category-pins',showTop&&(allMealsActive||groceryTabActive));if(!options.readOnly)resetGroceriesForNewTopMeals();document.querySelectorAll('.add-meal-floating').forEach(b=>b.remove());if(!options.readOnly)persist();let list=$('list');const categoryRow=document.getElementById('categoryButtons');if(categoryRow&&categoryRow.parentNode!==$('tabs'))$('tabs').append(categoryRow);const editorEl=$('editor');if(editorEl&&list.contains(editorEl))document.body.insertBefore(editorEl,list);list.classList.toggle('top-summary',showTop);list.innerHTML='';if(!showTop){groceryTabActive=false;allMealsActive=false;topPanel.classList.add('hidden');addFloatingViewButtons()}if(showTop){if(showTop&&showMealPlanTabs&&!allMealsActive&&!groceryTabActive){
+ document.body.classList.toggle('overview-without-category-pins',showTop&&(allMealsActive||groceryTabActive));if(!options.readOnly)resetGroceriesForNewTopMeals();document.querySelectorAll('.add-meal-floating').forEach(b=>b.remove());if(!options.readOnly)persist();let list=$('list');restorePlanCardScroll();const categoryRow=document.getElementById('categoryButtons');if(categoryRow&&categoryRow.parentNode!==$('tabs'))$('tabs').append(categoryRow);const editorEl=$('editor');if(editorEl&&list.contains(editorEl))document.body.insertBefore(editorEl,list);list.classList.toggle('top-summary',showTop);list.innerHTML='';if(!showTop){groceryTabActive=false;allMealsActive=false;topPanel.classList.add('hidden');addFloatingViewButtons()}if(showTop){if(showTop&&showMealPlanTabs&&!allMealsActive&&!groceryTabActive){
  const tabBar=document.createElement('div');tabBar.className='meal-plan-tabs';tabBar.setAttribute('role','tablist');tabBar.setAttribute('aria-label','Meal plans');
  for(const plan of mealPlans){
   const tab=document.createElement('div');tab.className='meal-plan-tab'+(plan.id===activePlanId&&!groceryTabActive&&!allMealsActive?' selected':'');
@@ -2906,7 +2956,7 @@ const mealSlotsByDay={};
 for(const item of displayedTop)mealSlotsByDay[item.day]=(mealSlotsByDay[item.day]||0)+1;
 let previousRenderedDay=null;
 const renderedSlotsByDay={};
-const cardTasks=scheduledMakeAheadTasks(false);displayedTop.forEach(entry=>{list.append(renderPlanMealCard(currentPlan,entry,{tasks:cardTasks,linked:inlineLinkedByParent.get(entry.day+'|'+String(entry.meal?.id))||[]}))});return}if(!showTop){renderMasterCategories(list);return}if(!active)return;const featuredColorById=new Map();for(const entry of getDisplayedWeekdayMealsForPlan(masterDisplayPlan())){if(!featuredColorById.has(String(entry.meal.id)))featuredColorById.set(String(entry.meal.id),colorForDay(entry.day))} [['IN ROTATION',true],['IDEAS',false]].forEach(([title,rot])=>{let h=document.createElement('div');h.className='section';h.textContent=title;list.append(h);masterRecipeOrder(active).filter(m=>m.rotation===rot).forEach(m=>{let row=document.createElement('div');row.className='meal';row.dataset.mealId=String(m.id);if(featuredColorById.has(String(m.id))){row.style.backgroundColor=featuredColorById.get(String(m.id));row.style.borderRadius='8px';row.classList.add('featured-top-meal')}bindMealSwipe(row,m);if(rot&&manualRecipeOrdering){let up=document.createElement('button');up.className='move';up.textContent='↑';up.title='Tap: move to top; long press: move up one';up.setAttribute('aria-label','Move '+(m.name||'meal')+' up');function bindMoveArrow(btn,dir){let holdTimer=null,held=false;btn.addEventListener('pointerdown',()=>{held=false;holdTimer=setTimeout(()=>{held=true;const group=meals.filter(x=>x.cat===m.cat&&x.rotation);const pos=group.findIndex(x=>x.id===m.id),target=pos+dir;if(pos<0||target<0||target>=group.length)return;snapshot();const other=group[target],a=meals.indexOf(m),b=meals.indexOf(other);if(a>=0&&b>=0){meals[a]=other;meals[b]=m;clearOverridesForCat(m.cat);persist();renderList()}},500)});['pointerup','pointerleave','pointercancel'].forEach(ev=>btn.addEventListener(ev,()=>clearTimeout(holdTimer)));btn.onclick=()=>{if(held){held=false;return}moveMasterCategoryMeal(m,dir,false)}}bindMoveArrow(up,-1);row.append(up);let down=document.createElement('button');down.className='move';down.textContent='↓';down.title='Tap: move to bottom; long press: move down one';down.setAttribute('aria-label','Move '+(m.name||'meal')+' down');bindMoveArrow(down,1);row.append(down)}else if(!rot){let cb=document.createElement('input');cb.type='checkbox';cb.className='check';cb.setAttribute('aria-label','Add to rotation');cb.onchange=()=>{if(cb.checked)promoteMealToRotation(m)};row.append(cb)}let body=document.createElement('div');body.className='mealbody';let name=document.createElement('button');name.className='mealname';name.textContent=m.name;name.style.userSelect='none';name.style.webkitUserSelect='none';name.style.webkitTouchCallout='none';name.style.touchAction='pan-y';name.addEventListener('selectstart',e=>e.preventDefault());name.onclick=e=>{if(m.url){e.preventDefault();window.open(m.url,'_blank','noopener')}};bindRenameLongPress(name,m);name.oncontextmenu=e=>e.preventDefault();body.append(name);bindRecipeTimerName(name,m);appendNeedsTweakingIndicator(body,m);appendMealTimes(body,m);row.append(body);list.append(row)})});let add=document.createElement('button');add.className='smallbtn add-meal-floating';add.textContent='+';add.title='Add meal';add.setAttribute('aria-label','Add meal');add.onclick=()=>{snapshot();let m={id:id++,cat:active,name:'',rotation:false,prep:'',cook:'',total:'',url:''};meals.push(m);openEditor(m.id)};document.body.append(add)}function openLinkedMealEditorInline(meal,navigationOrigin=null){openEditor(meal.id,false,navigationOrigin)}
+const cardTasks=null;displayedTop.forEach(entry=>{list.append(renderPlanMealCard(currentPlan,entry,{tasks:cardTasks,linked:inlineLinkedByParent.get(entry.day+'|'+String(entry.meal?.id))||[]}))});return}if(!showTop){renderMasterCategories(list);return}if(!active)return;const featuredColorById=new Map();for(const entry of getDisplayedWeekdayMealsForPlan(masterDisplayPlan())){if(!featuredColorById.has(String(entry.meal.id)))featuredColorById.set(String(entry.meal.id),colorForDay(entry.day))} [['IN ROTATION',true],['IDEAS',false]].forEach(([title,rot])=>{let h=document.createElement('div');h.className='section';h.textContent=title;list.append(h);masterRecipeOrder(active).filter(m=>m.rotation===rot).forEach(m=>{let row=document.createElement('div');row.className='meal';row.dataset.mealId=String(m.id);if(featuredColorById.has(String(m.id))){row.style.backgroundColor=featuredColorById.get(String(m.id));row.style.borderRadius='8px';row.classList.add('featured-top-meal')}bindMealSwipe(row,m);if(rot&&manualRecipeOrdering){let up=document.createElement('button');up.className='move';up.textContent='↑';up.title='Tap: move to top; long press: move up one';up.setAttribute('aria-label','Move '+(m.name||'meal')+' up');function bindMoveArrow(btn,dir){let holdTimer=null,held=false;btn.addEventListener('pointerdown',()=>{held=false;holdTimer=setTimeout(()=>{held=true;const group=meals.filter(x=>x.cat===m.cat&&x.rotation);const pos=group.findIndex(x=>x.id===m.id),target=pos+dir;if(pos<0||target<0||target>=group.length)return;snapshot();const other=group[target],a=meals.indexOf(m),b=meals.indexOf(other);if(a>=0&&b>=0){meals[a]=other;meals[b]=m;clearOverridesForCat(m.cat);persist();renderList()}},500)});['pointerup','pointerleave','pointercancel'].forEach(ev=>btn.addEventListener(ev,()=>clearTimeout(holdTimer)));btn.onclick=()=>{if(held){held=false;return}moveMasterCategoryMeal(m,dir,false)}}bindMoveArrow(up,-1);row.append(up);let down=document.createElement('button');down.className='move';down.textContent='↓';down.title='Tap: move to bottom; long press: move down one';down.setAttribute('aria-label','Move '+(m.name||'meal')+' down');bindMoveArrow(down,1);row.append(down)}else if(!rot){let cb=document.createElement('input');cb.type='checkbox';cb.className='check';cb.setAttribute('aria-label','Add to rotation');cb.onchange=()=>{if(cb.checked)promoteMealToRotation(m)};row.append(cb)}let body=document.createElement('div');body.className='mealbody';let name=document.createElement('button');name.className='mealname';name.textContent=m.name;name.style.userSelect='none';name.style.webkitUserSelect='none';name.style.webkitTouchCallout='none';name.style.touchAction='pan-y';name.addEventListener('selectstart',e=>e.preventDefault());name.onclick=e=>{if(m.url){e.preventDefault();window.open(m.url,'_blank','noopener')}};bindRenameLongPress(name,m);name.oncontextmenu=e=>e.preventDefault();body.append(name);bindRecipeTimerName(name,m);appendNeedsTweakingIndicator(body,m);appendMealTimes(body,m);row.append(body);list.append(row)})});let add=document.createElement('button');add.className='smallbtn add-meal-floating';add.textContent='+';add.title='Add meal';add.setAttribute('aria-label','Add meal');add.onclick=()=>{snapshot();let m={id:id++,cat:active,name:'',rotation:false,prep:'',cook:'',total:'',url:''};meals.push(m);openEditor(m.id)};document.body.append(add)}function openLinkedMealEditorInline(meal,navigationOrigin=null){openEditor(meal.id,false,navigationOrigin)}
 // Undo restores only the removed occurrence and its linked cooking contexts.
 // Progress made on retained meals after Skip must remain untouched.
 function captureSkippedCookingState(plan,entry){
@@ -2981,12 +3031,12 @@ function appendExpandableMealActions(body,title,entry){
  const {day,cat,meal,linkedTo}=entry,plan=mealPlans.find(plan=>plan.id===activePlanId),context=cookingContext(activePlanId,day,cat,meal,linkedTo);
  const toggle=planCardDisclosure(title,'Meal actions for '+meal.name);
  const panel=document.createElement('div');panel.className='expanded-meal-actions';panel.hidden=true;
- const heading=document.createElement('div');heading.className='expanded-meal-heading';const favorite=recipeFavoriteButton(meal),favoriteAction=favorite.onclick;favorite.onclick=e=>{favoriteAction(e);const next=[...document.querySelectorAll('.plan-meal-card')].find(card=>card.dataset.displayKey===scheduleDisplayKey(entry));next?.querySelector('.meal-actions-toggle')?.click()};heading.append(favorite);
- const cooked=document.createElement('button');cooked.type='button';cooked.className='meal-options-last-cooked';cooked.textContent=(lastCookedLabel(meal)||'Last cooked Never').replace(/^Last cooked /,'Last cooked: ')+' ✎';cooked.setAttribute('aria-label','Edit last cooked date for '+meal.name);cooked.onclick=()=>editMealCookedDate(meal,null,context);heading.append(cooked);panel.append(heading);
+ const heading=document.createElement('div');heading.className='expanded-meal-heading';const favorite=recipeFavoriteButton(meal),favoriteAction=favorite.onclick;favorite.onclick=e=>{keepPlanCardScroll();favoriteAction(e)};heading.append(favorite);
+ const cooked=document.createElement('button');cooked.type='button';cooked.className='meal-options-last-cooked';cooked.textContent=(lastCookedLabel(meal)||'Last cooked Never').replace(/^Last cooked /,'Last cooked: ')+' ✎';cooked.setAttribute('aria-label','Edit last cooked date for '+meal.name);cooked.onclick=()=>{keepPlanCardScroll();editMealCookedDate(meal,null,context);watchPlanCardReturn()};heading.append(cooked);panel.append(heading);
  const planning=document.createElement('div'),editing=document.createElement('div');planning.className=editing.className='meal-action-group';
- const add=(group,label,icon,action)=>{const button=document.createElement('button');button.type='button';button.className='meal-inline-action';setIconButton(button,icon,label);button.style.cssText='';const text=document.createElement('span');text.textContent=label;button.append(text);button.onclick=e=>{e.preventDefault();e.stopPropagation();action()};group.append(button);return button};
+ const add=(group,label,icon,action)=>{const button=document.createElement('button');button.type='button';button.className='meal-inline-action';setIconButton(button,icon,label);button.style.cssText='';const text=document.createElement('span');text.textContent=label;button.append(text);button.onclick=async e=>{e.preventDefault();e.stopPropagation();keepPlanCardScroll();const key=title.dataset.cardIdentity,before=JSON.stringify(recipePlanEntries(activePlanId).map(e=>[e.day,e.cat,e.meal.id,e.linkedTo||'']));await action();watchPlanCardReturn();if(group===planning)finishPlanCardAction(key,before)};group.append(button);return button};
  add(planning,'Use next recipe','right',()=>skipScheduledMeal(day,cat,meal));
- add(planning,'Choose a different meal','search',()=>{const occasional=cat==='@day'||!getDayCategories(day).length||!!entry.occasional;openWeekdayMealChooser(day,cat==='@day'?null:cat,meal,occasional,{occurrenceKey:simpleSideOccurrenceKey(plan,entry)})});
+ add(planning,'Choose a different meal','search',()=>{const occasional=cat==='@day'||!getDayCategories(day).length||!!entry.occasional;openWeekdayMealChooser(day,cat==='@day'?null:cat,meal,occasional,{occurrenceKey:simpleSideOccurrenceKey(plan,entry),cardIdentity:title.dataset.cardIdentity})});
  add(planning,'Leave this meal empty','cancel',()=>skipMealOccurrence(plan.id,entry,simpleSideOccurrenceKey(plan,entry)));
  add(editing,'Edit recipe','rename',()=>meal.temporaryMeal?openOneTimeMealEditor(day,cat,meal):openEditor(meal.id,false,captureMealEditorOrigin()));
  add(editing,'Edit groceries','grocery',()=>openTopIngredientChooser(meal));
@@ -2994,7 +3044,7 @@ function appendExpandableMealActions(body,title,entry){
  panel.append(planning,editing);
  if(underlyingSlotMeal(plan,day,cat)&&weekSchedule(plan).slots[temporarySlotKey(day,cat)])add(editing,'Resume planned meal','right',()=>resumeWeekSlot(day,cat));
  for(const item of hiddenLinkedSides(plan,day,cat,meal))add(editing,'Restore '+item.side.name,'right',()=>restoreHiddenLinkedSide(day,cat,meal,item.side.id));
- toggle.onclick=e=>{e.preventDefault();e.stopPropagation();panel.hidden=!panel.hidden;title.classList.toggle('plan-card-expanded',!panel.hidden);toggle.setAttribute('aria-expanded',String(!panel.hidden))};body.append(panel);
+ toggle.onclick=e=>{e.preventDefault();e.stopPropagation();setPlanCardExpanded(title,panel.hidden)};body.append(panel);
 }
 function openTopMealActionMenu(day,category,meal,fromLinkedGroup=false,cookingOverride=null,navigationOrigin=null){
  const plan=mealPlans.find(p=>p.id===activePlanId);
@@ -3160,17 +3210,17 @@ function openWeekdayMealChooser(day,category,currentMeal,occasional=false,option
    if(signature()!==initialSignature||duplicates.some((entry,index)=>!recipePlanEntries(planId).some(current=>simpleSideOccurrenceKey(plan,current)===duplicateKeys[index]))){await showAppMessage('The scheduled meals changed. Reopen the meal picker.');close();return}
    if(options.slotContext){const context=options.slotContext;if(context.planId!==planId||emptyWeekSlotContext(plan,day,context.cat).date!==context.date||weekSchedule(plan).slots[temporarySlotKey(day,context.cat)]?.kind!=='empty'){close();return}}
    if(!decision){pendingMeal=currentMeal;renderChoices();return}
-   applyRecipeBulk([String(selectedMeal.id)],{},{mealSelection:{planId,week:pickerWeek,day,category,mealId:String(selectedMeal.id),occasional,sourceKey:decision.replace?simpleSideOccurrenceKey(plan,decision.replace):null,destinationKey:options.occurrenceKey||recipePlanEntries(planId).filter(entry=>entry.day===day&&(occasional?entry.occasional:entry.cat===category)&&String(entry.meal.id)===String(currentMeal?.id)).map(entry=>simpleSideOccurrenceKey(plan,entry))[0]||null},render:false});close();renderList();
+   applyRecipeBulk([String(selectedMeal.id)],{},{mealSelection:{planId,week:pickerWeek,day,category,mealId:String(selectedMeal.id),occasional,sourceKey:decision.replace?simpleSideOccurrenceKey(plan,decision.replace):null,destinationKey:options.occurrenceKey||recipePlanEntries(planId).filter(entry=>entry.day===day&&(occasional?entry.occasional:entry.cat===category)&&String(entry.meal.id)===String(currentMeal?.id)).map(entry=>simpleSideOccurrenceKey(plan,entry))[0]||null},render:false});expandedPlanCards.delete(options.cardIdentity);close();renderList();
   }catch(error){await showAppMessage('Meal could not be changed: '+error.message)}finally{busy=false;save.disabled=false}
  };
  const quick=document.createElement('div');quick.className='weekday-meal-quick-actions';
  const create=document.createElement('button');create.type='button';setIconButton(create,'add','Create New Meal');create.style.cssText+=';flex:0 0 44px;width:44px;height:44px';create.onclick=()=>{const target={planId:activePlanId,day,category,occasional};overlay.style.display='none';const opened=openCreateScheduledRecipe(target,{complete:close,cancel:()=>{overlay.style.display='flex';create.focus({preventScroll:true})}});if(!opened)overlay.style.display='flex'};header.append(create);
  const alternate=document.createElement('button');alternate.type='button';alternate.className='smallbtn';alternate.textContent='Use next recipe';const nextAvailable=()=>currentMeal?!occasional&&rotationGroupScheduled(mealPlans.find(plan=>plan.id===pickerPlanId),day,category):!!emptySlotAutomaticCandidate(day,category);alternate.disabled=!nextAvailable();alternate.onclick=async()=>{
   if(busy||!overlay.isConnected||activePlanId!==pickerPlanId||rotationWeekOffset!==pickerWeek||signature()!==initialSignature)return;busy=true;alternate.disabled=true;
-  try{if(currentMeal){if(await skipScheduledMeal(day,category,currentMeal))close()}else{const candidate=emptySlotAutomaticCandidate(day,category);if(!candidate)throw Error('No alternative eligible recipe is available.');applyRecipeBulk([String(candidate.id)],{},{render:false,mealSelection:{planId:pickerPlanId,week:pickerWeek,day,category,mealId:String(candidate.id),occasional,automatic:true}});close();renderList()}}
+  try{if(currentMeal){if(await skipScheduledMeal(day,category,currentMeal)){expandedPlanCards.delete(options.cardIdentity);close();renderList({readOnly:true})}}else{const candidate=emptySlotAutomaticCandidate(day,category);if(!candidate)throw Error('No alternative eligible recipe is available.');applyRecipeBulk([String(candidate.id)],{},{render:false,mealSelection:{planId:pickerPlanId,week:pickerWeek,day,category,mealId:String(candidate.id),occasional,automatic:true}});close();renderList()}}
   catch(error){await showAppMessage(error.message)}finally{busy=false;alternate.disabled=!nextAvailable()}
  };quick.append(alternate);
- const cancel=document.createElement('button');cancel.type='button';setIconButton(cancel,'cancel','Cancel');cancel.onclick=close;actions.append(save);actions.append(cancel);const empty=document.createElement('button');empty.type='button';empty.className='smallbtn';empty.textContent='Leave '+day+(showMealPlanTabs?'’s '+(mealPlans.find(plan=>plan.id===pickerPlanId)?.name||'meal').toLocaleLowerCase():'')+' empty';empty.onclick=()=>{if(busy||activePlanId!==pickerPlanId||rotationWeekOffset!==pickerWeek||signature()!==initialSignature)return;busy=true;empty.disabled=true;try{const plan=mealPlans.find(plan=>plan.id===pickerPlanId),entry=recipePlanEntries(pickerPlanId).find(entry=>(!options.occurrenceKey||simpleSideOccurrenceKey(plan,entry)===options.occurrenceKey)&&entry.day===day&&(occasional?entry.occasional:entry.cat===category)&&String(entry.meal.id)===String(currentMeal?.id));if(entry)skipMealOccurrence(pickerPlanId,entry,simpleSideOccurrenceKey(plan,entry));close()}catch(error){busy=false;empty.disabled=false;showAppMessage(error.message)}};quick.append(empty);const heading=document.createElement('h4');heading.textContent='Choose a different meal';heading.style.margin='4px 0 0';box.append(header,quick,heading,search,list,actions);overlay.append(box);
+ const cancel=document.createElement('button');cancel.type='button';setIconButton(cancel,'cancel','Cancel');cancel.onclick=close;actions.append(save);actions.append(cancel);const empty=document.createElement('button');empty.type='button';empty.className='smallbtn';empty.textContent='Leave '+day+(showMealPlanTabs?'’s '+(mealPlans.find(plan=>plan.id===pickerPlanId)?.name||'meal').toLocaleLowerCase():'')+' empty';empty.onclick=()=>{if(busy||activePlanId!==pickerPlanId||rotationWeekOffset!==pickerWeek||signature()!==initialSignature)return;busy=true;empty.disabled=true;try{const plan=mealPlans.find(plan=>plan.id===pickerPlanId),entry=recipePlanEntries(pickerPlanId).find(entry=>(!options.occurrenceKey||simpleSideOccurrenceKey(plan,entry)===options.occurrenceKey)&&entry.day===day&&(occasional?entry.occasional:entry.cat===category)&&String(entry.meal.id)===String(currentMeal?.id));if(entry){skipMealOccurrence(pickerPlanId,entry,simpleSideOccurrenceKey(plan,entry));expandedPlanCards.delete(options.cardIdentity);renderList({readOnly:true})}close()}catch(error){busy=false;empty.disabled=false;showAppMessage(error.message)}};quick.append(empty);const heading=document.createElement('h4');heading.textContent='Choose a different meal';heading.style.margin='4px 0 0';box.append(header,quick,heading,search,list,actions);overlay.append(box);
  overlay.addEventListener('click',event=>{if(event.target===overlay)close()});overlay.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();close()}});document.body.append(overlay);window.visualViewport?.addEventListener('resize',fit);window.visualViewport?.addEventListener('scroll',fit);fit();renderChoices();
 }
 
@@ -4557,7 +4607,7 @@ function placeEditorInline(){
  else if(editor.parentNode!==document.body)document.body.insertBefore(editor,$('list'));
 }
 
-function render(){repairImportedRecipeSageLinks();if(!showTop&&!masterCategoriesView)setMasterCategoriesView(true);if(!showTop&&!masterExpansionInitialized){masterExpansionInitialized=true;masterExpandedCategories.clear();}persist();rememberCurrentView();renderTabs();renderMenu();renderList();if(editId){renderEditor();placeEditorInline()}else{$('editor').innerHTML='';const e=$('editor');if(e.parentNode!==document.body)document.body.insertBefore(e,$('list'))}requestAnimationFrame(showTutorialHint);requestRecipeImportResume()}document.addEventListener('contextmenu',e=>{if(!e.target.closest('input,textarea,select')){e.preventDefault();e.stopPropagation()}});document.addEventListener('selectstart',e=>{if(!e.target.closest('input,textarea,select'))e.preventDefault()});document.addEventListener('pointerdown',e=>{if(menuCat&&!$('catmenu').classList.contains('hidden')&&!$('catmenu').contains(e.target)&&!$('tabs').contains(e.target)){menuCat=null;renderMenu()}});
+function render(){repairImportedRecipeSageLinks();if(!showTop&&!masterCategoriesView)setMasterCategoriesView(true);if(!showTop&&!masterExpansionInitialized){masterExpansionInitialized=true;masterExpandedCategories.clear();}persist();rememberCurrentView();renderTabs();repairLegacyCurrentPlanDates();renderMenu();renderList();if(editId){renderEditor();placeEditorInline()}else{$('editor').innerHTML='';const e=$('editor');if(e.parentNode!==document.body)document.body.insertBefore(e,$('list'))}requestAnimationFrame(showTutorialHint);requestRecipeImportResume()}document.addEventListener('contextmenu',e=>{if(!e.target.closest('input,textarea,select')){e.preventDefault();e.stopPropagation()}});document.addEventListener('selectstart',e=>{if(!e.target.closest('input,textarea,select'))e.preventDefault()});document.addEventListener('pointerdown',e=>{if(menuCat&&!$('catmenu').classList.contains('hidden')&&!$('catmenu').contains(e.target)&&!$('tabs').contains(e.target)){menuCat=null;renderMenu()}});
 // Outside-tap handling for inline meal editors and both settings panels.
 // A single tap should first close the open pane, then perform the tapped action.
 // When there are edits, finish the confirmation before replaying that tap.

@@ -34,7 +34,8 @@ function appendManualGroceries(rows,refresh){
 const GROCERY_TEXT_OVERRIDES_KEY='mealRotationGroceryTextOverridesV1';
 function groceryTextOverrides(){const records=JSON.parse(localStorage.getItem(GROCERY_TEXT_OVERRIDES_KEY)||'{}');validateGroceryTextOverrides(records);return records}
 function groceryTextKey(line){return JSON.stringify([...new Set((line.contributions||[]).map(source=>source.id))].sort())}
-function groceryDisplayText(line){const ids=JSON.parse(groceryTextKey(line));for(const [key,text]of Object.entries(groceryTextOverrides()).reverse()){let sources;try{sources=JSON.parse(key)}catch(_){continue}if(ids.length&&Array.isArray(sources)&&ids.every(id=>sources.includes(id)))return text}return line.line}
+function groceryTextSourceIdentity(id){try{const token=JSON.parse(id),dated=JSON.parse(token[0]);if(dated.length===6)dated.pop();return JSON.stringify([dated,token[1],token[2]])}catch(e){return id}}
+function groceryDisplayText(line){const ids=JSON.parse(groceryTextKey(line));for(const [key,text]of Object.entries(groceryTextOverrides()).reverse()){let sources;try{sources=JSON.parse(key)}catch(_){continue}if(ids.length&&Array.isArray(sources)&&ids.every(id=>sources.includes(id)||sources.some(source=>groceryTextSourceIdentity(source)===groceryTextSourceIdentity(id))))return text}return line.line}
 function openGroceryTextEditor(line,refresh){
  const d=recipeBulkDialog('Edit grocery item'),field=document.createElement('input');field.type='text';field.className='manual-grocery-field';field.setAttribute('aria-label','Grocery item');field.value=groceryDisplayText(line);
  const note=document.createElement('p');note.className='muted';note.textContent='Your recipe will not change.';
@@ -60,15 +61,13 @@ function groceryPeriodSchedules(period=groceryPeriod){
  if(period==='none')return [];
  const cacheable=period==='both'||period==='next';if(cacheable&&groceryCheckSchedules?.has(period))return groceryCheckSchedules.get(period);
  const current=mealPlans.map(saved=>{const plan=saved.id===activePlanId?{...saved,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:saved;return {plan,entries:getDisplayedWeekdayMealsForPlan(plan),preview:false}});if(period==='rotation')return current;
- const start=cookingPlanningWeekStart(),next=new Date(start);next.setDate(next.getDate()+7);const end=new Date(next);end.setDate(end.getDate()+7);
- const within=(source,from,to)=>({...source,entries:source.entries.filter(entry=>{const date=scheduledOccurrenceDate({...entry,planId:source.plan.id},source.plan.rotationCalendar);return date>=from&&date<to})});
- const upcoming=period==='next'||period==='both'?previewNextWeekPlans().map(source=>within(source,next,end)):[];
+ const upcoming=period==='next'||period==='both'?previewNextWeekPlans():[];
  const result=(period==='next'?[]:current).concat(upcoming);if(cacheable&&groceryCheckSchedules)groceryCheckSchedules.set(period,result);return result;
 }
 function getGroceryContributions(allPlans=false,period='rotation'){
  let selected={};try{selected=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
  const result=[],observed=new Set(),legacyOwners=new Map(),ingredientTokens=new Map();
- for(const {plan,entries,preview}of groceryPeriodSchedules(period)){
+ for(const {plan,entries,preview,retainedKeys}of groceryPeriodSchedules(period)){
   if(!allPlans&&!(showMealPlanTabs&&mealPlans.length>1)&&plan.id!==activePlanId)continue;
   if(!allPlans&&showMealPlanTabs&&mealPlans.length>1&&masterGroceryExcludedPlanIds.has(String(plan.id)))continue;
   const groupRank=entry=>{const raw=plan.weekdayCategories?.[entry.day],groups=Array.isArray(raw)?raw:[raw],index=groups.indexOf(entry.cat);return index<0?groups.length:index};
@@ -78,7 +77,7 @@ function getGroceryContributions(allPlans=false,period='rotation'){
    const context=cookingContext(plan.id,day,entry.cat,meal,linkedTo),occurrence=groceryOccurrenceIdentity(plan,entry),scheduledDate=cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar)),dated=JSON.stringify([...JSON.parse(occurrence),scheduledDate]);if(observed.has(dated))continue;observed.add(dated);
    const legacyOccurrence=JSON.stringify(JSON.parse(occurrence).slice(0,4));if(!legacyOwners.has(legacyOccurrence))legacyOwners.set(legacyOccurrence,occurrence);const legacyOwner=!preview&&legacyOwners.get(legacyOccurrence)===occurrence;
    const linkedParent=linkedTo??entries.find(parent=>parent.day===day&&parent.cat!==entry.cat&&(parent.meal.linkedMealIds||[]).some(id=>String(id)===String(meal.id)))?.meal.id;
-   const selectedKeys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),actualPlan=mealPlans.find(item=>item.id===plan.id),sameDate=actualPlan&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},actualPlan.rotationCalendar))===scheduledDate,multiplier=!preview||sameDate?occurrenceMultiplier(context):1,counts=new Map();
+   const selectedKeys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),actualPlan=mealPlans.find(item=>item.id===plan.id),sameDate=actualPlan&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},actualPlan.rotationCalendar))===scheduledDate,multiplier=!preview||sameDate||retainedKeys?.has(rotationOccurrenceKey({...entry,planId:plan.id}))?occurrenceMultiplier(context):1,counts=new Map();
    if(!ingredientTokens.has(meal))ingredientTokens.set(meal,cookingItemTokens(meal).ingredients);
    for(const [ingredientIndex,raw]of (Array.isArray(meal.ingredients)?meal.ingredients:[]).entries()){
     const original=String(raw??'').trim(),oldKey=ingredientKey(original);if(!oldKey||!selectedKeys.has(oldKey)||syncIngredientHeading(original))continue;

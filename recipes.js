@@ -528,7 +528,7 @@ function buildRecipeViewerSettings(bar,inner){
  sync.onchange=()=>{recipeViewPrefs.syncIngredients=sync.checked;saveRecipeViewPrefs();if(recipeViewer)recipeViewer.syncRequested=true;renderRecipeViewer()};
  autoComplete.onchange=()=>{recipeViewPrefs.autoCompleteIngredients=autoComplete.checked;saveRecipeViewPrefs();cancelRecipeAdvance()};
  keepScreenAwake.onclick=()=>{recipeViewPrefs.keepScreenAwake=recipeViewPrefs.keepScreenAwake===false;saveRecipeViewPrefs();const view=recipeViewer;if(!view)return;if(recipeViewPrefs.keepScreenAwake){view.wakeRetries=0;acquireRecipeWakeLock()}else releaseRecipeWakeLock(view);updateRecipeWakeControl(view)};
- return {settings,cookingSettings,sync,autoComplete,keepScreenAwake};
+ decoratePreferenceSwitches(cookingSettings);return {settings,cookingSettings,sync,autoComplete,keepScreenAwake};
 }
 function mealEditorSubsection(key,title,id,meal){
  const group=makeSettingsGroup(key,title);delete group.details.dataset.settingsGroup;group.details.classList.add('meal-editor-subsection');group.details.dataset.editorSubsection=key;group.details.id=id;
@@ -1197,9 +1197,9 @@ function renderTodayTodo(provided=null){
  const old=document.getElementById('todaysTodo'),visibility=document.getElementById('todoVisibilityControl'),header=document.querySelector('#list>.rotation-compact-header');
  if(!header||!showTop||allMealsActive||groceryTabActive||!makeAheadDisplayPrefs.showMakeAheadReminders){old?.remove();visibility?.remove();return}
  const today=cookingLocalDate(new Date()),start=cookingPlanningWeekStart();start.setDate(start.getDate()+7);const end=new Date(start);end.setDate(end.getDate()+7);
- const seen=new Set(),items=(provided||scheduledMakeAheadTasks()).filter(item=>{
-  const id=JSON.stringify([item.plan.id,item.key]);if(!makeAheadTaskVisible(item,today)||seen.has(id))return false;
-  if(rotationWeekOffset?item.plan.id!==activePlanId||item.scheduled<cookingLocalDate(start)||item.scheduled>=cookingLocalDate(end):item.due>today)return false;
+ const seen=new Set(),items=(provided||scheduledMakeAheadTasks(!!rotationWeekOffset)).filter(item=>{
+  const id=JSON.stringify([item.plan.id,item.key]);const pending=item.plan.makeAheadPending?.some(saved=>saved.key===item.key);if((!makeAheadTaskVisible(item,today)&&!pending)||seen.has(id))return false;
+  if(rotationWeekOffset?item.plan.id!==activePlanId||item.scheduled<cookingLocalDate(start)||item.scheduled>=cookingLocalDate(end):item.due>today||item.scheduled>=cookingLocalDate(start))return false;
   seen.add(id);return true;
  }).sort((a,b)=>Number(a.complete)-Number(b.complete)||a.due.localeCompare(b.due));
  if(!items.some(item=>!item.complete)){old?.remove();visibility?.remove();return}

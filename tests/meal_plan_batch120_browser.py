@@ -235,9 +235,101 @@ def accompaniments_and_footer(browser,name):
  assert p.locator('.recipe-footer-linked').evaluate('(x)=>getComputedStyle(x).textDecorationLine')=='none'
  p.screenshot(path='/workspace/work/review120/'+name+'-footer.png');assert not errors,errors;c.close();print('PASS',name,'linked accompaniment versus independent side controls, occurrence data preservation and compact footer actions',flush=True)
 
+
+base.HOOK+='''window.followup120={
+ seed:()=>{review120.seed();meals.push({id:74,name:'Thai Garlic Pork',cat:'Meals',rotation:true,ingredients:['1 kg pork'],instructions:['Cook pork.'],url:''},{id:75,name:'Thai Khao Soi',cat:'Meals',rotation:true,ingredients:['2 cups noodles'],instructions:['Cook.'],url:''});weekdayCategories.Sunday=['Meals'];weekdayMealOverrides['Sunday::Meals']='72';saveActiveMealPlan();const plan=mealPlans.find(p=>p.id===activePlanId),start=parseCookingLocalDate('2026-11-09');for(const e of getDisplayedWeekdayMeals()){const key=rotationOccurrenceKey({...e,planId:plan.id});plan.rotationCalendar.occurrences[key]=cookingLocalDate(cookingDateInWeek(e.day,start));plan.rotationCalendar.assignedOn[key]='2026-11-09';plan.rotationCalendar.assignedAt[key]='2026-11-09T12:00:00.000Z'}plan.rotationCalendar=rotationCalendarForPlan(plan,getDisplayedWeekdayMeals());const selected=Object.fromEntries(meals.map(m=>[String(m.id),m.ingredients||[]]));localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selected));persist();saveActiveMealPlan();render()},
+ sources:period=>groceryPeriodSchedules(period).map(s=>({id:s.plan.id,preview:s.preview,entries:s.entries.map(e=>[e.day,e.cat,String(e.meal.id)])})),
+ groceries:period=>getGroceryContributions(false,period).map(s=>({id:s.id,day:s.day,plan:s.planId,meal:String(s.mealId),checked:grocerySourceChecked(s),amount:groceryCheckedAmount(s),scale:s.multiplier})),
+ seedChecks:()=>{const sources=getGroceryContributions(true);sources.forEach((s,i)=>groceryOccurrenceChecks.checks[s.id]=i%2===0);saveGroceryOccurrenceChecks();const records=Object.fromEntries([...getMasterGroceryItems()].map(([key,line])=>[groceryTextKey(line),'Custom '+line.line]));localStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records))},
+ wording:()=>[...getMasterGroceryItems().values()].map(groceryDisplayText),
+ period:value=>{groceryPeriod=value;localStorage.setItem(GROCERY_PERIOD_KEY,value)},
+ badDates:()=>{const plan=mealPlans.find(p=>p.id===activePlanId);weekdayCategories.Tuesday=['Meals'];weekdayMealOverrides['Tuesday::Meals']='74';saveActiveMealPlan();for(const [day,id,date]of [['Tuesday',74,'2026-11-17'],['Wednesday',71,'2026-11-18']]){const e=getDisplayedWeekdayMeals().find(e=>e.day===day&&e.meal.id===id),key=rotationOccurrenceKey({...e,planId:plan.id});plan.rotationCalendar.occurrences[key]=date;plan.rotationCalendar.assignedOn[key]='2026-11-15';plan.rotationCalendar.assignedAt[key]='2026-11-15T10:00:00.000Z';plan.cycleSlotChoices[weekdaySlotKey(day,e.cat)]={...plan.cycleSlotChoices[weekdaySlotKey(day,e.cat)],mealId:String(id),parentId:'',skipReplacement:true};}plan.rotationCalendar=rotationCalendarForPlan(plan,getDisplayedWeekdayMeals());saveActiveMealPlan(false);persist();renderList({readOnly:true})},
+ repair:()=>{legacyLocalDatesChecked=false;repairLegacyCurrentPlanDates();renderList({readOnly:true})},
+ dates:()=>mealPlans.map(plan=>({id:plan.id,calendar:plan.rotationCalendar,repairs:plan.occurrenceDateRepairsV1})),
+ ambiguousFuture:()=>{const plan=mealPlans.find(p=>p.id===activePlanId),e=getDisplayedWeekdayMeals().find(e=>e.day==='Saturday'),key=rotationOccurrenceKey({...e,planId:plan.id});plan.rotationCalendar.occurrences[key]='2026-11-28';plan.rotationCalendar.assignedOn[key]='2026-11-09';saveActiveMealPlan(false)},
+ tasks:kind=>{const plan=mealPlans.find(p=>p.id===activePlanId),meal=meals.find(m=>m.id===72);plan.makeAheadChecks={};meal.makeAheadTasks=kind==='none'?[]:[{id:'today',description:'Defrost Sunday meal',daysBefore:0}];makeAheadDisplayPrefs.showMakeAheadReminders=true;makeAheadDisplayPrefs.showCompletedToday=true;persist();renderList({readOnly:true})},
+ futureTask:()=>{const meal=meals.find(m=>m.id===74);meal.makeAheadTasks=[{id:'future',description:'Future preparation',daysBefore:1}];persist();renderList({readOnly:true})},
+ reminders:value=>{makeAheadDisplayPrefs.showMakeAheadReminders=value;saveMakeAheadDisplayPrefs();renderList({readOnly:true})},
+ validate:()=>recipeBulkBackupAPI.validate(recipeBulkBackupAPI.capture()),raw:()=>plan120.state(),progress:()=>JSON.stringify({sessions:cookingSessions,scales:occurrenceScales,recipes:meals.map(m=>[m.id,m.lastCooked,m.makeAheadTasks])}),
+ scaleRetained:()=>{const e=getDisplayedWeekdayMeals().find(e=>e.day==='Wednesday'),context={...cookingContext(activePlanId,e.day,e.cat,e.meal,e.linkedTo),scaleGroupId:groupIdentity(e.cat,true)};occurrenceScales.occurrences[scaleOccurrenceKey(context)]={context,multiplier:2};writeOccurrenceScales(occurrenceScales)},
+ skip:day=>skipScheduledMeal(day,'Meals',getDisplayedWeekdayMeals().find(e=>e.day===day).meal),
+ render:()=>renderList({readOnly:true})
+};'''
+
+def setup_followup(browser,name,width=360):
+ c,p,errors,prefix=base.setup(browser,name,width);p.clock.set_fixed_time(datetime(2026,11,15,12,tzinfo=timezone.utc));p.evaluate('followup120.seed()');return c,p,errors,prefix
+
+def expanded_card(p,day):
+ row=card(p,day);button=row.get_by_role('button',name='Meal actions for ',exact=False).first
+ if button.get_attribute('aria-expanded')=='false':button.tap()
+ return row
+
+def renewed_controls(browser,name):
+ c,p,errors,prefix=setup_followup(browser,name,320);p.locator('#settings').tap();p.locator('[data-settings-group=display]>summary').tap()
+ manual=p.get_by_role('switch',name='Enable manual recipe ordering',exact=True);assert manual.count()==1
+ for switch in p.locator('input.preference-switch').all():
+  assert switch.locator('xpath=..').get_attribute('class')=='preference-switch-control'
+ target=p.get_by_role('switch',name='Show cooking times',exact=True);thumb=target.locator('xpath=..').locator('.preference-switch-thumb');before=thumb.bounding_box();target.check();p.wait_for_timeout(160);after=thumb.bounding_box();assert abs(after['x']-before['x'])>=14
+ target.focus();assert thumb.is_visible();p.screenshot(path='/workspace/work/renew120/'+name+'-switches.png')
+ assert not target.locator('xpath=ancestor::fieldset').get_by_role('switch',name='Show Make Ahead Reminders',exact=True).count()
+ p.get_by_role('button',name='Cancel settings',exact=True).tap()
+ tabs=p.locator('.meal-plan-tab');assert tabs.first.evaluate('(e)=>getComputedStyle(e).backgroundColor')=='rgb(255, 255, 255)';assert tabs.nth(1).evaluate('(e)=>getComputedStyle(e).backgroundColor')!='rgb(255, 255, 255)'
+ for view in ['meals','week']:
+  if view=='week':p.evaluate("review120.aggregate('week')")
+  selector=p.locator('.week-selector');first=selector.get_by_role('button',name='This week',exact=True);second=selector.get_by_role('button',name='Next week',exact=True)
+  assert first.evaluate('(e)=>getComputedStyle(e).fontWeight')=='600';assert second.evaluate('(e)=>getComputedStyle(e).fontWeight')=='400'
+  p.screenshot(path='/workspace/work/renew120/'+name+'-'+view+'-buttons.png')
+ assert not errors,errors;c.close();print('PASS',name,'real switch thumbs, manual-order semantics, separate reminders, recognizable tabs and both week-button states',flush=True)
+
+def renewed_todo(browser,name):
+ c,p,errors,prefix=setup_followup(browser,name);p.evaluate("followup120.tasks('today')")
+ assert not p.locator('.plan-meal-card .make-ahead-reminder').count();section=p.locator('#todaysTodo');assert section.is_visible();section.get_by_role('button',name='Collapse to-do tasks',exact=True).tap();assert section.locator('#todoTaskItems').is_hidden();section.get_by_role('button',name='Expand to-do tasks',exact=True).tap()
+ expanded_card(p,'Sunday');p.evaluate('scrollTo(0,0)');assert not p.locator('.plan-meal-card .make-ahead-reminder').count();p.screenshot(path='/workspace/work/renew120/'+name+'-todo.png')
+ for checkbox in section.locator('input[type=checkbox]').all():
+  if not checkbox.is_checked():checkbox.click()
+ assert not p.locator('#todaysTodo').count()
+ p.evaluate("followup120.tasks('none');followup120.futureTask()");assert not p.locator('#todaysTodo').count()
+ p.evaluate("followup120.tasks('today');followup120.reminders(false)");expanded_card(p,'Sunday');assert not p.locator('#todaysTodo,.plan-meal-card .make-ahead-reminder').count()
+ assert not errors,errors;c.close();print('PASS',name,'separate collapsible due-today section, completion removes header/eye/spacing, future isolation and reminder off',flush=True)
+
+def renewed_expansion(browser,name):
+ c,p,errors,prefix=setup_followup(browser,name);row=expanded_card(p,'Sunday');p.evaluate('scrollTo(0,document.body.scrollHeight)');p.wait_for_timeout(50);position=p.evaluate('scrollY');row.locator('[data-recipe-favorite]').tap();p.wait_for_function("document.querySelector('.plan-meal-card[data-schedule-day=Sunday]').classList.contains('plan-card-expanded')")
+ assert not card(p,'Saturday').evaluate("e=>e.classList.contains('plan-card-expanded')");p.wait_for_function('(y)=>Math.abs(scrollY-y)<3',arg=position)
+ for action,dialog,close in [('Choose a different meal',"Choose Sunday's meal",'Cancel'),('Edit groceries','Edit groceries','Cancel'),('Add or edit sides','Sides for Another alternative','Close sides')]:
+  row=card(p,'Sunday');row.get_by_role('button',name=action,exact=True).tap();p.get_by_role('dialog',name=dialog,exact=True).get_by_role('button',name=close,exact=True).tap();assert row.evaluate("e=>e.classList.contains('plan-card-expanded')")
+ row.get_by_role('button',name='Edit recipe',exact=True).tap();p.locator('#cancel').tap();assert card(p,'Sunday').evaluate("e=>e.classList.contains('plan-card-expanded')")
+ row=card(p,'Sunday');row.get_by_role('button',name='Edit last cooked date for Another alternative',exact=True).tap();p.get_by_role('button',name='Cancel',exact=True).last.tap();assert card(p,'Sunday').evaluate("e=>e.classList.contains('plan-card-expanded')")
+ card(p,'Sunday').get_by_role('button',name='Edit groceries',exact=True).tap();d=p.get_by_role('dialog',name='Edit groceries',exact=True);d.get_by_role('textbox',name='New recipe ingredient',exact=True).fill('Salt');d.get_by_role('button',name='Add',exact=True).tap();d.get_by_role('button',name='Save',exact=True).tap();assert card(p,'Sunday').evaluate("e=>e.classList.contains('plan-card-expanded')")
+ card(p,'Sunday').get_by_role('button',name='Add or edit sides',exact=True).tap();d=p.get_by_role('dialog').last;d.get_by_role('textbox',name='Side name',exact=True).fill('Steamed vegetables');d.get_by_role('button',name='Save sides',exact=True).tap();assert card(p,'Sunday').evaluate("e=>e.classList.contains('plan-card-expanded')")
+ card(p,'Sunday').get_by_role('button',name='Edit last cooked date for Another alternative',exact=True).tap();d=p.get_by_role('dialog',name='Edit last cooked date',exact=True);d.get_by_label('Choose last cooked date',exact=True).fill('2026-11-13');d.get_by_role('button',name='Save',exact=True).tap();assert card(p,'Sunday').evaluate("e=>e.classList.contains('plan-card-expanded')")
+ card(p,'Sunday').get_by_role('button',name='Edit recipe',exact=True).tap();p.get_by_role('button',name='Edit meal name',exact=True).tap();p.locator('#name').fill('Another alternative revised');p.locator('#save').tap();assert card(p,'Sunday').evaluate("e=>e.classList.contains('plan-card-expanded')")
+ p.screenshot(path='/workspace/work/renew120/'+name+'-sunday-expanded.png')
+ card(p,'Sunday').get_by_role('button',name='Use next recipe',exact=True).tap();p.wait_for_function("!document.querySelector('.plan-meal-card[data-schedule-day=Sunday]').classList.contains('plan-card-expanded')");assert not card(p,'Saturday').evaluate("e=>e.classList.contains('plan-card-expanded')")
+ row=expanded_card(p,'Sunday');row.get_by_role('button',name='Leave this meal empty',exact=True).tap();assert not card(p,'Sunday').evaluate("e=>e.classList.contains('plan-card-expanded')");row=expanded_card(p,'Sunday');row.get_by_role('button',name='Resume planned meal',exact=True).tap();assert not card(p,'Sunday').evaluate("e=>e.classList.contains('plan-card-expanded')")
+ assert not errors,errors;c.close();print('PASS',name,'Sunday stable identity/scroll, favorite/date/edit save and cancellation, planning completion and empty/resume lifecycle',flush=True)
+
+def renewed_weeks(browser,name):
+ c,p,errors,prefix=setup_followup(browser,name);p.evaluate('followup120.badDates();followup120.seedChecks()');progress=p.evaluate('followup120.progress()');p.evaluate('followup120.ambiguousFuture()');future=p.evaluate('followup120.dates()')[0]['calendar']['occurrences'];p.evaluate('followup120.repair()');dates=p.evaluate('followup120.dates()')[0]
+ assert dates['repairs'] and card(p,'Tuesday').get_attribute('data-date')=='2026-11-10' and card(p,'Wednesday').get_attribute('data-date')=='2026-11-11';assert card(p,'Saturday').get_attribute('data-date')=='2026-11-28';assert p.evaluate('followup120.progress()')==progress
+ p.evaluate("followup120.period('current')");assert all(text.startswith('Custom ') for text in p.evaluate('followup120.wording()'))
+ raw=p.evaluate('plan120.raw()');predicted=p.evaluate('review120.preview()');expected={tuple([row[0],row[1],row[2]]) for row in predicted};sources=p.evaluate("followup120.sources('next')");actual={tuple(row) for source in sources if source['id']=='original' for row in source['entries']};assert actual==expected
+ p.get_by_role('button',name='Next week',exact=True).tap();p.screenshot(path='/workspace/work/renew120/'+name+'-next-week.png');p.get_by_role('button',name='This week',exact=True).tap();assert p.evaluate('plan120.raw()')==raw
+ p.evaluate("review120.aggregate('grocery')");p.get_by_role('button',name='Choose meals',exact=True).tap();d=p.get_by_role('dialog',name='Choose Meals',exact=True);d.get_by_role('checkbox',name='This week',exact=True).uncheck();d.get_by_role('checkbox',name='Next week',exact=True).check();p.screenshot(path='/workspace/work/renew120/'+name+'-next-groceries.png');d.get_by_role('button',name='Cancel',exact=True).tap()
+ included=set(row['meal'] for row in p.evaluate("followup120.groceries('next')") if row['plan']=='original');assert included==set(row[2] for row in predicted)
+ assert p.evaluate("followup120.sources('none')")==[];assert len(p.evaluate("followup120.sources('both')"))==2*len(sources)
+ p.evaluate('plan120.home()');before=p.evaluate('plan120.state()');p.get_by_role('button',name='Start next week',exact=True).tap();d=p.get_by_role('dialog',name='Start next week',exact=True);d.get_by_role('button',name='Close Start next week',exact=True).tap();assert_state(p.evaluate('plan120.state()'),before)
+ p.get_by_role('button',name='Start next week',exact=True).tap();p.get_by_role('dialog',name='Start next week',exact=True).get_by_role('button',name='Start next week →',exact=True).tap();assert p.evaluate('review120.actual()')==predicted;after=p.evaluate('plan120.state()');p.locator('#undo').tap();assert_state(p.evaluate('plan120.state()'),before);p.locator('#redo').tap();assert_state(p.evaluate('plan120.state()'),after)
+ p.locator('#undo').tap();p.evaluate('followup120.scaleRetained();followup120.seedChecks()');retained=[row for row in p.evaluate("followup120.groceries('current')") if row['day']=='Wednesday'];assert retained and all(row['scale']==2 for row in retained)
+ partial=p.evaluate("review120.preview(['Monday::Meals'])");p.get_by_role('button',name='Start next week',exact=True).tap();d=p.get_by_role('dialog',name='Start next week',exact=True);d.locator('.start-week-choice input').evaluate_all('(xs)=>xs.forEach((x,i)=>x.checked=i===0)');d.get_by_role('button',name='Start next week →',exact=True).tap();assert p.evaluate('review120.actual()')==partial
+ carried=[row for row in p.evaluate("followup120.groceries('current')") if row['day']=='Wednesday'];assert [(r['meal'],r['checked'],r['amount'],r['scale']) for r in carried]==[(r['meal'],r['checked'],r['amount'],r['scale']) for r in retained]
+ assert card(p,'Saturday').get_attribute('data-date')=='2026-11-28'
+ p.evaluate('followup120.validate()');p.reload();p.wait_for_function('window.followup120!==undefined');p.evaluate('plan120.home()');assert p.evaluate('review120.actual()')==partial,(p.evaluate('review120.actual()'),partial);assert not errors,errors
+ if prefix:assert p.evaluate("localStorage.getItem('mealRotationDataV1')")=='WORKING SENTINEL'
+ c.close();print('PASS',name,'evidenced date repair/ambiguous-date guard/history, next-plan grocery parity, filters, reload, cancellation and Undo/Redo',flush=True)
+
 if __name__=='__main__':
  with sync_playwright() as pw:
   browser=pw.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
   for name in ['index.html','meal-rotation-test.html']:
-   layout_and_actions(browser,name);weeks_and_dialog(browser,name);slot_management(browser,name);touch_slots(browser,name);aggregates(browser,name);accompaniments_and_footer(browser,name);recipe_review(browser,name);wake_lifecycle(browser,name)
+   renewed_controls(browser,name);touch_slots(browser,name);slot_management(browser,name);renewed_todo(browser,name);renewed_expansion(browser,name);renewed_weeks(browser,name)
   browser.close()
