@@ -1722,3 +1722,15 @@ input.preference-switch:checked{background:#5876ad!important;border-color:#5876a
 .plan-meal-card .expanded-meal-actions{margin-top:0;padding-bottom:0;row-gap:0;}.expanded-meal-heading{min-height:40px;}.expanded-meal-heading .meal-options-last-cooked{margin:0!important;min-height:40px;}
 .meal-action-group .meal-inline-action{min-height:44px;padding:2px 0;}.plan-meal-card.plan-card-expanded{padding-bottom:6px!important;}
 .expanded-meal-heading{min-height:32px;}.expanded-meal-heading .meal-options-last-cooked{min-height:32px!important;padding:0;}.expanded-meal-heading .recipe-personal-icon{min-width:32px;width:32px;min-height:32px;height:32px;padding:4px;}
+
+/* #121: source-group editing and existing supported ordering. */
+.recipe-group-selection{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 12px;font-size:13px;color:#555;}
+.recipe-group-selection>button{min-height:44px;border:0;background:transparent;color:#345781;font:inherit;padding:6px 8px;}
+.organize-drag-handle{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;min-width:44px;border:0;background:transparent;color:#78818a;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
+.organize-drag-handle svg{width:20px;height:24px;fill:none;stroke:currentColor;stroke-width:4;stroke-linecap:round;pointer-events:none;}
+.organize-drag-handle:focus-visible{outline:2px solid #315ba8;outline-offset:-3px;border-radius:6px;}
+body.recipe-bulk-select .master-category-header>.iconbtn:not(.organize-group-settings){display:none!important;}
+body.recipe-bulk-select .master-category-meal[data-up-next-star]{grid-template-columns:28px minmax(0,1fr) 44px;}
+body.recipe-bulk-select .master-category-meal>.organize-drag-handle{grid-column:3;grid-row:1;align-self:center;}
+#recipeBulkToolbar .recipe-bulk-actions>button{min-width:54px!important;min-height:48px;}
+body.meal-keyboard-open #recipeBulkToolbar,body:has([role=dialog]) #recipeBulkToolbar{visibility:hidden;pointer-events:none;}

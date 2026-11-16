@@ -1586,6 +1586,18 @@ input.preference-switch:checked{background:#5876ad!important;border-color:#5876a
 .plan-meal-card .expanded-meal-actions{margin-top:0;padding-bottom:0;row-gap:0;}.expanded-meal-heading{min-height:40px;}.expanded-meal-heading .meal-options-last-cooked{margin:0!important;min-height:40px;}
 .meal-action-group .meal-inline-action{min-height:44px;padding:2px 0;}.plan-meal-card.plan-card-expanded{padding-bottom:6px!important;}
 .expanded-meal-heading{min-height:32px;}.expanded-meal-heading .meal-options-last-cooked{min-height:32px!important;padding:0;}.expanded-meal-heading .recipe-personal-icon{min-width:32px;width:32px;min-height:32px;height:32px;padding:4px;}
+
+/* #121: source-group editing and existing supported ordering. */
+.recipe-group-selection{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 12px;font-size:13px;color:#555;}
+.recipe-group-selection>button{min-height:44px;border:0;background:transparent;color:#345781;font:inherit;padding:6px 8px;}
+.organize-drag-handle{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;min-width:44px;border:0;background:transparent;color:#78818a;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
+.organize-drag-handle svg{width:20px;height:24px;fill:none;stroke:currentColor;stroke-width:4;stroke-linecap:round;pointer-events:none;}
+.organize-drag-handle:focus-visible{outline:2px solid #315ba8;outline-offset:-3px;border-radius:6px;}
+body.recipe-bulk-select .master-category-header>.iconbtn:not(.organize-group-settings){display:none!important;}
+body.recipe-bulk-select .master-category-meal[data-up-next-star]{grid-template-columns:28px minmax(0,1fr) 44px;}
+body.recipe-bulk-select .master-category-meal>.organize-drag-handle{grid-column:3;grid-row:1;align-self:center;}
+#recipeBulkToolbar .recipe-bulk-actions>button{min-width:54px!important;min-height:48px;}
+body.meal-keyboard-open #recipeBulkToolbar,body:has([role=dialog]) #recipeBulkToolbar{visibility:hidden;pointer-events:none;}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -4815,9 +4827,9 @@ function installMasterGroupDragging(wrap,reset){
  const on=(target,event,handler,options={})=>target.addEventListener(event,handler,{...options,signal});
  const cards=()=>[...wrap.querySelectorAll(':scope>.master-category-card')].filter(card=>cats.includes(card.dataset.category));
  const eligible=target=>{
-  const card=target.closest('.master-category-card');if(!card||!cats.includes(card.dataset.category)||target.closest('.master-category-meal,.editor,[contenteditable="true"]'))return null;
+  if(recipeBulkMode&&!target.closest('.organize-drag-handle'))return null;const card=target.closest('.master-category-card');if(!card||!cats.includes(card.dataset.category)||target.closest('.master-category-meal,.editor,[contenteditable="true"]'))return null;
   const control=target.closest('button,a,input,select,textarea,summary,[role="button"]');
-  if(control&&(!control.classList.contains('master-category-title')||target.closest('svg')))return null;
+  if(control&&!control.classList.contains('organize-drag-handle')&&(!control.classList.contains('master-category-title')||target.closest('svg')))return null;
   return card;
  };
  const arrange=drag=>{
@@ -4869,7 +4881,7 @@ function installMasterGroupDragging(wrap,reset){
  };
  const begin=(target,x,y,source,id)=>{
   suppressClick=false;const card=eligible(target);if(!card||editId!==null||document.querySelector('[role="dialog"]'))return;
-  const drag={card,category:card.dataset.category,source,id,startX:x,startY:y,y,previousY:y,originalScroll:scrollY,phase:'pending'};gesture=drag;drag.timer=setTimeout(()=>activate(drag),550);
+  const drag={card,category:card.dataset.category,source,id,startX:x,startY:y,y,previousY:y,originalScroll:scrollY,phase:'pending'};gesture=drag;if(target.closest('.organize-drag-handle'))activate(drag);else drag.timer=setTimeout(()=>activate(drag),550);
  };
  const move=(x,y,event)=>{
   const drag=gesture;if(!drag)return;
@@ -5412,7 +5424,7 @@ function openMealSearch(saved=null){
   results.style.cssText='overflow-y:auto;min-height:100px;flex:1;overscroll-behavior:contain';
   const selectedRecipes=new Set(recipeBulkMode?[...recipeBulkIds]:[]);let selectedSourceGroup=recipeBulkMode?recipeBulkSourceGroup:null;const bulk=document.createElement('button');bulk.type='button';bulk.className='smallbtn';bulk.hidden=true;bulk.setAttribute('aria-label','Bulk actions for selected recipes');
   const updateSelection=()=>{bulk.hidden=!selectedRecipes.size;bulk.textContent='Bulk actions ('+selectedRecipes.size+')'};updateSelection();
-  bulk.onclick=()=>{if(!selectedRecipes.size)return;closeSearch();setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;recipeBulkMode=true;recipeBulkIds=new Set(selectedRecipes);recipeBulkSourceGroup=selectedSourceGroup;recipeBulkFilter={query:input.value,groups:[...selectedGroups]};render()};
+  bulk.onclick=()=>{if(!selectedRecipes.size)return;closeSearch();setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;recipeBulkMode=true;recipeBulkIds=new Set(selectedRecipes);recipeBulkEntrySelection=false;recipeBulkSourceGroup=selectedSourceGroup;recipeBulkFilter={query:input.value,groups:[...selectedGroups]};render()};
   function fitSearch(){
     const vv=window.visualViewport;
     if(!vv)return;
@@ -7025,7 +7037,7 @@ function removeMealCategoryMutation(category,action,target){
 }
 function renameCategoryDirect(categoryToRename){
   if(!cats.includes(categoryToRename))return;
-  (async()=>{let n=await appDialog('Rename group',categoryToRename,'prompt');if(n&&n.trim()&&cats.includes(categoryToRename)&&!cats.includes(n.trim())){snapshot();let old=categoryToRename;if(!renameMasterGroupOrder(old,n.trim()))return;renameGroupIdentity(old,n.trim());renameDependentGroupState(old,n.trim());cats[cats.indexOf(old)]=n.trim();if(categoryColors[old]){categoryColors[n.trim()]=categoryColors[old];delete categoryColors[old];saveCategoryColors()}meals.forEach(m=>{if(m.cat===old)m.cat=n.trim()});pinnedCats=pinnedCats.map(c=>c===old?n.trim():c);expandedCats=expandedCats.map(c=>c===old?n.trim():c);mealPlans.forEach(p=>{if(Array.isArray(p.pinnedDisplayOrder))p.pinnedDisplayOrder=p.pinnedDisplayOrder.map(c=>c===old?n.trim():c)});try{testStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));testStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}weekdays.forEach(day=>{weekdayCategories[day]=(Array.isArray(weekdayCategories[day])?weekdayCategories[day]:[weekdayCategories[day]]).filter(Boolean).map(c=>c===old?n.trim():c);if(weekdayMealOverrides[weekdaySlotKey(day,old)]!==undefined){weekdayMealOverrides[weekdaySlotKey(day,n.trim())]=weekdayMealOverrides[weekdaySlotKey(day,old)];delete weekdayMealOverrides[weekdaySlotKey(day,old)]}});saveWeekdayMealOverrides();saveWeekdayCategories();updateOtherMealPlansForCategory(old,n.trim());active=n.trim();menuCat=n.trim();copyMasterSectionExpansion(old,n.trim());if(masterExpandedCategories.delete(old))masterExpandedCategories.add(n.trim());render()}
+  (async()=>{let n=await appDialog('Rename group',categoryToRename,'prompt');if(n&&n.trim()&&cats.includes(categoryToRename)&&!cats.includes(n.trim())){snapshot();let old=categoryToRename;if(!renameMasterGroupOrder(old,n.trim()))return;renameGroupIdentity(old,n.trim());renameDependentGroupState(old,n.trim());cats[cats.indexOf(old)]=n.trim();if(categoryColors[old]){categoryColors[n.trim()]=categoryColors[old];delete categoryColors[old];saveCategoryColors()}meals.forEach(m=>{if(m.cat===old)m.cat=n.trim()});pinnedCats=pinnedCats.map(c=>c===old?n.trim():c);expandedCats=expandedCats.map(c=>c===old?n.trim():c);mealPlans.forEach(p=>{if(Array.isArray(p.pinnedDisplayOrder))p.pinnedDisplayOrder=p.pinnedDisplayOrder.map(c=>c===old?n.trim():c)});try{testStorage.setItem('mealRotationPinnedCategoriesV1',JSON.stringify(pinnedCats));testStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}weekdays.forEach(day=>{weekdayCategories[day]=(Array.isArray(weekdayCategories[day])?weekdayCategories[day]:[weekdayCategories[day]]).filter(Boolean).map(c=>c===old?n.trim():c);if(weekdayMealOverrides[weekdaySlotKey(day,old)]!==undefined){weekdayMealOverrides[weekdaySlotKey(day,n.trim())]=weekdayMealOverrides[weekdaySlotKey(day,old)];delete weekdayMealOverrides[weekdaySlotKey(day,old)]}});saveWeekdayMealOverrides();saveWeekdayCategories();updateOtherMealPlansForCategory(old,n.trim());active=n.trim();menuCat=n.trim();copyMasterSectionExpansion(old,n.trim());if(recipeBulkMode&&recipeBulkSourceGroup===old){recipeBulkSourceGroup=n.trim();if(recipeBulkFocus)recipeBulkFocus.cat=n.trim();if(recipeBulkFilter)recipeBulkFilter.groups=recipeBulkFilter.groups.map(group=>group===old?n.trim():group)}if(masterExpandedCategories.delete(old))masterExpandedCategories.add(n.trim());render()}
   })();
 }
 function renderMenu(){let box=$('catmenu');if(!box)return;box.innerHTML='';if(!showTop||!menuCat||!cats.includes(menuCat)){box.classList.add('hidden');return}box.classList.remove('hidden');const categoryRow=document.getElementById('categoryButtons');if(categoryRow)categoryRow.append(box);function arrow(direction,label){let b=document.createElement('button');b.className='arrow iconbtn';b.title=label;b.setAttribute('aria-label',label);b.innerHTML=direction<0?'<svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>':'<svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>';b.onclick=()=>{
@@ -8413,32 +8425,57 @@ function bulkRecipeStorageBridge(base){return new Proxy(base,{get(target,key){
 }})}
 let recipeBulkBackupAPI=null;
 let recipeBulkMode=false,recipeBulkIds=new Set(),recipeBulkFocus=null,recipeBulkSourceGroup=null,recipeBulkFilter=null,recipeBulkSuppress=null,recipeBulkBusy=false;
+let recipeBulkEntrySelection=false;
 function bulkRecipeSelected(){return meals.filter(m=>recipeBulkIds.has(String(m.id)))}
 function bulkRecipeRender(options){const top=window.scrollY;renderList(options);window.scrollTo({top,behavior:'instant'});requestAnimationFrame(()=>window.scrollTo({top,behavior:'instant'}))}
-function clearRecipeBulkSelection(){recipeBulkIds.clear();recipeBulkSourceGroup=null;recipeBulkFilter=null;recipeBulkSuppress=null}
+function clearRecipeBulkSelection(){recipeBulkIds.clear();recipeBulkSourceGroup=null;recipeBulkFilter=null;recipeBulkSuppress=null;recipeBulkEntrySelection=false}
 function selectRecipeBulkFromGroup(meal,group,checked=true){
- if(typeof group!=='string'||meal.cat!==group||recipeBulkIds.size&&recipeBulkSourceGroup!==group)return false;
+ if(typeof group!=='string'||meal.cat!==group||recipeBulkSourceGroup!==null&&recipeBulkSourceGroup!==group)return false;
  if(checked){if(!recipeBulkIds.size)recipeBulkSourceGroup=group;recipeBulkIds.add(String(meal.id))}else recipeBulkIds.delete(String(meal.id));
- if(!recipeBulkIds.size){recipeBulkSourceGroup=null;recipeBulkFilter=null}return true;
+ return true;
 }
-function beginRecipeBulk(meal,group){if(showTop||editId!==null||recipeViewer||recipeBulkBusy||!selectRecipeBulkFromGroup(meal,group))return;const top=scrollY;recipeBulkMode=true;recipeBulkFocus={cat:group,rotation:!!meal.rotation};recipeBulkSuppress=String(meal.id);masterGroupDragCleanup?.();masterGroupDragCleanup=null;updateRecipeBulkUI();window.scrollTo({top,behavior:'instant'});requestAnimationFrame(()=>window.scrollTo({top,behavior:'instant'}))}
-function endRecipeBulk(){recipeBulkMode=false;clearRecipeBulkSelection();recipeBulkFocus=null;document.body.classList.remove('recipe-bulk-select');document.getElementById('recipeBulkToolbar')?.remove();document.querySelectorAll('.recipe-bulk-check').forEach(el=>el.remove());if(!showTop&&editId===null)bulkRecipeRender()}
-function toggleRecipeBulk(meal,checked=null,group){selectRecipeBulkFromGroup(meal,group,checked??!recipeBulkIds.has(String(meal.id)));updateRecipeBulkUI()}
+function beginRecipeBulkGroup(group,meal=null){
+ if(showTop||editId!==null||recipeViewer||recipeBulkBusy||recipeBulkMode&&recipeBulkSourceGroup!==group)return;
+ const top=scrollY;if(!recipeBulkMode){clearRecipeBulkSelection();recipeBulkSourceGroup=group;recipeBulkMode=true;recipeBulkEntrySelection=!!meal;if(meal)selectRecipeBulkFromGroup(meal,group)}
+ recipeBulkFocus={cat:group,rotation:meal?!!meal.rotation:true};recipeBulkSuppress=meal?String(meal.id):null;masterExpandedCategories.add(group);bulkRecipeRender({readOnly:true});window.scrollTo({top,behavior:'instant'});
+}
+function beginRecipeBulk(meal,group){if(meal)beginRecipeBulkGroup(group,meal)}
+function endRecipeBulk(render=true){recipeBulkMode=false;clearRecipeBulkSelection();recipeBulkFocus=null;document.body.classList.remove('recipe-bulk-select');document.getElementById('recipeBulkToolbar')?.remove();document.querySelectorAll('.recipe-bulk-check,.recipe-group-selection,.organize-drag-handle').forEach(el=>el.remove());if(render&&!showTop&&editId===null)bulkRecipeRender()}
+function toggleRecipeBulk(meal,checked=null,group){if(selectRecipeBulkFromGroup(meal,group,checked??!recipeBulkIds.has(String(meal.id))))recipeBulkEntrySelection=false;updateRecipeBulkUI()}
 function bindRecipeBulkRow(row,meal){
  let hold=null,start=null;const stop=()=>{clearTimeout(hold);hold=null;start=null};
- row.addEventListener('pointerdown',e=>{if(recipeBulkMode){recipeBulkSuppress=null;e.stopImmediatePropagation();return}if(recipeStatus(meal)==='up-next'&&groupUsesRotation(meal.cat))return;if(e.pointerType==='mouse'&&e.button!==0||e.target.closest('button,input,a,select'))return;start={x:e.clientX,y:e.clientY};hold=setTimeout(()=>{if(start)beginRecipeBulk(meal,row.closest('.master-category-card')?.dataset.category)},550)},{capture:true});
+ row.addEventListener('pointerdown',e=>{if(recipeBulkMode){if(e.target.closest('.organize-drag-handle'))return;recipeBulkSuppress=null;e.stopImmediatePropagation();return}if(recipeStatus(meal)==='up-next'&&groupUsesRotation(meal.cat))return;if(e.pointerType==='mouse'&&e.button!==0||e.target.closest('button,input,a,select'))return;start={x:e.clientX,y:e.clientY};hold=setTimeout(()=>{if(start)beginRecipeBulk(meal,row.closest('.master-category-card')?.dataset.category)},550)},{capture:true});
  row.addEventListener('pointermove',e=>{if(start&&Math.hypot(e.clientX-start.x,e.clientY-start.y)>10)stop()});for(const event of ['pointerup','pointercancel','pointerleave'])row.addEventListener(event,stop);
- row.addEventListener('click',e=>{if(!recipeBulkMode)return;if(recipeBulkSuppress!==null){recipeBulkSuppress=null;e.preventDefault();e.stopImmediatePropagation();return}if(e.target.closest('.recipe-bulk-check'))return;e.preventDefault();e.stopImmediatePropagation();toggleRecipeBulk(meal,null,row.closest('.master-category-card')?.dataset.category)},{capture:true});
+ row.addEventListener('click',e=>{if(!recipeBulkMode||e.target.closest('.organize-drag-handle'))return;if(recipeBulkSuppress!==null){recipeBulkSuppress=null;e.preventDefault();e.stopImmediatePropagation();return}if(e.target.closest('.recipe-bulk-check'))return;e.preventDefault();e.stopImmediatePropagation();toggleRecipeBulk(meal,null,row.closest('.master-category-card')?.dataset.category)},{capture:true});
 }
 function eligibleBulkRecipes(){
- if(recipeBulkSourceGroup===null||!recipeBulkIds.size)return [];const unique=new Map();for(const meal of meals){if(meal.cat!==recipeBulkSourceGroup||recipeBulkFilter?.query&&!mealMatchesSearch(meal,recipeBulkFilter.query)||recipeBulkFilter?.groups.length&&!recipeBulkFilter.groups.includes(meal.cat))continue;const key=meal.linkGroup||'recipe:'+meal.id;if(!unique.has(key))unique.set(key,meal)}return [...unique.values()];
+ if(recipeBulkSourceGroup===null)return [];const unique=new Map();for(const meal of meals){if(meal.cat!==recipeBulkSourceGroup||recipeBulkFilter?.query&&!mealMatchesSearch(meal,recipeBulkFilter.query)||recipeBulkFilter?.groups.length&&!recipeBulkFilter.groups.includes(meal.cat))continue;const key=meal.linkGroup||'recipe:'+meal.id;if(!unique.has(key))unique.set(key,meal)}return [...unique.values()];
 }
-function selectExpandedBulkRecipes(){for(const meal of eligibleBulkRecipes())selectRecipeBulkFromGroup(meal,recipeBulkSourceGroup);updateRecipeBulkUI()}
+function selectExpandedBulkRecipes(){recipeBulkEntrySelection=false;for(const meal of eligibleBulkRecipes())selectRecipeBulkFromGroup(meal,recipeBulkSourceGroup);updateRecipeBulkUI()}
 function updateRecipeBulkUI(){
- if(!recipeBulkMode)return;for(const id of recipeBulkIds)if(!meals.some(m=>String(m.id)===id))recipeBulkIds.delete(id);if(!recipeBulkIds.size)recipeBulkSourceGroup=null;document.body.classList.add('recipe-bulk-select');for(const button of document.querySelectorAll('.master-category-header .iconbtn,.master-add-group,[aria-label="Manage recipe labels"]'))button.disabled=true;
+ if(!recipeBulkMode)return;if(recipeBulkSourceGroup&&!cats.includes(recipeBulkSourceGroup)){endRecipeBulk(false);return}for(const id of recipeBulkIds)if(!meals.some(m=>String(m.id)===id))recipeBulkIds.delete(id);document.body.classList.add('recipe-bulk-select');for(const button of document.querySelectorAll('.master-category-header .iconbtn,.master-add-group,[aria-label="Manage recipe labels"]'))button.disabled=!button.classList.contains('organize-group-settings');
  for(const row of document.querySelectorAll('.master-category-meal[data-meal-id]')){const meal=meals.find(m=>String(m.id)===row.dataset.mealId);if(!meal)continue;let label=row.querySelector('.recipe-bulk-check');if(!label){label=document.createElement('label');label.className='recipe-bulk-check';const check=document.createElement('input');check.type='checkbox';check.className='check';check.setAttribute('aria-label','Select '+(meal.name||'Untitled meal'));check.onchange=()=>toggleRecipeBulk(meal,check.checked,row.closest('.master-category-card')?.dataset.category);label.append(check);row.prepend(label)}const allowed=recipeBulkSourceGroup===null||row.closest('.master-category-card')?.dataset.category===recipeBulkSourceGroup;label.firstElementChild.disabled=!allowed;label.firstElementChild.checked=allowed&&recipeBulkIds.has(String(meal.id));label.title=allowed?'':'Select recipes from '+(recipeBulkSourceGroup||'Unassigned');row.classList.toggle('recipe-bulk-other-group',!allowed)}
- let bar=document.getElementById('recipeBulkToolbar');if(!bar){bar=document.createElement('section');bar.id='recipeBulkToolbar';bar.setAttribute('aria-label','Selected recipes');bar.dataset.recipeEditDraft='';const count=document.createElement('div');count.className='recipe-bulk-count';count.setAttribute('role','status');bar.append(count);const actions=document.createElement('div');actions.className='recipe-bulk-actions';for(const [kind,label,action]of [['rename','Edit selected recipes',()=>openRecipeBulkEditor(false)],['delete','Delete selected recipes',deleteRecipeBulk],['save','Select all source-group recipes',selectExpandedBulkRecipes],['deselect','Deselect all recipes',()=>{clearRecipeBulkSelection();updateRecipeBulkUI()}],['cancel','Exit selection mode',endRecipeBulk]]){const b=document.createElement('button');b.type='button';setIconButton(b,kind,label);if(kind==='deselect'){b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 12h10"/></svg>'}if(kind==='save')b.dataset.selectExpanded='true';if(kind==='save')b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m7 12 3 3 7-7"/></svg>';const text=document.createElement('span');text.textContent=({move:'Move',rename:'Edit',delete:'Delete',save:'Select all',deselect:'Deselect all',cancel:'Done'})[kind];b.append(text);b.classList.add('recipe-bulk-labeled-action');b.dataset.needsSelection=String(['move','rename','delete'].includes(kind));b.onclick=action;actions.append(b)}bar.append(actions);document.body.append(bar)}
- bar.querySelector('.recipe-bulk-count').textContent=recipeBulkSourceGroup===null?'0 selected':(recipeBulkSourceGroup||'Unassigned')+' ('+recipeIdentityCount([...recipeBulkIds])+')';for(const b of bar.querySelectorAll('button[data-needs-selection="true"]'))b.disabled=!recipeBulkIds.size||recipeBulkBusy;bar.querySelector('[data-select-expanded]').disabled=!eligibleBulkRecipes().length||recipeBulkBusy;
+ let bar=document.getElementById('recipeBulkToolbar');if(!bar){bar=document.createElement('section');bar.id='recipeBulkToolbar';bar.setAttribute('aria-label','Selected recipes');bar.dataset.recipeEditDraft='';const count=document.createElement('div');count.className='recipe-bulk-count';count.setAttribute('role','status');bar.append(count);const actions=document.createElement('div');actions.className='recipe-bulk-actions';for(const [kind,label,action]of [['groups','Groups',openRecipeBulkGroups],['move','Status',openRecipeBulkStatus],['delete','Delete',deleteRecipeBulk],['cancel','Done',endRecipeBulk]]){const b=document.createElement('button');b.type='button';setIconButton(b,kind==='groups'?'rename':kind,label);const text=document.createElement('span');text.textContent=label;b.append(text);b.classList.add('recipe-bulk-labeled-action');b.dataset.needsSelection=String(label!=='Done');b.onclick=action;actions.append(b)}bar.append(actions);document.body.append(bar)}
+ bar.querySelector('.recipe-bulk-count').textContent=recipeBulkSourceGroup===null?'0 selected':(recipeBulkSourceGroup||'Unassigned')+' ('+recipeIdentityCount([...recipeBulkIds])+')';for(const b of bar.querySelectorAll('button[data-needs-selection="true"]'))b.disabled=!recipeBulkIds.size||recipeBulkBusy;updateRecipeBulkSelectionHeader();
+}
+function updateRecipeBulkSelectionHeader(){
+ document.querySelectorAll('.recipe-group-selection').forEach(el=>el.remove());
+ const card=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===recipeBulkSourceGroup);if(!card)return;
+ const row=document.createElement('div');row.className='recipe-group-selection';const count=document.createElement('span');count.setAttribute('role','status');count.textContent=recipeIdentityCount([...recipeBulkIds])+' selected';
+ const button=document.createElement('button');button.type='button';const clear=recipeBulkIds.size>0&&(!recipeBulkEntrySelection||eligibleBulkRecipes().every(meal=>recipeBulkIds.has(String(meal.id))));button.textContent=clear?'Deselect all':'Select all';button.disabled=recipeBulkBusy||!eligibleBulkRecipes().length;
+ button.onclick=()=>{recipeBulkEntrySelection=false;if(clear){recipeBulkIds.clear();updateRecipeBulkUI()}else selectExpandedBulkRecipes()};row.append(count,button);card.querySelector('.master-category-header').after(row);
+}
+function openRecipeBulkGroups(){
+ const ids=bulkRecipeSelected().map(m=>String(m.id));if(!ids.length)return;
+ chooseBulkGroups(null,value=>{const change={...value,groups:value.add?value.groups:[],newGroups:value.add?value.newGroups.filter(name=>value.groups.includes(name)):[]};if(bulkGroupChangePending(ids,change))applyRecipeBulk(ids,{}, {bulkGroups:change})});
+}
+function openRecipeBulkStatus(){
+ const ids=bulkRecipeSelected().map(m=>String(m.id));if(!ids.length)return;
+ chooseBulkValue('Rotation status','',()=>[['','Keep existing'],...recipeStatusChoices()],value=>{if(value&&ids.some(id=>recipeStatus(meals.find(m=>String(m.id)===id))!==value))applyRecipeBulk(ids,{status:value})});
+}
+function organizeDragHandle(label,move){
+ const button=document.createElement('button');button.type='button';button.className='organize-drag-handle';button.setAttribute('aria-label',label);button.title=label+'; Alt+Up/Down to reorder';button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h.01M16 5h.01M8 12h.01M16 12h.01M8 19h.01M16 19h.01"/></svg>';
+ button.onclick=e=>{e.preventDefault();e.stopPropagation()};button.onkeydown=e=>{if(e.altKey&&['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();e.stopPropagation();move(e.key==='ArrowUp'?-1:1)}};return button;
 }
 function recipeBulkDialog(title,returnFocus=null){
  const overlay=document.createElement('div');overlay.className='recipe-timer-dialog recipe-bulk-dialog';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label',title);overlay.dataset.recipeEditDraft='';const panel=document.createElement('div'),heading=document.createElement('strong');heading.textContent=title;panel.append(heading);
@@ -8660,7 +8697,7 @@ function newMealGroupButton(onCreated){
 function chooseBulkValue(title,value,options,onSelect,allowNewGroup=false,returnFocus=null){
  const d=recipeBulkDialog(title,returnFocus),list=document.createElement('div');list.className='recipe-bulk-choice-list';let draft=value;
  function draw(){list.replaceChildren();for(const [key,text]of options()){const label=document.createElement('label');label.className='recipe-bulk-choice';const check=document.createElement('input');check.type='radio';check.name='bulk-choice';check.checked=draft===key;check.value=key;check.onchange=()=>{draft=key};label.append(check,document.createTextNode(text));list.append(label)}}
- const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button');save.type='button';setIconButton(save,'save','Confirm '+title.toLowerCase());const cancel=document.createElement('button');cancel.type='button';setIconButton(cancel,'cancel','Cancel '+title.toLowerCase());save.onclick=()=>{onSelect(draft);d.close()};cancel.onclick=d.close;actions.append(save,cancel);d.panel.append(list);
+ const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button');save.type='button';setIconButton(save,'save','Confirm '+title.toLowerCase());const cancel=document.createElement('button');cancel.type='button';setIconButton(cancel,'cancel','Cancel '+title.toLowerCase());save.onclick=()=>{try{onSelect(draft);d.close()}catch(error){showAppMessage('Bulk update could not be completed: '+error.message)}};cancel.onclick=d.close;actions.append(save,cancel);d.panel.append(list);
  if(allowNewGroup)d.panel.append(newMealGroupButton(group=>{onSelect(group);d.close();bulkRecipeRender()}));
  d.panel.append(actions);draw();cancel.focus({preventScroll:true});
 }
@@ -8683,7 +8720,7 @@ function chooseBulkGroups(value,onSelect,returnFocus){
   if(add)for(const name of [...cats,...pending].filter(name=>name!==sourceGroup))choice(list,name,selected.has(name),value=>{if(value)selected.add(name);else selected.delete(name);update()});update();
  }
  function update(){save.disabled=add&&!selected.size}
- save.onclick=()=>{onSelect({sourceGroup,add,remove:!!sourceGroup&&remove,groups:[...selected],newGroups:pending});d.close()};cancel.onclick=d.close;actions.append(save,cancel);d.panel.append(actionRows,newRow,list,error,actions);draw();cancel.focus({preventScroll:true});
+ save.onclick=()=>{try{onSelect({sourceGroup,add,remove:!!sourceGroup&&remove,groups:[...selected],newGroups:pending});d.close()}catch(problem){error.textContent='Bulk update could not be completed: '+problem.message}};cancel.onclick=d.close;actions.append(save,cancel);d.panel.append(actionRows,newRow,list,error,actions);draw();cancel.focus({preventScroll:true});
 }
 function openRecipeBulkEditor(moveOnly=false){
  const ids=bulkRecipeSelected().map(m=>String(m.id));if(!ids.length||recipeBulkSourceGroup===null)return;const d=recipeBulkDialog(moveOnly?'Move recipes':'Edit recipes'),body=document.createElement('div');body.className='recipe-bulk-fields';appendBulkRecipeNames(body,ids);
@@ -8723,10 +8760,10 @@ function installUpNextDragging(wrap){
  const events=new AbortController(),signal=events.signal,previousCleanup=masterGroupDragCleanup;let gesture=null,suppressClick=false;
  const on=(target,event,handler,options={})=>target.addEventListener(event,handler,{...options,signal});
  const eligible=target=>{
-  if(recipeBulkMode||editId!==null||document.querySelector('[role="dialog"]'))return null;
+  if(editId!==null||document.querySelector('[role="dialog"]'))return null;if(recipeBulkMode&&!target.closest('.organize-drag-handle'))return null;
   const row=target.closest('.master-category-meal[data-up-next-star]');if(!row)return null;
   const control=target.closest('button,a,input,select,textarea,summary,[contenteditable="true"]');
-  if(control&&!control.classList.contains('master-category-meal-name'))return null;
+  if(control&&!control.classList.contains('master-category-meal-name')&&!control.classList.contains('organize-drag-handle'))return null;
   return row;
  };
  const arrange=drag=>{for(const row of drag.order)drag.body.insertBefore(row,drag.after)};
@@ -8761,7 +8798,7 @@ function installUpNextDragging(wrap){
  };
  const begin=(target,x,y,source,id)=>{
   suppressClick=false;const row=eligible(target);if(!row)return;
-  const drag={row,source,id,startX:x,startY:y,y,previousY:y,scroll:scrollY,phase:'pending'};gesture=drag;
+  const drag={row,source,id,startX:x,startY:y,y,previousY:y,scroll:scrollY,phase:target.closest('.organize-drag-handle')?'held':'pending'};gesture=drag;
   drag.timer=setTimeout(()=>{if(gesture===drag&&drag.phase==='pending')drag.phase=Math.abs(scrollY-drag.scroll)>3?'scroll':'held'},550);
  };
  const move=(x,y,event)=>{
@@ -8772,7 +8809,7 @@ function installUpNextDragging(wrap){
   if(event.cancelable===false){end(true);return}event.preventDefault();event.stopImmediatePropagation();
   const delta=y-drag.previousY;if(delta)drag.direction=Math.sign(delta);drag.previousY=y;drag.y=y;
  };
- on(wrap,'touchstart',e=>{if(gesture||e.touches.length!==1){end(true);return}const t=e.changedTouches[0];begin(e.target,t.clientX,t.clientY,'touch',t.identifier)},{passive:false});
+ on(wrap,'touchstart',e=>{if(gesture||e.touches.length!==1){end(true);return}const t=e.changedTouches[0];begin(e.target,t.clientX,t.clientY,'touch',t.identifier);if(gesture&&e.target.closest('.organize-drag-handle'))e.preventDefault()},{passive:false});
  on(document,'touchmove',e=>{const drag=gesture;if(drag?.source!=='touch')return;const t=[...e.changedTouches].find(t=>t.identifier===drag.id);if(t)move(t.clientX,t.clientY,e)},{capture:true,passive:false});
  on(document,'touchend',e=>{const drag=gesture;if(drag?.source!=='touch'||![...e.changedTouches].some(t=>t.identifier===drag.id))return;if(['drag','held'].includes(drag.phase)){if(e.cancelable)e.preventDefault();e.stopImmediatePropagation()}end()},{capture:true,passive:false});
  on(document,'touchcancel',()=>{if(gesture?.source==='touch')end(true)},{capture:true});
@@ -9073,9 +9110,11 @@ function renderMasterCategories(list){
   const count=document.createElement('span');count.className='master-category-count';count.textContent=categoryMeals.length+' '+(categoryMeals.length===1?'meal':'meals');toggle.append(count);
 
   header.append(toggle);
-  if(category){
-  const editCat=document.createElement('button');editCat.type='button';editCat.className='iconbtn';setIconButton(editCat,'rename','Edit '+category+' (reorder, rename, delete)');editCat.onclick=()=>openMasterCategoryEditMenu(category);
+  {
+  const editCat=document.createElement('button');editCat.type='button';editCat.className='iconbtn';setIconButton(editCat,'rename','Select recipes in '+(category||'Unassigned'));editCat.onclick=()=>beginRecipeBulkGroup(category);
   header.append(editCat);
+  if(recipeBulkMode&&category===recipeBulkSourceGroup&&category){const settings=document.createElement('button');settings.type='button';settings.className='iconbtn organize-group-settings';setIconButton(settings,'settings','Group settings for '+category);settings.onclick=()=>openMasterCategoryEditMenu(category);header.append(settings)}
+  if(recipeBulkMode&&category){header.prepend(organizeDragHandle('Reorder group '+category,dir=>{const ids=currentMasterGroupOrder(),at=ids.indexOf(category),next=at+dir;if(next<0||next>=ids.length)return;[ids[at],ids[next]]=[ids[next],ids[at]];if(writeMasterGroupOrder(ids))bulkRecipeRender({readOnly:true})}))}
   }
   const addMeal=document.createElement('button');addMeal.type='button';addMeal.className='iconbtn';addMeal.title='Add meal to '+(category||'Unassigned');addMeal.setAttribute('aria-label',addMeal.title);addMeal.textContent='+';addMeal.style.cssText='font-size:24px';
   addMeal.disabled=addingGroupRecipe||newRecipeDraftId!==null;addMeal.onclick=()=>addRecipeToGroup(category);
@@ -9122,7 +9161,7 @@ function renderMasterCategories(list){
      }
 
      row.append(mealInfo,...manualMoves);
-     if(category)row.append(recipeSectionMoveButton(m));bindRecipeBulkRow(row,m);
+     if(category)row.append(recipeSectionMoveButton(m));bindRecipeBulkRow(row,m);if(recipeBulkMode&&category===recipeBulkSourceGroup&&rot==='up-next'){row.append(organizeDragHandle('Reorder '+m.name,dir=>moveUpNextRecipe(m,dir,groupMeals.filter(other=>other.upNextStar===m.upNextStar))))}
      appendScheduledRecipeWeekdays(row,m,scheduledDaysByMeal);if(rot==='up-next'){const weekdays=row.querySelector(':scope>.master-meal-weekdays');if(weekdays)mealInfo.append(weekdays)}
      
      sectionBody.append(row);
@@ -9133,7 +9172,7 @@ function renderMasterCategories(list){
   wrap.append(card);
  }
  if(!cats.length&&!hasUnassigned){const empty=document.createElement('div');empty.textContent='No groups yet. Tap + to add one.';wrap.append(empty)}
- list.append(wrap);if(recipeBulkMode)updateRecipeBulkUI();else{installMasterGroupDragging(wrap,resetOrder);installUpNextDragging(wrap);}
+ list.append(wrap);if(recipeBulkMode)updateRecipeBulkUI();installMasterGroupDragging(wrap,resetOrder);installUpNextDragging(wrap);
 }
 let mealSlotDragCleanup=null;
 function saveMealSlotOrder(ids){

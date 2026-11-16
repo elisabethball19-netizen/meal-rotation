@@ -639,9 +639,9 @@ function installMasterGroupDragging(wrap,reset){
  const on=(target,event,handler,options={})=>target.addEventListener(event,handler,{...options,signal});
  const cards=()=>[...wrap.querySelectorAll(':scope>.master-category-card')].filter(card=>cats.includes(card.dataset.category));
  const eligible=target=>{
-  const card=target.closest('.master-category-card');if(!card||!cats.includes(card.dataset.category)||target.closest('.master-category-meal,.editor,[contenteditable="true"]'))return null;
+  if(recipeBulkMode&&!target.closest('.organize-drag-handle'))return null;const card=target.closest('.master-category-card');if(!card||!cats.includes(card.dataset.category)||target.closest('.master-category-meal,.editor,[contenteditable="true"]'))return null;
   const control=target.closest('button,a,input,select,textarea,summary,[role="button"]');
-  if(control&&(!control.classList.contains('master-category-title')||target.closest('svg')))return null;
+  if(control&&!control.classList.contains('organize-drag-handle')&&(!control.classList.contains('master-category-title')||target.closest('svg')))return null;
   return card;
  };
  const arrange=drag=>{
@@ -693,7 +693,7 @@ function installMasterGroupDragging(wrap,reset){
  };
  const begin=(target,x,y,source,id)=>{
   suppressClick=false;const card=eligible(target);if(!card||editId!==null||document.querySelector('[role="dialog"]'))return;
-  const drag={card,category:card.dataset.category,source,id,startX:x,startY:y,y,previousY:y,originalScroll:scrollY,phase:'pending'};gesture=drag;drag.timer=setTimeout(()=>activate(drag),550);
+  const drag={card,category:card.dataset.category,source,id,startX:x,startY:y,y,previousY:y,originalScroll:scrollY,phase:'pending'};gesture=drag;if(target.closest('.organize-drag-handle'))activate(drag);else drag.timer=setTimeout(()=>activate(drag),550);
  };
  const move=(x,y,event)=>{
   const drag=gesture;if(!drag)return;
@@ -1223,7 +1223,7 @@ function openMealSearch(saved=null){
   results.style.cssText='overflow-y:auto;min-height:100px;flex:1;overscroll-behavior:contain';
   const selectedRecipes=new Set(recipeBulkMode?[...recipeBulkIds]:[]);let selectedSourceGroup=recipeBulkMode?recipeBulkSourceGroup:null;const bulk=document.createElement('button');bulk.type='button';bulk.className='smallbtn';bulk.hidden=true;bulk.setAttribute('aria-label','Bulk actions for selected recipes');
   const updateSelection=()=>{bulk.hidden=!selectedRecipes.size;bulk.textContent='Bulk actions ('+selectedRecipes.size+')'};updateSelection();
-  bulk.onclick=()=>{if(!selectedRecipes.size)return;closeSearch();setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;recipeBulkMode=true;recipeBulkIds=new Set(selectedRecipes);recipeBulkSourceGroup=selectedSourceGroup;recipeBulkFilter={query:input.value,groups:[...selectedGroups]};render()};
+  bulk.onclick=()=>{if(!selectedRecipes.size)return;closeSearch();setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;recipeBulkMode=true;recipeBulkIds=new Set(selectedRecipes);recipeBulkEntrySelection=false;recipeBulkSourceGroup=selectedSourceGroup;recipeBulkFilter={query:input.value,groups:[...selectedGroups]};render()};
   function fitSearch(){
     const vv=window.visualViewport;
     if(!vv)return;

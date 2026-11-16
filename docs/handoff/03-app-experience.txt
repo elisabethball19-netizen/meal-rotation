@@ -1,6 +1,6 @@
 APP EXPERIENCE AND ACCEPTED BEHAVIOR
 Updated: 2026-11-15
-Scope: intended/accepted original-app behavior. #120 renewed phone-review follow-up is implemented/code-checked, awaiting physical-phone acceptance. #121-#124 remain approved NOT YET IMPLEMENTED designs. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
+Scope: intended/accepted original-app behavior. #120 renewed phone-review follow-up is implemented/code-checked, awaiting physical-phone acceptance. #121 is implemented/code-checked, awaiting phone testing; #122-#124 remain approved NOT YET IMPLEMENTED designs. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
 
 LOOK AND FEEL
 Warm Harvest Kitchen palette; muted pastel weekday cards; neutral surfaces; rounded corners; soft shadows; readable dark text.
@@ -62,7 +62,7 @@ Add meals button, "Add meals to [group]" picker; standard chevrons; Copy keeps o
 Search multi-word AND; optional Match word order off by default.
 
 BULK EDIT
-Approved #121: group heading expands/collapses recipes; pencil opens that group's bottom editing bar with none selected. Preserve existing group rename/settings/reorder access. No second editing chevron or Organize label.
+Implemented #121 (awaiting phone testing): group heading expands/collapses recipes; pencil opens that group's bottom editing bar with none selected. Preserve existing group rename/settings/reorder access. No second editing chevron or Organize label.
 Long press opens same mode selecting pressed recipe. Source-group-only selection; no cross-group selection until Done/clear.
 Bottom icon+label actions Groups / Status / Delete / Done, with group/count; hide main navigation. Groups/Status directly open their controls, no intermediate Edit recipes dialog.
 Select all/Deselect all above list beside count, group/filter scope. None -> Select all. Initial long-press auto-selected recipe -> still Select all. After another recipe manually selected -> Deselect all even partial; all selected -> Deselect all. Clears immediately; track entry exception, not count-one shortcut.

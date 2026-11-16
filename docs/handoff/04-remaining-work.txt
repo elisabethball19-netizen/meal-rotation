@@ -6,7 +6,7 @@ ACTIVE PROJECT
 Original app: https://github.com/elisabethball19-netizen/meal-rotation
 Modular vanilla HTML/CSS/JS; installed Android PWA on GitHub Pages.
 Current exact implementation commit/deployment: fetch when needed; not established by this document.
-Implementation queue: #120 initial implementation and approved phone-review corrections implemented/code-checked; renewed phone follow-up implemented/code-checked, awaiting physical-phone acceptance; #121-#124 remain APPROVED / NOT IMPLEMENTED. #121 is now handed off as the next focused implementation batch; #122–#124 remain queued. Latest small #120 feedback is explicitly deferred, not a blocker for #121. See tests/meal_plan_batch120_test_report.md for focused evidence.
+Implementation queue: #120 initial implementation and approved phone-review corrections implemented/code-checked; renewed phone follow-up implemented/code-checked, awaiting physical-phone acceptance; #121 implemented/code-checked, awaiting phone testing; #122–#124 remain APPROVED / NOT IMPLEMENTED and queued. Latest small #120 feedback is explicitly deferred, not a blocker for #121. See tests/meal_plan_batch120_test_report.md for focused evidence.
 Current priority: implement/test one scoped batch at a time; keep corrections in that batch's existing Codex thread. Do not repeat resolved investigations.
 Separate rebuild: initialization AGENTS.md and Product Vision produced, repository/status unconfirmed. Original-app verification does not apply to rebuild. Earlier standalone documents predate subsequent decisions.
 
@@ -25,9 +25,9 @@ Recommended order minimizes repeated work in shared components; test each before
    https://github.com/elisabethball19-netizen/meal-rotation/issues/120
    Latest issue body supersedes original presentation: compact week buttons; meal-slot tabs after title; integrated left date column approved via Saturday mockup; compact two-column action grid; one expanded heart; display details collapsed by setting; linked side no panel; inline empty actions; colored advance checklist/cooked switch; viewer icon/overlap/collapse/footer corrections; overview spacing; grocery filter consolidation. Investigate mixed dates/preview mismatch using occurrence model, no cosmetic date reset. Focused correction checks and inspected mobile screenshots are recorded in tests/meal_plan_batch120_test_report.md; original user screenshots established the defects. Keep future #120 corrections scoped; user explicitly deferred latest nonurgent feedback and authorized proceeding to #121.
    Implemented/code-checked renewed phone follow-up (phone acceptance pending): real switch thumbs/manual-order switch; prior tab styling and browser touch-tested rename/delete/drag; Hours/Days week buttons on Meals/Overview; separate collapsible To-Do instead of card tasks; optional reminders; compact/centered cards and icon alignment; stable expanded-card identity/lifecycle; current-week mixed-date defect and next-week grocery/preview mismatch. Earlier mixed-date fixture is not phone acceptance. Issue #120 holds exact latest behavior and focused checks; do not repeat unrelated passing work.
-2. #121 Single-group editing and reorder handles.
+2. #121 Single-group editing and reorder handles — IMPLEMENTED / CODE-CHECKED; AWAITING PHONE TESTING.
    https://github.com/elisabethball19-netizen/meal-rotation/issues/121
-   Group pencil -> existing bottom bar; Groups/Status/Delete/Done; precise Select all/Deselect all entry exception; supported Ideas/group handles only. Preserve source-group restriction and membership semantics.
+   Implemented: group pencil -> existing bottom bar, settings gear preserves group controls; direct Groups/Status/Delete/Done; precise Select all/Deselect all entry exception; supported Ideas/group handles only. Preserve source-group restriction and membership semantics.
 3. #122 Grocery breakdown + custom-wording scaling bug.
    https://github.com/elisabethball19-netizen/meal-rotation/issues/122
    All rows expandable; inline (2); per-source amount/name/pencil/check; partial parent checkbox; fix scaling without losing custom wording or checks; exact helper copy.
