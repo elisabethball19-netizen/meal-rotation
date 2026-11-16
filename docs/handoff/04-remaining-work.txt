@@ -3,6 +3,18 @@ Updated: 2026-11-15
 Evidence: latest explicit user decisions and phone reports in the handoff conversation. No comprehensive code audit performed for this document.
 
 ACTIVE PROJECT
+CURRENT USER DISPOSITION — supersedes earlier active correction wording
+Proceed with #122 grocery breakdown/scaling PLUS nonrotation visibility/pins prerequisite (tracked #121). No standalone #121 correction task. #123/#124 remain queued.
+Phone-confirmed symptom: disabling Bread rotation hides Easy Sourdough Bread; re-enabling restores it. No deletion established. Show all recipes in reference groups and pin controls on every recipe, retaining statuses/memberships/schedules. #122 contains exact regression checks.
+LATEST DEFERRED POLISH (approved direction, not implemented/urgent):
+- Recipe editor: inline In Rotation/Ideas radios directly below time fields, no Recipe status heading or nested popup; staged outer save/cancel.
+- Group reorder Done returns directly to Meal Groups, hides handles; no Edit group reopening. Resolve unsaved name/rotation edits safely before entry.
+- Meals/Overview radio selectors: no large outline from touch, accessible keyboard focus retained.
+- Meal-tab baseline remains unfixed: continuous under inactive tabs/gaps, break only under selected tab.
+- Remove stray line extending either side above first card on Meals/Overview.
+- Grocery This week/Next week/Both weeks summary aligned with Groceries text baseline, right-aligned muted.
+Earlier deferred items remain queued; bundle only when related. Do not broaden #122 with cosmetic backlog merely because it touches Groceries.
+
 Original app: https://github.com/elisabethball19-netizen/meal-rotation
 Modular vanilla HTML/CSS/JS; installed Android PWA on GitHub Pages.
 Current exact implementation commit/deployment: fetch when needed; not established by this document.
