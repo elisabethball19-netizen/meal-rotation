@@ -2,6 +2,8 @@ REMAINING WORK AND CURRENT PROJECT STATE
 Updated: 2026-11-15
 Evidence: latest explicit user decisions and phone reports in the handoff conversation. No comprehensive code audit performed for this document.
 
+CURRENT HANDOFF: #123 now authorized (import/settings plus related Display alignment and recipe-editor inline status radios). #124 remains queued. #122 all other functionality user reports working; remaining grocery expansion/aggregate edit correction deferred, exact behavior in #122. Single expanded My Meal Plan card remains deferred, not a new duplicate issue. Very low priority weekday/date pair vertically centered in left date column (11447), bundle future card layout work. No separate cosmetic correction task.
+
 ACTIVE PROJECT
 CURRENT USER DISPOSITION — supersedes earlier active correction wording
 Issue #122 grocery breakdown/scaling plus nonrotation visibility/pins is implemented/code-checked; awaiting physical-phone testing. No standalone #121 correction task. #123/#124 and deferred #121 polish remain queued. See tests/grocery_batch122_test_report.md.
