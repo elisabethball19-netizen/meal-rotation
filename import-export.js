@@ -552,10 +552,10 @@ function recipeImportStatus(record,defaultRotation){
  return status?{recipeStatus:status==='rotation'?'rotation':'up-next',upNextStar:typeof record.upNextStar==='boolean'?record.upNextStar:status==='up-next',rotation:status==='rotation',keepAsIdea:status!=='rotation'}:{rotation:defaultRotation,upNextStar:false,keepAsIdea:!defaultRotation};
 }
 function showRecipeImportSelection(items,filename){
+ const sideChoices=new Set(),side=builtinSidesGroup();
  const tags=[...new Set(items.flatMap(recipeImportTags))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
- const overlay=document.createElement('div');overlay.id='recipeImportDialog';overlay.style.cssText='position:fixed;inset:0;z-index:16000;background:#0008;padding:16px;display:flex;align-items:center;justify-content:center';
- const box=document.createElement('div');box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-labelledby','recipeImportTitle');box.style.cssText='width:100%;max-width:520px;max-height:min(88vh,800px);border-radius:14px;background:white;color:#242424;box-shadow:0 10px 32px #0004;padding:20px;display:flex;flex-direction:column;min-height:0;gap:10px';
- const title=document.createElement('h2');title.id='recipeImportTitle';title.textContent='Choose meal groups';title.style.cssText='font-size:21px;margin:0';box.append(title);
+ const dialog=recipeImportDialog('Choose meal groups'),overlay=dialog.overlay,box=dialog.panel;overlay.id='recipeImportDialog';box.replaceChildren();box.style.cssText='max-height:88dvh;display:block;overflow:auto';
+ const title=document.createElement('h2');title.id='recipeImportTitle';title.textContent='Choose meal groups';title.style.cssText='font-size:21px;margin:0;display:flex;justify-content:space-between;align-items:center';const close=document.createElement('button');close.type='button';close.className='iconbtn';setIconButton(close,'cancel','Close import review');close.onclick=()=>dialog.close();title.append(close);box.append(title);
  const subtitle=document.createElement('p');subtitle.textContent=items.length+' recipes found in '+filename+'. Choose which source tags or lists should become meal groups.';subtitle.style.cssText='font-size:14px;color:#666;margin:0';box.append(subtitle);
  const summary=document.createElement('p');summary.style.cssText='font-size:13px;color:#666;margin:0';box.append(summary);
  const toolbar=document.createElement('div');toolbar.style.cssText='display:flex;gap:8px;align-items:center';
@@ -566,13 +566,17 @@ function showRecipeImportSelection(items,filename){
  for(const tag of tags){const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 4px;font-size:16px';const cb=document.createElement('input');cb.type='checkbox';cb.checked=false;cb.style.cssText='width:21px;height:21px;flex:0 0 21px';const name=document.createElement('span');name.textContent=tag;name.style.flex='1';const count=document.createElement('span');count.textContent=String(items.filter(x=>recipeImportTags(x).includes(tag)).length);count.style.cssText='font-size:12px;color:#888';row.append(cb,name,count);list.append(row);checks.push({tag,cb});cb.onchange=updateSummary;}
  if(!tags.length){list.textContent='This file has no recipe tags. All imported meals will go into Unassigned.';list.style.fontSize='14px';all.disabled=true;none.disabled=true;}
  box.append(list);
- const notes=document.createElement('p');notes.style.cssText='font-size:13px;color:#666;margin:0';notes.textContent='Checked source tags become meal groups. Meals without a checked group go to Unassigned.';box.append(notes);const importRotation=document.createElement('input');importRotation.type='checkbox';importRotation.checked=true;stage2FormField(box,'Add grouped imports to rotation',importRotation);
+ const sideReview=document.createElement('fieldset');sideReview.className='import-side-review';const sideLegend=document.createElement('legend');sideLegend.textContent='Likely side recipes — add to Sides?';sideReview.append(sideLegend);
+ for(const recipe of items.filter(recipeImportLikelySide)){const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.onchange=()=>{if(check.checked)sideChoices.add(recipe);else sideChoices.delete(recipe);updateSummary()};label.append(check,document.createTextNode(recipe.name));sideReview.append(label)}
+ if(side&&sideReview.querySelector('input'))box.append(sideReview);
+
+ const notes=document.createElement('p');notes.style.cssText='font-size:13px;color:#666;margin:0';notes.textContent='Checked source tags become meal groups. Meals without a checked group or Sides selection go to Unassigned.';box.append(notes);const importRotation=document.createElement('input');importRotation.type='checkbox';importRotation.checked=true;stage2FormField(box,'Add grouped imports to rotation',importRotation);
  const footer=document.createElement('div');footer.style.cssText='display:flex;justify-content:flex-end;gap:10px;margin-top:6px';
  const cancel=document.createElement('button');cancel.type='button';cancel.className='smallbtn';cancel.textContent='Cancel';
  const apply=document.createElement('button');apply.type='button';apply.className='smallbtn';apply.textContent='Import recipes';apply.style.cssText='background:#e8eefb;border-color:#aac0df;font-weight:600';
- footer.append(cancel,apply);box.append(footer);overlay.append(box);document.body.append(overlay);
- function updateSummary(){const chosen=new Set(checks.filter(x=>x.cb.checked).map(x=>x.tag));const unassigned=items.filter(x=>!recipeImportTags(x).some(t=>chosen.has(t))).length;summary.textContent=chosen.size+' groups selected · '+unassigned+' recipes will go into Unassigned';}
- all.onclick=()=>{checks.forEach(x=>x.cb.checked=true);updateSummary()};none.onclick=()=>{checks.forEach(x=>x.cb.checked=false);updateSummary()};cancel.onclick=()=>overlay.remove();overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};
+ footer.append(cancel,apply);box.append(footer);
+ function updateSummary(){const chosen=new Set(checks.filter(x=>x.cb.checked).map(x=>x.tag));const unassigned=items.filter(x=>!sideChoices.has(x)&&!recipeImportTags(x).some(t=>chosen.has(t))).length;summary.textContent=chosen.size+' groups selected · '+unassigned+' recipe'+(unassigned===1?'':'s')+' will go into Unassigned';}
+ all.onclick=()=>{checks.forEach(x=>x.cb.checked=true);updateSummary()};none.onclick=()=>{checks.forEach(x=>x.cb.checked=false);updateSummary()};cancel.onclick=()=>dialog.close();overlay.onclick=e=>{if(e.target===overlay)dialog.close()};
  apply.onclick=()=>{
   const chosen=new Set(checks.filter(x=>x.cb.checked).map(x=>x.tag));
   const normalize=x=>String(x||'').trim().toLocaleLowerCase();
@@ -585,7 +589,7 @@ function showRecipeImportSelection(items,filename){
    const sourceId=recipeImportIdentity(r);
    if(sourceId&&existingIds.has(sourceId)){const details=completeRecipeFields(r);for(const m of newMeals.filter(m=>m.importSourceId===sourceId))if(fillMissingRecipeContent(m,details))enriched++;skipped++;continue;}
    const matching=recipeImportTags(r).filter(t=>chosen.has(t));
-   const categories=[...new Set(matching.map(catFor))];
+   const categories=[...new Set([...matching.map(catFor),...(side&&sideChoices.has(r)?[side]:[])])];
    if(!categories.length){categories.push('');unassigned++}
    if(!firstCategory)firstCategory=categories[0];
    const prep=recipeImportMinutes(r.prepTime??r.activeTime);
@@ -599,7 +603,7 @@ function showRecipeImportSelection(items,filename){
    if(sourceId)existingIds.add(sourceId);
    added++;
   }
-  if(!added&&!enriched){overlay.remove();recipeImportNotice('All recipes in this file have already been imported.');return}
+  if(!added&&!enriched){dialog.close();recipeImportNotice('All recipes in this file have already been imported.');return}
   const nextActive=firstCategory||active;
   const encoded=JSON.stringify({cats:nextCats,active:nextActive,meals:newMeals});
   try{localStorage.setItem('mealRotationDataV1',encoded)}catch(err){
@@ -609,7 +613,7 @@ function showRecipeImportSelection(items,filename){
   expandedCats=[...new Set([...expandedCats,...addedCats])];
   try{localStorage.setItem('mealRotationExpandedCategoriesV1',JSON.stringify(expandedCats))}catch(e){}
   if(unassigned){masterExpansionInitialized=true;masterExpandedCategories.add('')}
-  overlay.remove();render();
+  dialog.navigate=true;dialog.close();render();
   recipeImportNotice('Imported '+added+' recipes across '+addedCats.length+' new groups.'+(unassigned?' '+unassigned+' saved in Unassigned.':'')+(enriched?' Added missing details to '+enriched+' existing recipe records.':'')+(skipped?' Skipped '+skipped+' duplicate recipes.':'')+(enrichIds.some(id=>!instructionBlocks(meals.find(m=>m.id===id)?.instructions).some(b=>b.type==='step'))?' Some imports have no reliable cooking instructions yet. Available ingredients were preserved. Supported source URLs will be checked in the background; use Refresh Recipes from RecipeSage with your export for any still incomplete recipes.':''),meals.filter(m=>m.recipeImportReferences?.length&&(enrichIds.includes(m.id)||items.some(r=>recipeImportIdentity(r)===m.importSourceId))));
   enrichImportedRecipes(enrichIds);
  };
@@ -840,7 +844,7 @@ function buildRecipeSageRefresh(backup){
   if(!items)return;apply.disabled=choose.disabled=true;
   try{
    if(editId!==null||recipeViewer||backupRestoreReloadPending||recipePageLeaving)throw Error('Close the recipe viewer or editor before refreshing.');
-   const storage=backup.capture(),memory=memoryState();backup.validate(storage);
+   const storage=backup.capture(),memory=memoryState(),undoBefore=captureState();backup.validate(storage);
    const core=JSON.parse(storage.mealRotationDataV1);if(JSON.stringify(core)!==JSON.stringify({cats,active,meals}))throw Error('Saved data changed. Reload the app before refreshing.');
    const plan=recipeSageRefreshPlan(items),next={...core,meals:meals.map(m=>plan.rows.find(r=>r.meal===m)?.replacement||m)},encoded=JSON.stringify(next);
    backup.validate({...storage,mealRotationDataV1:encoded});
@@ -851,18 +855,11 @@ function buildRecipeSageRefresh(backup){
    const url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='meal-rotation-before-recipesage-refresh-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
    // One synchronous, atomic localStorage write; no reconciliation of unrelated data.
    try{localStorage.setItem('mealRotationDataV1',encoded)}catch(e){throw Error('Refresh could not be saved. No recipes changed. Your safety backup was kept.')}
-   for(const {meal,replacement} of plan.rows){Object.assign(meal,replacement);cookingRecipeStates.set(String(meal.id),JSON.stringify({id:meal.id,ingredients:meal.ingredients,instructions:meal.instructions,ingredientStepLinks:meal.ingredientStepLinks}))}
+   snapshot(undoBefore);for(const {meal,replacement} of plan.rows){Object.assign(meal,replacement);cookingRecipeStates.set(String(meal.id),JSON.stringify({id:meal.id,ingredients:meal.ingredients,instructions:meal.instructions,ingredientStepLinks:meal.ingredientStepLinks}))}
    result.textContent=mealPersistence.unsaved?'Refresh is only in memory and has not been saved. Use Retry Save before closing this page.':plan.rows.length+' recipes refreshed. '+plan.skipped.length+' skipped.';
   }catch(e){result.textContent=e.message||'Refresh stopped. No recipes changed.'}finally{apply.disabled=!items;choose.disabled=false}
  };
  return box;
-}
-function openRecipeImportFilePicker(){
- const input=document.createElement('input');input.type='file';input.accept='.jsonld,.json,.csv,.html,.htm,.zip,.paprikarecipes,.melarecipe,.melarecipes,.paprikarecipe,application/json,text/csv,application/zip,*/*';
- input.onchange=async()=>{const file=input.files?.[0];if(!file)return;
-  try{const items=await recipeImportReadFile(file);if(!items.length){recipeImportNotice('No recipes were found in this export. Check that the file contains recipe information.');return}showRecipeImportSelection(items,file.name)}
-  catch(e){recipeImportNotice('Could not read the recipe export. '+(e.message||'No meals were changed.')+' No meals were changed.')}
- };input.click();
 }
 function openBackupRestorePicker(onError=error=>showAppMessage(error.message),canRestore=null){
  const input=document.createElement('input');input.type='file';input.accept='.json,application/json,*/*';
@@ -881,37 +878,71 @@ async function restoreVersion2Backup(backup,canRestore=null){
  restoreBackupStorage(replacement,{id:'backup-restore',kind:'backup-restore',ownerId:null,retry:finish});
  recipePhotoNotice(preparation.warnings);mealPersistence.reload();
 }
-function openRecipeImportSourcePicker(){
- const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;z-index:16100;display:flex;align-items:center;justify-content:center;background:#0008;padding:18px';
- const box=document.createElement('div');box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','Import recipes');box.style.cssText='width:100%;max-width:460px;padding:22px;background:white;color:#242424;border-radius:14px;box-shadow:0 12px 35px #0004;display:flex;flex-direction:column;gap:12px';
- const heading=document.createElement('h2');heading.textContent='Import recipes';heading.style.cssText='font-size:20px;margin:0 0 4px';box.append(heading);
- function action(label,desc,fn){const b=document.createElement('button');b.type='button';b.className='smallbtn';b.style.cssText='display:block;width:100%;text-align:left;padding:12px 14px';b.textContent=label;const hint=document.createElement('div');hint.textContent=desc;hint.style.cssText='font-size:12px;color:#666;margin-top:5px';b.append(hint);b.onclick=()=>{overlay.remove();fn()};box.append(b)}
- action('Choose recipe export file','RecipeSage, Paprika, Mela, Trello, CSV, JSON, HTML, or ZIP.',openRecipeImportFilePicker);
- action('Trello board link','Try a public board link. Trello may require exporting board JSON instead.',openRecipeImportTrelloLink);
- const cancel=document.createElement('button');cancel.type='button';cancel.className='smallbtn';cancel.textContent='Cancel';cancel.style.alignSelf='flex-end';cancel.onclick=()=>overlay.remove();box.append(cancel);
- overlay.append(box);document.body.append(overlay);overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};box.querySelector('button')?.focus({preventScroll:true});overlay.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();overlay.remove()}if(e.key==='Tab'){const buttons=[...box.querySelectorAll('button')],first=buttons[0],last=buttons.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}};
+// Shared popup shell: the existing dialog owns focus, viewport and Android Back.
+function recipeImportDialog(title){
+ const origin={scroll:scrollY,planId:activePlanId,view:appViewSnapshot().view},d=recipeBulkDialog(title,null,true);d.overlay.classList.add('recipe-import-popup');
+ const returned=new MutationObserver(()=>{if(d.overlay.isConnected)return;returned.disconnect();if(d.navigate)return;groupHistorySettled.then(()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{if(!d.navigate&&activePlanId===origin.planId&&appViewSnapshot().view===origin.view&&editId===null)scrollTo({top:origin.scroll,behavior:'instant'})}))) });returned.observe(document.body,{childList:true});
+ const heading=d.panel.firstElementChild;heading.className='recipe-import-heading';
+ const text=document.createElement('span');text.textContent=title;heading.replaceChildren(text);
+ const close=document.createElement('button');close.type='button';close.className='iconbtn';setIconButton(close,'cancel','Close '+title.toLowerCase());close.onclick=()=>d.close();heading.append(close);return d;
 }
-function openRecipeImportTrelloLink(){
- const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;z-index:16100;display:flex;align-items:center;justify-content:center;background:#0008;padding:18px';
- const box=document.createElement('div');box.style.cssText='width:100%;max-width:475px;padding:22px;background:white;color:#242424;border-radius:14px;display:flex;flex-direction:column;gap:12px';
- const title=document.createElement('h2');title.textContent='Import from Trello board';title.style.cssText='font-size:20px;margin:0';box.append(title);
- const input=document.createElement('input');input.type='url';input.placeholder='https://trello.com/b/…';input.setAttribute('aria-label','Trello board URL');input.style.cssText='width:100%;border:1px solid #ccc;border-radius:8px;padding:12px';box.append(input);
- const hint=document.createElement('p');hint.textContent='A Trello link may not be readable directly from this app, particularly for private boards. You can always export your board as JSON in Trello and import that file instead.';hint.style.cssText='font-size:13px;color:#666;margin:0';box.append(hint);
- const status=document.createElement('p');status.style.cssText='font-size:13px;color:#666;margin:0';box.append(status);
- const actions=document.createElement('div');actions.style.cssText='display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end';
- const choose=document.createElement('button');choose.className='smallbtn';choose.textContent='Choose JSON export';choose.onclick=()=>{overlay.remove();openRecipeImportFilePicker()};
- const cancel=document.createElement('button');cancel.className='smallbtn';cancel.textContent='Cancel';cancel.onclick=()=>overlay.remove();
- const read=document.createElement('button');read.className='smallbtn';read.textContent='Try board link';read.style.background='#e8eefb';
- actions.append(choose,cancel,read);box.append(actions);overlay.append(box);document.body.append(overlay);
- read.onclick=async()=>{
-  let url;try{url=new URL(input.value.trim())}catch(e){status.textContent='Enter a complete Trello board URL.';return}
-  if(url.protocol!=='https:'||!['trello.com','www.trello.com'].includes(url.hostname)||!/^\/b\/[a-z0-9]{6,}/i.test(url.pathname)){status.textContent='Enter a link beginning with https://trello.com/b/';return}
-  const code=url.pathname.split('/')[2];const jsonURL='https://trello.com/b/'+encodeURIComponent(code)+'.json';
-  read.disabled=true;status.textContent='Trying to read board…';
-  try{const response=await fetch(jsonURL,{credentials:'omit',signal:AbortSignal.timeout(12000)});if(!response.ok)throw new Error('Board not accessible');
-    const raw=await response.json(),items=recipeImportItems(raw);if(!items.length)throw new Error('No cards found');overlay.remove();showRecipeImportSelection(items,'Trello board '+code);
-  }catch(e){status.textContent='Trello blocked direct access or the board is private. In Trello, open the board menu → Print, export, and share → Export as JSON, then choose that file here.'}
-  finally{read.disabled=false}
+function recipeImportLikelySide(record){
+ const tags=recipeImportTags(record).map(tag=>tag.toLowerCase().trim());
+ if(tags.some(tag=>/^(?:side(?: dish)?s?|accompaniments?|vegetable sides?)$/.test(tag)))return true;
+ if(tags.length)return false; // Explicit metadata is stronger than a name guess.
+ return /^(?:(?:easy|simple|crispy|garlic|herbed|buttery)\s+)*(?:roasted|steamed|mashed|sauteed|sautéed)\s+(?:potatoes|carrots|broccoli|asparagus|vegetables)\b/i.test(record.name||'');
+}
+async function reviewRecipeImportItems(items,filename){
+ if(items.length!==1||meals.some(m=>m.importSourceId===recipeImportIdentity(items[0]))){showRecipeImportSelection(items,filename);return}
+ const raw=items[0],details=completeRecipeFields(raw),sourceId=recipeImportIdentity(raw);
+ const record={...details,name:details.name||raw.name||'Imported recipe',labels:recipeImportTags(raw),...recipeImportStatus(raw,false),groceryDefaultAll:true,url:recipeImportUrl(raw),sourceUrl:recipeImportSourceUrl(raw),importSourceId:sourceId,recipeSageId:recipeSageUuidPattern.test(sourceId)?sourceId:'',recipeImportPending:false};
+ // Creation, membership changes, Save, Cancel and Undo all use the ordinary editor.
+ await navigateAfterSettings(()=>addRecipeToGroup('',record));
+ if(editId!==null){const recipe=document.querySelector('[data-editor-section=recipe]');if(recipe)recipe.open=true}
+}
+function openRecipeSageRefresh(backup){
+ const d=recipeImportDialog('Refresh from RecipeSage');d.panel.append(buildRecipeSageRefresh(backup));
+ d.panel.querySelector('#recipeSageRefresh>strong')?.remove();
+}
+function openRecipeImportFilePicker(){openRecipeImportSourcePicker('file')}
+function openRecipeImportTrelloLink(){openRecipeImportSourcePicker('trello')}
+function openRecipeImportSourcePicker(initial='website'){
+ const d=recipeImportDialog('Import recipes'),methods=document.createElement('fieldset'),legend=document.createElement('legend');legend.textContent='Import from';methods.className='recipe-import-methods';methods.append(legend);
+ const body=document.createElement('div');body.className='recipe-import-method-body';const status=document.createElement('p');status.className='muted';status.setAttribute('role','status');
+ const actions=document.createElement('div');actions.className='meal-unified-actions';const review=document.createElement('button');review.type='button';review.className='smallbtn';review.textContent='Review recipe';actions.append(review);
+ let method=initial,controller=null,generation=0,selectedPhoto=null;
+ const originalClose=d.close;d.close=(...args)=>{generation++;controller?.abort();originalClose(...args)};
+ // The shell's Back/X/Escape can remove it directly; invalidate all pending work too.
+ const watch=new MutationObserver(()=>{if(!d.overlay.isConnected){generation++;controller?.abort();watch.disconnect()}});watch.observe(document.body,{childList:true});
+ const fields={};
+ function field(label,element){const wrap=document.createElement('label');wrap.className='recipe-import-field';const text=document.createElement('span');text.textContent=label;element.setAttribute('aria-label',label);wrap.append(text,element);body.append(wrap);return element}
+ function hint(text){const p=document.createElement('p');p.className='muted';p.textContent=text;body.append(p)}
+ function show(next){
+  generation++;controller?.abort();method=next;body.replaceChildren();status.textContent='';review.disabled=false;selectedPhoto=null;
+  review.textContent=next==='file'?'Read recipe file':next==='trello'?'Read board':'Review recipe';
+  if(next==='website'){fields.url=field('Website link',document.createElement('input'));fields.url.type='url';fields.url.placeholder='https://…';hint('Import supported recipe details, then review before saving.')}
+  if(next==='text'){fields.text=field('Recipe text',document.createElement('textarea'));fields.text.rows=8;fields.text.placeholder='Title: Recipe name\nIngredients\n1 cup rice\nInstructions\nCook the rice.';hint('Include Ingredients and Instructions headings when available.')}
+  if(next==='photo'){
+   hint('Choose a clear recipe photo. Recognized text is editable before review.');fields.text=field('Recognized recipe text',document.createElement('textarea'));fields.text.rows=6;
+   for(const [label,camera]of [['Choose photo',false],['Use camera',true]]){const input=document.createElement('input');input.type='file';input.accept='image/*';if(camera)input.capture='environment';input.hidden=true;const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=label;button.onclick=()=>input.click();body.append(button,input);input.onchange=()=>{selectedPhoto=input.files?.[0]||null;if(selectedPhoto)readPhoto()}}
+  }
+  if(next==='file'){hint('Supported exports: RecipeSage, Paprika, Mela, Trello, CSV, JSON / JSON-LD, HTML and ZIP.');fields.file=field('Recipe file',document.createElement('input'));fields.file.type='file';fields.file.accept='.jsonld,.json,.csv,.html,.htm,.zip,.paprikarecipes,.melarecipe,.melarecipes,.paprikarecipe,application/json,text/csv,application/zip,*/*'}
+  if(next==='trello'){fields.board=field('Trello board link',document.createElement('input'));fields.board.type='url';fields.board.placeholder='https://trello.com/b/…';hint('Public boards may be readable directly. For private or blocked boards, select Recipe file and use Trello’s JSON export.')}
+ }
+ async function readPhoto(){const current=++generation;controller?.abort();controller=new AbortController();review.disabled=true;status.textContent='Reading photo…';try{if(await ingredientPhotoIsBlank(selectedPhoto))throw Error('No readable text found. Choose a clearer photo.');const text=await recognizeIngredientPhoto(selectedPhoto,controller.signal);if(current!==generation||!d.overlay.isConnected)return;fields.text.value=text;status.textContent='Check the recognized text, then review your recipe.'}catch(e){if(current===generation&&d.overlay.isConnected)status.textContent=e.message}finally{if(current===generation)review.disabled=false}}
+ for(const [value,label]of [['website','Website link'],['photo','Photo or camera'],['text','Paste text'],['file','Recipe file'],['trello','Trello board link']]){const row=document.createElement('label'),radio=document.createElement('input');radio.type='radio';radio.name='recipeImportMethod';radio.value=value;radio.checked=value===initial;radio.onchange=()=>{if(radio.checked)show(value)};row.append(radio,document.createTextNode(label));methods.append(row)}
+ review.onclick=async()=>{
+  const current=++generation;controller?.abort();controller=new AbortController();review.disabled=true;status.textContent='Reading recipe…';
+  try{
+   let items=[],filename='import';
+   if(method==='file'){const file=fields.file.files?.[0];if(!file)throw Error('Choose a recipe file.');items=await recipeImportReadFile(file);filename=file.name}
+   else if(method==='trello'){let url;try{url=new URL(fields.board.value.trim())}catch(_){throw Error('Enter a complete Trello board URL.')};if(url.protocol!=='https:'||!['trello.com','www.trello.com'].includes(url.hostname)||!/^\/b\/[a-z0-9]{6,}/i.test(url.pathname))throw Error('Enter a link beginning with https://trello.com/b/');const response=await fetch('https://trello.com/b/'+encodeURIComponent(url.pathname.split('/')[2])+'.json',{credentials:'omit',signal:controller.signal});if(!response.ok)throw Error('Trello blocked access. Export the board as JSON and use Recipe file.');items=recipeImportItems(await response.json());filename='Trello board'}
+   else if(method==='website'){const lines=await importIngredientsFromWebsite(fields.url.value.trim(),controller.signal);const details=lines.recipeDetails||{ingredients:[...lines]};items=[{...details,name:details.name||'Imported recipe',url:fields.url.value.trim()}]}
+   else{const text=fields.text.value.trim();if(!text)throw Error('Enter recipe text first.');const details=extractCompleteRecipe(text)||recipeTextSections(text);if(!details.ingredients?.length&&!details.instructions?.some(step=>step.type==='step'))details.notes=details.notes||text;items=[{...details,name:details.name||text.split(/\r?\n/)[0].replace(/^Title:\s*/i,'').trim()||'Imported recipe',ingredients:details.ingredients||extractRecipeIngredients(text)}]}
+   if(current!==generation||!d.overlay.isConnected)return;if(!items.length)throw Error('No recipes were found. Check the selected source.');d.navigate=true;d.close();await groupHistorySettled;await editorHistorySettled;await reviewRecipeImportItems(items,filename);
+  }catch(e){if(current===generation&&d.overlay.isConnected)status.textContent=e.message||'Import could not be read. No recipes changed.'}finally{if(current===generation)review.disabled=false}
  };
+ d.panel.append(methods,body,status,actions);show(initial);
 }
+
 // Settings edits remain reversible until Save is selected.

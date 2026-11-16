@@ -2,7 +2,7 @@ APP EXPERIENCE AND ACCEPTED BEHAVIOR
 Updated: 2026-11-15
 Scope: intended/accepted original-app behavior. #120 renewed phone-review follow-up is implemented/code-checked, awaiting physical-phone acceptance. #121 combined phone-review follow-up is implemented/code-checked, awaiting phone acceptance; #122-#124 remain approved NOT YET IMPLEMENTED designs. This is not an exhaustive fresh code audit. Latest phone outcomes are in 04-remaining-work.txt.
 
-LATEST ACCEPTED GROCERY REFINEMENT (deferred, not implemented): expanded content shows recipe names only, no repeated ingredient/source quantities; checkbox per contribution only when multiple; one pencil beside first recipe name, hidden collapsed, applies wording to all included contributions of displayed aggregate. Preserve per-source quantities/scaling/checks and recipe originals; #122 latest review supersedes older per-source edit description. Other #122 functionality user reports working. #123 approved next: imports/settings plus aligned Display rows and recipe-editor inline In Rotation/Ideas radios below times, no visible status heading/popup; main save/cancel semantics preserved.
+LATEST ACCEPTED GROCERY REFINEMENT (deferred, not implemented): expanded content shows recipe names only, no repeated ingredient/source quantities; checkbox per contribution only when multiple; one pencil beside first recipe name, hidden collapsed, applies wording to all included contributions of displayed aggregate. Preserve per-source quantities/scaling/checks and recipe originals; #122 latest review supersedes older per-source edit description. Other #122 functionality user reports working. #123 implemented/code-checked, awaiting phone acceptance: imports/settings, aligned Display rows and recipe-editor inline In Rotation/Ideas radios below times, no visible status heading/popup; main save/cancel semantics preserved.
 
 LOOK AND FEEL
 Warm Harvest Kitchen palette; muted pastel weekday cards; neutral surfaces; rounded corners; soft shadows; readable dark text.
@@ -69,7 +69,7 @@ Renewed #121 corrections implemented/code-checked, awaiting phone acceptance: co
 Latest #121 completion pass implemented/code-checked, awaiting phone acceptance: organize-entry parity/Ideas handles; individual status arrows in organizing; group-header handles only separate group reorder via icon in Edit group (preserve drafts); expanded Groups heart/status in bottom actions; chevron/name + weekday alignment; Schedule [name] title; Use multiple meal tabs wording; Meals/Overview week radios, continuous tab baseline and previously approved compact sticky controls. Other deferred work/#122–#124 stay queued.
 Latest accepted behavior is the completion section in #121; it supersedes previous implemented presentation described below.
 
-Latest user disposition: remaining #121 micro-polish deferred; #122 next with nonrotation visibility/pins prerequisite. Latest lasting deferred designs: recipe-editor inline status radios below times/no heading; reorder Done exits to group list/no reopened editor; remove touch-only radio outline/stray card-top line; fix inactive tab baseline; align grocery summary baseline. Preserve outer save/cancel/keyboard focus and resolve unsaved group edits before reorder. Do not infer these are implemented.
+Latest user disposition: remaining #121 micro-polish deferred; #122 next with nonrotation visibility/pins prerequisite. Inline status radios below times/no heading are now code-checked in #123. Remaining deferred designs: reorder Done exits to group list/no reopened editor; remove touch-only radio outline/stray card-top line; fix inactive tab baseline; align grocery summary baseline. Preserve outer save/cancel/keyboard focus and resolve unsaved group edits before reorder. Do not infer these are implemented.
 
 BULK EDIT / GROUP-VIEW FOLLOW-UP — IMPLEMENTED / CODE-CHECKED; AWAITING PHONE ACCEPTANCE
 Latest #121 issue replaces original controls/status popup design.
@@ -145,7 +145,7 @@ Labels, times, notes, source, ingredient upload/import and recipe status retaine
 ONBOARDING / IMPORT / DATA
 Existing create-first path retained: Create Recipe -> group checkbox list + inline New group -> day/meal time -> My Meal Plan; no intermediate setup.
 Implemented #120 (awaiting phone testing) spotlight teaching copy: "Start next week to move to your next meal plan and update your grocery list." Retain first-assignment trigger, shadow/arrow/standard X pointing at real action; supersedes rotation wording.
-Approved #123: Settings Recipes = Import recipes / Export recipes / Refresh from RecipeSage. Backups = Save backup / Restore backup (Start fresh in #124).
+Implemented/code-checked #123 (awaiting phone testing): Settings Recipes = Import recipes / Export recipes / Refresh from RecipeSage. Backups = Save backup / Restore backup (Start fresh in #124).
 One Import recipes popup: Website link / Photo or camera / Paste text / Recipe file / Trello board link. Show only selected method fields; standard X; formats under Recipe file. Preserve actual supported formats and existing parsers/cleanup; do not promise new services.
 Single import review via existing editor; bulk keeps existing bulk flow, no forced per-recipe review.
 RecipeSage refresh explanation/chooser/action in own popup; keep matching, customizations, notes, safety backup and uncertain-match skips.

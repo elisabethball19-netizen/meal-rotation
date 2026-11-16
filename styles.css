@@ -1849,3 +1849,34 @@ body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{
 .master-recipe-section[data-recipe-section="all"] .master-category-meal>.recipe-up-next-star{align-self:start!important;margin-top:5px!important;}
 
 .master-recipe-section[data-recipe-section="all"] .master-category-meal>.master-meal-info{align-self:start!important;}
+
+/* Shared columns across Display switches, including wrapped helper text. */
+#settingsPanel .settings-display-option{display:grid;grid-template-columns:44px minmax(0,1fr);gap:0 12px;align-items:start;min-height:44px;padding:8px 0;margin:0;line-height:1.4;}
+#settingsPanel .settings-display-option>.preference-switch-control{grid-column:1;align-self:start;margin:0;}
+#settingsPanel .settings-display-option-copy{grid-column:2;min-width:0;overflow-wrap:anywhere;}
+#settingsPanel .collapsed-card-options{margin:8px 0 12px;padding:0;}
+#settingsPanel .settings-display-option-with-help{margin-top:8px;}
+.recipe-status-inline{display:flex;flex-wrap:wrap;gap:4px 20px;margin:8px 0 12px;}
+#editor .recipe-status-inline label{display:flex;align-items:center;gap:8px;margin:0;min-height:44px;}
+.recipe-status-inline input{width:18px;height:18px;margin:0;}
+.recipe-import-popup>div{display:flex;flex-direction:column;gap:12px;max-height:calc(100dvh - 24px);overflow:auto;}
+.recipe-import-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:20px;}
+.recipe-import-heading>span{min-width:0;}
+.recipe-import-methods{display:flex;flex-wrap:wrap;gap:0 16px;border:0;padding:0;margin:0;}
+.recipe-import-methods legend{font-size:13px;color:#777;margin-bottom:4px;}
+.recipe-import-methods label,.import-side-review label,.import-side-suggestion{display:flex;align-items:center;gap:8px;min-height:44px;}
+.recipe-import-methods input,.import-side-review input{flex:0 0 18px;width:18px;height:18px;margin:0;}
+.recipe-import-method-body{display:grid;gap:10px;min-height:0;}
+.recipe-import-field{display:grid;gap:6px;min-width:0;}
+.recipe-import-field input,.recipe-import-field textarea{width:100%;min-width:0;border:1px solid #bbb;border-radius:8px;padding:10px;font:inherit;}
+.recipe-import-field textarea{resize:vertical;min-height:100px;max-height:35dvh;}
+.recipe-import-popup p{margin:0;}
+.import-side-review{border:0;padding:0;margin:4px 0;max-height:24dvh;overflow:auto;}
+.import-side-review legend{font-size:14px;font-weight:600;}
+.recipe-import-popup .meal-unified-actions{flex-shrink:0;}
+.recipe-import-popup>div>*{flex-shrink:0;}
+.recipe-import-popup .recipe-import-heading{position:sticky;top:-20px;padding:12px 0;margin-top:-12px;background:#fff;z-index:2;}
+#settingsPanel .settings-display-option-copy{padding-top:4px;}
+
+#recipeImportDialog h2{position:sticky;top:-20px;background:#fff;z-index:2;padding:6px 0;}
+#recipeImportDialog p,#recipeImportDialog fieldset{margin-block:10px;}
