@@ -374,6 +374,10 @@ function validateBackupCore(d){
  if('mealPlans'in d){const plans=d.mealPlans;if(!object(plans)||!Array.isArray(plans.plans)||!plans.plans.length||plans.plans.some(p=>!object(p)||typeof p.id!=='string'||!p.id||typeof p.name!=='string'||!object(p.weekdayCategories)||('weekdayMealOverrides'in p&&!object(p.weekdayMealOverrides))||('weekdayRecipeFilters'in p&&!object(p.weekdayRecipeFilters))||('pinnedCats'in p&&!Array.isArray(p.pinnedCats)))||new Set(plans.plans.map(p=>p.id)).size!==plans.plans.length||('activeId'in plans&&!plans.plans.some(p=>p.id===plans.activeId)))throw new Error('Invalid meal plans');}
  if(d.mealPlans)for(const plan of d.mealPlans.plans)if('sideGroupPairs'in plan&&(!object(plan.sideGroupPairs)||Object.entries(plan.sideGroupPairs).some(([day,pairs])=>!weekdays.includes(day)||!object(pairs)||Object.values(pairs).some(id=>typeof id!=='string'||!id))))throw Error('Invalid side-group pairing');
  if(d.mealPlans)for(const plan of d.mealPlans.plans)if('dependentSideState'in plan&&(!object(plan.dependentSideState)||Object.entries(plan.dependentSideState).some(([key,value])=>{let parts;try{parts=JSON.parse(key)}catch(e){return true}return !Array.isArray(parts)||parts.length!==2||!weekdays.includes(parts[0])||typeof parts[1]!=='string'||!object(value)||typeof value.mainId!=='string'||typeof value.mealId!=='string'||typeof value.automatic!=='boolean'})))throw Error('Invalid dependent side state');
+ if(d.mealPlans)for(const plan of d.mealPlans.plans){
+  if(plan.alternatingGroupsV1!==undefined&&(!object(plan.alternatingGroupsV1)||Object.values(plan.alternatingGroupsV1).some(seq=>!object(seq)||!weekdays.includes(seq.day)||!Array.isArray(seq.groups)||seq.groups.length<2||seq.groups.some(id=>typeof id!=='string'||!id)||!Number.isSafeInteger(seq.position)||seq.position<0||seq.position>=seq.groups.length)))throw Error('Invalid alternating assignments');
+  const pending=plan.pendingNextWeekV1;if(pending!==undefined&&(!object(pending)||pending.version!==1||!/^\d{4}-\d{2}-\d{2}$/.test(pending.week)||!object(pending.choices)||Object.values(pending.choices).some(choice=>!object(choice)||!weekdays.includes(choice.day)||typeof choice.groupId!=='string'||typeof choice.mealId!=='string'||choice.empty!==undefined&&typeof choice.empty!=='boolean'||choice.provenance!==undefined&&!['manual','automatic','unknown'].includes(choice.provenance))))throw Error('Invalid pending next week');
+ }
  if(d.mealPlans)for(const plan of d.mealPlans.plans)if('weekSchedule'in plan)validateWeekSchedule(plan.weekSchedule);
  if(d.mealPlans)for(const plan of d.mealPlans.plans)if('simpleSideOccurrences'in plan){if(!object(plan.simpleSideOccurrences))throw Error('Invalid occurrence sides');for(const [key,sides]of Object.entries(plan.simpleSideOccurrences)){let parts;try{parts=JSON.parse(key)}catch(e){throw Error('Invalid side occurrence')}if(!Array.isArray(parts)||parts.length!==6||parts.some(part=>typeof part!=='string'))throw Error('Invalid side occurrence');validateSimpleSides(sides)}}
  if(d.mealPlans)for(const plan of d.mealPlans.plans)if('occasionalMeals'in plan&&(!object(plan.occasionalMeals)||Object.entries(plan.occasionalMeals).some(([day,id])=>!weekdays.includes(day)||!['string','number'].includes(typeof id)||!String(id).trim())))throw Error('Invalid one-time meals');
@@ -475,7 +479,7 @@ function writeCookingSessions(next){
  try{localStorage.setItem(COOKING_SESSIONS_KEY,JSON.stringify(next));cookingSessions=next;return true}
  catch(e){showAppMessage('Cooking progress could not be saved. Your browser may be low on storage. Existing recipes and saved progress have not been replaced.');return false}
 }
-function cookingOccurrenceKey(c){return JSON.stringify([c.planId,c.day,c.mealId,c.parentId||''])}
+function cookingOccurrenceKey(c){return JSON.stringify([c.planId,c.day,c.mealId,c.parentId||'',...(c.scaleDate?[c.scaleDate]:[])])}
 function cookingContext(planId,day,cat,meal,parentId=''){return {planId:String(planId),day:String(day),cat:String(cat),mealId:String(meal.id),parentId:parentId==null?'':String(parentId)}}
 function cookingSession(context,create=false){
  if(!context)return null;const key=cookingOccurrenceKey(context);if(cookingSessions.occurrences[key])return cookingSessions.occurrences[key];
@@ -509,6 +513,7 @@ const OCCURRENCE_SCALES_KEY='mealRotationOccurrenceScalesV1',RECIPE_SCALES=[.5,1
 let occurrenceScales={version:1,occurrences:{}},scaleStorageInvalid=false;
 function validateOccurrenceScales(value,groupIdentities=null){
  if(!value||value.version!==1||!value.occurrences||typeof value.occurrences!=='object'||Array.isArray(value.occurrences))throw Error('Invalid recipe scaling');
+ if(value.defaults!==undefined&&(!value.defaults||Array.isArray(value.defaults)||typeof value.defaults!=='object'||Object.values(value.defaults).some(n=>!validRecipeMultiplier(n))))throw Error('Invalid recipe default multipliers');
  for(const [key,entry] of Object.entries(value.occurrences))if(!entry||!validRecipeMultiplier(entry.multiplier)||!entry.context||entry.context.scaleGroupId!==undefined&&typeof entry.context.scaleGroupId!=='string'||!['planId','day','cat','mealId','parentId'].every(k=>typeof entry.context[k]==='string')||(key!==cookingOccurrenceKey(entry.context)&&key!==scaleOccurrenceKey(entry.context,groupIdentities)))throw Error('Invalid recipe scale occurrence');
 }
 try{const raw=localStorage.getItem(OCCURRENCE_SCALES_KEY);if(raw){const parsed=JSON.parse(raw);validateOccurrenceScales(parsed);occurrenceScales=parsed}}catch(e){scaleStorageInvalid=true}
@@ -522,35 +527,36 @@ function scaleOccurrenceKey(c,groupIdentities=null){
  // Startup validates scales before rotation.js defines groupIdentity. Resolve the
  // same saved identity here without depending on later scripts or creating IDs.
  let identity=c.scaleGroupId;if(!identity){try{identity=(groupIdentities||JSON.parse(localStorage.getItem('mealRotationGroupIdentitiesV1')||'{}'))[c.cat]}catch(_){}}
- return JSON.stringify([...JSON.parse(cookingOccurrenceKey(c)),identity||c.cat]);
+ return JSON.stringify([c.planId,c.day,c.mealId,c.parentId||'',identity||c.cat,...(c.scaleDate?[c.scaleDate]:[])]);
 }
 function occurrenceMultiplier(context){
  if(!context)return 1;
  const exact=occurrenceScales.occurrences[scaleOccurrenceKey(context)];if(exact)return exact.multiplier;
  const legacy=occurrenceScales.occurrences[cookingOccurrenceKey(context)];
  // Old saves describe one group, never all copies of a recipe on that day.
- return legacy&&legacy.context.cat===context.cat?legacy.multiplier:1;
+ return legacy&&legacy.context.cat===context.cat&&!context.scaleDate?legacy.multiplier:recipeDefaultMultiplier(context.mealId);
 }
 function clearOccurrenceScales(predicate){const next=JSON.parse(JSON.stringify(occurrenceScales));let changed=false;for(const [key,entry] of Object.entries(next.occurrences))if(predicate(entry.context)){delete next.occurrences[key];changed=true}if(changed)writeOccurrenceScales(next)}
-function setViewedRecipeScale(value){
- const view=recipeViewer;if(!view||!validRecipeMultiplier(value))return false;
- if(view.context){
-  if(groceryCheckStorageInvalid){showAppMessage('Saved grocery checks could not be read. No multiplier was changed.');return false}
-  if(!definiteRecipeContext(view.context))return false;
-  const before=captureGroceryCheckStates(),next=JSON.parse(JSON.stringify(occurrenceScales)),context={...view.context,scaleGroupId:groupIdentity(view.context.cat,true)||view.context.cat},key=scaleOccurrenceKey(context);
-  const legacy=cookingOccurrenceKey(context);if(next.occurrences[legacy]?.context.cat===context.cat)delete next.occurrences[legacy];
-  if(value===1)delete next.occurrences[key];else next.occurrences[key]={context,multiplier:value};
-  if(!writeOccurrenceScales(next)){renderRecipeViewer();return false}
-  preserveGroceryCheckStates(before);groceryOccurrenceChecks.quantities??={};
-  for(const source of getGroceryContributions(true)){
-   const prior=before.get(source.id);if(!prior||!source.quantity||!prior.source.quantity)continue;
-   const checked=prior.amount|| (prior.checked?prior.source.quantity:{lo:0,hi:0});
-   groceryOccurrenceChecks.quantities[source.id]={lo:Math.min(checked.lo,source.quantity.lo),hi:Math.min(checked.hi,source.quantity.hi)};
+function recipeDefaultMultiplier(id){return occurrenceScales.defaults?.[String(id)]||1}
+function setViewedRecipeScale(value,{remember=false,linked=false}={}){
+ const view=recipeViewer,meal=meals.find(m=>String(m.id)===view?.mealId);if(!view||!meal||!validRecipeMultiplier(value)||scaleStorageInvalid||groceryCheckStorageInvalid)return false;
+ const before=JSON.parse(captureState());before.scaleUndo=JSON.parse(JSON.stringify(occurrenceScales));const checks=captureGroceryCheckStates(),next=JSON.parse(JSON.stringify(occurrenceScales));next.defaults??={};
+ const targets=[meal,...(linked?[...new Set((meal.linkedMealIds||[]).map(String))].map(id=>meals.find(m=>String(m.id)===String(id))).filter(Boolean):[])];
+ if(!view.context&&!remember){for(const tab of view.tabCache.values())if(!tab.context&&targets.some(m=>String(m.id)===tab.mealId))tab.previewScale=value;view.previewScale=value;renderRecipeViewer();return true}
+ // Freeze only already scheduled occurrences before changing a future default.
+ if(remember)for(const plan of mealPlans)for(const entry of getDisplayedWeekdayMealsForPlan(plan))if(targets.some(m=>String(m.id)===String(entry.meal.id))){const context=cookingContext(plan.id,entry.day,entry.cat,entry.meal,entry.linkedTo),key=scaleOccurrenceKey(context);next.occurrences[key]={context,multiplier:occurrenceMultiplier(context)}}
+ for(const plan of mealPlans)if(remember&&plan.pendingNextWeekV1){const source=previewMealPlanAdvance(null,null,plan.id);for(const entry of source.entries)if(targets.some(m=>String(m.id)===String(entry.meal.id))&&Object.values(plan.pendingNextWeekV1.choices||{}).some(choice=>choice.mealId===String(entry.meal.id))){const context=pendingContext(source.plan,entry);next.occurrences[scaleOccurrenceKey(context)]={context,multiplier:occurrenceMultiplier(context)}}}
+ for(const target of targets){
+  if(remember)next.defaults[String(target.id)]=value;
+  if(view.context){let context;if(target===meal)context={...view.context};else{context=linkedRecipeContext({context:view.context,mealId:String(meal.id)},target)||cookingContext(view.context.planId,view.context.day,target.cat,target,meal.id);if(view.context.scaleDate)context.scaleDate=view.context.scaleDate}
+   context.scaleGroupId=groupIdentity(context.cat,true)||context.cat;next.occurrences[scaleOccurrenceKey(context)]={context,multiplier:value};
+   const legacy=cookingOccurrenceKey(context);if(!context.scaleDate&&next.occurrences[legacy]?.context.cat===context.cat)delete next.occurrences[legacy];
   }
-  saveGroceryOccurrenceChecks();view.contentChanged=true;
- }else view.previewScale=value;
- renderRecipeViewer();return true;
+ }
+ if(!writeOccurrenceScales(next))return false;snapshot(JSON.stringify(before));if(!view.context){view.previewScale=value;for(const tab of view.tabCache.values())if(!tab.context&&targets.some(m=>String(m.id)===tab.mealId))tab.previewScale=value;}
+ preserveGroceryCheckStates(checks);saveGroceryOccurrenceChecks();view.contentChanged=true;renderRecipeViewer();return true;
 }
+
 const recipeFractionValues={'¼':.25,'½':.5,'¾':.75,'⅓':1/3,'⅔':2/3,'⅛':.125,'⅜':.375,'⅝':.625,'⅞':.875};
 const recipeAllFractionValues={...recipeFractionValues,'⅐':1/7,'⅑':1/9,'⅒':.1,'⅕':.2,'⅖':.4,'⅗':.6,'⅘':.8,'⅙':1/6,'⅚':5/6};
 function recipeQuantityNumber(text){
@@ -753,7 +759,7 @@ function reconcileCookingSchedule(){
    for(const linkedId of meal.linkedMealIds||[]){const child=meals.find(m=>String(m.id)===String(linkedId));if(child){valid.add(cookingOccurrenceKey(cookingContext(plan.id,day,child.cat,child,meal.id)));validScales.add(scaleOccurrenceKey(cookingContext(plan.id,day,child.cat,child,meal.id)))}}
   }
  }}}finally{showMealPlanTabs=visible}
- resetCookingContexts(c=>!valid.has(cookingOccurrenceKey(c)));clearOccurrenceScales(c=>!validScales.has(scaleOccurrenceKey(c)));
+ resetCookingContexts(c=>!c.scaleDate&&!valid.has(cookingOccurrenceKey(c)));clearOccurrenceScales(c=>!c.scaleDate&&!validScales.has(scaleOccurrenceKey(c)));
 }
 
 // Presentation cleanup leaves stored source text and progress tokens intact.

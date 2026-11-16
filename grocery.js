@@ -5,6 +5,7 @@ function readGroceryPeriod(){
  return ({current:'current','this week':'current',next:'next','next week':'next',both:'both','both weeks':'both',none:'none'})[String(value).toLowerCase().trim()]||'current';
 }
 let groceryPeriod=readGroceryPeriod();
+const collapsedGroceryMeals=new Set();
 function manualGroceryItems(){const items=JSON.parse(localStorage.getItem(MANUAL_GROCERIES_KEY)||'[]');validateManualGroceryItems(items);return items}
 function saveManualGroceryItems(items){validateManualGroceryItems(items);localStorage.setItem(MANUAL_GROCERIES_KEY,JSON.stringify(items))}
 function setAllManualGroceries(checked){saveManualGroceryItems(manualGroceryItems().map(item=>({...item,checked})))}
@@ -35,11 +36,12 @@ const GROCERY_TEXT_OVERRIDES_KEY='mealRotationGroceryTextOverridesV1';
 function groceryTextOverrides(){const records=JSON.parse(localStorage.getItem(GROCERY_TEXT_OVERRIDES_KEY)||'{}');validateGroceryTextOverrides(records);return records}
 function groceryTextKey(line){return JSON.stringify([...new Set((line.contributions||[]).map(source=>source.id))].sort())}
 function groceryTextSourceIdentity(id){try{const token=JSON.parse(id),dated=JSON.parse(token[0]);if(dated.length===6)dated.pop();return JSON.stringify([dated,token[1],token[2]])}catch(e){return id}}
+function groceryTextSourceMatches(a,b){if(a===b)return true;try{const x=JSON.parse(JSON.parse(a)[0]),y=JSON.parse(JSON.parse(b)[0]);if(x.length===6&&y.length===6)return false}catch(_){}return groceryTextSourceIdentity(a)===groceryTextSourceIdentity(b)}
 function groceryDisplayText(line){return line.line}
 function groceryContributionText(source,overrides=groceryTextOverrides()){
  for(const [key,record]of Object.entries(overrides).reverse()){
   let ids;try{ids=JSON.parse(key)}catch(_){continue}
-  if(!Array.isArray(ids)||!ids.some(id=>id===source.id||groceryTextSourceIdentity(id)===groceryTextSourceIdentity(source.id)))continue;
+  if(!Array.isArray(ids)||!ids.some(id=>groceryTextSourceMatches(id,source.id)))continue;
   // Old multi-source wording has no per-source quantity provenance. Keep it intact.
   if(typeof record==='string'){
    if(ids.length>1)return source.line;
@@ -55,7 +57,10 @@ function openGroceryTextEditor(line,refresh){
  const note=document.createElement('p');note.className='muted';note.textContent='Changes apply only to your grocery list. Quantities still update when you scale the recipe.';
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save grocery item');setIconButton(cancel,'cancel','Cancel');
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
- save.onclick=()=>{const text=field.value.trim();if(!text){error.textContent='Enter a grocery item.';field.focus();return}try{const records=groceryTextOverrides();delete records[groceryTextKey(line)];records[groceryTextKey(line)]={text,multiplier:line.contributions?.[0]?.multiplier||1};const before=captureState();localStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records));snapshot(before);d.close();refresh()}catch(e){error.textContent=e.message}};
+ save.onclick=()=>{const text=field.value.trim();if(!text){error.textContent='Enter a grocery item.';field.focus();return}try{const records=groceryTextOverrides();delete records[groceryTextKey(line)];const entered=groceryQuantityParts(text),total=groceryQuantityParts(line.line);
+ for(const source of line.contributions||[]){const original=groceryQuantityParts(groceryContributionText(source));let wording=text;
+ if(entered&&total&&original&&total.lo>0){const ratio=entered.lo/total.lo,amount=formatRecipeQuantity(original.lo*ratio)+(original.hi!==original.lo?'–'+formatRecipeQuantity(original.hi*ratio):'');wording=amount+' '+(entered.unit?entered.unit+' ':'')+entered.name}
+ records[JSON.stringify([source.id])]={text:wording,multiplier:source.multiplier||1};}const before=captureState();localStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records));snapshot(before);d.close();refresh()}catch(e){error.textContent=e.message}};
  cancel.onclick=d.close;field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save.click()}};actions.append(save,cancel);d.panel.append(field,note,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);field.focus({preventScroll:true});
 }
 function bindGroceryTextPress(name,line,refresh){
@@ -88,10 +93,10 @@ function getGroceryContributions(allPlans=false,period='rotation'){
   for(const entry of [...entries].sort((a,b)=>weekdays.indexOf(a.day)-weekdays.indexOf(b.day)||groupRank(a)-groupRank(b))){const occurrence=groceryOccurrenceIdentity(plan,entry),legacy=JSON.stringify(JSON.parse(occurrence).slice(0,4));if(!legacyOwners.has(legacy))legacyOwners.set(legacy,occurrence)}
   for(const entry of entries){
    const {meal,day,linkedTo}=entry;if(!allPlans&&masterGroceryExcludedMealKeys.has(groceryMealKey(plan,meal)))continue;
-   const context=cookingContext(plan.id,day,entry.cat,meal,linkedTo),occurrence=groceryOccurrenceIdentity(plan,entry),scheduledDate=cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar)),dated=JSON.stringify([...JSON.parse(occurrence),scheduledDate]);if(observed.has(dated))continue;observed.add(dated);
+   const context=preview?pendingContext(plan,entry):cookingContext(plan.id,day,entry.cat,meal,linkedTo),occurrence=groceryOccurrenceIdentity(plan,entry),scheduledDate=cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar)),dated=JSON.stringify([...JSON.parse(occurrence),scheduledDate]);if(observed.has(dated))continue;observed.add(dated);
    const legacyOccurrence=JSON.stringify(JSON.parse(occurrence).slice(0,4));if(!legacyOwners.has(legacyOccurrence))legacyOwners.set(legacyOccurrence,occurrence);const legacyOwner=!preview&&legacyOwners.get(legacyOccurrence)===occurrence;
    const linkedParent=linkedTo??entries.find(parent=>parent.day===day&&parent.cat!==entry.cat&&(parent.meal.linkedMealIds||[]).some(id=>String(id)===String(meal.id)))?.meal.id;
-   const selectedKeys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),actualPlan=mealPlans.find(item=>item.id===plan.id),sameDate=actualPlan&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},actualPlan.rotationCalendar))===scheduledDate,multiplier=!preview||sameDate||retainedKeys?.has(rotationOccurrenceKey({...entry,planId:plan.id}))?occurrenceMultiplier(context):1,counts=new Map();
+   const selectedKeys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),actualPlan=mealPlans.find(item=>item.id===plan.id),sameDate=actualPlan&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},actualPlan.rotationCalendar))===scheduledDate,multiplier=preview?projectedOccurrenceMultiplier(plan,entry,retainedKeys):occurrenceMultiplier(context),counts=new Map();
    if(!ingredientTokens.has(meal))ingredientTokens.set(meal,cookingItemTokens(meal).ingredients);
    for(const [ingredientIndex,raw]of (Array.isArray(meal.ingredients)?meal.ingredients:[]).entries()){
     const original=String(raw??'').trim(),oldKey=ingredientKey(original);if(!oldKey||!selectedKeys.has(oldKey)||syncIngredientHeading(original))continue;
@@ -112,14 +117,14 @@ function openGroceryRecipeSource(source){
  const plan=mealPlans.find(plan=>String(plan.id)===String(source.planId));
  const matches=(plan,entry)=>entry.day===source.day&&String(entry.meal.id)===String(source.mealId)&&groceryOccurrenceIdentity(plan,entry)===source.occurrence&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar))===source.scheduledDate;
  const current=plan?recipePlanEntries(plan.id).filter(entry=>matches(plan,entry)):[];
- const context=current.length===1?cookingContext(plan.id,current[0].day,current[0].cat,meal,current[0].linkedTo):null;
- // Future-only sources stay previews, rather than borrowing this week's progress or scaling.
- const future=!context&&source.preview&&groceryPeriodSchedules('next').some(item=>String(item.plan.id)===String(source.planId)&&item.entries.some(entry=>matches(item.plan,entry)));
+ let context=current.length===1?cookingContext(plan.id,current[0].day,current[0].cat,meal,current[0].linkedTo):null;
+ // Future sources own their dated pending occurrence, never this week's progress.
+ const future=!context&&source.preview&&groceryPeriodSchedules('next').find(item=>String(item.plan.id)===String(source.planId)&&item.entries.some(entry=>matches(item.plan,entry)));if(future){const entry=future.entries.find(entry=>matches(future.plan,entry));context=pendingContext(future.plan,entry)}
  const target=context||future?groceryRecipeNavigation(meal,source):null;
  openSavedMealRecipe(meal,context,null,target);
 }
-function getMasterGroceryItems(){
- const sources=getGroceryContributions(false,groceryPeriod),groceries=new Map(),overrides=groceryTextOverrides();
+function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeriod)){
+ const groceries=new Map(),overrides=groceryTextOverrides();
  for(const source of sources){
   const line=groceryContributionText(source,overrides),quantity=groceryQuantityParts(line),baseKey=source.baseKey;
   // Combining follows shopping wording; checks retain their canonical source quantities.
@@ -136,9 +141,9 @@ function getMasterGroceryItems(){
   for(const [key,record]of Object.entries(overrides).reverse()){
    let saved;try{saved=JSON.parse(key)}catch(_){continue}
    if(!Array.isArray(saved))continue;
-   const matches=ids.some(id=>saved.some(old=>old===id||groceryTextSourceIdentity(old)===groceryTextSourceIdentity(id)));
+   const matches=ids.some(id=>saved.some(old=>groceryTextSourceMatches(old,id)));
    if(matches&&typeof record!=='string')break;
-   if(typeof record==='string'&&saved.length>1&&ids.every(id=>saved.some(old=>old===id||groceryTextSourceIdentity(old)===groceryTextSourceIdentity(id)))){item.line=record;break}
+   if(typeof record==='string'&&saved.length>1&&ids.every(id=>saved.some(old=>groceryTextSourceMatches(old,id)))){item.line=record;break}
   }
  }
  return groceries;
@@ -192,6 +197,7 @@ function getMasterGroceryItems(){
   const heading=document.createElement('h2');heading.textContent='Groceries';
   const groceryHeader=document.createElement('div');groceryHeader.className='grocery-compact-header';groceryHeader.append(heading);const addManual=document.createElement('button');addManual.type='button';addManual.className='iconbtn grocery-add-manual';setIconButton(addManual,'add','Add grocery item');addManual.onclick=()=>openManualGroceryEditor(null,updateRows);panel.append(groceryHeader);
   const weekSummary=document.createElement('span');weekSummary.className='grocery-week-summary';groceryHeader.append(weekSummary);
+  const viewLabel=document.createElement('label');viewLabel.className='grocery-view-control';const view=document.createElement('select');view.setAttribute('aria-label','Grocery view');for(const [value,text]of [['combined','Combined list'],['meal','Group by meal']]){const option=new Option(text,value);view.append(option)}view.value=localStorage.getItem('mealRotationGroceryViewV1')||'combined';view.onchange=()=>{localStorage.setItem('mealRotationGroceryViewV1',view.value);updateRows()};viewLabel.append(view);panel.append(viewLabel);
   const rows=document.createElement('div');rows.className='master-grocery-list';
   const expanded=expandedGrocerySources;
   function changeCheck(item,value){withGroceryCheckSchedules(()=>{snapshot();setGroceryItemChecked(item.baseKey,item,value);localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));updateRows()})}
@@ -203,8 +209,11 @@ function getMasterGroceryItems(){
     msg.textContent=groceryPeriod==='none'?'Select a week to show recipe groceries.':mealPlans.every(plan=>masterGroceryExcludedPlanIds.has(String(plan.id)))?'Select a meal plan to show groceries.':'No selected recipe groceries.';
     rows.append(msg);
    }
-   [...groceries].sort((a,b)=>Number(groceryItemChecked(b[0],b[1]))-Number(groceryItemChecked(a[0],a[1]))).forEach(([key,line])=>{
+   const grouped=localStorage.getItem('mealRotationGroceryViewV1')==='meal',sections=new Map();
+   const displayed=grouped?[...getGroceryContributions(false,groceryPeriod).reduce((map,s)=>{const key=JSON.stringify([s.occurrence,s.scheduledDate]);if(!map.has(key))map.set(key,[]);map.get(key).push(s);return map},new Map()).entries()].flatMap(([occurrence,sources])=>[...getMasterGroceryItems(sources)].map(([key,line])=>[key,{...line,section:occurrence}])):[...groceries];
+   displayed.sort((a,b)=>Number(groceryItemChecked(b[0],b[1]))-Number(groceryItemChecked(a[0],a[1]))).forEach(([key,line])=>{
     if(localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true'&&groceryItemChecked(key,line))return;
+    let container=rows;if(grouped){if(!sections.has(line.section)){const section=document.createElement('details');section.className='grocery-meal-section';section.open=!collapsedGroceryMeals.has(line.section);section.ontoggle=()=>{if(section.open)collapsedGroceryMeals.delete(line.section);else collapsedGroceryMeals.add(line.section)};const h=document.createElement('summary'),s=line.contributions[0];h.textContent=s.mealName+' · '+s.day+' · '+s.scheduledDate+(showMealPlanTabs?' · '+(mealPlans.find(p=>p.id===s.planId)?.name||''):'');section.append(h);sections.set(line.section,section);rows.append(section)}container=sections.get(line.section)}
     const row=document.createElement('div');row.className='master-grocery-item';
     const check=document.createElement('input');check.type='checkbox';check.checked=groceryItemChecked(key,line);
     check.indeterminate=!check.checked&&line.contributions.some(source=>grocerySourceChecked(source)||groceryCheckedAmount(source)?.lo>0);
@@ -216,10 +225,9 @@ function getMasterGroceryItems(){
     for(const contribution of line.contributions||[]){
      const detail=document.createElement('span');detail.className='grocery-contribution';
      if(line.contributions.length>1){const cb=document.createElement('input');cb.type='checkbox';cb.checked=grocerySourceChecked(contribution);cb.indeterminate=!cb.checked&&groceryCheckedAmount(contribution)?.lo>0;cb.setAttribute('aria-label','Check '+contribution.mealName);cb.onchange=()=>changeCheck({contributions:[contribution],baseKey:contribution.baseKey,checkKeys:contribution.checkKeys},cb.checked);detail.append(cb)}
-     const amount=document.createElement('span');amount.className='grocery-contribution-amount';amount.textContent=groceryContributionText(contribution);detail.append(amount);
      const link=document.createElement('button');link.type='button';link.className='grocery-recipe-link';link.dataset.mealId=String(contribution.mealId);link.dataset.planId=contribution.planId;link.dataset.day=contribution.day;link.dataset.grocerySourceId=contribution.id;link.textContent=contribution.mealName;
      link.onclick=()=>openGroceryRecipeSource(contribution);detail.append(link);
-     const pencil=document.createElement('button');pencil.type='button';pencil.className='iconbtn grocery-contribution-edit';setIconButton(pencil,'rename','Edit shopping wording for '+contribution.mealName);pencil.onclick=()=>openGroceryTextEditor({line:groceryContributionText(contribution),contributions:[contribution]},updateRows);detail.append(pencil);source.append(detail);
+     if(contribution===line.contributions[0]){const pencil=document.createElement('button');pencil.type='button';pencil.className='iconbtn grocery-contribution-edit';setIconButton(pencil,'rename','Edit shopping wording');pencil.onclick=()=>openGroceryTextEditor(line,updateRows);detail.append(pencil)}source.append(detail);
     }
     const expandedKey=groceryTextKey(line);source.hidden=!expanded.has(expandedKey);
     const chevron=document.createElement('button');chevron.type='button';chevron.className='iconbtn grocery-expand';chevron.setAttribute('aria-label','Show contributions for '+line.line);
@@ -227,7 +235,7 @@ function getMasterGroceryItems(){
     name.onclick=chevron.onclick=()=>{source.hidden=!source.hidden;if(source.hidden)expanded.delete(expandedKey);else expanded.add(expandedKey);disclosure()};disclosure();
     if(line.contributions.length>1){const count=document.createElement('span');count.className='muted grocery-source-count';count.textContent=' ('+line.contributions.length+')';name.append(count)}
     details.append(name,source);
-    const target=document.createElement('label');target.className='grocery-checkbox-target';target.append(check);row.replaceChildren(target,details,chevron);rows.append(row);
+    const target=document.createElement('label');target.className='grocery-checkbox-target';target.append(check);row.replaceChildren(target,details,chevron);container.append(row);
    });
    appendManualGroceries(rows,updateRows);
   }
@@ -255,7 +263,7 @@ function getMasterGroceryItems(){
     const entries=new Map();for(const source of schedules.filter(source=>source.plan.id===plan.id))for(const entry of source.entries){entries.set(String(entry.meal.id),entry.meal)}
     const mealChecks=[];
     for(const meal of entries.values()){
-     const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;padding:7px 2px 7px 22px';
+     const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:10px;padding:7px 0;align-items:flex-start';
      const cb=document.createElement('input');cb.type='checkbox';cb.style.cssText='width:20px;height:20px;flex:0 0 20px';
      const key=groceryMealKey(plan,meal);cb.checked=!excludedMeals.has(key);cb.disabled=(showMealPlanTabs&&mealPlans.length>1)&&!planCheck.checked;
      cb.onchange=()=>{if(cb.checked)excludedMeals.delete(key);else excludedMeals.add(key)};

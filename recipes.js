@@ -256,17 +256,18 @@ function recipeScheduleOrigin(meal,context){
 }
 function definiteRecipeContext(context){
  if(!context)return null;
+ if(context.scaleDate){const source=previewMealPlanAdvance(null,null,context.planId),entry=source.entries.find(e=>e.day===context.day&&e.cat===context.cat&&String(e.meal.id)===context.mealId&&cookingLocalDate(scheduledOccurrenceDate({...e,planId:context.planId},source.plan.rotationCalendar))===context.scaleDate);return entry?{...context}:null}
  const matches=recipePlanEntries(context.planId).filter(e=>e.day===context.day&&String(e.meal.id)===String(context.mealId)&&String(e.linkedTo||'')===String(context.parentId||'')&&e.cat===context.cat);
  return matches.length===1?cookingContext(context.planId,context.day,matches[0].cat,matches[0].meal,matches[0].linkedTo):null;
 }
 function linkedRecipeContext(source,child){
  const context=definiteRecipeContext(source.context);if(!context)return null;
- const candidates=recipePlanEntries(context.planId).filter(e=>e.day===context.day&&String(e.meal.id)===String(child.id));
+ const candidates=(context.scaleDate?previewMealPlanAdvance(null,null,context.planId).entries:recipePlanEntries(context.planId)).filter(e=>e.day===context.day&&String(e.meal.id)===String(child.id));
  // Prefer the exact linked parent. An independently scheduled recipe on this
  // same day is also definite; a different parent's linked occurrence is not.
  const owned=candidates.filter(e=>String(e.linkedTo||'')===String(source.mealId));
  const independent=candidates.filter(e=>!e.linkedTo||e.scheduledSlot),found=owned.length?owned:independent;
- return found.length===1?cookingContext(context.planId,context.day,found[0].cat,child,found[0].linkedTo):null;
+ return found.length===1?{...cookingContext(context.planId,context.day,found[0].cat,child,found[0].linkedTo),...(context.scaleDate?{scaleDate:context.scaleDate}:{})}:null;
 }
 function viewerRecipeContext(meal,context){
  const direct=definiteRecipeContext(context);if(direct||!context?.parentId)return direct;
@@ -278,7 +279,7 @@ function viewerRecipeContext(meal,context){
 }
 function recipeTabKey(meal,context){return context?'occurrence:'+scaleOccurrenceKey(context):'preview:'+String(meal.id)}
 function createRecipeTab(meal,context,mode=recipeViewPrefs.mode,ratio=recipeViewPrefs.ratio){
- return {key:recipeTabKey(meal,context),mealId:String(meal.id),context,mode,ratio,landscapeRatio:recipeViewPrefs.landscapeRatio??.5,previewProgress:{ingredients:[],steps:[]},previewScale:1,coverScroll:0,paneScroll:[0,0],recipeContent:{ingredients:meal.ingredients,instructions:meal.instructions}};
+ return {key:recipeTabKey(meal,context),mealId:String(meal.id),context,mode,ratio,landscapeRatio:recipeViewPrefs.landscapeRatio??.5,previewProgress:{ingredients:[],steps:[]},previewScale:recipeDefaultMultiplier(meal.id),coverScroll:0,paneScroll:[0,0],recipeContent:{ingredients:meal.ingredients,instructions:meal.instructions}};
 }
 function installRecipeViewerTabs(view,meal,context,saved=null){
  const initial=createRecipeTab(meal,viewerRecipeContext(meal,context));
@@ -964,6 +965,7 @@ function buildRecipeTitleHeader(view,meal,multiplier){
  const display=open=>{
   cancelRecipeAdvance(view);menu.hidden=!open;dismiss.hidden=!open;scale.setAttribute('aria-expanded',String(open));
   if(open){
+   remember.checked=false;linkedToggle.checked=false;input.value=String(multiplier);
    const anchor=scale.getBoundingClientRect(),box=menu.getBoundingClientRect(),vv=window.visualViewport,top=vv?.offsetTop||0,left=vv?.offsetLeft||0,width=vv?.width||window.innerWidth,height=vv?.height||window.innerHeight;
    const toolbarBottom=view.close.parentElement.getBoundingClientRect().bottom;
    menu.style.left=Math.max(left+8,Math.min(anchor.right-box.width,left+width-box.width-8))+'px';
@@ -974,12 +976,13 @@ function buildRecipeTitleHeader(view,meal,multiplier){
  };
  for(const [value,text] of [[.5,'½×'],[1,'1×'],[1.5,'1½×'],[2,'2×'],[3,'3×']]){
   const option=document.createElement('button');option.type='button';option.className='recipe-scale-option';option.textContent=text;option.setAttribute('role','menuitemradio');option.setAttribute('aria-checked',String(value===multiplier));
-  option.onclick=()=>{display(false);setViewedRecipeScale(value)};menu.append(option);
+  option.onclick=()=>{display(false);setViewedRecipeScale(value,{remember:remember.checked,linked:linkedToggle.checked})};menu.append(option);
  }
+ const remember=document.createElement('input'),linkedToggle=document.createElement('input');for(const [toggle,label]of [[remember,'Remember for this recipe'],[linkedToggle,'Scale linked recipes too']]){toggle.type='checkbox';toggle.setAttribute('role','switch');toggle.className='preference-switch';if(toggle===linkedToggle&&!(meal.linkedMealIds||[]).some(id=>meals.some(m=>String(m.id)===String(id))))continue;const row=document.createElement('label');row.className='recipe-scale-toggle';row.append(toggle,document.createTextNode(label));menu.append(row)}
  const custom=document.createElement('label');custom.className='recipe-scale-custom';custom.textContent='Custom multiplier';
  const input=document.createElement('input');input.type='number';input.inputMode='decimal';input.min='0';input.step='any';input.value=String(multiplier);input.setAttribute('aria-label','Custom multiplier');
  const apply=document.createElement('button');apply.type='button';apply.className='recipe-scale-option';apply.textContent='Apply multiplier';
- const commit=()=>{const value=input.value.trim()?Number(input.value):NaN;if(!validRecipeMultiplier(value)){input.setCustomValidity('Enter a number greater than zero.');input.reportValidity();return}input.setCustomValidity('');display(false);setViewedRecipeScale(value)};
+ const commit=()=>{const value=input.value.trim()?Number(input.value):NaN;if(!validRecipeMultiplier(value)){input.setCustomValidity('Enter a number greater than zero.');input.reportValidity();return}input.setCustomValidity('');display(false);setViewedRecipeScale(value,{remember:remember.checked,linked:linkedToggle.checked})};
  input.oninput=()=>input.setCustomValidity('');input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();commit()}};apply.onclick=commit;custom.append(input);menu.append(custom,apply);
  scale.title='Scale Recipe · '+multiplier+'×';
  scale.onclick=()=>display(menu.hidden);
@@ -1211,6 +1214,7 @@ function renderTodayTodo(provided=null){
  const seen=new Set(),items=(provided||scheduledMakeAheadTasks(true)).filter(item=>{
   const id=JSON.stringify([item.plan.id,item.key]);const pending=item.plan.makeAheadPending?.some(saved=>saved.key===item.key);if((!makeAheadTaskVisible(item,today)&&!pending)||seen.has(id))return false;
   if(item.plan.id!==activePlanId)return false;
+  const due=parseCookingLocalDate(item.due);if(!due||!rotationWeekOffset&&cookingLocalDate(due)>today)return false;
   if(rotationWeekOffset?!upcomingOccurrences.has(JSON.stringify([rotationOccurrenceKey({...item.entry,planId:item.plan.id}),item.scheduled])):item.due>today)return false;
   seen.add(id);return true;
  }).sort((a,b)=>Number(a.complete)-Number(b.complete)||a.due.localeCompare(b.due));
@@ -1320,7 +1324,7 @@ function scheduledMakeAheadTasks(includeUpcoming=true,upcoming=null){
  for(const source of current.concat(includeUpcoming?(upcoming||previewNextWeekPlans()):[])){
   const plan=source.plan,entries=source.entries||getDisplayedWeekdayMealsForPlan(plan),calendar=rotationCalendarForPlan(plan,entries),real=mealPlans.find(item=>item.id===plan.id)||plan;
   for(const entry of entries){const occurrence=rotationOccurrenceKey({...entry,planId:plan.id}),scheduled=parseCookingLocalDate(calendar.occurrences?.[occurrence])||cookingDateInWeek(entry.day,parseCookingLocalDate(calendar.weekStart)||start);if(!scheduled)continue;
-   const context=cookingContext(plan.id,entry.day,entry.cat,entry.meal,entry.linkedTo),sameDate=cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},real.rotationCalendar))===cookingLocalDate(scheduled),multiplier=!source.preview||sameDate||source.retainedKeys?.has(occurrence)?occurrenceMultiplier(context):1;
+   const context=source.preview?pendingContext(plan,entry):cookingContext(plan.id,entry.day,entry.cat,entry.meal,entry.linkedTo),sameDate=cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},real.rotationCalendar))===cookingLocalDate(scheduled),multiplier=source.preview?projectedOccurrenceMultiplier(plan,entry,source.retainedKeys):occurrenceMultiplier(context);
    for(const task of projectedPreparationTasks(entry.meal,scheduled,multiplier)){
     const due=makeAheadDueDate(scheduled,task);
     const key=JSON.stringify([occurrence,cookingLocalDate(scheduled),source.preview?'preview':calendar.assignedAt?.[occurrence]||'',task.id]),identity=JSON.stringify([plan.id,occurrence,cookingLocalDate(scheduled),task.id]);if(seen.has(identity))continue;seen.add(identity);
@@ -1466,7 +1470,7 @@ function renderRecipeViewer(){
  cancelRecipeAdvance(v);clearRecipeLinkGestures(v);v.guidedCleanup?.();v.syncCleanup?.();v.autoComplete.disabled=false;v.autoComplete.checked=recipeViewPrefs.autoCompleteIngredients===true;updateRecipeWakeControl(v);
  const session=v.context?cookingSession(v.context):v.previewProgress,items=cookingItemTokens(meal),scroll=v.restoreTabScroll?v.activeTab.coverScroll:v.cover.scrollTop;const active=v.restoreTabScroll?v.activeTab.focusToken:document.activeElement?.dataset.cookingToken,scaleFocused=document.activeElement?.getAttribute('aria-label')==='Scale Recipe';const paneScroll=v.restoreTabScroll?v.activeTab.paneScroll:[...v.content.querySelectorAll('.recipe-pane')].map(p=>p.scrollTop);v.scaleCleanup?.();v.content.replaceChildren();v.cover.classList.toggle('recipe-split',recipeViewingMode()==='split');v.cover.classList.toggle('recipe-link-editing',!!v.linkEdit);setRecipeToolbarIcon(v.mode,recipeViewingMode()==='split'?'full':'split',recipeViewingMode()==='split'?'Full View':'Split View');v.mode.setAttribute('aria-pressed',String(recipeViewingMode()==='split'));
 
- const multiplier=v.context?occurrenceMultiplier(v.context):v.previewScale||1;const {scale}=buildRecipeTitleHeader(v,meal,multiplier);updateRecipeTimerReopenControl();renderRecipeTweakingStatus(v,meal);
+ const multiplier=v.context?occurrenceMultiplier(v.context):v.previewScale||recipeDefaultMultiplier(meal.id);const {scale}=buildRecipeTitleHeader(v,meal,multiplier);updateRecipeTimerReopenControl();renderRecipeTweakingStatus(v,meal);
  if(!v.context&&v.activeTab!==v.anchorTab){const notice=document.createElement('p');notice.className='recipe-occurrence-notice';notice.textContent='No definite scheduled occurrence for this link. Cooking progress and scaling stay in this viewer session.';v.content.append(notice)}
  if(v.linkEdit)v.linkIngredientTokens=new Set(recipeAssociationItems(meal).ingredients.map(i=>i.token));
  const panes=document.createElement('div');panes.className='recipe-panes';v.content.append(panes);
@@ -1515,7 +1519,7 @@ function reconcileAllCookingData(){
  reconcileCookingSchedule();
 }
 function clearCycledCookingContexts(selected){
- const predicate=c=>selected.some(item=>{const parent=String(item.parentId??item.linkedTo??'');return c.planId===String(item.planId)&&c.day===item.day&&((c.mealId===String(item.meal.id)&&c.parentId===parent)||(!parent&&!item.exact&&c.parentId===String(item.meal.id)&&!rotationGroupScheduled(mealPlans.find(p=>String(p.id)===c.planId),c.day,c.cat)))});resetCookingContexts(predicate);clearOccurrenceScales(c=>predicate(c)&&selected.some(item=>c.planId===String(item.planId)&&c.day===item.day&&(c.cat===item.cat||c.scaleGroupId===groupIdentity(item.cat)||c.parentId===String(item.meal.id)&&!rotationGroupScheduled(mealPlans.find(p=>String(p.id)===c.planId),c.day,c.cat))));
+ const predicate=c=>selected.some(item=>{const parent=String(item.parentId??item.linkedTo??'');return c.planId===String(item.planId)&&c.day===item.day&&((c.mealId===String(item.meal.id)&&c.parentId===parent)||(!parent&&!item.exact&&c.parentId===String(item.meal.id)&&!rotationGroupScheduled(mealPlans.find(p=>String(p.id)===c.planId),c.day,c.cat)))});resetCookingContexts(c=>!c.scaleDate&&predicate(c));clearOccurrenceScales(c=>!c.scaleDate&&predicate(c)&&selected.some(item=>c.planId===String(item.planId)&&c.day===item.day&&(c.cat===item.cat||c.scaleGroupId===groupIdentity(item.cat)||c.parentId===String(item.meal.id)&&!rotationGroupScheduled(mealPlans.find(p=>String(p.id)===c.planId),c.day,c.cat))));
 }
 function clearCookingForSlots(records){
  const selected=[];

@@ -566,8 +566,9 @@ function openScheduleMealDialog(meal){
    for(const target of targets)validateRecipeScheduleTarget(meal.id,target);
    const plan=mealPlans.find(plan=>plan.id===requestPlan),duplicates=getDisplayedWeekdayMealsForPlan(plan).filter(entry=>!selected.has(entry.day)&&String(entry.meal.id)===String(meal.id)&&(rotationSelectable(entry,plan)||entry.occasional&&!entry.linkedTo)),stamp=signature();
    const decision=duplicates.length?await confirmDuplicateMealChoice(meal,duplicates,targets[0]):{replace:null};await groupHistorySettled;if(!d.overlay.isConnected)return;if(!decision)return;
+   const replaceFuture=[];for(const info of futureDuplicateInfo(plan,meal).filter(info=>info.provenance!=='automatic')){const answer=await confirmDuplicateMealChoice(meal,[{...info.entry,weekLabel:'next week'}],targets[0]);if(!answer||!d.overlay.isConnected)return;if(answer.replace)replaceFuture.push(pendingChoiceKey(info.entry.day,info.entry.cat))}
    if(stamp!==signature()||requestPlan!==planId||week!==rotationWeekOffset)throw Error('The scheduled meals changed. Reopen scheduling.');
-   applyRecipeBulk([String(meal.id)],{}, {scheduleMeals:{targets,replacement:decision.replace?simpleSideOccurrenceKey(plan,decision.replace):null,week}});d.close();
+   applyRecipeBulk([String(meal.id)],{}, {scheduleMeals:{targets,replaceFuture,replacement:decision.replace?simpleSideOccurrenceKey(plan,decision.replace):null,week}});d.close();
   }catch(problem){error.textContent=problem.message}finally{busy=false;if(d.overlay.isConnected)update()}
  };
  actions.append(save,cancel);d.panel.append(body,error,actions);draw();
@@ -932,6 +933,7 @@ function snapshot(state=captureState()){dismissOnboardingHint();if(history[histo
 function captureScheduleUndoChecks(){return Object.fromEntries([...captureGroceryCheckStates()].map(([id,item])=>[id,item.checked]))}
 function captureHistoryCounterpart(target){
  const current=JSON.parse(captureState());
+ if(target.scaleUndo)current.scaleUndo=JSON.parse(JSON.stringify(occurrenceScales));
  if(target.manualGroceriesUndo)current.manualGroceriesUndo=manualGroceryItems();
  if(target.startWeekUndo){current.startWeekUndo=true;current.skippedCookingState=JSON.parse(JSON.stringify({keys:target.skippedCookingState.keys,sessions:cookingSessions.occurrences,scales:occurrenceScales.occurrences}))}
  if(target.recipePhotoUndo)current.recipePhotoUndo={refs:recipePhotoReferences(Object.keys(target.recipePhotoUndo.refs))};

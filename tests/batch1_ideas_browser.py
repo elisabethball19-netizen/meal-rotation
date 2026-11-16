@@ -24,7 +24,7 @@ HOOK='''window.batch1={
 HOOK+=DATED_SCHEDULE_HOOK
 def recipe(id,name,cat,rotation=False,**kw):
  return dict(id=id,name=name,cat=cat,rotation=rotation,ingredients=['1 cup rice'],instructions=[{'type':'step','text':'Cook rice.'}],url='https://example.test/'+str(id),custom={'preserve':id},**kw)
-def setup(browser,name,width=360):
+def setup(browser,name,width=360,navigation_timeout=5000):
  prefix='mealRotationTestSandboxV1:' if name.startswith('meal-') else ''
  records=[recipe(1,'Active','Meals',True,favorite=True,linkedMealIds=[8],makeAheadTasks=[{'id':'prep','description':'Prep rice','daysBefore':1}]),recipe(2,'Zulu soon','Meals',favorite=True,recipeStatus='up-next',linkGroup='shared'),recipe(3,'Alpha soon','Meals',recipeStatus='up-next'),recipe(4,'Legacy idea','Meals',recipeStatus='back-burner'),recipe(5,'Scheduled idea','Meals'),recipe(6,'Default missing','Meals'),recipe(8,'Linked side','Reference'),recipe(12,'Zulu soon','Other',recipeStatus='up-next',linkGroup='shared'),recipe(13,'Other soon','Other',recipeStatus='up-next'),recipe(14,'Other active','Other',True)]
  records[5].pop('rotation')
@@ -44,7 +44,7 @@ def setup(browser,name,width=360):
   if path=='meal-rotation-test.html':body=body.replace('mealPersistence.showRecovery({normalize:normalizeImportedBackup',HOOK.replace('localStorage','testStorage')+'\nmealPersistence.showRecovery({normalize:normalizeImportedBackup',1)
   request.fulfill(status=200,body=body,content_type='text/javascript' if f.suffix=='.js' else 'text/css' if f.suffix=='.css' else 'text/html')
  p.route('http://batch1.test/**',route);p.route('https://**/*',lambda r:r.fulfill(status=200,body=''))
- p.goto('http://batch1.test/'+name);p.wait_for_function('window.batch1!==undefined');assert not errors,errors
+ p.goto('http://batch1.test/'+name,timeout=navigation_timeout);p.wait_for_function('window.batch1!==undefined');assert not errors,errors
  p.evaluate('batch1.groups()');return context,p,errors,prefix
 
 def get(p,expr):return p.evaluate('batch1.'+expr)

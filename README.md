@@ -97,6 +97,14 @@ To install both, open each address directly in Chrome/Safari rather than navigat
 
 If an older installation replaced the other app, export backups before removing the old installation and reinstalling from these two addresses. Do not clear the site's browser data. Existing installations may retain the previous broad scope until updated or reinstalled; this change preserves the app IDs, URLs, and recipe storage keys.
 
+## Grocery and future-plan controls
+
+Groceries defaults to **Combined list**; **Group by meal** uses collapsible dated meal sections with the same checks, amounts and manual items. Expanded ingredient rows show recipe names and one pencil for the displayed aggregate's shopping wording.
+
+The weekday assignment editor can alternate a group through an ordered repeating sequence. Only **Start next week** advances it; Undo restores the prior position. Next-week meal cards support saved choices that immediately feed groceries and prep, survive reload and become active on advance. Explicit future choices use the existing overwrite/duplicate safeguards.
+
+**Scale Recipe** has independent **Remember for this recipe** and **Scale linked recipes too** switches, both off each opening. Remember saves a future scheduling default while retaining other scheduled amounts. Linked scaling uses the same multiplier for direct links only. Originals remain unchanged. #126 is code-checked and awaiting phone testing; see `tests/planning_grocery126_test_report.md`.
+
 ## Updates and deployment
 
 Publish the HTML files together with `pwa.js`, `service-worker.js`, both `.webmanifest` files, and `icons/`. Online launches check for current app files and fall back to the cached app when offline. A service-worker update waits for existing app windows to close; it does not force an editing session to reload. Close all regular/test app windows and reopen online to finish a pending update. Updates do not clear recipe storage.

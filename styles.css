@@ -1958,3 +1958,13 @@ body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{
 .prep-task-summary>span{font-size:calc(13px * var(--meal-text-factor,1));}
 
 @media(max-width:420px){.prep-task-summary.prep-task-long{flex-wrap:wrap;}.prep-task-summary.prep-task-long>span{flex-basis:100%;}.prep-task-summary.prep-task-long>button:first-of-type{margin-left:auto;}}
+
+/* Grocery views and plan-owned repeating assignments share existing controls. */
+.grocery-view-control{display:flex;justify-content:flex-end;margin:4px 0 12px}.grocery-view-control select{max-width:100%;background:white;border:1px solid #ccd1d6;border-radius:8px;padding:7px 10px}
+.grocery-meal-section{margin:12px 0;border:1px solid #e0e3e6;border-radius:10px;padding:10px}.grocery-meal-section summary{font-weight:600;overflow-wrap:anywhere;cursor:pointer;line-height:1.4}.grocery-meal-section .master-grocery-item{margin-top:5px}
+.grocery-contribution .grocery-recipe-link{min-width:0;overflow-wrap:anywhere;flex:1;text-align:left}.grocery-contribution-edit{flex-shrink:0}
+.grocery-filter-weeks label{display:flex;gap:10px;align-items:flex-start}.grocery-filter-weeks input{flex:0 0 20px;width:20px;height:20px;margin:0}
+.recipe-scale-toggle{display:flex;gap:10px;align-items:center;font-size:14px;line-height:1.4;padding:9px 10px}.recipe-scale-toggle .preference-switch{flex-shrink:0}
+.alternating-assignments{border-top:1px solid #ddd;margin-top:10px;padding-top:6px}.alternating-assignment{margin:10px 0}.alternating-assignment>label{display:flex;align-items:center;gap:10px;overflow-wrap:anywhere}.alternating-sequence{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.alternating-sequence[hidden]{display:none}.alternating-sequence select{min-width:0;max-width:100%;border:1px solid #ccd1d6;background:white;border-radius:7px;padding:7px;font-size:14px}.alternating-sequence small{color:#666}
+.grocery-contribution{display:flex;gap:8px;align-items:center;padding:7px 0}.grocery-contribution input{flex:0 0 18px}.grocery-contribution .grocery-recipe-link{grid-row:auto;width:auto;flex:1}.grocery-contribution .grocery-contribution-edit{grid-row:auto;flex:0 0 32px}.master-grocery-item .grocery-recipe-source{font-size:.9em}
+.grocery-filter-weeks{margin:0}.grocery-meal-dialog-overlay section label input{margin:0}
