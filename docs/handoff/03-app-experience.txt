@@ -50,7 +50,7 @@ Radio choices: "Use a different meal on [weekday]" / "Keep [Recipe] on [weekday]
 First automatically replaces source using normal eligible selection; second keeps both. Destination/source update safely together; cancel leaves no partial change. Empty destinations and Ideas choices must work. No eligible replacement should not silently corrupt either day.
 
 GROUPS AND IDEAS
-Approved #122 prerequisite, not yet verified implemented: nonrotation/reference group lists every member recipe regardless saved rotation status. Disabling group rotation never hides/deletes its In Rotation recipes or resets statuses/memberships; re-enable preserves status. All reference recipes have left pin-to-top control with pinned-first behavior. Exact checks in #122.
+Implemented/code-checked #122 prerequisite, awaiting phone testing: nonrotation/reference group lists every member recipe regardless saved rotation status. Disabling group rotation never hides/deletes its In Rotation recipes or resets statuses/memberships; re-enable preserves status. All reference recipes have left pin-to-top control with pinned-first behavior. Exact checks in #122.
 Two statuses: In Rotation and Ideas, NOT three.
 In Rotation eligible for automatic rotation; Ideas manually schedulable without promotion.
 Ideas pins: outlined/filled, left column; pinned first. Pin/unpin brings first in corresponding portion. Manual drag within each portion, shared persistent order across memberships, hidden relative order preserved.
@@ -105,7 +105,7 @@ Approved #120 correction: remove top meal selector/+ from Groceries and Weekly O
 Checked items move top; Select All/Deselect All/Hide Selected. Preserve checks adding/editing; newly scheduled sources unchecked without resetting others.
 Manual items add/check/edit/delete; survive filters/week switches/reload/individual meal replacement.
 Explicit whole-week advance clears checked manual items only; unchecked stay; Undo/Redo restores/removes; no calendar cleanup.
-Approved #122: every ingredient row has chevron; text/chevron expands, checkbox checks only. Total with muted inline count for multiple source meal occurrences e.g. "3 cups rice (2)"; no extra count line, one-source no count.
+Implemented/code-checked #122 (awaiting phone testing): every ingredient row has chevron; text/chevron expands, checkbox checks only. Total with muted inline count for multiple source meal occurrences e.g. "3 cups rice (2)"; no extra count line, one-source no count.
 Expanded one source per line, amount + clickable source recipe + shopping-wording pencil. Multiple sources have individual grocery checkboxes; parent all/none/partial. Partial parent selects all, fully checked parent clears. Required total stays; Hide Selected must not hide unchecked contributions.
 Source link -> correct ingredient/occurrence, association survives wording/scaling. Split-view linked-step repair remains deferred.
 Fix custom-wording scaling: preserve wording, derive quantity from canonical source/occurrence multiplier, original recipe unchanged. Stable IDs, no compounded display scaling, independent sources/checks/overrides; preserve supported manual quantities and ambiguous free text rather than guessing.

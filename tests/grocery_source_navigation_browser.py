@@ -48,8 +48,8 @@ def run(browser,name,mode):
     # Exercise a real expanded source button on the existing grocery row, including edited text.
     p.locator('.grocery-recipe-link').evaluate_all('(links,id)=>{for(const link of links)if(link.dataset.grocerySourceId===id)link.dataset.fixtureTarget="true"}',source['id'])
     link=p.locator('[data-fixture-target="true"]');assert link.count()==1
-    row=link.locator('..').locator('..').locator('..')
-    if period=='current':assert row.locator('.grocery-ingredient-name').inner_text()=='Edited shopping label unrelated to recipe'
+    row=link.locator('xpath=ancestor::*[contains(@class,"master-grocery-item")]')
+    if period=='current':assert row.locator('.grocery-ingredient-name').inner_text().startswith('Edited shopping label unrelated to recipe')
     row.locator('.grocery-ingredient-name').tap();link.tap()
    else:p.evaluate('source=>sourceSpec.open(source)',source)
    wait_target(p);view=p.evaluate('sourceSpec.viewer()');assert view['mealId']==str(source['mealId']) and view['mode']==mode

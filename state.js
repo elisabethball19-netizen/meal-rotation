@@ -582,7 +582,7 @@ function groceryQuantityParts(line){
 // Membership and recipe ingredients continue to use their existing saved records.
 const GROCERY_OCCURRENCE_CHECKS_KEY='mealRotationGroceryOccurrenceChecksV1';
 let groceryOccurrenceChecks={version:1,checks:{}},groceryCheckStorageInvalid=false;
-function validateGroceryTextOverrides(records){if(!records||typeof records!=='object'||Array.isArray(records)||Object.values(records).some(text=>typeof text!=='string'||!text.trim()))throw Error('Invalid grocery text overrides')}
+function validateGroceryTextOverrides(records){if(!records||typeof records!=='object'||Array.isArray(records)||Object.values(records).some(text=>typeof text==='string'?!text.trim():!text||typeof text.text!=='string'||!text.text.trim()||!Number.isFinite(text.multiplier)||text.multiplier<=0))throw Error('Invalid grocery text overrides')}
 function validateManualGroceryItems(items){
  const ids=new Set();if(!Array.isArray(items))throw Error('Invalid additional grocery items');for(const item of items){if(!item||typeof item.id!=='string'||!item.id||ids.has(item.id)||typeof item.text!=='string'||!item.text.trim()||typeof item.checked!=='boolean')throw Error('Invalid additional grocery item');ids.add(item.id)}
 }

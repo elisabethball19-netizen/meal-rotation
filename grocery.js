@@ -35,13 +35,27 @@ const GROCERY_TEXT_OVERRIDES_KEY='mealRotationGroceryTextOverridesV1';
 function groceryTextOverrides(){const records=JSON.parse(localStorage.getItem(GROCERY_TEXT_OVERRIDES_KEY)||'{}');validateGroceryTextOverrides(records);return records}
 function groceryTextKey(line){return JSON.stringify([...new Set((line.contributions||[]).map(source=>source.id))].sort())}
 function groceryTextSourceIdentity(id){try{const token=JSON.parse(id),dated=JSON.parse(token[0]);if(dated.length===6)dated.pop();return JSON.stringify([dated,token[1],token[2]])}catch(e){return id}}
-function groceryDisplayText(line){const ids=JSON.parse(groceryTextKey(line));for(const [key,text]of Object.entries(groceryTextOverrides()).reverse()){let sources;try{sources=JSON.parse(key)}catch(_){continue}if(ids.length&&Array.isArray(sources)&&ids.every(id=>sources.includes(id)||sources.some(source=>groceryTextSourceIdentity(source)===groceryTextSourceIdentity(id))))return text}return line.line}
+function groceryDisplayText(line){return line.line}
+function groceryContributionText(source,overrides=groceryTextOverrides()){
+ for(const [key,record]of Object.entries(overrides).reverse()){
+  let ids;try{ids=JSON.parse(key)}catch(_){continue}
+  if(!Array.isArray(ids)||!ids.some(id=>id===source.id||groceryTextSourceIdentity(id)===groceryTextSourceIdentity(source.id)))continue;
+  // Old multi-source wording has no per-source quantity provenance. Keep it intact.
+  if(typeof record==='string'){
+   if(ids.length>1)return source.line;
+   const q=parseRecipeQuantity(record),original=parseRecipeQuantity(source.original);
+   return ids.length===1&&q&&original&&q.lo===original.lo&&q.hi===original.hi?scaleRecipeIngredient(record,source.multiplier):record;
+  }
+  return scaleRecipeIngredient(record.text,source.multiplier/record.multiplier);
+ }
+ return source.line;
+}
 function openGroceryTextEditor(line,refresh){
- const d=recipeBulkDialog('Edit grocery item'),field=document.createElement('input');field.type='text';field.className='manual-grocery-field';field.setAttribute('aria-label','Grocery item');field.value=groceryDisplayText(line);
- const note=document.createElement('p');note.className='muted';note.textContent='Your recipe will not change.';
+ const d=recipeBulkDialog('Edit grocery item'),field=document.createElement('input');field.type='text';field.className='manual-grocery-field';field.setAttribute('aria-label','Grocery item');field.value=line.line;
+ const note=document.createElement('p');note.className='muted';note.textContent='Changes apply only to your grocery list. Quantities still update when you scale the recipe.';
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save grocery item');setIconButton(cancel,'cancel','Cancel');
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
- save.onclick=()=>{const text=field.value.trim();if(!text){error.textContent='Enter a grocery item.';field.focus();return}try{const records=groceryTextOverrides();delete records[groceryTextKey(line)];records[groceryTextKey(line)]=text;localStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records));d.close();refresh()}catch(e){error.textContent=e.message}};
+ save.onclick=()=>{const text=field.value.trim();if(!text){error.textContent='Enter a grocery item.';field.focus();return}try{const records=groceryTextOverrides();delete records[groceryTextKey(line)];records[groceryTextKey(line)]={text,multiplier:line.contributions?.[0]?.multiplier||1};const before=captureState();localStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records));snapshot(before);d.close();refresh()}catch(e){error.textContent=e.message}};
  cancel.onclick=d.close;field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save.click()}};actions.append(save,cancel);d.panel.append(field,note,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);field.focus({preventScroll:true});
 }
 function bindGroceryTextPress(name,line,refresh){
@@ -105,23 +119,27 @@ function openGroceryRecipeSource(source){
  openSavedMealRecipe(meal,context,null,target);
 }
 function getMasterGroceryItems(){
- const sources=getGroceryContributions(false,groceryPeriod).flatMap(source=>{
-  const amount=groceryCheckedAmount(source),q=source.quantity;
-  // Ranges stay whole unless both bounds can be split without inventing a range.
-  if(!q||!amount||amount.lo<=0||amount.hi<=0||grocerySourceChecked(source)||q.hi-amount.hi<q.lo-amount.lo)return [source];
-  return [{...source,quantity:{...q,lo:amount.lo,hi:amount.hi},segmentChecked:true},{...source,quantity:{...q,lo:q.lo-amount.lo,hi:q.hi-amount.hi},segmentChecked:false}];
- }),states=new Map(),groceries=new Map();
- for(const source of sources){if(!states.has(source.baseKey))states.set(source.baseKey,new Set());states.get(source.baseKey).add(grocerySourceChecked(source))}
+ const sources=getGroceryContributions(false,groceryPeriod),groceries=new Map(),overrides=groceryTextOverrides();
  for(const source of sources){
-  const {line,quantity,baseKey}=source,checked=grocerySourceChecked(source);
-  // Reuse the existing quantity/check-group rows, splitting only mixed states.
-  const key=states.get(baseKey).size>1?baseKey+'|'+(checked?'checked':'unchecked'):baseKey;
+  const line=groceryContributionText(source,overrides),quantity=groceryQuantityParts(line),baseKey=source.baseKey;
+  // Combining follows shopping wording; checks retain their canonical source quantities.
+  const key=quantity?.key||'unmeasured:'+ingredientKey(line);
   if(!groceries.has(key))groceries.set(key,{line,recipes:[],checkKeys:[],checkGroups:[],quantity:quantity?{...quantity,lo:0,hi:0}:null,baseKey,contributions:[]});
   const item=groceries.get(key);item.contributions.push(source);
   if(!item.recipes.includes(source.mealName))item.recipes.push(source.mealName);
   if(!item.checkGroups.some(group=>group[0]===source.checkKeys[0]))item.checkGroups.push(source.checkKeys);
   for(const checkKey of source.checkKeys)if(!item.checkKeys.includes(checkKey))item.checkKeys.push(checkKey);
   if(quantity){item.quantity.lo+=quantity.lo;item.quantity.hi+=quantity.hi;const q=item.quantity;const amount=formatRecipeQuantity(q.lo)+(Math.abs(q.hi-q.lo)>1e-8?'–'+formatRecipeQuantity(q.hi):'');const unit=q.unit==='cup'?(q.hi===1?'cup':'cups'):q.unit==='clove'?(q.hi===1?'clove':'cloves'):q.unit==='piece'?(q.hi===1?'piece':'pieces'):q.unit==='sprig'?(q.hi===1?'sprig':'sprigs'):q.unit;item.line=amount+' '+(unit?unit+' ':'')+q.name}
+ }
+ for(const item of groceries.values()){
+  const ids=item.contributions.map(source=>source.id);
+  for(const [key,record]of Object.entries(overrides).reverse()){
+   let saved;try{saved=JSON.parse(key)}catch(_){continue}
+   if(!Array.isArray(saved))continue;
+   const matches=ids.some(id=>saved.some(old=>old===id||groceryTextSourceIdentity(old)===groceryTextSourceIdentity(id)));
+   if(matches&&typeof record!=='string')break;
+   if(typeof record==='string'&&saved.length>1&&ids.every(id=>saved.some(old=>old===id||groceryTextSourceIdentity(old)===groceryTextSourceIdentity(id)))){item.line=record;break}
+  }
  }
  return groceries;
 }
@@ -167,6 +185,7 @@ function getMasterGroceryItems(){
    b.onclick=()=>navigateAfterSettings(()=>{if(key==='groups'&&tutorialStage==='1')setTutorialStage('2');action();window.scrollTo(0,0);requestAnimationFrame(()=>{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0})});nav.append(b);
   });
  }
+ const expandedGrocerySources=new Set();
  function renderMasterGroceryTab(list){
   groceryPeriod=readGroceryPeriod();
   const panel=document.createElement('section');panel.className='meal-plan-grocery';panel.setAttribute('aria-label','Master grocery list');
@@ -174,6 +193,8 @@ function getMasterGroceryItems(){
   const groceryHeader=document.createElement('div');groceryHeader.className='grocery-compact-header';groceryHeader.append(heading);const addManual=document.createElement('button');addManual.type='button';addManual.className='iconbtn grocery-add-manual';setIconButton(addManual,'add','Add grocery item');addManual.onclick=()=>openManualGroceryEditor(null,updateRows);panel.append(groceryHeader);
   const weekSummary=document.createElement('span');weekSummary.className='grocery-week-summary';groceryHeader.append(weekSummary);
   const rows=document.createElement('div');rows.className='master-grocery-list';
+  const expanded=expandedGrocerySources;
+  function changeCheck(item,value){withGroceryCheckSchedules(()=>{snapshot();setGroceryItemChecked(item.baseKey,item,value);localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));updateRows()})}
   function updateRows(){
    rows.replaceChildren();weekSummary.textContent={current:'This week',next:'Next week',both:'Both weeks',none:'No weeks selected'}[groceryPeriod];
    const groceries=getMasterGroceryItems();
@@ -182,36 +203,31 @@ function getMasterGroceryItems(){
     msg.textContent=groceryPeriod==='none'?'Select a week to show recipe groceries.':mealPlans.every(plan=>masterGroceryExcludedPlanIds.has(String(plan.id)))?'Select a meal plan to show groceries.':'No selected recipe groceries.';
     rows.append(msg);
    }
-   groceries.forEach((line,key)=>{
+   [...groceries].sort((a,b)=>Number(groceryItemChecked(b[0],b[1]))-Number(groceryItemChecked(a[0],a[1]))).forEach(([key,line])=>{
     if(localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true'&&groceryItemChecked(key,line))return;
     const row=document.createElement('div');row.className='master-grocery-item';
     const check=document.createElement('input');check.type='checkbox';check.checked=groceryItemChecked(key,line);
-    check.onchange=()=>withGroceryCheckSchedules(()=>{
-     setGroceryItemChecked(key,line,check.checked);
-     try{localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}
-     // Refresh the grocery rows after each selection so the hide-selected
-     // preference is applied immediately, without leaving a stale checked row.
-     updateRows();
-    });
+    check.indeterminate=!check.checked&&line.contributions.some(source=>grocerySourceChecked(source)||groceryCheckedAmount(source)?.lo>0);
+    check.setAttribute('aria-label',line.line);check.onchange=()=>changeCheck(line,check.checked);
     const details=document.createElement('span');details.className='grocery-item-details';
     const name=document.createElement('button');name.type='button';name.className='grocery-ingredient-name';
-    name.textContent=groceryDisplayText(line);bindGroceryTextPress(name,line,updateRows);
+    name.textContent=line.line;
     const source=document.createElement('span');source.className='grocery-recipe-source';
-    const associations=new Map();for(const contribution of line.contributions||[]){const meal=meals.find(meal=>String(meal.id)===String(contribution.mealId)),key=(meal?.linkGroup?'shared:'+meal.linkGroup:'recipe:'+contribution.mealId)+(contribution.simpleSideId?'|side:'+contribution.simpleSideId:'');if(!associations.has(key))associations.set(key,contribution)}
-    for(const contribution of associations.values()){
+    for(const contribution of line.contributions||[]){
+     const detail=document.createElement('span');detail.className='grocery-contribution';
+     if(line.contributions.length>1){const cb=document.createElement('input');cb.type='checkbox';cb.checked=grocerySourceChecked(contribution);cb.indeterminate=!cb.checked&&groceryCheckedAmount(contribution)?.lo>0;cb.setAttribute('aria-label','Check '+contribution.mealName);cb.onchange=()=>changeCheck({contributions:[contribution],baseKey:contribution.baseKey,checkKeys:contribution.checkKeys},cb.checked);detail.append(cb)}
+     const amount=document.createElement('span');amount.className='grocery-contribution-amount';amount.textContent=groceryContributionText(contribution);detail.append(amount);
      const link=document.createElement('button');link.type='button';link.className='grocery-recipe-link';link.dataset.mealId=String(contribution.mealId);link.dataset.planId=contribution.planId;link.dataset.day=contribution.day;link.dataset.grocerySourceId=contribution.id;link.textContent=contribution.mealName;
-     link.onclick=()=>openGroceryRecipeSource(contribution);source.append(link);
+     link.onclick=()=>openGroceryRecipeSource(contribution);detail.append(link);
+     const pencil=document.createElement('button');pencil.type='button';pencil.className='iconbtn grocery-contribution-edit';setIconButton(pencil,'rename','Edit shopping wording for '+contribution.mealName);pencil.onclick=()=>openGroceryTextEditor({line:groceryContributionText(contribution),contributions:[contribution]},updateRows);detail.append(pencil);source.append(detail);
     }
-    source.hidden=true;
-    name.setAttribute('aria-expanded','false');
-    name.setAttribute('aria-label',groceryDisplayText(line)+'. Tap to show associated recipes');
-    name.onclick=()=>{
-     source.hidden=!source.hidden;
-     name.setAttribute('aria-expanded',String(!source.hidden));
-     name.setAttribute('aria-label',groceryDisplayText(line)+(source.hidden?'. Tap to show associated recipes':'. Tap to hide associated recipes'));
-    };
+    const expandedKey=groceryTextKey(line);source.hidden=!expanded.has(expandedKey);
+    const chevron=document.createElement('button');chevron.type='button';chevron.className='iconbtn grocery-expand';chevron.setAttribute('aria-label','Show contributions for '+line.line);
+    function disclosure(){name.setAttribute('aria-expanded',String(!source.hidden));chevron.setAttribute('aria-expanded',String(!source.hidden));chevron.innerHTML='<svg viewBox="0 0 24 24"><path d="'+(source.hidden?'m6 9 6 6 6-6':'m6 15 6-6 6 6')+'"/></svg>'}
+    name.onclick=chevron.onclick=()=>{source.hidden=!source.hidden;if(source.hidden)expanded.delete(expandedKey);else expanded.add(expandedKey);disclosure()};disclosure();
+    if(line.contributions.length>1){const count=document.createElement('span');count.className='muted grocery-source-count';count.textContent=' ('+line.contributions.length+')';name.append(count)}
     details.append(name,source);
-    const target=document.createElement('label');target.className='grocery-checkbox-target';target.append(check);row.append(target,details);rows.append(row);
+    const target=document.createElement('label');target.className='grocery-checkbox-target';target.append(check);row.replaceChildren(target,details,chevron);rows.append(row);
    });
    appendManualGroceries(rows,updateRows);
   }
