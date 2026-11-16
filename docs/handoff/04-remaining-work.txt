@@ -4,7 +4,7 @@ Evidence: latest explicit user decisions and phone reports in the handoff conver
 
 HANDOFF CURRENT PRIORITY — supersedes older active queue notes
 Current #123 reviewed: user says everything else okay; ingredients import works but cooking times still missing. Remaining import flow/side suggestions retained in #123 for later; do not repeat all tests.
-NEXT AUTHORIZED: #120 latest NEXT ACTIVE BATCH section, meal-plan correctness/usability: Tuesday real date priority, one expanded card, radio touch outline/tab baseline/stray line/date-column centering, To-Do compact lines/navigation transient shadow, viewer defaults ON only absent saved choices and contextual unfinished-step jump. Exact scope/checks in issue. #124 waits.
+CURRENT #120 latest NEXT ACTIVE BATCH is implemented/code-checked; awaiting phone acceptance (tests/meal_plan_active120_test_report.md). Scope: Tuesday real date priority, one expanded card, radio touch outline/tab baseline/stray line/date-column centering, To-Do compact lines/navigation transient shadow, viewer defaults ON only absent saved choices and contextual unfinished-step jump. Exact scope/checks in issue. Same-day legacy-date repair is fixture-verified; the exact user backup was not supplied, so unproven mixed dates remain protected. #124 waits.
 FOLLOWING PRIORITY: prep automation soon, user-approved direction (not yet implementation-ready): optional marinating/defrost sub-switches visible only under Show Make Ahead Reminders; saved choices retained parent off. Extract explicit marinade duration, overnight previous day. Meat ingredients suggest combined defrost task; precise cut/size lead-time rules and applying to existing schedules still to settle. Notes & Reminders displays generated tasks directly with pencil/trash/+; edited tasks/removals remembered for future recipe scheduling, no Automatic/Custom/None selector; untouched automation updates without duplicates, explicit edits/deletions not overwritten. Preserve occurrences/checks; separate scoped batch.
 DEFERRED EDITOR: source-link chain+Add recipe link/Edit recipe link visible label; Linked Recipes/Meal Groups header type/left edges/+ column consistent with following headers (11476/11478); hide status radios in reference-group context preserving status. Other existing deferred items remain.
 Standard evergreen new-chat message: docs/handoff/05-standard-handoff-message.txt. Do not update it with temporary batch statuses.
@@ -12,7 +12,7 @@ Standard evergreen new-chat message: docs/handoff/05-standard-handoff-message.tx
 LATEST ACTIVE: #123 phone-review correction pass implemented/code-checked; awaiting phone acceptance. See tests/import_review_corrections123_test_report.md. Link import missing ingredients/times (exact URL not supplied); bulk 457-recipe mapping helper/scroll/Sides clipping; remove obsolete Refresh from RecipeSage UI; investigate working inline-status radio lag; empty-app create/import button spacing. Known review-hydration and recovered-ingredient gaps corrected; exact user URL still unavailable, so source-specific reproduction remains unverified. Large review/viewport controls, obsolete refresh removal, redundant status work and empty-app spacing are code-checked. #124 remains queued.
 Deferred group editing-bar discoverability (11474): subtly contrasting background/clear top edge or shadow/prominent Done, no taller bar/dimming. Bundle future group-editor work, not #123.
 
-CURRENT HANDOFF: #123 implemented/code-checked (import/settings, Display alignment and recipe-editor inline status radios); awaiting phone acceptance. See tests/import_settings_batch123_test_report.md. #124 remains queued. #122 all other functionality user reports working; remaining grocery expansion/aggregate edit correction deferred, exact behavior in #122. Single expanded My Meal Plan card remains deferred, not a new duplicate issue. Very low priority weekday/date pair vertically centered in left date column (11447), bundle future card layout work. No separate cosmetic correction task.
+CURRENT HANDOFF: #123 implemented/code-checked (import/settings, Display alignment and recipe-editor inline status radios); awaiting phone acceptance. See tests/import_settings_batch123_test_report.md. #124 remains queued. #122 all other functionality user reports working; remaining grocery expansion/aggregate edit correction deferred, exact behavior in #122. One expanded My Meal Plan card and weekday/date centering are code-checked in the active #120 pass, awaiting phone acceptance. No separate cosmetic correction task.
 
 ACTIVE PROJECT
 CURRENT USER DISPOSITION — supersedes earlier active correction wording
@@ -20,9 +20,6 @@ Issue #122 grocery breakdown/scaling plus nonrotation visibility/pins is impleme
 Phone-confirmed symptom: disabling Bread rotation hides Easy Sourdough Bread; re-enabling restores it. No deletion established. Show all recipes in reference groups and pin controls on every recipe, retaining statuses/memberships/schedules. #122 contains exact regression checks.
 LATEST DEFERRED POLISH (approved direction, not implemented/urgent):
 - Group reorder Done returns directly to Meal Groups, hides handles; no Edit group reopening. Resolve unsaved name/rotation edits safely before entry.
-- Meals/Overview radio selectors: no large outline from touch, accessible keyboard focus retained.
-- Meal-tab baseline remains unfixed: continuous under inactive tabs/gaps, break only under selected tab.
-- Remove stray line extending either side above first card on Meals/Overview.
 - Grocery This week/Next week/Both weeks summary aligned with Groceries text baseline, right-aligned muted.
 Earlier deferred items remain queued; bundle only when related. Do not broaden #122 with cosmetic backlog merely because it touches Groceries.
 
@@ -82,13 +79,12 @@ EXPLICITLY DEFERRED FUNCTIONAL REFINEMENTS
 - Pale rounded bottom-nav active highlight remains recommendation; not included in current pass.
 Latest phone review, explicitly nonurgent; bundle only with related larger work, not #121:
 - Groceries reported working; align meal-inclusion checkboxes with week checkboxes (11312), retain wrapped text alignment. Bundle with #122.
-- Tuesday still shows Nov17 instead of Nov10 in current plan while Wed11–Sun15 now correct (11310). Unresolved; revisit with scheduling work, no cosmetic stored-date rebase.
+- Tuesday same-day legacy replacement repair is code-checked in #120, with real prep/grocery association and protected future occurrences. Exact user backup not supplied; awaiting phone verification of the reported Tuesday case (11310).
 - Display switch/label columns, even spacing and helper alignment (11318) implemented/code-checked in #123; awaiting phone acceptance.
-- Remove extra Due date lines from To-Do lists, retaining internal dates/visibility/order (11322).
-- To-Do text navigates to exact occurrence/slot/week, scrolls card into view and briefly adds soft shadow then fades; checkbox completes only.
-- Only one meal card expanded at a time; opening another collapses previous without scroll jump (11324). Retain approved edit/planning/cancel lifecycle.
+- To-Do exact occurrence/plan/week navigation, whole-card soft shadow and checkbox-only completion are code-checked in #120; awaiting phone acceptance.
+- One expanded meal-plan card with anchored opening (11324) is code-checked in #120; existing edit/planning/cancel lifecycle passes focused checks; awaiting phone acceptance.
 - Compact sticky tabs/week radios on Meals and week radios on Overview are now code-checked in #121; title/icons/To-Do scroll away. Dialogs/keyboard release sticky positioning; hidden tabs leave no gap. Awaiting phone acceptance.
-To-Do/expansion changes above remain deferred; do not absorb them into #121.
+To-Do/expansion changes above are code-checked in the latest #120 pass. Remaining unrelated items below stay deferred.
 - Matching grocery ingredient combination, including across weeks. User says current issue doesn't hurt workflow; don't spend credits now.
 - Grocery source linked-step scroll in split view: ingredient pane works, instruction pane did not in phone testing. No guessing links; deferred.
 - Optional Grocery Group by meal with collapsible sections; combined list remains default.
@@ -97,7 +93,7 @@ To-Do/expansion changes above remain deferred; do not absorb them into #121.
 - Development-tracker Site paused; do not resume.
 
 VERY LOW PRIORITY POLISH — BUNDLE ONLY WHEN RELATED
-- To-do navigation blue title box removed, but subtle whole-card shadow wasn't visible in phone test.
+- To-Do navigation now targets the actual plan card with transient soft-shadow feedback, code-checked in #120; awaiting phone acceptance.
 - To-do bottom padding now approved in #120 correction; no longer deferred.
 - Pin centering was reported imperfect; later fix included with simple sides, latest exact alignment not individually confirmed. Verify before repeating.
 - Pin tap delay was previously reported; later app-wide performance fix worked. Do not list it as a confirmed remaining bug without retesting.
