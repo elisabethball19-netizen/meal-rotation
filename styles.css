@@ -1939,3 +1939,22 @@ body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{
 .grocery-week-summary{margin-left:auto;text-align:right;white-space:normal;}
 
 #editor .meal-editor-section>summary{padding-left:0!important;padding-right:0!important;}
+
+.automatic-prep-settings{padding-left:16px;border-left:2px solid #e2e6eb;margin-left:16px;}
+.automatic-prep-settings[hidden]{display:none;}
+.automatic-prep-settings .muted{font-size:12px;line-height:1.45;margin:6px 0 10px;}
+#editor .prep-task-row,.prep-task-row{display:block;min-width:0;}
+.prep-task-summary{display:flex;align-items:center;gap:3px;min-width:0;}
+.prep-task-summary>span{flex:1;min-width:0;overflow-wrap:anywhere;font-size:13px;line-height:1.4;}
+.prep-task-summary>button{flex:none;width:40px;min-width:40px;min-height:44px;padding:7px;}
+.prep-task-fields{margin:6px 0 10px;}
+.prep-task-fields[hidden]{display:none;}
+.prep-task-fields>.make-ahead-description{width:100%;box-sizing:border-box;margin-bottom:6px;}
+#editor .prep-task-fields .make-ahead-lead{display:flex;align-items:center;}
+#editor .prep-task-fields .make-ahead-days{flex:1;width:64px;min-width:44px;}
+.preparation-task-dialog .prep-task-summary{display:none;}
+
+.prep-task-fields>.make-ahead-description{font:inherit;line-height:1.4;padding:9px;border:1px solid #ccc;border-radius:7px;resize:vertical;min-height:64px;}
+.prep-task-summary>span{font-size:calc(13px * var(--meal-text-factor,1));}
+
+@media(max-width:420px){.prep-task-summary.prep-task-long{flex-wrap:wrap;}.prep-task-summary.prep-task-long>span{flex-basis:100%;}.prep-task-summary.prep-task-long>button:first-of-type{margin-left:auto;}}

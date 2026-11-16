@@ -1036,8 +1036,14 @@ function prettyTimeInput(raw){
 // A marinade duration can be a single time or a dash/"to" range.
 // A dot is always a decimal fraction of hours (1.5 = 90 min), never a range.
 // Explicit units continue to take priority (1.5 min = 1.5 minutes).
+function normalizeMarinadeDurationWords(raw){
+ const numbers={a:1,an:1,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,half:.5,'half a':.5,'half an':.5};
+ return String(raw??'').replace(/\b(half(?: an?)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?=(?:days?|hours?|hrs?|minutes?|mins?)\b)/gi,word=>String(numbers[word.trim().toLowerCase()])+' ');
+}
 function parseMarinateInput(raw){
-  const text=String(raw??'').trim();if(!text)return null;
+  const text=normalizeMarinadeDurationWords(raw).trim();if(!text)return null;
+  if(/^overnight$/i.test(text))return {low:1440,high:null,overnight:true};
+  const days=text.match(/^(\d+(?:\.\d+)?)(?:\s*[-–—]\s*(\d+(?:\.\d+)?))?\s*days?$/i);if(days){const low=Number(days[1])*1440,high=days[2]===undefined?null:Number(days[2])*1440;return high!==null&&high<low?NaN:{low,high}}
   const parts=text.split(/\s*(?:[-–—]|\bto\b)\s*/i);
   if(parts.length>2||parts.some(x=>!x.trim()))return NaN;
   let [first,second]=parts;
@@ -1065,7 +1071,7 @@ function parseMarinateInput(raw){
 function displayMarinateTime(raw){
   const parsed=parseMarinateInput(raw);
   if(!parsed||typeof parsed!=='object')return '';
-  return parsed.high===null?time(parsed.low):time(parsed.low)+'–'+time(parsed.high);
+  return parsed.overnight?'Overnight':parsed.high===null?time(parsed.low):time(parsed.low)+'–'+time(parsed.high);
 }
 function mealTimeDescription(meal,omitEmpty=false){
   const parts=[];

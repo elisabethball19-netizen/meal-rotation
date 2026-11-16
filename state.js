@@ -339,13 +339,13 @@ function validateSavedRecords(data,requireCore=false){
  if(parsed.mealRotationWeekdayRecipeFiltersV1&&Object.values(parsed.mealRotationWeekdayRecipeFiltersV1).some(v=>!strings(v)))throw Error('Invalid legacy weekday filters');
  if(parsed.mealRotationTopCountsV1&&Object.values(parsed.mealRotationTopCountsV1).some(v=>!['number','string'].includes(typeof v)||!Number.isFinite(Number(v))))throw Error('Invalid group counts');
  if(parsed.mealRotationGroupDisplayOrderV1&&new Set(parsed.mealRotationGroupDisplayOrderV1).size!==parsed.mealRotationGroupDisplayOrderV1.length)throw Error('Invalid meal-group display order');
- for(const [key,fields]of [['mealRotationMakeAheadDisplayV1',['showMakeAheadReminders','showCompletedToday']],['mealRotationEditorSectionsV1',['ingredients','instructions']]])if(parsed[key]&&fields.some(field=>field in parsed[key]&&typeof parsed[key][field]!=='boolean'))throw Error('Invalid display preferences: '+key);
+ for(const [key,fields]of [['mealRotationMakeAheadDisplayV1',['showMakeAheadReminders','showCompletedToday','automaticMarinating','automaticDefrost']],['mealRotationEditorSectionsV1',['ingredients','instructions']]])if(parsed[key]&&fields.some(field=>field in parsed[key]&&typeof parsed[key][field]!=='boolean'))throw Error('Invalid display preferences: '+key);
  const times=parsed.mealRotationTimeVisibilityV1;if(times&&['top','category','all'].some(view=>view in times&&(!object(times[view])||['cooking','marinate'].some(field=>field in times[view]&&typeof times[view][field]!=='boolean'))))throw Error('Invalid time display preferences');
  const expansion=parsed.mealRotationGroupSectionExpansionV1;if(expansion&&(expansion.version!==1||!object(expansion.groups)||Object.values(expansion.groups).some(v=>!object(v)||['rotation','ideas'].some(k=>k in v&&typeof v[k]!=='boolean'))))throw Error('Invalid group section expansion');
  const prefs=parsed.mealRotationRecipeViewPrefsV1;if(prefs){if('mode'in prefs&&!['full','split'].includes(prefs.mode))throw Error('Invalid recipe view mode');for(const k of ['ratio','landscapeRatio','timerAlarmVolume'])if(k in prefs&&!Number.isFinite(prefs[k]))throw Error('Invalid recipe view preference');for(const k of ['syncIngredients','autoCompleteIngredients','keepScreenAwake','autoOpenLinkedRecipes'])if(k in prefs&&typeof prefs[k]!=='boolean')throw Error('Invalid recipe view preference')}
  const fractions=parsed.mealRotationFractionMigrationBackupV2;if(fractions&&Object.values(fractions).some(v=>v!==null&&typeof v!=='string'))throw Error('Invalid fraction migration backup');
  if(Object.hasOwn(data,'mealRotationCookingSessionsV1'))validateCookingSessions(parsed.mealRotationCookingSessionsV1);
- if(Object.hasOwn(data,'mealRotationOccurrenceScalesV1'))validateOccurrenceScales(parsed.mealRotationOccurrenceScalesV1);
+ if(Object.hasOwn(data,'mealRotationOccurrenceScalesV1'))validateOccurrenceScales(parsed.mealRotationOccurrenceScalesV1,parsed.mealRotationGroupIdentitiesV1||{});
  if(Object.hasOwn(data,'mealRotationGroceryOccurrenceChecksV1'))validateGroceryOccurrenceChecks(parsed.mealRotationGroceryOccurrenceChecksV1);
  const timer=parsed.mealRotationCookingTimerV1;if(timer!==undefined&&timer!==null){if(!object(timer)||timer.version!==1||!['running','paused','complete'].includes(timer.status)||['id','recipeId','recipeName','stepToken','stepText'].some(k=>typeof timer[k]!=='string')||timer.status==='running'&&!Number.isFinite(timer.deadline)||timer.status==='paused'&&(!Number.isFinite(timer.remaining)||timer.remaining<=0))throw Error('Invalid cooking timer')}
  const history=parsed.mealRotationLastRotationBeforeV1;if(history!==undefined&&history!==null){if(!object(history)||!Array.isArray(history.meals)||!Array.isArray(history.mealPlans))throw Error('Invalid rotation history');validateBackupCore(startupCore({...history,mealPlans:{plans:history.mealPlans,...(typeof history.activePlanId==='string'?{activeId:history.activePlanId}:{})}}))}
@@ -507,9 +507,9 @@ function updateAutomaticCookingIngredients(session,meal,newlyCompletedStep=null)
 
 const OCCURRENCE_SCALES_KEY='mealRotationOccurrenceScalesV1',RECIPE_SCALES=[.5,1,1.5,2,3];
 let occurrenceScales={version:1,occurrences:{}},scaleStorageInvalid=false;
-function validateOccurrenceScales(value){
+function validateOccurrenceScales(value,groupIdentities=null){
  if(!value||value.version!==1||!value.occurrences||typeof value.occurrences!=='object'||Array.isArray(value.occurrences))throw Error('Invalid recipe scaling');
- for(const [key,entry] of Object.entries(value.occurrences))if(!entry||!validRecipeMultiplier(entry.multiplier)||!entry.context||entry.context.scaleGroupId!==undefined&&typeof entry.context.scaleGroupId!=='string'||!['planId','day','cat','mealId','parentId'].every(k=>typeof entry.context[k]==='string')||(key!==cookingOccurrenceKey(entry.context)&&key!==scaleOccurrenceKey(entry.context)))throw Error('Invalid recipe scale occurrence');
+ for(const [key,entry] of Object.entries(value.occurrences))if(!entry||!validRecipeMultiplier(entry.multiplier)||!entry.context||entry.context.scaleGroupId!==undefined&&typeof entry.context.scaleGroupId!=='string'||!['planId','day','cat','mealId','parentId'].every(k=>typeof entry.context[k]==='string')||(key!==cookingOccurrenceKey(entry.context)&&key!==scaleOccurrenceKey(entry.context,groupIdentities)))throw Error('Invalid recipe scale occurrence');
 }
 try{const raw=localStorage.getItem(OCCURRENCE_SCALES_KEY);if(raw){const parsed=JSON.parse(raw);validateOccurrenceScales(parsed);occurrenceScales=parsed}}catch(e){scaleStorageInvalid=true}
 function writeOccurrenceScales(next){
@@ -518,7 +518,12 @@ function writeOccurrenceScales(next){
 }
 function validRecipeMultiplier(value){return typeof value==='number'&&Number.isFinite(value)&&value>0}
 // Keep cooking-progress identities unchanged. Scales distinguish independent group slots.
-function scaleOccurrenceKey(c){return JSON.stringify([...JSON.parse(cookingOccurrenceKey(c)),c.scaleGroupId||groupIdentity(c.cat)||c.cat])}
+function scaleOccurrenceKey(c,groupIdentities=null){
+ // Startup validates scales before rotation.js defines groupIdentity. Resolve the
+ // same saved identity here without depending on later scripts or creating IDs.
+ let identity=c.scaleGroupId;if(!identity){try{identity=(groupIdentities||JSON.parse(localStorage.getItem('mealRotationGroupIdentitiesV1')||'{}'))[c.cat]}catch(_){}}
+ return JSON.stringify([...JSON.parse(cookingOccurrenceKey(c)),identity||c.cat]);
+}
 function occurrenceMultiplier(context){
  if(!context)return 1;
  const exact=occurrenceScales.occurrences[scaleOccurrenceKey(context)];if(exact)return exact.multiplier;

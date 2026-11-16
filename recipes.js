@@ -186,7 +186,9 @@ function configureRecipeSplit(v,divider,panes){
  v.dividerGestureCleanup?.();v.resizeObserver?.disconnect();
  const events=new AbortController(),signal=events.signal,tab=v.activeTab;
  const landscape=()=>recipeViewingMode()==='split'&&matchMedia('(orientation: landscape) and (max-height: 600px) and (max-width: 1100px) and (pointer: coarse)').matches;
- const restoreSaved=v.restoreTabScroll,children=[...panes.querySelectorAll('.recipe-pane')];let drag=null,frame=0,changing=false,positions=tab.splitPlace||null,geometry='';
+ const restoreSaved=v.restoreTabScroll,children=[...panes.querySelectorAll('.recipe-pane')];let drag=null,frame=0,settleFrame=0,pendingNavigation=null,changing=false,positions=tab.splitPlace||null,geometry='';
+ const finishNavigation=()=>{const action=pendingNavigation;pendingNavigation=null;action?.()};
+ v.afterSplitLayout=action=>{pendingNavigation=action;cancelAnimationFrame(settleFrame);settleFrame=requestAnimationFrame(()=>{if(!changing)finishNavigation()})};
  const axis=()=>v.cover.classList.contains('recipe-landscape');
  const extent=()=>Math.max(1,(axis()?panes.clientWidth-divider.offsetWidth:panes.clientHeight-divider.offsetHeight));
  const snapshot=()=>children.map(pane=>{
@@ -216,7 +218,7 @@ function configureRecipeSplit(v,divider,panes){
   end();v.cancelTabDrag?.();freeze();const saved=positions||snapshot();changing=true;cancelAnimationFrame(frame);layout();geometry=signature();
   if(recipeViewingMode()!=='split'){changing=false;return}
   // Keep semantic anchors through wrapping and Android viewport-bar settling.
-  frame=requestAnimationFrame(()=>{restore(saved);frame=requestAnimationFrame(()=>{restore(saved);changing=false;if(tab.pendingSourceNavigation)applyPendingGroceryRecipeNavigation(v,tab,children[0],children[1]);remember()})});
+  frame=requestAnimationFrame(()=>{restore(saved);frame=requestAnimationFrame(()=>{restore(saved);changing=false;if(tab.pendingSourceNavigation)applyPendingGroceryRecipeNavigation(v,tab,children[0],children[1]);remember();finishNavigation()})});
  };
  layout();geometry=signature();
  frame=requestAnimationFrame(()=>{if(recipeViewer!==v||v.activeTab!==tab||!panes.isConnected)return;if(tab.pendingSourceNavigation)applyPendingGroceryRecipeNavigation(v,tab,children[0],children[1]);else if(restoreSaved&&positions&&recipeViewingMode()==='split')restore(positions);remember()});
@@ -225,7 +227,7 @@ function configureRecipeSplit(v,divider,panes){
  if(typeof ResizeObserver==='function'){v.resizeObserver=new ResizeObserver(reflow);v.resizeObserver.observe(panes)}
  const begin=(x,y,source,id)=>{freeze();v.syncDividerDragging=true;const box=divider.getBoundingClientRect();drag={source,id,offset:axis()?x-box.left:y-box.top,landscape:axis()}};
  const move=(x,y)=>{if(!drag)return;if(drag.landscape!==axis()){end();return}const box=panes.getBoundingClientRect();setRatio(((axis()?x-box.left:y-box.top)-drag.offset)/extent(),true)};
- v.dividerGestureCleanup=()=>{end();events.abort();cancelAnimationFrame(frame);v.rememberSplitViewport=null};
+ v.dividerGestureCleanup=()=>{end();events.abort();cancelAnimationFrame(frame);v.rememberSplitViewport=null;cancelAnimationFrame(settleFrame);pendingNavigation=null;v.afterSplitLayout=null};
  divider.addEventListener('touchstart',e=>{if(e.cancelable)e.preventDefault();e.stopPropagation();if(e.touches.length!==1||drag){end();return}const t=e.changedTouches[0];begin(t.clientX,t.clientY,'touch',t.identifier)},{signal,passive:false});
  divider.addEventListener('touchmove',e=>{if(drag?.source!=='touch')return;const t=[...e.changedTouches].find(t=>t.identifier===drag.id);if(!t)return;if(e.cancelable)e.preventDefault();e.stopPropagation();move(t.clientX,t.clientY)},{signal,passive:false});
  divider.addEventListener('touchend',e=>{if(drag?.source!=='touch'||![...e.changedTouches].some(t=>t.identifier===drag.id))return;if(e.cancelable)e.preventDefault();e.stopPropagation();end();remember()},{signal,passive:false});
@@ -817,7 +819,7 @@ function returnToCurrentRecipeStep(){
  if(step){
   cancelRecipeAdvance(view);view.cancelIngredientSync?.();view.syncPinnedStep=step.token;view.syncGeometryHold=true;view.stepReturnRail.hidden=true;view.currentStepButton.hidden=true;
   const align=()=>{if(recipeViewer!==view||view.mealId!==String(meal.id))return;const pane=view.content.querySelector('.recipe-instructions-pane'),target=[...pane.querySelectorAll('[data-cooking-token]')].find(node=>node.dataset.cookingToken===step.token);if(!target)return;const scroller=recipeViewingMode()==='split'?pane:view.cover,top=recipeViewingMode()==='split'?pane.getBoundingClientRect().top:Math.max(view.close.parentElement.getBoundingClientRect().bottom,view.tabStrip?.hidden?0:view.tabStrip?.getBoundingClientRect().bottom||0);scroller.scrollTop+=target.getBoundingClientRect().top-top-8;view.rememberSplitViewport?.()};
-  align();requestAnimationFrame(align);
+  align();requestAnimationFrame(()=>{align();const sync=()=>{if(recipeViewer!==view||view.mealId!==String(meal.id))return;view.syncGeometryHold=false;if(view.ingredientSyncState)view.ingredientSyncState.suspended=false;view.syncToInstruction?.(step.token)};if(view.afterSplitLayout)view.afterSplitLayout(sync);else sync()});
  }
 }
 function openRecipeViewer(meal,context=null,pushHistory=true,savedTabs=null,navigationOrigin=null,initialNavigation=null){
@@ -1185,12 +1187,14 @@ function renderRecipeTweakingStatus(view,meal){
 }
 // Display preferences do not alter recipe tasks or dated occurrence completions.
 const MAKE_AHEAD_DISPLAY_KEY='mealRotationMakeAheadDisplayV1';
-let makeAheadDisplayPrefs={showMakeAheadReminders:true,showCompletedToday:false};
+let makeAheadDisplayPrefs={showMakeAheadReminders:true,showCompletedToday:false,automaticMarinating:false,automaticDefrost:false};
 try{const saved=JSON.parse(localStorage.getItem(MAKE_AHEAD_DISPLAY_KEY)||'null');for(const key of Object.keys(makeAheadDisplayPrefs))if(typeof saved?.[key]==='boolean')makeAheadDisplayPrefs[key]=saved[key]}catch(e){}
 function saveMakeAheadDisplayPrefs(){try{localStorage.setItem(MAKE_AHEAD_DISPLAY_KEY,JSON.stringify(makeAheadDisplayPrefs))}catch(e){}}
 function populateMakeAheadSetting(parent){
- const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=makeAheadDisplayPrefs.showMakeAheadReminders;
- check.onchange=()=>{makeAheadDisplayPrefs.showMakeAheadReminders=check.checked;saveMakeAheadDisplayPrefs();renderList()};label.append(check,document.createTextNode('Show Make Ahead Reminders'));parent.append(label);
+ const add=(key,text,container)=>{const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=makeAheadDisplayPrefs[key];check.onchange=()=>{makeAheadDisplayPrefs[key]=check.checked;saveMakeAheadDisplayPrefs();children.hidden=!makeAheadDisplayPrefs.showMakeAheadReminders;renderList()};label.append(check,document.createTextNode(text));container.append(label)};
+ const children=document.createElement('div');children.className='automatic-prep-settings';children.hidden=!makeAheadDisplayPrefs.showMakeAheadReminders;
+ add('showMakeAheadReminders','Show Make Ahead Reminders',parent);add('automaticMarinating','Automatic marinating reminders',children);add('automaticDefrost','Automatic defrost reminders',children);
+ const hint=document.createElement('p');hint.className='muted';hint.textContent='Defrost reminders suggest the previous evening in the fridge, earlier when needed before marinating. Check that food is fully thawed before cooking.';children.append(hint);parent.append(children);
 }
 function setMakeAheadComplete(item,checked){
  const plan=mealPlans.find(plan=>plan.id===item.plan.id);if(!plan)return;
@@ -1234,14 +1238,58 @@ window.addEventListener('focus',syncMakeAheadLocalDay);window.addEventListener('
 
 // Explicit recipe tasks; completion belongs to a dated scheduled occurrence.
 function validMakeAheadLead(task){return Number.isFinite(task.daysBefore)&&task.daysBefore>=0&&task.daysBefore<=36600&&(task.hoursBefore===undefined||Number.isFinite(task.hoursBefore)&&task.hoursBefore>=0&&task.hoursBefore<=878400)}
-function recipeMakeAheadTasks(meal){return (Array.isArray(meal.makeAheadTasks)?meal.makeAheadTasks:[]).filter(t=>t&&typeof t.id==='string'&&typeof t.description==='string'&&t.description.trim()&&validMakeAheadLead(t))}
+// Stable recipe-level sources; projection is read-only and occurrence amounts are never saved.
+const automaticPrepCache=new Map();
+function explicitMarinadeLead(duration){
+ const text=String(duration||'').trim();if(/^overnight$/i.test(text))return {daysBefore:1};
+ const parsed=text&&parseMarinateInput(text),minutes=parsed&&(parsed.high??parsed.low);return Number.isFinite(minutes)&&minutes>0&&minutes<=878400*60?{daysBefore:0,hoursBefore:minutes/60}:null;
+}
+function automaticPrepSources(meal){
+ const signature=JSON.stringify([meal.ingredients,meal.marinate,meal.instructions]);const key=meal.id===undefined?meal:String(meal.id),cached=automaticPrepCache.get(key);if(cached?.signature===signature)return cached.sources;
+ const meats=(meal.ingredients||[]).map(line=>removeIngredientListMarker(String(line).trim())).filter(line=>!/^##/.test(line)&&/\b(chicken|beef|pork|lamb|turkey|duck|veal|venison|goat|rabbit|bison|salmon|tuna|shrimp|prawns?|cod|haddock|tilapia|trout|fish)\b/i.test(line)&&!/\b(stock|broth|bouillon|soup|sauce|gravy|seasoning|rub|powder|paste|extract|fat|lard|suet|gelatin|eggs?|noodles|flavou?r|tofu|seitan|flavou?red?|cooked|canned|tinned|rotisserie|smoked|deli|jerky|bacon|ham|sausage|vegan|vegetarian|plant[- ]based|substitute|imitation)\b/i.test(line)&&!/\b(?:or|optional)\b/i.test(line));
+ let marinade=explicitMarinadeLead(meal.marinate);if(!marinade){const text=normalizeMarinadeDurationWords(instructionBlocks(meal.instructions).map(block=>block.text).join('\n'));const match=text.match(/\bmarinat(?:e|es|ed|ing|ion)\b([^.!?\n]{0,150}?)\b(overnight|\d+(?:\.\d+)?(?:\s*[-–—]\s*\d+(?:\.\d+)?)?\s*(?:days?|hours?|hrs?|minutes?|mins?)\b(?:\s+\d+\s*(?:minutes?|mins?))?)/i);marinade=explicitMarinadeLead(match&&!/\b(cook|bake|roast|fry|simmer|rest|serve|then)\b/i.test(match[1])?match[2]:'')}
+ const sources={meats,marinade};automaticPrepCache.set(key,{signature,sources});return sources;
+}
+function automaticPrepEnabled(kind){return makeAheadDisplayPrefs.showMakeAheadReminders&&makeAheadDisplayPrefs[kind==='defrost'?'automaticDefrost':'automaticMarinating']===true}
+function rawMakeAheadTasks(meal){return Array.isArray(meal.makeAheadTasks)?meal.makeAheadTasks:[]}
+function validRecipePrepTask(task){return task&&typeof task.id==='string'&&typeof task.description==='string'&&task.description.trim()&&validMakeAheadLead(task)&&!task.autoSuppressed}
+function recipeMakeAheadTasks(meal){
+ const raw=rawMakeAheadTasks(meal),manual=raw.filter(task=>validRecipePrepTask(task)&&!task.autoPrep),sources=automaticPrepSources(meal),tasks=[...manual];
+ for(const kind of ['marinating','defrost']){
+  if(!automaticPrepEnabled(kind))continue;const id='automatic-prep:'+kind+':v1',saved=raw.find(task=>task?.id===id);
+  if(saved?.autoSuppressed)continue;if(saved){if(validRecipePrepTask(saved))tasks.push(saved);continue}
+  // Equivalent authored/legacy tasks keep their exact wording, IDs, timing and checks.
+  if(manual.some(task=>(kind==='defrost'?/\b(defrost|thaw)\w*\b/i:/\bmarinat\w*\b/i).test(task.description)))continue;
+  if(kind==='marinating'&&sources.marinade)tasks.push({id,autoPrep:kind,description:'Marinate',...sources.marinade});
+  if(kind==='defrost'&&sources.meats.length)tasks.push({id,autoPrep:kind,description:'Defrost '+sources.meats.join(' and '),daysBefore:1});
+ }
+ return tasks;
+}
+function projectedPreparationTasks(meal,scheduled,multiplier=1){
+ const tasks=recipeMakeAheadTasks(meal),marinade=tasks.find(task=>task.autoPrep==='marinating'||/\bmarinat\w*\b/i.test(task.description))||rawMakeAheadTasks(meal).find(task=>task?.autoPrep==='marinating'&&validRecipePrepTask(task))||automaticPrepSources(meal).marinade;
+ return tasks.map(task=>{
+  if(task.autoPrep!=='defrost'||task.autoEdited)return task;
+  let daysBefore=1;if(marinade){const before=makeAheadDueDate(scheduled,marinade);before.setDate(before.getDate()-1);daysBefore=Math.max(1,Math.round((Date.UTC(scheduled.getFullYear(),scheduled.getMonth(),scheduled.getDate())-Date.UTC(before.getFullYear(),before.getMonth(),before.getDate()))/86400000))}
+  return {...task,...(task.autoTimingEdited?{}:{daysBefore}),description:'Defrost '+automaticPrepSources(meal).meats.map(line=>scaleRecipeIngredient(line,multiplier)).join(' and ')};
+ });
+}
+function editedAutomaticTask(initial,draft){return {...draft,autoEdited:initial.autoEdited===true||draft.description!==initial.description,autoTimingEdited:initial.autoTimingEdited===true||draft.daysBefore!==initial.daysBefore||draft.hoursBefore!==initial.hoursBefore}}
+function preparationTaskDraft(meal,shown,drafts){
+ const raw=rawMakeAheadTasks(meal),visible=new Map(shown.map(task=>[task.id,task])),kept=new Set(drafts.map(task=>task.id)),changes=new Map();
+ for(const draft of drafts){const initial=visible.get(draft.id),saved=raw.find(task=>task?.id===draft.id);if(!initial?.autoPrep){changes.set(draft.id,draft);continue}
+  if(JSON.stringify(draft)===JSON.stringify(initial)){if(saved)changes.set(draft.id,saved)}else changes.set(draft.id,editedAutomaticTask(initial,draft));
+ }
+ for(const task of shown)if(!kept.has(task.id))changes.set(task.id,task.autoPrep?{id:task.id,autoPrep:task.autoPrep,autoSuppressed:true,description:'',daysBefore:0}:null);
+ const result=raw.map(task=>changes.has(task?.id)?changes.get(task.id):task).filter(task=>task!==null),existing=new Set(raw.map(task=>task?.id));
+ for(const [id,task]of changes)if(task&&!existing.has(id))result.push(task);return result;
+}
 function makeAheadTiming(days,hours){return hours!==undefined?hours===0?'Same day':hours+' hour'+(hours===1?'':'s')+' before':days===0?'Same day':days===1?'1 day before':days+' days before'}
-function buildMakeAheadEditor(meal,before=$('editorNotesSection')){
+function buildMakeAheadEditor(meal,before=$('editorNotesSection'),options={}){
  const group=mealEditorSubsection('ahead','Make Ahead','recipeMakeAhead',meal),box=group.details,body=group.content;body.classList.add('make-ahead-editor');
  const changed=()=>box.dispatchEvent(new Event('change',{bubbles:true}));
  function taskRow(task={},after=null){
-  const row=document.createElement('div');row.className='make-ahead-task-editor';row.dataset.taskId=task.id||'prep-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
-  const description=document.createElement('input');description.type='text';description.className='make-ahead-description';description.placeholder='Preparation task';description.setAttribute('aria-label','Preparation task');description.value=task.description||'';
+  const row=document.createElement('div');row.className='make-ahead-task-editor prep-task-row';row.dataset.taskId=task.id||'prep-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+  const description=document.createElement('textarea');description.rows=3;description.className='make-ahead-description';description.placeholder='Preparation task';description.setAttribute('aria-label','Preparation task');description.value=task.description||'';
   const timing=document.createElement('div');timing.className='make-ahead-lead';
   const number=document.createElement('input');number.type='number';number.inputMode='decimal';number.min='0';number.step='any';number.className='make-ahead-days';number.setAttribute('aria-label','Preparation lead time');number.value=String(task.hoursBefore??task.daysBefore??0);
   const unit=document.createElement('input');unit.type='hidden';unit.value=task.hoursBefore!==undefined?'hours':'days';
@@ -1252,12 +1300,14 @@ function buildMakeAheadEditor(meal,before=$('editorNotesSection')){
   row.readDraft=()=>{const record={...task,id:row.dataset.taskId,description:description.value.trim()};if(!untouched()||task.id===undefined){delete record.hoursBefore;record.daysBefore=unit.value==='days'?Number(number.value):0;if(unit.value==='hours')record.hoursBefore=Number(number.value)}return record};
   row.validDraft=()=>!description.value.trim()||task.id!==undefined&&untouched()||number.value.trim()!==''&&validMakeAheadLead(row.readDraft())&&(unit.value!=='hours'||Number(number.value)>0);
   const remove=document.createElement('button');remove.type='button';remove.className='meal-editor-inline-icon';setIconButton(remove,'delete','Remove preparation task');remove.onclick=()=>{row.remove();if(!body.querySelector('.make-ahead-task-editor'))taskRow();changed()};
-  const add=document.createElement('button');add.type='button';add.className='meal-editor-inline-icon';setIconButton(add,'add','Add preparation task');add.onclick=()=>{const next=taskRow({},row);next.querySelector('input').focus({preventScroll:true});changed()};timing.append(add);
-  row.append(description,remove,timing,hint);if(after)after.after(row);else body.append(row);return row;
+  const add=document.createElement('button');add.type='button';add.className='meal-editor-inline-icon';setIconButton(add,'add','Add preparation task');add.onclick=()=>{const next=taskRow({},row);next.querySelector('.make-ahead-description').focus({preventScroll:true});changed()};const fields=document.createElement('div');fields.className='prep-task-fields';fields.hidden=!!task.id&&!options.single;
+  const summary=document.createElement('div');summary.className='prep-task-summary';const caption=document.createElement('span');const pencil=document.createElement('button');pencil.type='button';pencil.className='meal-editor-inline-icon';setIconButton(pencil,'rename','Edit preparation task');pencil.onclick=()=>{fields.hidden=!fields.hidden;if(!fields.hidden){resize();description.focus({preventScroll:true})}};
+  const resize=()=>{if(!fields.hidden){description.style.height='auto';description.style.height=Math.min(220,Math.max(64,description.scrollHeight))+'px'}};
+  const refresh=()=>{resize();summary.classList.toggle('prep-task-long',description.value.length>55);caption.textContent=(description.value||'New preparation task')+' · '+makeAheadTiming(Number(number.value),unit.value==='hours'?Number(number.value):undefined)};description.addEventListener('input',refresh);number.addEventListener('input',refresh);units.addEventListener('click',refresh);refresh();summary.append(caption,pencil,remove,add);fields.append(description,timing,hint);row.append(summary,fields);if(after)after.after(row);else body.append(row);requestAnimationFrame(resize);return row;
  }
- const saved=Array.isArray(meal.makeAheadTasks)?meal.makeAheadTasks:[];saved.filter(t=>t&&typeof t==='object').forEach(task=>taskRow(task));if(!saved.length)taskRow();
+ const saved=options.single?rawMakeAheadTasks(meal):[...rawMakeAheadTasks(meal).filter(task=>task&&typeof task==='object'&&!task.autoPrep),...projectedPreparationTasks(meal,parseCookingLocalDate(cookingLocalDate(new Date()))).filter(task=>task.autoPrep)];saved.forEach(task=>taskRow(task));if(!saved.length)taskRow();
  before.before(box);
- box.readDraft=()=>[...body.querySelectorAll('.make-ahead-task-editor')].map(row=>row.readDraft()).filter(t=>t.description);
+ box.readDraft=()=>{const drafts=[...body.querySelectorAll('.make-ahead-task-editor')].map(row=>row.readDraft()).filter(t=>t.description);return options.single?drafts:preparationTaskDraft(meal,saved,drafts)};
  box.validDraft=()=>[...body.querySelectorAll('.make-ahead-task-editor')].every(row=>row.validDraft());return box;
 }
 function makeAheadWeekStart(){const plan=mealPlans.find(p=>p.id===activePlanId);return parseCookingLocalDate(plan?.rotationCalendar?.weekStart)||cookingPlanningWeekStart()}
@@ -1270,21 +1320,28 @@ function scheduledMakeAheadTasks(includeUpcoming=true,upcoming=null){
  for(const source of current.concat(includeUpcoming?(upcoming||previewNextWeekPlans()):[])){
   const plan=source.plan,entries=source.entries||getDisplayedWeekdayMealsForPlan(plan),calendar=rotationCalendarForPlan(plan,entries),real=mealPlans.find(item=>item.id===plan.id)||plan;
   for(const entry of entries){const occurrence=rotationOccurrenceKey({...entry,planId:plan.id}),scheduled=parseCookingLocalDate(calendar.occurrences?.[occurrence])||cookingDateInWeek(entry.day,parseCookingLocalDate(calendar.weekStart)||start);if(!scheduled)continue;
-   for(const task of recipeMakeAheadTasks(entry.meal)){
+   const context=cookingContext(plan.id,entry.day,entry.cat,entry.meal,entry.linkedTo),sameDate=cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},real.rotationCalendar))===cookingLocalDate(scheduled),multiplier=!source.preview||sameDate||source.retainedKeys?.has(occurrence)?occurrenceMultiplier(context):1;
+   for(const task of projectedPreparationTasks(entry.meal,scheduled,multiplier)){
     const due=makeAheadDueDate(scheduled,task);
     const key=JSON.stringify([occurrence,cookingLocalDate(scheduled),source.preview?'preview':calendar.assignedAt?.[occurrence]||'',task.id]),identity=JSON.stringify([plan.id,occurrence,cookingLocalDate(scheduled),task.id]);if(seen.has(identity))continue;seen.add(identity);
     rows.push({plan:real,entry,task,key,preview:source.preview===true,due:cookingLocalDate(due),scheduled:cookingLocalDate(scheduled),complete:makeAheadTaskComplete(real,key)});
    }
   }
  }
- for(const plan of mealPlans)for(const item of plan.makeAheadPending||[]){if(!item||typeof item.key!=='string'||!item.entry?.meal||!item.task)continue;const parts=JSON.parse(item.key),identity=JSON.stringify([plan.id,parts[0],item.scheduled,item.task.id]);if(seen.has(identity)||makeAheadTaskComplete(plan,item.key))continue;seen.add(identity);rows.push({...item,plan,preview:item.preview===true||parts[2]==='preview',complete:false})}
+ for(const plan of mealPlans)for(const saved of plan.makeAheadPending||[]){
+  if(!saved||typeof saved.key!=='string'||!saved.entry?.meal||!saved.task)continue;let item=saved;const parts=JSON.parse(item.key);
+  if(item.task.autoPrep){const meal=meals.find(record=>String(record.id)===String(item.entry.meal.id));if(!automaticPrepEnabled(item.task.autoPrep)||!meal)continue;
+   const context=cookingContext(plan.id,item.entry.day,item.entry.cat||meal.cat,meal,item.entry.linkedTo||JSON.parse(parts[0])[3]||null),task=projectedPreparationTasks(meal,parseCookingLocalDate(item.scheduled),occurrenceMultiplier(context)).find(task=>task.id===item.task.id);if(!task)continue;item={...item,task,due:cookingLocalDate(makeAheadDueDate(parseCookingLocalDate(item.scheduled),task))};
+  }
+  const identity=JSON.stringify([plan.id,parts[0],item.scheduled,item.task.id]);if(seen.has(identity)||makeAheadTaskComplete(plan,item.key))continue;seen.add(identity);rows.push({...item,plan,preview:item.preview===true||parts[2]==='preview',complete:false});
+ }
  return rows;
 }
 function retainDueMakeAheadTasks(){
  const today=cookingLocalDate(new Date());for(const item of scheduledMakeAheadTasks()){
   if(item.complete||item.due>today)continue;const plan=mealPlans.find(plan=>plan.id===item.plan.id);if(!plan)continue;
   const pending=(plan.makeAheadPending||[]).filter(saved=>!makeAheadTaskComplete(plan,saved.key));
-  if(!pending.some(saved=>saved.key===item.key))pending.push({key:item.key,due:item.due,scheduled:item.scheduled,task:{...item.task},entry:{day:item.entry.day,cat:item.entry.cat,meal:{id:item.entry.meal.id,name:item.entry.meal.name}}});plan.makeAheadPending=pending;
+  if(!pending.some(saved=>saved.key===item.key))pending.push({key:item.key,due:item.due,scheduled:item.scheduled,task:{...item.task},entry:{day:item.entry.day,cat:item.entry.cat,linkedTo:item.entry.linkedTo,meal:{id:item.entry.meal.id,name:item.entry.meal.name}}});plan.makeAheadPending=pending;
  }
 }
 function makeAheadDueDate(scheduled,task){
@@ -1292,18 +1349,18 @@ function makeAheadDueDate(scheduled,task){
 }
 function editPreparationTask(item){
  if(document.querySelector('.preparation-task-dialog'))return;
- const meal=meals.find(meal=>String(meal.id)===String(item.entry.meal.id)),task=meal&&recipeMakeAheadTasks(meal).find(task=>task.id===item.task.id);if(!task)return;
- const baseline=JSON.stringify(task),d=recipeBulkDialog('Edit preparation task'),mount=document.createElement('div');d.overlay.classList.add('preparation-task-dialog');d.panel.append(mount);
- const editor=buildMakeAheadEditor({...meal,makeAheadTasks:[{...task}]},mount);editor.id='preparationTaskDraft';editor.open=true;editor.querySelector('summary').hidden=true;mount.remove();
+ const meal=meals.find(meal=>String(meal.id)===String(item.entry.meal.id)),original=meal&&recipeMakeAheadTasks(meal).find(task=>task.id===item.task.id);if(!original)return;const task={...item.task};
+ const baseline=JSON.stringify(original),d=recipeBulkDialog('Edit preparation task',null,true),mount=document.createElement('div');d.overlay.classList.add('preparation-task-dialog');d.panel.append(mount);
+ const editor=buildMakeAheadEditor({...meal,makeAheadTasks:[{...task}]},mount,{single:true});editor.id='preparationTaskDraft';editor.open=true;editor.querySelector('summary').hidden=true;mount.remove();
  editor.querySelectorAll('[aria-label="Remove preparation task"],[aria-label="Add preparation task"]').forEach(button=>button.hidden=true);
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');const actions=document.createElement('div');actions.className='meal-unified-actions';
  const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save preparation task');setIconButton(cancel,'cancel','Cancel preparation edit');cancel.onclick=d.close;let saving=false;
  save.onclick=()=>{if(saving)return;const draft=editor.readDraft()[0];if(!draft||!editor.validDraft()){error.textContent='Enter a task and a valid lead time.';return}
   const current=meals.find(record=>String(record.id)===String(meal.id)),existing=current&&recipeMakeAheadTasks(current).find(record=>record.id===task.id);
   if(!existing||JSON.stringify(existing)!==baseline){error.textContent='This reminder changed. Cancel and reopen it to edit the latest version.';return}
-  saving=true;try{applyRecipeBulk([String(current.id)],{}, {render:false,viewerEdit:{sourceId:String(current.id),fields:{makeAheadTasks:current.makeAheadTasks.map(record=>record?.id===task.id?{...draft,id:task.id}:record)},owner:'preparation:'+current.id+':'+task.id}});d.close();renderList();const parent=document.querySelector('[data-make-ahead-recipe]');if(parent){const record=meals.find(meal=>String(meal.id)===parent.dataset.makeAheadRecipe);parent.remove();if(record)openMakeAheadTasks(record)}}catch(e){error.textContent='Reminder could not be saved: '+e.message}finally{saving=false}
+  saving=true;try{applyRecipeBulk([String(current.id)],{}, {render:false,viewerEdit:{sourceId:String(current.id),fields:{makeAheadTasks:[...rawMakeAheadTasks(current).filter(record=>record?.id!==task.id),task.autoPrep?editedAutomaticTask(task,{...draft,id:task.id}):{...draft,id:task.id}]},owner:'preparation:'+current.id+':'+task.id}});d.close();renderList();const parent=document.querySelector('[data-make-ahead-recipe]');if(parent){const record=meals.find(meal=>String(meal.id)===parent.dataset.makeAheadRecipe);parent.remove();if(record)openMakeAheadTasks(record)}}catch(e){error.textContent='Reminder could not be saved: '+e.message}finally{saving=false}
  };
- actions.append(save,cancel);d.panel.append(error,actions);fitOneTimeMealViewport(d.overlay,d.panel);editor.querySelector('input')?.focus({preventScroll:true});
+ actions.append(save,cancel);d.panel.append(error,actions);fitOneTimeMealViewport(d.overlay,d.panel);editor.querySelector('.make-ahead-description')?.focus({preventScroll:true});
 }
 function bindPreparationTaskPress(row,item){
  let timer=null,start=null,held=false;const stop=()=>{clearTimeout(timer);timer=null};
@@ -1315,11 +1372,12 @@ function bindPreparationTaskPress(row,item){
  row.addEventListener('touchend',event=>{if(held)event.preventDefault()},{passive:false});
  row.addEventListener('contextmenu',event=>event.preventDefault());
 }
-function makeAheadTaskDescription(item){
- const planName=String(item.plan.name||'meal'),name=/^(breakfast|lunch|dinner|supper|snacks?)$/i.test(planName)?planName.toLocaleLowerCase():planName;
- let context=' for '+item.entry.day+(showMealPlanTabs?'’s '+name:'');
+function makeAheadTaskDescription(item,todayContext=false){
+ const planName=String(item.plan.name||'meal'),name=/^(breakfast|lunch|dinner|supper|snacks?|soups?|salads?)$/i.test(planName)?planName.toLocaleLowerCase():planName;
+ const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);const useTomorrow=todayContext&&!rotationWeekOffset&&item.scheduled===cookingLocalDate(tomorrow),group=String(item.entry.cat||'').trim(),slot=showMealPlanTabs&&/^(soups?|salads?|breakfast|lunch|dinner|supper|snacks?)$/i.test(group)?group.toLocaleLowerCase():name;
+ let context=' for '+(useTomorrow?'tomorrow':item.entry.day)+(showMealPlanTabs?'’s '+slot:'');
  const displayedOffset=allMealsActive?overviewWeekOffset:rotationWeekOffset;
- if(item.preview&&!displayedOffset)context+=' next week';
+ if(item.preview&&!displayedOffset&&!useTomorrow)context+=' next week';
  return item.task.description+context;
 }
 function navigateToPreparationMeal(item){
@@ -1343,7 +1401,7 @@ function navigateToPreparationMeal(item){
 }
 function makeAheadReminderRow(item,today=false){
  const label=document.createElement('div');label.className='make-ahead-reminder'+(item.complete?' make-ahead-complete':'');label.dataset.makeAheadKey=item.key;label.dataset.planId=String(item.plan.id);const check=document.createElement('input');check.type='checkbox';check.className='check';check.checked=item.complete;
- const text=document.createElement('button');text.type='button';text.className='make-ahead-task-link';text.textContent=makeAheadTaskDescription(item);check.setAttribute('aria-label',text.textContent);
+ const text=document.createElement('button');text.type='button';text.className='make-ahead-task-link';text.textContent=makeAheadTaskDescription(item,today);check.setAttribute('aria-label',text.textContent);
  text.onclick=event=>{event.preventDefault();event.stopPropagation();navigateToPreparationMeal(item)};
  check.onchange=()=>setMakeAheadComplete(item,check.checked);label.append(check,text);bindPreparationTaskPress(label,item);return label;
 }

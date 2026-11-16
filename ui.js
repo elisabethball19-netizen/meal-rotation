@@ -5,12 +5,12 @@ let lowerOpenGroups=new Set();
 let activeTabMenuId=null;
 function captureSettingsDraft(){
  saveActiveMealPlan();
- return JSON.stringify({weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,weekdayColors,pinnedCats,expandedCats,autoPinTopCategories,applyPinsToAllTabs,timeDisplayPrefs,mealTextSize,showLastCooked,showMakeAheadReminders:makeAheadDisplayPrefs.showMakeAheadReminders,manualRecipeOrdering,showMealPlanTabs,mealPlans,activePlanId,startWeekday,masterOpenMode,masterPinsOverride});
+ return JSON.stringify({weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,weekdayColors,pinnedCats,expandedCats,autoPinTopCategories,applyPinsToAllTabs,timeDisplayPrefs,mealTextSize,showLastCooked,showMakeAheadReminders:makeAheadDisplayPrefs.showMakeAheadReminders,automaticMarinating:makeAheadDisplayPrefs.automaticMarinating,automaticDefrost:makeAheadDisplayPrefs.automaticDefrost,manualRecipeOrdering,showMealPlanTabs,mealPlans,activePlanId,startWeekday,masterOpenMode,masterPinsOverride});
 }
 function restoreSettingsDraft(json){
  if(!json)return;
  const state=JSON.parse(json);
- makeAheadDisplayPrefs.showMakeAheadReminders=state.showMakeAheadReminders!==false;saveMakeAheadDisplayPrefs();
+ makeAheadDisplayPrefs.showMakeAheadReminders=state.showMakeAheadReminders!==false;for(const key of ['automaticMarinating','automaticDefrost'])if(typeof state[key]==='boolean')makeAheadDisplayPrefs[key]=state[key];saveMakeAheadDisplayPrefs();
  if(['normal','large','extra'].includes(state.mealTextSize)){mealTextSize=state.mealTextSize;localStorage.setItem(mealTextSizeKey,mealTextSize);applyMealTextSize()}
  weekdayCategories=JSON.parse(JSON.stringify(state.weekdayCategories));weekdayMealOverrides={...state.weekdayMealOverrides};weekdayRecipeFilters=JSON.parse(JSON.stringify(state.weekdayRecipeFilters||{}));
  weekdayColors={...state.weekdayColors};pinnedCats=[...state.pinnedCats];expandedCats=[...state.expandedCats];
@@ -1837,7 +1837,7 @@ function rotationCalendarForPlan(plan,entries,now=new Date()){
 function occurrenceDateDiagnostic(){
  const plan=mealPlans.find(p=>p.id===activePlanId);if(!plan)return {kind:'occurrence-date-diagnostic',version:1,rows:[]};
  const fixes=legacyLocalDateRepairs(),calendar=plan.rotationCalendar||{},anchor=mealPlanWeekStart(plan);
- return {kind:'occurrence-date-diagnostic',version:1,generatedAt:new Date().toISOString(),localToday:cookingLocalDate(new Date()),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,firstWeekday:orderedDays()[0],displayedWeekOffset:rotationWeekOffset,explicitWeekStart:plan.mealPlanWeekStartV1||null,calendarVersion:calendar.version||null,calendarWeekStart:calendar.weekStart||null,derivedWeekStart:cookingLocalDate(anchor),rows:getDisplayedWeekdayMealsForPlan(plan).map(entry=>{
+ return {kind:'occurrence-date-diagnostic',version:1,generatedAt:new Date().toISOString(),localToday:cookingLocalDate(new Date()),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,firstWeekday:orderedDays()[0],configuredWeekdayOrder:orderedDays(),planningWeekStartToday:cookingLocalDate(cookingPlanningWeekStart()),displayedWeekOffset:rotationWeekOffset,explicitWeekStart:plan.mealPlanWeekStartV1||null,calendarVersion:calendar.version||null,calendarWeekStart:calendar.weekStart||null,derivedWeekStart:cookingLocalDate(anchor),rows:getDisplayedWeekdayMealsForPlan(plan).map(entry=>{
   const key=rotationOccurrenceKey({...entry,planId:plan.id}),choice=plan.cycleSlotChoices?.[weekdaySlotKey(entry.day,entry.cat)]||{};
   return {day:entry.day,storedDate:calendar.occurrences?.[key]||null,slotDate:calendar.slots?.[rotationCalendarSlot(entry)]||null,assignedOn:calendar.assignedOn?.[key]||null,assignedAt:calendar.assignedAt?.[key]||null,anchorDate:cookingLocalDate(cookingDateInWeek(entry.day,anchor)),occasional:!!entry.occasional,linked:!!entry.linkedTo,temporary:!!entry.meal.temporaryMeal,manualSlot:!!weekSchedule(plan).slots[temporarySlotKey(entry.day,entry.cat)],choice:{skipReplacement:choice.skipReplacement===true,substitution:!!choice.substitution,avoidMeal:!!choice.avoidMealId},cooked:!!cookingSession(cookingContext(plan.id,entry.day,entry.cat,entry.meal))?.cookedDate,repairEligible:fixes.some(f=>f.planId===plan.id&&f.key===key),priorRepair:plan.occurrenceDateRepairsV1?.[key]||null};
  })};
@@ -4751,7 +4751,7 @@ function editorHasPendingChanges(){
    (byId('recipeNotes')?.value||'')!==String(meal.notes||'')||
    !!byId('editNeedsTweaking')?.checked!==(meal.needsTweaking===true)||
    ((byId('editNeedsTweakingNote')?.value||'')!==String(meal.needsTweakingNote||''))||
-   JSON.stringify(byId('recipeMakeAhead')?.readDraft?.()||[])!==JSON.stringify(recipeMakeAheadTasks(meal))||
+   JSON.stringify(byId('recipeMakeAhead')?.readDraft?.()||[])!==JSON.stringify(rawMakeAheadTasks(meal))||
    JSON.stringify(byId('serveWith')?.readDraft?.()||[])!==JSON.stringify(meal.serveWith||[])||
    JSON.stringify(byId('serveWith')?.readSimpleSides?.()||[])!==JSON.stringify(meal.simpleSides||[])||
    JSON.stringify(byId('editLinkedMeals')?.readDraft?.()||[])!==JSON.stringify(meal.linkedMealIds||[])||
