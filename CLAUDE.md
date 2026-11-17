@@ -1,23 +1,33 @@
-# CLAUDE.md — Meal Rotation App
+# Meal Rotation — Claude Entry Point
 
-## Project Overview
-A mobile-first, zero-decision weekly meal rotation Progressive Web App (PWA) designed for minimal cognitive load, reliable offline persistence, and eventual packaging as a native iOS and Android App Store release via Capacitor.
+This repository is the ORIGINAL app, not a separate fresh rebuild. Use current modular code; do not reconstruct a historical monolithic `index.html`. Keep the core web app in 100% pure vanilla HTML, CSS, and JavaScript with zero build tools or frontend frameworks.
 
-## Strict Architectural Constraints
-- **Zero Build Tools & Zero Frameworks:** Keep the core web application 100% pure vanilla HTML, CSS, and JavaScript (`ES6+`).
-- **Banned Dependencies in Core App:** Do NOT introduce React, Vue, Svelte, TypeScript, Tailwind, CSS preprocessors, Vite, Webpack, Rollup, or `npm` frontend libraries into the web app layer.
-- **Modular File Structure:** Keep concerns separated cleanly across standalone files (`index.html`, `styles.css`, `import-export.js`, and modular feature scripts) rather than bloating a single monolithic file.
+## Read Selectively
+- [Vision](docs/handoff/01-app-vision.txt): product goals and simplicity.
+- [Development preferences](docs/handoff/02-development-preferences.txt): workflow/data rules; read for implementation.
+- [App experience](docs/handoff/03-app-experience.txt): relevant accepted behavior.
+- [Remaining work](docs/handoff/04-remaining-work.txt): state, evidence, and deferred scope.
 
-## Data & Persistence Rules
-- **Client-Side First:** All user data lives locally on the device (`localStorage` currently, migrating to Capacitor native storage/`@capacitor/preferences` or SQLite before iOS App Store submission so iOS cannot purge data).
-- **Backup Compatibility:** Preserve `version: 2` JSON backup import/export compatibility—especially ensuring file pickers work reliably on Android and iOS mobile browsers/webviews.
-- **Error Resilience:** Guard all storage writes against quota/write failures without triggering infinite recovery loops.
+The latest explicit user instruction and approved task take precedence. These documents describe product intent and reported evidence, not a fresh audit. Historical docs may describe superseded stages.
 
-## UI & UX Design Principles
-- **Mobile-First Ergonomics:** Design for one-handed phone usage with generous tap targets, clear visual hierarchy, and zero horizontal overflow.
-- **Progressive Disclosure:** Keep primary views clean, calm, and scannable. Avoid cluttered dashboards, heavy modals, or multi-step onboarding popups.
-
-## Workflow & Editing Rules for Claude
-- **Minimal Blast Radius:** When asked for a visual or interactive tweak, inspect and edit *only* the relevant file(s). Do not refactor unrelated modules unless explicitly asked.
-- **Explain Before Big Changes:** For multi-file feature additions (e.g., multiple cooking timers, floating active-step anchor, Capacitor setup), briefly outline the plan and affected files before writing code.
-- **Mobile PR Summaries:** Keep Pull Request descriptions concise and written in plain English so changes are easy to review on a phone screen.
+## Implementation Essentials
+- Reuse existing components; make targeted edits and run focused checks. No unrelated refactoring, broad audits, or rewrites.
+- Preserve all saved data and `localStorage` compatibility (`version: 2` JSON import/export). NEVER clear site data.
+- Keep existing `meal-rotation-test.html` equivalent where applicable, retaining isolated storage/test features; do not create extra versions.
+- Respect occurrence/plan/week isolation, cancellation, atomic updates, and Undo/Redo.
+- For authorized implementation tasks, commit and push changes cleanly (via Pull Request when running in Claude web/mobile cloud sessions, or directly on `main` when instructed). Documentation-only updates do not authorize app changes.
+- Use `README` and relevant existing test scripts to establish actual commands; report checks run, commit/PR status, and real deployment status. Do not invent phone verification.
+- Read the assigned issue or prompt for scope. Do not implement the whole backlog. Mark code-complete work as awaiting phone testing until confirmed.
+- Update only affected lasting decisions/backlog statuses; do not append conflicting corrections or rewrite every document.
+- 
+## Execution Scope Rules (Default to Minimal Blast Radius)
+- **Implicitly Scoped Edits:** When asked for a visual or style tweak (e.g., "fix button padding", "change font color"), automatically inspect and edit *only* `styles.css` unless another file is explicitly named.
+- **Single-File Isolation:** Never touch or refactor surrounding markup or logic scripts unless the requested feature explicitly requires it. If a tweak can be resolved in a single CSS rule or HTML element, keep the diff strictly restricted to that one file.
+- 
+## Brainstorming & Issue Planning Workflow (Claude Chat / Projects)
+- Do not implement app changes from brainstorming or discussion alone—wait for explicit approval.
+- When the user approves a batch of changes, follow the scoped workflow in `docs/handoff/02-development-preferences.txt`: update only relevant reference facts, outline or create one scoped GitHub issue, and provide:
+  1. The issue link or scoped summary,
+  2. A short, token-efficient Claude Code prompt referencing that issue and `CLAUDE.md`, and
+  3. A concise phone testing checklist.
+- Note model selection when helpful (e.g., use **Sonnet** for routine CSS/UI tweaks and **Opus** for complex multi-file logic). Keep follow-up corrections in the existing feature issue/thread where appropriate.
