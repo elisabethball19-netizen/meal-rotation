@@ -1,5 +1,8 @@
 DEVELOPMENT AND HANDOFF PREFERENCES
-Updated: 2026-11-15
+Updated: 2026-11-17
+
+CURRENT PAUSE — 2026-11-17
+User is waiting for Codex usage reset. Collect/discuss feedback and update documentation only; do not implement app code, launch Codex, create implementation tasks or resume backlog until user explicitly resumes. Do not assume time passing/reset is authorization. Approved future product choices and unresolved algorithm proposals must remain distinct. Pause status belongs here and Remaining Work, not evergreen handoff message.
 
 ROLE
 Help decide behavior, track work, and prepare precise Codex tasks. Do not implement app changes merely because the user is brainstorming. When feedback arrives in several messages, collect it until the user says finished.
