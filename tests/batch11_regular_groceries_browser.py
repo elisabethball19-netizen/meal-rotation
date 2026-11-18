@@ -1,6 +1,5 @@
-"""Batch 11: Regular grocery items — reusable templates (optional amount, This week, Repeat weekly), saved as a
-draft (Save/Cancel), Undo, purchase keeps the template, Repeat weekly adds a fresh unchecked entry on a real
-Start next week (and Undo of that), deleting a template leaves this week's entry as a plain item.
+"""Batch 11 (revised): Repeat weekly is a plain switch in the Add/Edit grocery item dialog. A repeating item is
+re-added fresh and unchecked on a real Start next week; turning the switch off or deleting the item stops it.
 
 Run: python3 tests/batch11_regular_groceries_browser.py
 """
@@ -14,85 +13,73 @@ sb.fixture.HOOK += '''window.batch11={
  groceries:()=>{showTop=true;allMealsActive=false;groceryTabActive=true;render()},
  home:()=>{showTop=true;allMealsActive=false;groceryTabActive=false;rotationWeekOffset=0;render()},
  manual:()=>manualGroceryItems().map(i=>[i.text,i.checked,!!i.regularId]),
- templates:()=>regularGroceryItems().map(i=>[i.name,i.amount,i.repeat]),
- undo:()=>{document.getElementById('undo').click()}
+ templates:()=>regularGroceryItems().map(i=>[i.name,i.repeat]),
+ edit:text=>openManualGroceryEditor(manualGroceryItems().find(i=>i.text===text),()=>render())
 };'''
 
 
-def open_editor(p):
-    p.get_by_role('button', name='Regular items', exact=True).click()
-    d = p.get_by_role('dialog', name='Regular items', exact=True)
+def add_item(p, text, repeat):
+    p.get_by_role('button', name='Add grocery item', exact=True).click()
+    d = p.get_by_role('dialog', name='Add grocery item', exact=True)
     d.wait_for(state='visible')
-    return d
-
-
-def add(d, amount, name):
-    d.get_by_role('textbox', name='New regular item amount (optional)', exact=True).fill(amount)
-    d.get_by_role('textbox', name='New regular item', exact=True).fill(name)
-    d.get_by_role('button', name='Add', exact=True).click()
+    d.get_by_role('textbox', name='Grocery item', exact=True).fill(text)
+    if repeat:
+        d.get_by_role('switch', name='Repeat weekly', exact=True).check()
+    d.get_by_role('button', name='Save grocery item', exact=True).click()
+    p.wait_for_timeout(150)
 
 
 def run(browser, name):
     c, p, errors, prefix = sb.open_page(browser, name)
     p.evaluate('batch11.groceries()')
-    d = open_editor(p)
-    add(d, '1 gal', 'Milk')
-    add(d, '', 'Eggs')
-    d.get_by_role('switch', name='This week for Eggs', exact=True).uncheck()
-    d.get_by_role('switch', name='Repeat weekly for Eggs', exact=True).check()
-    sb.shot(p, name, 'batch11-regular-editor')
-    # Cancel discards the draft.
+    # No separate Regular items button any more.
+    assert p.get_by_role('button', name='Regular items', exact=True).count() == 0
+    add_item(p, '1 gal Milk', False)
+    add_item(p, 'Eggs', True)
+    assert p.evaluate('batch11.manual()') == [['1 gal Milk', False, False], ['Eggs', False, True]]
+    assert p.evaluate('batch11.templates()') == [['Eggs', True]]
+    p.get_by_role('button', name='Add grocery item', exact=True).click()
+    d = p.get_by_role('dialog', name='Add grocery item', exact=True)
+    assert d.get_by_role('switch', name='Repeat weekly', exact=True).is_visible()
+    assert d.inner_text().count('Repeat weekly') == 1 and 'Regular' not in d.inner_text()
+    sb.shot(p, name, 'batch11-repeat-switch')
     d.get_by_role('button', name='Cancel', exact=True).click()
-    assert p.evaluate('batch11.templates()') == [] and p.evaluate('batch11.manual()') == []
-    d = open_editor(p)
-    add(d, '1 gal', 'Milk')
-    add(d, '', 'Eggs')
-    d.get_by_role('switch', name='This week for Eggs', exact=True).uncheck()
-    d.get_by_role('switch', name='Repeat weekly for Eggs', exact=True).check()
-    d.get_by_role('button', name='Save regular items', exact=True).click()
-    assert p.evaluate('batch11.templates()') == [['Milk', '1 gal', False], ['Eggs', '', True]]
-    assert p.evaluate('batch11.manual()') == [['1 gal Milk', False, True]]
-    assert p.locator('.manual-grocery-item', has_text='1 gal Milk').count() == 1
-    tops = p.evaluate("[...document.querySelectorAll('.grocery-header-icons>button')].map(b=>Math.round(b.getBoundingClientRect().top))")
-    assert len(set(tops)) == 1, tops
-    sb.shot(p, name, 'batch11-grocery-list')
-    # Undo removes both the templates and this week's entry.
-    p.evaluate('batch11.undo()')
-    p.wait_for_timeout(200)
-    assert p.evaluate('batch11.templates()') == [] and p.evaluate('batch11.manual()') == []
-    p.evaluate('batch11.groceries()')
-    d = open_editor(p)
-    add(d, '1 gal', 'Milk')
-    add(d, '', 'Eggs')
-    d.get_by_role('switch', name='This week for Eggs', exact=True).uncheck()
-    d.get_by_role('switch', name='Repeat weekly for Eggs', exact=True).check()
-    d.get_by_role('button', name='Save regular items', exact=True).click()
-    # Buying the Milk entry keeps the template.
-    p.locator('.manual-grocery-item', has_text='1 gal Milk').locator('input').check()
+    # Editing shows the switch on for Eggs; switching it off stops repeating but keeps this week's item.
+    p.evaluate('batch11.edit("Eggs")')
+    d = p.get_by_role('dialog', name='Edit grocery item', exact=True)
+    sw = d.get_by_role('switch', name='Repeat weekly', exact=True)
+    assert sw.is_checked()
+    sw.uncheck()
+    d.get_by_role('button', name='Save grocery item', exact=True).click()
     p.wait_for_timeout(150)
-    assert p.evaluate('batch11.manual()') == [['1 gal Milk', True, True]] and len(p.evaluate('batch11.templates()')) == 2
-    # Real Start next week: checked Milk entry cleared (existing rule), Eggs (Repeat weekly) added fresh and unchecked.
+    assert p.evaluate('batch11.templates()') == [] and ['Eggs', False, False] in p.evaluate('batch11.manual()')
+    p.evaluate('batch11.edit("Eggs")')
+    d = p.get_by_role('dialog', name='Edit grocery item', exact=True)
+    d.get_by_role('switch', name='Repeat weekly', exact=True).check()
+    d.get_by_role('button', name='Save grocery item', exact=True).click()
+    p.wait_for_timeout(150)
+    assert p.evaluate('batch11.templates()') == [['Eggs', True]]
+    # Buying Eggs, then a real Start next week: checked entries cleared, repeating Eggs added fresh and unchecked.
+    p.locator('.manual-grocery-item', has_text='Eggs').locator('input').check()
+    p.wait_for_timeout(150)
     p.evaluate('batch11.home()')
     p.locator('.start-week-text').first.click()
-    sw = p.get_by_role('dialog', name='Start next week', exact=True)
-    sw.wait_for(state='visible')
-    sw.locator('button.smallbtn', has_text='Start next week').click()
+    sw_dialog = p.get_by_role('dialog', name='Start next week', exact=True)
+    sw_dialog.wait_for(state='visible')
+    sw_dialog.locator('button.smallbtn', has_text='Start next week').click()
     p.wait_for_timeout(500)
     after = p.evaluate('batch11.manual()')
-    assert after == [['Eggs', False, True]], after
-    assert len(p.evaluate('batch11.templates()')) == 2
-    p.evaluate('batch11.undo()')
-    p.wait_for_timeout(300)
-    assert p.evaluate('batch11.manual()') == [['1 gal Milk', True, True]], p.evaluate('batch11.manual()')
-    # Deleting a template keeps this week's entry as a plain item.
+    assert ['Eggs', False, True] in after and not any(x[0] == 'Eggs' and x[1] for x in after), after
+    # Deleting a repeating item stops it repeating.
     p.evaluate('batch11.groceries()')
-    d = open_editor(p)
-    d.get_by_role('button', name='Remove Milk', exact=True).click()
-    d.get_by_role('button', name='Save regular items', exact=True).click()
-    assert p.evaluate('batch11.manual()') == [['1 gal Milk', True, False]] and p.evaluate('batch11.templates()') == [['Eggs', '', True]]
+    p.evaluate('batch11.edit("Eggs")')
+    d = p.get_by_role('dialog', name='Edit grocery item', exact=True)
+    d.get_by_role('button', name='Delete grocery item', exact=True).click()
+    p.wait_for_timeout(150)
+    assert p.evaluate('batch11.templates()') == [] and not any(x[0] == 'Eggs' for x in p.evaluate('batch11.manual()'))
     assert not errors, errors
     c.close()
-    print('PASS', name, 'batch 11: regular items draft/save/cancel, Undo, purchase keeps template, Repeat weekly on Start next week (+Undo), delete keeps entry', flush=True)
+    print('PASS', name, 'batch 11 revised: Repeat weekly switch in add/edit dialog, no Regular items button, repeats on Start next week, off/delete stops it', flush=True)
 
 
 if __name__ == '__main__':

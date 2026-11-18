@@ -1997,6 +1997,18 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .plan-ahead-add{align-self:flex-start}
 .grocery-include-rename{display:block;color:#637080;font-size:calc(12px * var(--meal-text-factor, 1))}
 .grocery-include-edit{flex:0 0 40px;min-width:40px!important}
+/* Fix part 1: a favorite heart stays on the same line as a long recipe name (the name wraps, the heart stays at its end). */
+.master-categories .shared-meal-name-line:has(>.expanded-name-heart){flex-wrap:nowrap;align-items:center}
+.master-categories .shared-meal-name-line:has(>.expanded-name-heart)>:not(.expanded-name-heart){flex:0 1 auto;min-width:0}
+
+/* Fix part 1: recipe editor "Serve with" is a plain label + add button; chosen sides list underneath, indented. */
+#editor .meal-editor-serve>summary{display:flex;align-items:center;justify-content:space-between;cursor:default;list-style:none}
+#editor .meal-editor-serve>summary::-webkit-details-marker{display:none}
+#editor .meal-editor-serve>summary .meal-editor-serve-add{margin-left:auto;flex:0 0 40px;width:40px;min-width:40px;min-height:40px;display:grid;place-items:center;padding:6px}
+#editor .meal-editor-serve>.settings-group-content{padding-left:14px}
+#editor .meal-editor-serve .recipe-serving-defaults:empty{display:none}
+#editor .meal-card-edit-mode .recipe-status-inline{margin:4px 0 0!important;min-height:32px;padding-bottom:0}
+#editor .meal-editor-serve>.settings-group-content:not(:has(.inline-side-row)):not(:has(small)){display:none}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -2845,6 +2857,8 @@ function recipeIngredientMatches(meal){
   const phrase=words.join(' ');if(phrase.length>=4&&!ambiguous.has(phrase))add(phrase,ingredient.token);
   // Prepared forms can share an unambiguous food name, but never erase oil/sauce/spice/sugar types.
   if(words.length>1&&['paste','puree','powder','extract'].includes(words.at(-1))&&!words.some(w=>['oil','sauce','pepper','sugar','chili','curry'].includes(w))){const base=words.slice(0,-1).join(' ');if(base.length>=4&&!ambiguous.has(base))add(base,ingredient.token,true)}
+  // Spice/paste names with leading descriptors ("mild yellow curry powder") are often written shorter in steps ("curry powder").
+  if(words.length>2&&['paste','powder'].includes(words.at(-1))){const tail=words.slice(-2).join(' ');if(tail.length>=4&&!ambiguous.has(tail))add(tail,ingredient.token,true)}
   // Generic food references are allowed only for constrained forms/cuts and a unique candidate.
   const meat=new Set(['beef','pork','chicken','lamb','turkey','duck']),cuts=new Set(['chuck','roast','steak','shank','brisket','rib','loin','tenderloin','breast','thigh','fillet','mince','bone','in','out','cubed']);
   if(words.length>1&&meat.has(words[0])&&words.slice(1).every(w=>cuts.has(w)))add(words[0],ingredient.token,true);
@@ -4265,10 +4279,10 @@ function bindPreparationTaskPress(row,item){
 }
 function makeAheadTaskDescription(item,todayContext=false){
  const planName=String(item.plan.name||'meal'),name=/^(breakfast|lunch|dinner|supper|snacks?|soups?|salads?)$/i.test(planName)?planName.toLocaleLowerCase():planName;
- const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);const useTomorrow=todayContext&&!rotationWeekOffset&&item.scheduled===cookingLocalDate(tomorrow),group=String(item.entry.cat||'').trim(),slot=showMealPlanTabs&&/^(soups?|salads?|breakfast|lunch|dinner|supper|snacks?)$/i.test(group)?group.toLocaleLowerCase():name;
- let context=' for '+(useTomorrow?'tomorrow':item.entry.day)+(showMealPlanTabs?'’s '+slot:'');
+ const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);const useTomorrow=todayContext&&!rotationWeekOffset&&item.scheduled===cookingLocalDate(tomorrow),useToday=todayContext&&!rotationWeekOffset&&item.scheduled===cookingLocalDate(new Date()),group=String(item.entry.cat||'').trim(),slot=showMealPlanTabs&&/^(soups?|salads?|breakfast|lunch|dinner|supper|snacks?)$/i.test(group)?group.toLocaleLowerCase():name;
+ let context=' for '+(useToday?'today':useTomorrow?'tomorrow':item.entry.day)+(showMealPlanTabs?'’s '+slot:'');
  const displayedOffset=allMealsActive?overviewWeekOffset:rotationWeekOffset;
- if(item.preview&&!displayedOffset&&!useTomorrow)context+=' next week';
+ if(item.preview&&!displayedOffset&&!useTomorrow&&!useToday)context+=' next week';
  return item.task.description+context;
 }
 function navigateToPreparationMeal(item){
@@ -6886,12 +6900,20 @@ function saveManualGroceryItems(items){validateManualGroceryItems(items);testSto
 function setAllManualGroceries(checked){saveManualGroceryItems(manualGroceryItems().map(item=>({...item,checked})))}
 function openManualGroceryEditor(item=null,refresh=()=>renderList()){
  const d=recipeBulkDialog(item?'Edit grocery item':'Add grocery item'),field=document.createElement('input');field.type='text';field.className='manual-grocery-field';field.setAttribute('aria-label','Grocery item');field.placeholder='e.g. 2 cartons oat milk';field.value=item?.text||'';
+ const repeatLabel=document.createElement('label');repeatLabel.className='settings-display-option manual-grocery-repeat';const repeatSwitch=document.createElement('input');repeatSwitch.type='checkbox';repeatSwitch.className='preference-switch';repeatSwitch.setAttribute('role','switch');repeatSwitch.setAttribute('aria-label','Repeat weekly');
+ const existingTemplate=item?.regularId?regularGroceryItems().find(template=>template.id===item.regularId):null;repeatSwitch.checked=!!existingTemplate?.repeat;repeatLabel.append(repeatSwitch,document.createTextNode('Repeat weekly'));
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');const actions=document.createElement('div');actions.className='meal-unified-actions';
  function action(kind,label,change){const button=document.createElement('button');button.type='button';setIconButton(button,kind,label);button.onclick=()=>{try{if(change()===false)return;d.close();refresh()}catch(e){error.textContent='Could not save grocery item: '+e.message}};actions.append(button);return button}
- const save=action('save','Save grocery item',()=>{const text=field.value.trim();if(!text)return false;const current=manualGroceryItems();if(item&&!current.some(record=>record.id===item.id))throw Error('This item was removed.');saveManualGroceryItems(item?current.map(record=>record.id===item.id?{...record,text}:record):[...current,{id:crypto.randomUUID?.()||'manual-'+Date.now()+'-'+Math.random().toString(36).slice(2),text,checked:false}])});
- if(item)action('delete','Delete grocery item',()=>saveManualGroceryItems(manualGroceryItems().filter(record=>record.id!==item.id)));
+ const save=action('save','Save grocery item',()=>{const text=field.value.trim();if(!text)return false;const current=manualGroceryItems();if(item&&!current.some(record=>record.id===item.id))throw Error('This item was removed.');
+  // Repeat weekly keeps one small template; the item is re-added unchecked on each Start next week.
+  let templates=regularGroceryItems().filter(template=>template.id!==item?.regularId),regularId;
+  if(repeatSwitch.checked){regularId=existingTemplate?.id||newGroceryId('regular');templates=[...templates,{id:regularId,name:text,amount:'',repeat:true}]}
+  testStorage.setItem(REGULAR_GROCERIES_KEY,JSON.stringify(templates));
+  const withRepeat=record=>{const {regularId:_old,...rest}=record;return regularId?{...rest,text,regularId}:{...rest,text}};
+  saveManualGroceryItems(item?current.map(record=>record.id===item.id?withRepeat(record):record):[...current,withRepeat({id:crypto.randomUUID?.()||'manual-'+Date.now()+'-'+Math.random().toString(36).slice(2),checked:false})])});
+ if(item)action('delete','Delete grocery item',()=>{if(item.regularId)testStorage.setItem(REGULAR_GROCERIES_KEY,JSON.stringify(regularGroceryItems().filter(template=>template.id!==item.regularId)));saveManualGroceryItems(manualGroceryItems().filter(record=>record.id!==item.id))});
  action('cancel','Cancel',()=>{});actions.lastElementChild.onclick=d.close;
- field.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();save.click()}};d.panel.append(field,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);field.focus({preventScroll:true});
+ field.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();save.click()}};d.panel.append(field,repeatLabel,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);field.focus({preventScroll:true});
 }
 function appendManualGroceries(rows,refresh){
  const items=manualGroceryItems().filter(item=>testStorage.getItem('mealRotationHideCheckedGroceriesV1')!=='true'||!item.checked);if(!items.length)return;
@@ -6917,47 +6939,6 @@ function newGroceryId(prefix){return crypto.randomUUID?.()||prefix+'-'+Date.now(
 function refreshRepeatingRegularItems(){
  const repeating=regularGroceryItems().filter(item=>item.repeat);if(!repeating.length)return;const ids=new Set(repeating.map(item=>item.id));
  saveManualGroceryItems([...manualGroceryItems().filter(entry=>!ids.has(entry.regularId)),...repeating.map(item=>({id:newGroceryId('manual'),text:regularGroceryText(item),checked:false,regularId:item.id}))]);
-}
-function openRegularGroceriesEditor(refresh=()=>renderList()){
- const d=recipeBulkDialog('Regular items');d.panel.classList.add('regular-groceries-dialog');
- const intro=document.createElement('p');intro.className='muted regular-groceries-intro';intro.textContent='Save items you buy often. This week adds one to your list now; Repeat weekly adds it again each time you start next week.';
- const current=manualGroceryItems(),draft=regularGroceryItems().map(item=>({...item,week:current.some(entry=>entry.regularId===item.id),editing:false}));
- const list=document.createElement('div');list.className='regular-groceries-list';
- const toggle=(label,checked,onchange)=>{const wrap=document.createElement('label');wrap.className='regular-grocery-switch';const input=document.createElement('input');input.type='checkbox';input.setAttribute('role','switch');input.className='preference-switch';input.checked=checked;input.setAttribute('aria-label',label);input.onchange=()=>onchange(input.checked);const text=document.createElement('span');text.textContent=label.split(' for ')[0];wrap.append(text,input);return wrap};
- function draw(){
-  list.replaceChildren();
-  if(!draft.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='No regular items yet.';list.append(empty)}
-  for(const item of draft){
-   const row=document.createElement('div');row.className='regular-grocery-row';row.dataset.regularId=item.id;
-   const top=document.createElement('div');top.className='regular-grocery-top';
-   if(item.editing){const amount=document.createElement('input');amount.type='text';amount.className='manual-grocery-field regular-grocery-amount';amount.setAttribute('aria-label','Amount for '+item.name);amount.placeholder='Amount';amount.value=item.amount;amount.oninput=()=>{item.amount=amount.value.trim()};const name=document.createElement('input');name.type='text';name.className='manual-grocery-field';name.setAttribute('aria-label','Name for '+item.name);name.value=item.name;name.oninput=()=>{if(name.value.trim())item.name=name.value.trim()};top.append(amount,name)}
-   else{const text=document.createElement('span');text.className='regular-grocery-name';text.textContent=regularGroceryText(item);top.append(text)}
-   const edit=document.createElement('button');edit.type='button';edit.className='iconbtn';setIconButton(edit,item.editing?'save':'rename',(item.editing?'Done editing ':'Edit ')+item.name);edit.onclick=()=>{item.editing=!item.editing;draw()};
-   const remove=document.createElement('button');remove.type='button';remove.className='iconbtn';setIconButton(remove,'delete','Remove '+item.name);remove.onclick=()=>{draft.splice(draft.indexOf(item),1);draw()};top.append(edit,remove);
-   const switches=document.createElement('div');switches.className='regular-grocery-switches';switches.append(toggle('This week for '+item.name,item.week,v=>{item.week=v}),toggle('Repeat weekly for '+item.name,item.repeat,v=>{item.repeat=v}));
-   row.append(top,switches);list.append(row);
-  }
-  decoratePreferenceSwitches(list);
- }
- const addRow=document.createElement('div');addRow.className='regular-grocery-add';
- const amount=document.createElement('input');amount.type='text';amount.className='manual-grocery-field regular-grocery-amount';amount.placeholder='Amount';amount.setAttribute('aria-label','New regular item amount (optional)');
- const name=document.createElement('input');name.type='text';name.className='manual-grocery-field';name.placeholder='Item, e.g. milk';name.setAttribute('aria-label','New regular item');
- const add=document.createElement('button');add.type='button';add.className='smallbtn';add.textContent='Add';
- const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
- add.onclick=()=>{const value=name.value.trim();if(!value){error.textContent='Enter an item name.';name.focus();return}if(draft.some(item=>item.name.toLowerCase()===value.toLowerCase())){error.textContent='That item is already in your regular items.';return}error.textContent='';draft.push({id:newGroceryId('regular'),name:value,amount:amount.value.trim(),repeat:false,week:true,editing:false});name.value=amount.value='';draw();name.focus({preventScroll:true})};
- name.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();add.click()}};addRow.append(amount,name,add);
- const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save regular items');setIconButton(cancel,'cancel','Cancel');cancel.onclick=d.close;
- save.onclick=()=>{try{
-  const before=JSON.parse(captureState());before.manualGroceriesUndo=manualGroceryItems();before.regularGroceriesUndo=testStorage.getItem(REGULAR_GROCERIES_KEY);
-  const templates=draft.map(({id,name,amount,repeat})=>({id,name,amount,repeat})),ids=new Set(templates.map(t=>t.id));
-  let entries=manualGroceryItems().map(entry=>entry.regularId&&!ids.has(entry.regularId)?(({regularId,...rest})=>rest)(entry):entry);
-  for(const item of draft){const existing=entries.find(entry=>entry.regularId===item.id);
-   if(item.week&&!existing)entries.push({id:newGroceryId('manual'),text:regularGroceryText(item),checked:false,regularId:item.id});
-   else if(!item.week&&existing)entries=entries.filter(entry=>entry!==existing);
-   else if(existing)existing.text=regularGroceryText(item)}
-  saveManualGroceryItems(entries);testStorage.setItem(REGULAR_GROCERIES_KEY,JSON.stringify(templates));snapshot(JSON.stringify(before));d.close();refresh();
- }catch(e){error.textContent='Could not save regular items: '+e.message}};
- actions.append(save,cancel);d.panel.append(intro,list,addRow,error,actions);draw();fitOneTimeMealViewport(d.overlay,d.panel);
 }
 const GROCERY_TEXT_OVERRIDES_KEY='mealRotationGroceryTextOverridesV1';
 function groceryTextOverrides(){const records=JSON.parse(testStorage.getItem(GROCERY_TEXT_OVERRIDES_KEY)||'{}');validateGroceryTextOverrides(records);return records}
@@ -7224,7 +7205,7 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
    footer.append(save,cancel);box.append(footer);overlay.append(box);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay);
   };
   const toolbar=list.querySelector(':scope > .top-controls');
-  const icons=document.createElement('div');icons.className='grocery-header-icons';icons.append(chooseMeals);if(toolbar){icons.append(...toolbar.children);toolbar.remove()}icons.append(addManual);{const regular=document.createElement('button');regular.type='button';regular.className='iconbtn grocery-regular-items';setIconButton(regular,'repeat','Regular items');regular.onclick=()=>openRegularGroceriesEditor(updateRows);icons.append(regular)}for(const [expand,label]of [[true,'Expand all groceries'],[false,'Collapse all groceries']]){const button=document.createElement('button');button.type='button';button.className='iconbtn';setIconButton(button,expand?'chevrons-down':'chevrons-up',label);button.onclick=()=>{if(view.checked){for(const source of getGroceryContributions(false,groceryPeriod)){const key=JSON.stringify([source.occurrence,source.scheduledDate]);if(expand)collapsedGroceryMeals.delete(key);else collapsedGroceryMeals.add(key)}}else for(const line of getMasterGroceryItems().values()){const key=groceryTextKey(line);if(expand)expandedGrocerySources.add(key);else expandedGrocerySources.delete(key)}updateRows()};icons.append(button)}panel.append(icons);
+  const icons=document.createElement('div');icons.className='grocery-header-icons';icons.append(chooseMeals);if(toolbar){icons.append(...toolbar.children);toolbar.remove()}icons.append(addManual);for(const [expand,label]of [[true,'Expand all groceries'],[false,'Collapse all groceries']]){const button=document.createElement('button');button.type='button';button.className='iconbtn';setIconButton(button,expand?'chevrons-down':'chevrons-up',label);button.onclick=()=>{if(view.checked){for(const source of getGroceryContributions(false,groceryPeriod)){const key=JSON.stringify([source.occurrence,source.scheduledDate]);if(expand)collapsedGroceryMeals.delete(key);else collapsedGroceryMeals.add(key)}}else for(const line of getMasterGroceryItems().values()){const key=groceryTextKey(line);if(expand)expandedGrocerySources.add(key);else expandedGrocerySources.delete(key)}updateRows()};icons.append(button)}panel.append(icons);
   panel.append(rows);list.append(panel);decoratePreferenceSwitches(panel);updateRows();
  }
  function toggleMasterGroceryTab(){
@@ -10753,7 +10734,7 @@ function openTopIngredientChooser(meal){
   const cancel=document.createElement('button');cancel.className='smallbtn';cancel.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';cancel.title='Cancel';cancel.setAttribute('aria-label','Cancel');
   const save=document.createElement('button');save.className='smallbtn';save.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg>';save.title='Save';save.setAttribute('aria-label','Save');save.onclick=()=>{{const before=JSON.parse(captureState()),prior=JSON.parse(testStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');before.bulkRecipeUndoSelections=Object.fromEntries([meal,...mealLinkedCopies(meal)].filter(m=>Object.hasOwn(prior,String(m.id))).map(m=>[String(m.id),prior[String(m.id)]]));snapshot(JSON.stringify(before))}preserveGroceryCheckStates(groceryBefore);meal.ingredients=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);const checkedLines=checks.filter(x=>x.cb.checked).map(x=>x.line);const previousSelections=new Set(originalSelected.map(ingredientKey));checkedLines.forEach(line=>{if(!previousSelections.has(ingredientKey(line))||manualReselections.has(ingredientKey(line)))checkedIngredients.delete(ingredientKey(line))});selectedByMeal[key]=checkedLines;for(const sibling of mealLinkedCopies(meal))selectedByMeal[String(sibling.id)]=[...checkedLines];meal.url=pendingRecipeUrl;meal.ingredientImportUrl=pendingIngredientImportUrl;fillMissingRecipeContent(meal,pendingRecipeDetails);assignSharedRecipeFields(meal,sharedRecipeChanges(originalRecipeRecord,meal));renamedIngredients.forEach(({from,to})=>{const oldKey=from.toLowerCase().replace(/\s+/g,' ').trim(),newKey=to.toLowerCase().replace(/\s+/g,' ').trim();if(checkedIngredients.has(oldKey))checkedIngredients.add(newKey)});try{testStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selectedByMeal));testStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));testStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals}))}catch(e){}renamedIngredients.forEach(({from,to})=>sharedRecipeMembers(meal).forEach(peer=>renameGrocerySourceChecks(peer,from,to)));uncheckGrocerySourceLines(meal,checkedLines.filter(line=>!previousSelections.has(ingredientKey(line))||manualReselections.has(ingredientKey(line))));saveGroceryOccurrenceChecks();persist();overlay.remove();renderList();if(pendingRecipeDetails?.recipeImportReferences?.length)recipeImportNotice('Related recipe references were found. No new links have been selected.',[meal])};{const commit=save.onclick;save.onclick=()=>{const renames=[...shoppingRenames];commit();if(!renames.length)return;try{const records=groceryTextOverrides();let missing=0;for(const [rline,text]of renames){const sources=shoppingSources(rline);if(!sources.length){missing++;continue}const base=sources[0].multiplier||1;for(const source of sources)records[JSON.stringify([source.id])]={text,multiplier:base}}testStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records));renderList();if(missing)showAppMessage('Shopping names apply to this week’s and next week’s list. Ingredients not on it yet keep their usual name.')}catch(e){showAppMessage('Shopping names could not be saved: '+e.message)}}}
   let closeConfirmationOpen=false;
-  async function requestClose(){const currentIngredients=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);const currentSelected=checks.filter(x=>x.cb.checked).map(x=>x.line);const ingredientsChanged=JSON.stringify(currentIngredients)!==JSON.stringify(originalIngredients)||pendingRecipeUrl!==String(meal.url||'')||pendingIngredientImportUrl!==String(meal.ingredientImportUrl||'')||!!pendingRecipeDetails;const selectionsChanged=JSON.stringify([...currentSelected].sort())!==JSON.stringify([...originalSelected].filter(x=>currentIngredients.includes(x)&&!groceryNonIngredientLine(x)).sort());if(!ingredientsChanged&&!selectionsChanged){overlay.remove();return}if(closeConfirmationOpen)return;closeConfirmationOpen=true;try{const shouldSave=await appDialog('Save changes before closing?',null,'yesno');if(!overlay.isConnected)return;if(shouldSave){save.click()}else{meal.ingredients=[...originalIngredients];selectedByMeal[key]=[...originalSelected];overlay.remove()}}finally{closeConfirmationOpen=false}}
+  async function requestClose(){const currentIngredients=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);const currentSelected=checks.filter(x=>x.cb.checked).map(x=>x.line);const ingredientsChanged=JSON.stringify(currentIngredients)!==JSON.stringify(originalIngredients)||pendingRecipeUrl!==String(meal.url||'')||pendingIngredientImportUrl!==String(meal.ingredientImportUrl||'')||!!pendingRecipeDetails||shoppingRenames.size>0||renamedIngredients.length>0;const selectionsChanged=JSON.stringify([...currentSelected].sort())!==JSON.stringify([...originalSelected].filter(x=>currentIngredients.includes(x)&&!groceryNonIngredientLine(x)).sort());if(!ingredientsChanged&&!selectionsChanged){overlay.remove();return}if(closeConfirmationOpen)return;closeConfirmationOpen=true;try{const shouldSave=await appDialog('Save changes before closing?',null,'yesno');if(!overlay.isConnected)return;if(shouldSave){save.click()}else{meal.ingredients=[...originalIngredients];selectedByMeal[key]=[...originalSelected];overlay.remove()}}finally{closeConfirmationOpen=false}}
   cancel.onclick=requestClose;trackGroupPopup(overlay,requestClose);
   [selectAll,deselectAll,deleteSelected,cancel,save].forEach(btn=>{btn.style.cssText='border:0;background:transparent;color:inherit;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:7px;cursor:pointer'});actions.append(deselectAll,selectAll,save,cancel);
   // Batch 2: importing stays in Edit recipe; this dialog only chooses what to shop for.
@@ -11443,6 +11424,11 @@ function organizeMealEditor(){
   if(key==='notes')summary.textContent=String(meal.notes||'').trim()||meal.needsTweaking||recipeMakeAheadTasks(meal).length?'Added':'';
   group.details.querySelector('summary').insertBefore(summary,group.details.querySelector('.settings-chevron'));
   group.details.open=false;
+  if(key==='serve'){
+   // Serve with: just the label and a + on the right; chosen sides are listed underneath, slightly indented.
+   const head=group.details.querySelector('summary');head.querySelector('.settings-chevron')?.remove();summary.remove();group.details.open=true;group.details.classList.add('meal-editor-serve');
+   const add=document.createElement('button');add.type='button';add.className='iconbtn meal-editor-serve-add';setIconButton(add,'add','Add side');add.onclick=event=>{event.preventDefault();event.stopPropagation();$('serveWith')?.addServingSide?.()};head.append(add);head.addEventListener('click',event=>event.preventDefault());
+  }
   content[key]=group.content;sections.append(group.details);
  }
  const rotation=$('rotation').closest('label');rotation.querySelector('span').textContent='Add to rotation';rotation.classList.add('meal-card-rotation-control');$('categoryRows').after(rotation);root.querySelector('label').htmlFor='name';$('categoryRows').previousElementSibling.htmlFor='cat';$('categoryRows').previousElementSibling.textContent='Meal Groups';
@@ -11682,7 +11668,7 @@ serveButton.hidden=true;linkedButton.hidden=true;linkedButton.classList.add('hid
 function updateServingEditor(){
  linkedMealDraft=servingDraft.sides.filter(side=>side.always!==false&&side.type==='fixed').map(side=>Number(side.mealId||side.recipeId));simpleSidesDraft=servingDraft.sides.filter(side=>side.always!==false&&side.type==='simple').map(({id,name,ingredients})=>({id,name,ingredients}));document.querySelector('#editor .editor')?.refreshIndicators?.();
 }
-servingDraft.onChange=updateServingEditor;const servingHost=document.createElement('div');servingHost.className='recipe-serving-defaults';serveBody.append(servingHost);
+servingDraft.onChange=updateServingEditor;serveButton.addServingSide=()=>servingDraft.addSide?.();const servingHost=document.createElement('div');servingHost.className='recipe-serving-defaults';serveBody.append(servingHost);
 function drawServingEditor(){servingHost.replaceChildren();renderServingDraft(servingHost,servingDraft,()=>{updateServingEditor();drawServingEditor()})}drawServingEditor();
 if(serveWithDraft.length){const legacyNote=document.createElement('small');legacyNote.className='muted';legacyNote.textContent='Existing side preferences retained: '+serveWithDraft.join(', ');serveBody.append(legacyNote)}
 let ingredientImportUrl=String(m.ingredientImportUrl||'');let importedRecipeDetailsDraft=null;
@@ -12289,7 +12275,7 @@ function openAddSideDialog(parent,day,exclude,onChoose,onCancel=null){
 function renderServingDraft(host,session,refresh){
  // Card sessions save each change as made; the recipe editor keeps its draft until its own Save.
  const auto=!!session.autosave,changed=()=>{if(auto)commitServingSession(session);else session.onChange?.();refresh()};
- const header=document.createElement('div');header.className='inline-sides-header';const title=document.createElement('strong');title.textContent='Sides';header.append(title);if(auto)header.append(makeServingIcon('Add side','add',()=>addSide()));host.append(header);
+ if(auto){const header=document.createElement('div');header.className='inline-sides-header';const title=document.createElement('strong');title.textContent='Sides';header.append(title);header.append(makeServingIcon('Add side','add',()=>addSide()));host.append(header)}
  const addSide=()=>openAddSideDialog(session.parent,session.target?.day,session.sides.filter(s=>s.type!=='simple').map(s=>String(s.mealId||s.recipeId)),side=>{session.sides.push(side);session.expanded=auto?null:side.id;session.editing=null;changed()});
  const list=document.createElement('div');list.className='inline-side-rows';host.append(list);
  for(const side of session.sides){const row=document.createElement('section');row.className='inline-side-row';row.dataset.sideId=side.id;const heading=document.createElement('div');heading.className='inline-side-heading';const meal=side.type!=='simple'?meals.find(m=>String(m.id)===String(side.mealId||side.recipeId)):null,expanded=session.expanded===side.id,editing=side.type==='simple'&&session.editing===side.id;
@@ -12311,7 +12297,7 @@ function renderServingDraft(host,session,refresh){
   }list.append(row);
  }
  // Card sessions add from the footer plus beside the check; the recipe editor has no footer, so it gets its own plus.
- session.addSide=addSide;if(!auto){const more=document.createElement('div');more.className='serving-icon-row';more.append(makeServingIcon('Add side','add',addSide));host.append(more)}
+ session.addSide=addSide;
  decoratePreferenceSwitches(host);
 }
 // Recipe sides show the same time and Last cooked details as the main meal, only while expanded.

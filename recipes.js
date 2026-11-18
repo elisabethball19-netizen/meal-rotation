@@ -100,6 +100,8 @@ function recipeIngredientMatches(meal){
   const phrase=words.join(' ');if(phrase.length>=4&&!ambiguous.has(phrase))add(phrase,ingredient.token);
   // Prepared forms can share an unambiguous food name, but never erase oil/sauce/spice/sugar types.
   if(words.length>1&&['paste','puree','powder','extract'].includes(words.at(-1))&&!words.some(w=>['oil','sauce','pepper','sugar','chili','curry'].includes(w))){const base=words.slice(0,-1).join(' ');if(base.length>=4&&!ambiguous.has(base))add(base,ingredient.token,true)}
+  // Spice/paste names with leading descriptors ("mild yellow curry powder") are often written shorter in steps ("curry powder").
+  if(words.length>2&&['paste','powder'].includes(words.at(-1))){const tail=words.slice(-2).join(' ');if(tail.length>=4&&!ambiguous.has(tail))add(tail,ingredient.token,true)}
   // Generic food references are allowed only for constrained forms/cuts and a unique candidate.
   const meat=new Set(['beef','pork','chicken','lamb','turkey','duck']),cuts=new Set(['chuck','roast','steak','shank','brisket','rib','loin','tenderloin','breast','thigh','fillet','mince','bone','in','out','cubed']);
   if(words.length>1&&meat.has(words[0])&&words.slice(1).every(w=>cuts.has(w)))add(words[0],ingredient.token,true);
@@ -1520,10 +1522,10 @@ function bindPreparationTaskPress(row,item){
 }
 function makeAheadTaskDescription(item,todayContext=false){
  const planName=String(item.plan.name||'meal'),name=/^(breakfast|lunch|dinner|supper|snacks?|soups?|salads?)$/i.test(planName)?planName.toLocaleLowerCase():planName;
- const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);const useTomorrow=todayContext&&!rotationWeekOffset&&item.scheduled===cookingLocalDate(tomorrow),group=String(item.entry.cat||'').trim(),slot=showMealPlanTabs&&/^(soups?|salads?|breakfast|lunch|dinner|supper|snacks?)$/i.test(group)?group.toLocaleLowerCase():name;
- let context=' for '+(useTomorrow?'tomorrow':item.entry.day)+(showMealPlanTabs?'’s '+slot:'');
+ const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);const useTomorrow=todayContext&&!rotationWeekOffset&&item.scheduled===cookingLocalDate(tomorrow),useToday=todayContext&&!rotationWeekOffset&&item.scheduled===cookingLocalDate(new Date()),group=String(item.entry.cat||'').trim(),slot=showMealPlanTabs&&/^(soups?|salads?|breakfast|lunch|dinner|supper|snacks?)$/i.test(group)?group.toLocaleLowerCase():name;
+ let context=' for '+(useToday?'today':useTomorrow?'tomorrow':item.entry.day)+(showMealPlanTabs?'’s '+slot:'');
  const displayedOffset=allMealsActive?overviewWeekOffset:rotationWeekOffset;
- if(item.preview&&!displayedOffset&&!useTomorrow)context+=' next week';
+ if(item.preview&&!displayedOffset&&!useTomorrow&&!useToday)context+=' next week';
  return item.task.description+context;
 }
 function navigateToPreparationMeal(item){

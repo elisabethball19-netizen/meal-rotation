@@ -170,7 +170,7 @@ function openAddSideDialog(parent,day,exclude,onChoose,onCancel=null){
 function renderServingDraft(host,session,refresh){
  // Card sessions save each change as made; the recipe editor keeps its draft until its own Save.
  const auto=!!session.autosave,changed=()=>{if(auto)commitServingSession(session);else session.onChange?.();refresh()};
- const header=document.createElement('div');header.className='inline-sides-header';const title=document.createElement('strong');title.textContent='Sides';header.append(title);if(auto)header.append(makeServingIcon('Add side','add',()=>addSide()));host.append(header);
+ if(auto){const header=document.createElement('div');header.className='inline-sides-header';const title=document.createElement('strong');title.textContent='Sides';header.append(title);header.append(makeServingIcon('Add side','add',()=>addSide()));host.append(header)}
  const addSide=()=>openAddSideDialog(session.parent,session.target?.day,session.sides.filter(s=>s.type!=='simple').map(s=>String(s.mealId||s.recipeId)),side=>{session.sides.push(side);session.expanded=auto?null:side.id;session.editing=null;changed()});
  const list=document.createElement('div');list.className='inline-side-rows';host.append(list);
  for(const side of session.sides){const row=document.createElement('section');row.className='inline-side-row';row.dataset.sideId=side.id;const heading=document.createElement('div');heading.className='inline-side-heading';const meal=side.type!=='simple'?meals.find(m=>String(m.id)===String(side.mealId||side.recipeId)):null,expanded=session.expanded===side.id,editing=side.type==='simple'&&session.editing===side.id;
@@ -192,7 +192,7 @@ function renderServingDraft(host,session,refresh){
   }list.append(row);
  }
  // Card sessions add from the footer plus beside the check; the recipe editor has no footer, so it gets its own plus.
- session.addSide=addSide;if(!auto){const more=document.createElement('div');more.className='serving-icon-row';more.append(makeServingIcon('Add side','add',addSide));host.append(more)}
+ session.addSide=addSide;
  decoratePreferenceSwitches(host);
 }
 // Recipe sides show the same time and Last cooked details as the main meal, only while expanded.

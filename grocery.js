@@ -11,12 +11,20 @@ function saveManualGroceryItems(items){validateManualGroceryItems(items);localSt
 function setAllManualGroceries(checked){saveManualGroceryItems(manualGroceryItems().map(item=>({...item,checked})))}
 function openManualGroceryEditor(item=null,refresh=()=>renderList()){
  const d=recipeBulkDialog(item?'Edit grocery item':'Add grocery item'),field=document.createElement('input');field.type='text';field.className='manual-grocery-field';field.setAttribute('aria-label','Grocery item');field.placeholder='e.g. 2 cartons oat milk';field.value=item?.text||'';
+ const repeatLabel=document.createElement('label');repeatLabel.className='settings-display-option manual-grocery-repeat';const repeatSwitch=document.createElement('input');repeatSwitch.type='checkbox';repeatSwitch.className='preference-switch';repeatSwitch.setAttribute('role','switch');repeatSwitch.setAttribute('aria-label','Repeat weekly');
+ const existingTemplate=item?.regularId?regularGroceryItems().find(template=>template.id===item.regularId):null;repeatSwitch.checked=!!existingTemplate?.repeat;repeatLabel.append(repeatSwitch,document.createTextNode('Repeat weekly'));
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');const actions=document.createElement('div');actions.className='meal-unified-actions';
  function action(kind,label,change){const button=document.createElement('button');button.type='button';setIconButton(button,kind,label);button.onclick=()=>{try{if(change()===false)return;d.close();refresh()}catch(e){error.textContent='Could not save grocery item: '+e.message}};actions.append(button);return button}
- const save=action('save','Save grocery item',()=>{const text=field.value.trim();if(!text)return false;const current=manualGroceryItems();if(item&&!current.some(record=>record.id===item.id))throw Error('This item was removed.');saveManualGroceryItems(item?current.map(record=>record.id===item.id?{...record,text}:record):[...current,{id:crypto.randomUUID?.()||'manual-'+Date.now()+'-'+Math.random().toString(36).slice(2),text,checked:false}])});
- if(item)action('delete','Delete grocery item',()=>saveManualGroceryItems(manualGroceryItems().filter(record=>record.id!==item.id)));
+ const save=action('save','Save grocery item',()=>{const text=field.value.trim();if(!text)return false;const current=manualGroceryItems();if(item&&!current.some(record=>record.id===item.id))throw Error('This item was removed.');
+  // Repeat weekly keeps one small template; the item is re-added unchecked on each Start next week.
+  let templates=regularGroceryItems().filter(template=>template.id!==item?.regularId),regularId;
+  if(repeatSwitch.checked){regularId=existingTemplate?.id||newGroceryId('regular');templates=[...templates,{id:regularId,name:text,amount:'',repeat:true}]}
+  localStorage.setItem(REGULAR_GROCERIES_KEY,JSON.stringify(templates));
+  const withRepeat=record=>{const {regularId:_old,...rest}=record;return regularId?{...rest,text,regularId}:{...rest,text}};
+  saveManualGroceryItems(item?current.map(record=>record.id===item.id?withRepeat(record):record):[...current,withRepeat({id:crypto.randomUUID?.()||'manual-'+Date.now()+'-'+Math.random().toString(36).slice(2),checked:false})])});
+ if(item)action('delete','Delete grocery item',()=>{if(item.regularId)localStorage.setItem(REGULAR_GROCERIES_KEY,JSON.stringify(regularGroceryItems().filter(template=>template.id!==item.regularId)));saveManualGroceryItems(manualGroceryItems().filter(record=>record.id!==item.id))});
  action('cancel','Cancel',()=>{});actions.lastElementChild.onclick=d.close;
- field.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();save.click()}};d.panel.append(field,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);field.focus({preventScroll:true});
+ field.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();save.click()}};d.panel.append(field,repeatLabel,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);field.focus({preventScroll:true});
 }
 function appendManualGroceries(rows,refresh){
  const items=manualGroceryItems().filter(item=>localStorage.getItem('mealRotationHideCheckedGroceriesV1')!=='true'||!item.checked);if(!items.length)return;
@@ -42,47 +50,6 @@ function newGroceryId(prefix){return crypto.randomUUID?.()||prefix+'-'+Date.now(
 function refreshRepeatingRegularItems(){
  const repeating=regularGroceryItems().filter(item=>item.repeat);if(!repeating.length)return;const ids=new Set(repeating.map(item=>item.id));
  saveManualGroceryItems([...manualGroceryItems().filter(entry=>!ids.has(entry.regularId)),...repeating.map(item=>({id:newGroceryId('manual'),text:regularGroceryText(item),checked:false,regularId:item.id}))]);
-}
-function openRegularGroceriesEditor(refresh=()=>renderList()){
- const d=recipeBulkDialog('Regular items');d.panel.classList.add('regular-groceries-dialog');
- const intro=document.createElement('p');intro.className='muted regular-groceries-intro';intro.textContent='Save items you buy often. This week adds one to your list now; Repeat weekly adds it again each time you start next week.';
- const current=manualGroceryItems(),draft=regularGroceryItems().map(item=>({...item,week:current.some(entry=>entry.regularId===item.id),editing:false}));
- const list=document.createElement('div');list.className='regular-groceries-list';
- const toggle=(label,checked,onchange)=>{const wrap=document.createElement('label');wrap.className='regular-grocery-switch';const input=document.createElement('input');input.type='checkbox';input.setAttribute('role','switch');input.className='preference-switch';input.checked=checked;input.setAttribute('aria-label',label);input.onchange=()=>onchange(input.checked);const text=document.createElement('span');text.textContent=label.split(' for ')[0];wrap.append(text,input);return wrap};
- function draw(){
-  list.replaceChildren();
-  if(!draft.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='No regular items yet.';list.append(empty)}
-  for(const item of draft){
-   const row=document.createElement('div');row.className='regular-grocery-row';row.dataset.regularId=item.id;
-   const top=document.createElement('div');top.className='regular-grocery-top';
-   if(item.editing){const amount=document.createElement('input');amount.type='text';amount.className='manual-grocery-field regular-grocery-amount';amount.setAttribute('aria-label','Amount for '+item.name);amount.placeholder='Amount';amount.value=item.amount;amount.oninput=()=>{item.amount=amount.value.trim()};const name=document.createElement('input');name.type='text';name.className='manual-grocery-field';name.setAttribute('aria-label','Name for '+item.name);name.value=item.name;name.oninput=()=>{if(name.value.trim())item.name=name.value.trim()};top.append(amount,name)}
-   else{const text=document.createElement('span');text.className='regular-grocery-name';text.textContent=regularGroceryText(item);top.append(text)}
-   const edit=document.createElement('button');edit.type='button';edit.className='iconbtn';setIconButton(edit,item.editing?'save':'rename',(item.editing?'Done editing ':'Edit ')+item.name);edit.onclick=()=>{item.editing=!item.editing;draw()};
-   const remove=document.createElement('button');remove.type='button';remove.className='iconbtn';setIconButton(remove,'delete','Remove '+item.name);remove.onclick=()=>{draft.splice(draft.indexOf(item),1);draw()};top.append(edit,remove);
-   const switches=document.createElement('div');switches.className='regular-grocery-switches';switches.append(toggle('This week for '+item.name,item.week,v=>{item.week=v}),toggle('Repeat weekly for '+item.name,item.repeat,v=>{item.repeat=v}));
-   row.append(top,switches);list.append(row);
-  }
-  decoratePreferenceSwitches(list);
- }
- const addRow=document.createElement('div');addRow.className='regular-grocery-add';
- const amount=document.createElement('input');amount.type='text';amount.className='manual-grocery-field regular-grocery-amount';amount.placeholder='Amount';amount.setAttribute('aria-label','New regular item amount (optional)');
- const name=document.createElement('input');name.type='text';name.className='manual-grocery-field';name.placeholder='Item, e.g. milk';name.setAttribute('aria-label','New regular item');
- const add=document.createElement('button');add.type='button';add.className='smallbtn';add.textContent='Add';
- const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
- add.onclick=()=>{const value=name.value.trim();if(!value){error.textContent='Enter an item name.';name.focus();return}if(draft.some(item=>item.name.toLowerCase()===value.toLowerCase())){error.textContent='That item is already in your regular items.';return}error.textContent='';draft.push({id:newGroceryId('regular'),name:value,amount:amount.value.trim(),repeat:false,week:true,editing:false});name.value=amount.value='';draw();name.focus({preventScroll:true})};
- name.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();add.click()}};addRow.append(amount,name,add);
- const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save regular items');setIconButton(cancel,'cancel','Cancel');cancel.onclick=d.close;
- save.onclick=()=>{try{
-  const before=JSON.parse(captureState());before.manualGroceriesUndo=manualGroceryItems();before.regularGroceriesUndo=localStorage.getItem(REGULAR_GROCERIES_KEY);
-  const templates=draft.map(({id,name,amount,repeat})=>({id,name,amount,repeat})),ids=new Set(templates.map(t=>t.id));
-  let entries=manualGroceryItems().map(entry=>entry.regularId&&!ids.has(entry.regularId)?(({regularId,...rest})=>rest)(entry):entry);
-  for(const item of draft){const existing=entries.find(entry=>entry.regularId===item.id);
-   if(item.week&&!existing)entries.push({id:newGroceryId('manual'),text:regularGroceryText(item),checked:false,regularId:item.id});
-   else if(!item.week&&existing)entries=entries.filter(entry=>entry!==existing);
-   else if(existing)existing.text=regularGroceryText(item)}
-  saveManualGroceryItems(entries);localStorage.setItem(REGULAR_GROCERIES_KEY,JSON.stringify(templates));snapshot(JSON.stringify(before));d.close();refresh();
- }catch(e){error.textContent='Could not save regular items: '+e.message}};
- actions.append(save,cancel);d.panel.append(intro,list,addRow,error,actions);draw();fitOneTimeMealViewport(d.overlay,d.panel);
 }
 const GROCERY_TEXT_OVERRIDES_KEY='mealRotationGroceryTextOverridesV1';
 function groceryTextOverrides(){const records=JSON.parse(localStorage.getItem(GROCERY_TEXT_OVERRIDES_KEY)||'{}');validateGroceryTextOverrides(records);return records}
@@ -349,7 +316,7 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
    footer.append(save,cancel);box.append(footer);overlay.append(box);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay);
   };
   const toolbar=list.querySelector(':scope > .top-controls');
-  const icons=document.createElement('div');icons.className='grocery-header-icons';icons.append(chooseMeals);if(toolbar){icons.append(...toolbar.children);toolbar.remove()}icons.append(addManual);{const regular=document.createElement('button');regular.type='button';regular.className='iconbtn grocery-regular-items';setIconButton(regular,'repeat','Regular items');regular.onclick=()=>openRegularGroceriesEditor(updateRows);icons.append(regular)}for(const [expand,label]of [[true,'Expand all groceries'],[false,'Collapse all groceries']]){const button=document.createElement('button');button.type='button';button.className='iconbtn';setIconButton(button,expand?'chevrons-down':'chevrons-up',label);button.onclick=()=>{if(view.checked){for(const source of getGroceryContributions(false,groceryPeriod)){const key=JSON.stringify([source.occurrence,source.scheduledDate]);if(expand)collapsedGroceryMeals.delete(key);else collapsedGroceryMeals.add(key)}}else for(const line of getMasterGroceryItems().values()){const key=groceryTextKey(line);if(expand)expandedGrocerySources.add(key);else expandedGrocerySources.delete(key)}updateRows()};icons.append(button)}panel.append(icons);
+  const icons=document.createElement('div');icons.className='grocery-header-icons';icons.append(chooseMeals);if(toolbar){icons.append(...toolbar.children);toolbar.remove()}icons.append(addManual);for(const [expand,label]of [[true,'Expand all groceries'],[false,'Collapse all groceries']]){const button=document.createElement('button');button.type='button';button.className='iconbtn';setIconButton(button,expand?'chevrons-down':'chevrons-up',label);button.onclick=()=>{if(view.checked){for(const source of getGroceryContributions(false,groceryPeriod)){const key=JSON.stringify([source.occurrence,source.scheduledDate]);if(expand)collapsedGroceryMeals.delete(key);else collapsedGroceryMeals.add(key)}}else for(const line of getMasterGroceryItems().values()){const key=groceryTextKey(line);if(expand)expandedGrocerySources.add(key);else expandedGrocerySources.delete(key)}updateRows()};icons.append(button)}panel.append(icons);
   panel.append(rows);list.append(panel);decoratePreferenceSwitches(panel);updateRows();
  }
  function toggleMasterGroceryTab(){
