@@ -2007,6 +2007,15 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 #editor .meal-editor-serve .recipe-serving-defaults:empty{display:none}
 #editor .meal-card-edit-mode .recipe-status-inline{margin:4px 0 0!important;min-height:32px;padding-bottom:0}
 #editor .meal-editor-serve>.settings-group-content:not(:has(.inline-side-row)):not(:has(small)){display:none}
+/* Fix part 1b: recipe editor "Serve with" sides sit tight under the label, with no divider lines. */
+#editor .meal-editor-serve>summary{min-height:44px}
+#editor .meal-editor-serve>.settings-group-content{border-top:0;padding-top:0;padding-bottom:4px}
+#editor .meal-editor-serve .inline-side-row{border-top:0;border-bottom:0;padding:0;margin:0}
+#editor .meal-editor-serve .inline-side-rows{gap:0}
+#editor .meal-editor-serve .inline-side-heading{min-height:34px}
+#editor .meal-editor-serve .inline-side-heading>.iconbtn{min-height:34px;height:34px}
+#editor .meal-editor-serve .inline-side-name{padding:2px 0}
+#editor .meal-editor-serve .inline-sides-header{display:none}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';

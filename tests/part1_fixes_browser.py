@@ -67,6 +67,11 @@ def run(browser, name):
     assert serve.count() == 1 and serve.get_by_role('button', name='Add side', exact=True).is_visible()
     assert serve.locator('.settings-chevron').count() == 0 and 'Sides' not in serve.inner_text(), serve.inner_text()
     sb.shot(p, name, 'part1-editor-serve')
+    rows = p.locator('.meal-editor-serve .inline-side-row')
+    if rows.count():
+        assert all(rows.nth(i).evaluate('e=>getComputedStyle(e).borderTopWidth') == '0px' for i in range(rows.count()))
+    assert serve.locator('.settings-group-content').evaluate('e=>getComputedStyle(e).borderTopWidth') == '0px'
+    sb.shot(p, name, 'part1-editor-serve-sides')
     assert not errors, errors
     c.close()
     print('PASS', name, 'part 1: cancel prompt, heart line, curry match, for today, Serve with row', flush=True)
