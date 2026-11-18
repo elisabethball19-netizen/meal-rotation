@@ -2190,3 +2190,9 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 /* Part 2a: breathing room between a switch and its label in dialogs and editors. */
 .settings-display-option>.preference-switch-control{margin-right:6px}
 .settings-group-content>.settings-display-option>.preference-switch-control,.collapsed-card-options .settings-display-option>.preference-switch-control,#settingsPanel .settings-display-option>.preference-switch-control{margin-right:0}
+/* Part 2b: the Unassigned edit bar stays pinned and slim while the list scrolls; select-all / deselect-all sit at its left. */
+.unassigned-bulk-bar{position:sticky;top:0;z-index:9;padding:2px 6px;gap:4px;margin:0 0 4px}
+.unassigned-bulk-tick{display:flex;gap:0}
+.unassigned-bulk-tick .unassigned-tick-all{min-width:40px!important;min-height:40px!important;width:40px;height:40px;padding:4px!important}
+.unassigned-bulk-count{padding-left:4px}
+.unassigned-bulk-actions button{min-height:42px;flex-direction:row;gap:4px}

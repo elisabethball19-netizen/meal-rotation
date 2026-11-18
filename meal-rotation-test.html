@@ -2042,6 +2042,12 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 /* Part 2a: breathing room between a switch and its label in dialogs and editors. */
 .settings-display-option>.preference-switch-control{margin-right:6px}
 .settings-group-content>.settings-display-option>.preference-switch-control,.collapsed-card-options .settings-display-option>.preference-switch-control,#settingsPanel .settings-display-option>.preference-switch-control{margin-right:0}
+/* Part 2b: the Unassigned edit bar stays pinned and slim while the list scrolls; select-all / deselect-all sit at its left. */
+.unassigned-bulk-bar{position:sticky;top:0;z-index:9;padding:2px 6px;gap:4px;margin:0 0 4px}
+.unassigned-bulk-tick{display:flex;gap:0}
+.unassigned-bulk-tick .unassigned-tick-all{min-width:40px!important;min-height:40px!important;width:40px;height:40px;padding:4px!important}
+.unassigned-bulk-count{padding-left:4px}
+.unassigned-bulk-actions button{min-height:42px;flex-direction:row;gap:4px}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -9927,7 +9933,9 @@ function renderUnassignedChecklist(body,list){
  // The shared group dialog reads its source and picks once, at open; borrow the bulk globals only for that moment.
  move.onclick=()=>{const picked=chosen();if(!picked.length||recipeBulkMode)return;const saved=[recipeBulkSourceGroup,new Set(recipeBulkIds)];recipeBulkSourceGroup='';recipeBulkIds=new Set(picked);try{chooseBulkGroups(null,change=>{if(bulkGroupChangePending(picked,change)){applyRecipeBulk(picked,{}, {bulkGroups:change});picked.forEach(id=>unassignedSelection.delete(id));renderList({readOnly:true})}},move)}finally{[recipeBulkSourceGroup,recipeBulkIds]=saved}};
  remove.onclick=async()=>{const picked=await confirmDeleteRecipes(chosen());if(!picked)return;try{applyRecipeBulk(picked,{delete:true});picked.forEach(id=>unassignedSelection.delete(String(id)));renderList({readOnly:true})}catch(error){await showAppMessage('Delete could not be completed: '+error.message)}};
- const actions=document.createElement('div');actions.className='unassigned-bulk-actions';actions.append(move,remove);bar.append(count,actions);body.append(bar);
+ const tick=document.createElement('div');tick.className='unassigned-bulk-tick';
+ for(const checked of [true,false]){const button=document.createElement('button');button.type='button';button.className='iconbtn unassigned-tick-all';button.innerHTML=grocerySelectionIcon(checked);button.title=button.ariaLabel=checked?'Select all':'Deselect all';button.onclick=()=>{unassignedSelection.clear();if(checked)for(const m of list)unassignedSelection.add(String(m.id));rows.querySelectorAll('input.check').forEach(box=>{box.checked=checked});refresh()};tick.append(button)}
+ const actions=document.createElement('div');actions.className='unassigned-bulk-actions';actions.append(move,remove);bar.append(tick,count,actions);body.append(bar);
  const rows=document.createElement('div');rows.className='unassigned-checklist';
  for(const m of list){const row=document.createElement('div');row.className='unassigned-row';row.dataset.mealId=String(m.id);
   const label=document.createElement('label');label.className='unassigned-check';const check=document.createElement('input');check.type='checkbox';check.className='check';check.setAttribute('aria-label','Select '+(m.name||'Untitled meal'));check.checked=unassignedSelection.has(String(m.id));check.onchange=()=>{if(check.checked)unassignedSelection.add(String(m.id));else unassignedSelection.delete(String(m.id));refresh()};label.append(check);
