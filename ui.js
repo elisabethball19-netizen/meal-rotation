@@ -183,7 +183,7 @@ function navigateToOverviewMeal(planId,mealId){
 }
 function addOverviewHomeButton(){
  if(!showTop||!(groceryTabActive||allMealsActive))return;
- const b=document.createElement('button');b.type='button';b.className='smallbtn add-meal-floating overview-home-fab';b.title='Return to My Meal Plan';b.setAttribute('aria-label',b.title);
+ const b=document.createElement('button');b.type='button';b.className='smallbtn add-meal-floating overview-home-fab';b.title='Return to Meals';b.setAttribute('aria-label',b.title);
  b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" style="width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round"><path d="M3 10.2 12 3l9 7.2V21h-6.5v-7h-5v7H3z"/></svg>';
  b.onclick=()=>{groceryTabActive=false;allMealsActive=false;renderList()};document.body.append(b);
 }
@@ -1359,7 +1359,7 @@ function demoteMealToIdeas(meal,updateRecipe=null,prepared=null){
 }
 function recipeSectionMoveButton(meal){
  const button=document.createElement('button');button.type='button';button.className='recipe-section-move';
- const rotation=recipeStatus(meal)==='rotation',label='Move '+(meal.name||'recipe')+' to '+(rotation?'Ideas':'In Rotation');button.title=label;button.setAttribute('aria-label',label);
+ const rotation=recipeStatus(meal)==='rotation',label='Move '+(meal.name||'recipe')+' to '+(rotation?'Off menu':'Regulars');button.title=label;button.setAttribute('aria-label',label);
  button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(rotation?'m6 10 6 6 6-6M12 16V3':'m6 14 6-6 6 6M12 8v13')+'"/></svg>';
  button.onclick=e=>{e.preventDefault();e.stopPropagation();try{const organizing=recipeBulkMode,moved=selectedSharedRecipeIds([String(meal.id)]);applyRecipeBulk([String(meal.id)],rotation?{status:'up-next',upNextStar:true}:{status:'rotation'},{...(rotation?{upNextFirst:String(meal.id)}:{promoteQueue:true}),...(organizing?{render:false}:{})});if(organizing)for(const id of moved)recipeBulkIds.delete(String(id));setMasterRecipeSectionOpen(meal.cat,rotation?'up-next':'rotation',true);if(organizing)bulkRecipeRender({readOnly:true});else renderList()}catch(error){showAppMessage('Recipe could not be moved. '+error.message)}};return button;
 }
@@ -2475,7 +2475,7 @@ function reorderUpNextRecipe(meal,target,before){
  const state=captureState(),order=normalizedUpNextOrder(),ids=upNextPeerIds(meal),targets=upNextPeerIds(target),block=order.filter(id=>ids.has(id)),rest=order.filter(id=>!ids.has(id));
  const indexes=rest.map((id,i)=>targets.has(id)?i:-1).filter(i=>i>=0);if(!indexes.length)return;
  rest.splice(before?Math.min(...indexes):Math.max(...indexes)+1,0,...block);
- try{localStorage.setItem(UP_NEXT_ORDER_KEY,JSON.stringify(rest));snapshot(state);renderList()}catch(error){showAppMessage('Ideas order could not be saved. '+error.message)}
+ try{localStorage.setItem(UP_NEXT_ORDER_KEY,JSON.stringify(rest));snapshot(state);renderList()}catch(error){showAppMessage('Off menu order could not be saved. '+error.message)}
 }
 function upNextStarButton(meal){
  const button=document.createElement('button');button.type='button';button.className='recipe-personal-icon recipe-up-next-star';button.dataset.upNextStar=String(meal.id);button.setAttribute('aria-pressed',String(meal.upNextStar===true));
@@ -3065,7 +3065,7 @@ function renderList(options={}){mealSlotDragCleanup?.();mealSlotDragCleanup=null
   tabBar.after(menu);
  }
 }
- if(!allMealsActive&&!groceryTabActive){const title=document.createElement('h2');title.className='view-page-title meal-plan-title';title.textContent='My Meal Plan';list.prepend(title);const header=document.createElement('div');header.className='rotation-compact-header';header.append(rotationWeekControls());const sticky=document.createElement('div');sticky.className='meal-controls-sticky';const tabs=list.querySelector(':scope>.meal-plan-tabs');if(tabs)sticky.append(tabs);sticky.append(header);list.append(sticky)}
+ if(!allMealsActive&&!groceryTabActive){const title=document.createElement('h2');title.className='view-page-title meal-plan-title';title.textContent=rotationWeekOffset?'Next Week’s Meals':'This Week’s Meals';list.prepend(title);const header=document.createElement('div');header.className='rotation-compact-header';header.append(rotationWeekControls());const sticky=document.createElement('div');sticky.className='meal-controls-sticky';const tabs=list.querySelector(':scope>.meal-plan-tabs');if(tabs)sticky.append(tabs);sticky.append(header);list.append(sticky)}
  if(!allMealsActive&&!groceryTabActive&&rotationWeekOffset){renderRotationWeekPreview(list);addFloatingViewButtons();return;}
  if(groceryTabActive){renderGroceryViewToolbar(list);renderMasterGroceryTab(list);addFloatingViewButtons();return;}
 const topControls=document.createElement('div');topControls.className='top-controls';appendMealPlanSettingsGear(topControls);list.append(topControls);placeViewToolbar(topControls);
@@ -4620,7 +4620,7 @@ installRecipeIngredientLinkEditor(m);
 const indicatorRoot=document.querySelector('#editor .editor');
 indicatorRoot.refreshIndicators=event=>{
  if(event?.target.closest?.('#recipeStatus'))return;
- const names=servingDraft.sides.map(side=>side.type==='simple'?side.name:meals.find(meal=>String(meal.id)===String(side.mealId||side.recipeId))?.name||'Rotating side'),linked=new Set(linkedMealDraft.map(String)),count=meals.filter(record=>linked.has(String(record.id))).length;
+ const names=servingDraft.sides.map(side=>side.type==='simple'?side.name:meals.find(meal=>String(meal.id)===String(side.mealId||side.recipeId))?.name||'Mixed side'),linked=new Set(linkedMealDraft.map(String)),count=meals.filter(record=>linked.has(String(record.id))).length;
  const values={serve:names.length===1?names[0]:names.length?names.length+' selected':'',linked:count?count+' linked':'',recipe:[$('ingredients').value,$('recipeInstructions').value,$('url').value,$('editNeedsTweakingNote').value].some(value=>value.trim())||$('editNeedsTweaking').checked?'Added':'',notes:$('recipeNotes').value.trim()||$('recipeMakeAhead').readDraft().length?'Added':''};
  for(const [key,value]of Object.entries(values)){const label=indicatorRoot.querySelector('[data-editor-summary="'+key+'"]');if(label&&label.textContent!==value)label.textContent=value}
 };

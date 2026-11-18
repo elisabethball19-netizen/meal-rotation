@@ -1149,10 +1149,10 @@ function openHelpModal(){
  const overlay=document.createElement('div');overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10020;display:flex;align-items:center;justify-content:center;padding:16px';
  const box=document.createElement('div');box.style.cssText='background:var(--panel,#fff);color:var(--text,#222);border-radius:14px;width:100%;max-width:520px;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 8px 30px #0004;overflow:hidden';
  const header=document.createElement('div');header.style.cssText='padding:18px 20px 10px;flex:0 0 auto;border-bottom:1px solid var(--border,#ddd);display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--panel,#fff)';
- const title=document.createElement('h2');title.textContent=top?'My Meal Plan help':'Meal Groups help';title.style.cssText='margin:0';
+ const title=document.createElement('h2');title.textContent=top?'Meals help':'Meal Groups help';title.style.cssText='margin:0';
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close');close.style.flex='0 0 44px';close.onclick=()=>overlay.remove();header.append(title,close);
  const content=document.createElement('div');content.style.cssText='padding:10px 20px 20px;overflow-y:auto;overscroll-behavior:contain';
- const intro=document.createElement('p');intro.textContent=top?'My Meal Plan displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into In Rotation and Ideas. Expand a group to manage its meals.';content.append(intro);
+ const intro=document.createElement('p');intro.textContent=top?'The Meals page displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into Regulars and Off menu. Expand a group to manage its meals.';content.append(intro);
  const items=top?[
   ['Meal-plan tabs','Choose a tab to see its own weekday assignments. Long-press a tab to rename, reorder, or delete it.'],
   ['Tap a displayed meal','Open the recipe. Use its chevron for planning, editing, groceries, sides, Favorite and Last cooked.'],
@@ -1160,7 +1160,7 @@ function openHelpModal(){
   ['Start next week','Select which scheduled meals to replace, then start next week. Unselected meals carry forward.'],
   ['Weekday group headings','Tap a group name in a weekday card to open that group in Meal Groups.'],
   ['Navigation buttons','Use the bottom bar to open Meals, Week, Groceries, or Meal Groups.'],
-  ['Weekly Overview','See weekday meals across tabs and expand their ingredient lists. Tap a meal to return to it in My Meal Plan.'],
+  ['Weekly Overview','See weekday meals across tabs and expand their ingredient lists. Tap a meal to return to it on the Meals page.'],
   ['Grocery List','Review ingredients from the tabs you include; select, deselect, or hide checked groceries.'],
   ['Settings and backups','Configure display and weekday options, export or restore backups. Review changes before saving or discarding.']
  ]:[
@@ -1168,8 +1168,8 @@ function openHelpModal(){
   ['Edit a group','Tap its pencil to rename or delete it. Long-press a group name or blank card area and drag to save a custom display order. Reset to Weekday Order restores automatic ordering without changing assignments.'],
   ['Add a meal','Tap + to add a meal to the selected group.'],
   ['Edit a meal','Choose Edit meal from its meal actions. The editor opens beneath the selected meal.'],
-  ['Move a rotating meal','Tap its up or down arrow to move it to the top or bottom of the group; hold to move one position.'],
-  ['Recipe status','Choose In Rotation or Ideas in the recipe status control.'],
+  ['Move a regular meal','Tap its up or down arrow to move it to the top or bottom of the group; hold to move one position.'],
+  ['Recipe status','Choose Regulars or Off menu in the recipe status control.'],
   ['Linked meals','Linked recipes can appear in more than one group; linked changes may affect their other appearances.'],
   ['Last cooked','Shows the latest recorded cooking date when enabled.'],
   ['Navigation','Use the bottom bar to open Meals, Week, Groceries, or Meal Groups.']

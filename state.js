@@ -813,5 +813,6 @@ function normalizeRecipeStatus(meal){
  if(['up-next','back-burner','Ideas','ideas'].includes(meal.recipeStatus))meal.rotation=false;
  meal.recipeStatus=recipeStatus(meal);return meal;
 }
-function recipeStatusLabel(status){return status==='rotation'?'In Rotation':'Ideas'}
-function recipeStatusChoices(){return [['rotation','In Rotation'],['up-next','Ideas']]}
+// Display names only (approved rename); saved status values are unchanged.
+function recipeStatusLabel(status){return status==='rotation'?'Regulars':'Off menu'}
+function recipeStatusChoices(){return [['rotation','Regulars'],['up-next','Off menu']]}
