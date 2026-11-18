@@ -459,7 +459,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
   const weekGroup=makeSettingsGroup('weekdays','Weekday Setup');
   weekGroup.details.classList.toggle('hidden',!showTop);
   topPanel.append(weekGroup.details);
-  const hint=document.createElement('div');hint.textContent='Choose the ordered groups that alternate for each day. Removing an assignment never deletes recipes.';
+  const hint=document.createElement('div');hint.textContent='Choose the groups each day can select meals from. Removing a group never deletes recipes.';
   hint.className='weekday-setup-hint';weekGroup.content.append(hint);
   orderedDays().forEach(day=>{
     const outer=document.createElement('div');outer.className='weekday-assignment';
@@ -493,7 +493,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
     };
     const label=document.createElement('strong');label.textContent=day;
     head.append(radio,label);outer.append(head);
-    const groups=document.createElement('button');groups.type='button';groups.className='smallbtn weekday-sequence-edit';const plan=mealPlans.find(p=>p.id===activePlanId),seq=Object.values(plan.alternatingGroupsV1||{}).find(s=>s.day===day);groups.textContent=seq?seq.groups.map(id=>sequenceGroup(id)||'Deleted group').join(' → '):(getDayCategories(day).join(' + ')||'Choose meal groups');groups.setAttribute('aria-label','Meal groups for '+day);groups.onclick=()=>openRecurringDayEditor(day);outer.append(groups);weekGroup.content.append(outer);
+    const groups=document.createElement('button');groups.type='button';groups.className='smallbtn weekday-sequence-edit';const plan=mealPlans.find(p=>p.id===activePlanId),seq=Object.values(plan.alternatingGroupsV1||{}).find(s=>s.day===day);groups.textContent=seq?seq.groups.map(id=>sequenceGroup(id)||'Deleted group').join(' · '):(getDayCategories(day).join(' · ')||'Choose meal groups');groups.setAttribute('aria-label','Meal groups for '+day);groups.onclick=()=>openRecurringDayEditor(day);outer.append(groups);weekGroup.content.append(outer);
   });
 }
 ;let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24">'+appIconSvg.settings+'</svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
