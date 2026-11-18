@@ -43,7 +43,7 @@ def run(browser, name):
     p.evaluate('c=>p2a.edit(c)', off)
     p.wait_for_timeout(300)
     gap = p.evaluate("""()=>{const l=document.querySelector('.recipe-bulk-dialog .settings-display-option'),sw=l.querySelector('.preference-switch-control').getBoundingClientRect(),r=document.createRange();r.selectNodeContents(l.lastChild);return r.getBoundingClientRect().left-sw.right}""")
-    assert gap >= 10, gap
+    assert 4 <= gap <= 8, gap
     assert not errors, errors
     c.close()
     print('PASS', name, 'part 2a: sections by weekly toggle, accordion, no expand-all, weekday picker', flush=True)
