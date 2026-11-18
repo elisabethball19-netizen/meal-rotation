@@ -2027,7 +2027,14 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .serving-sides-box .inline-sides-header{min-height:36px;padding:0}.serving-sides-box .inline-sides-header .serving-icon-action{width:40px;height:36px;min-width:40px;min-height:36px}
 .serving-sides-box .inline-side-row{padding:0}.serving-sides-box .inline-side-heading{min-height:40px}.serving-sides-box .inline-side-heading>.iconbtn{min-height:40px}
 
-/* Batch 6: "For this step" box above the full ingredient list */
-#recipeViewer .recipe-step-box{margin:0 0 8px;padding:6px 8px 4px;border:1px solid #c9d8ee;border-radius:10px;background:#edf3fb}
-#recipeViewer .recipe-step-box-title{font-size:.78rem;font-weight:700;letter-spacing:.02em;color:#41546e;margin:0 0 2px}
-#recipeViewer .recipe-step-box .cooking-item{display:block;width:100%;text-align:left;padding:4px 0;min-height:32px;background:transparent}
+
+/* Batch 6: Sort by steps in the ingredient-links editor */
+.recipe-link-step-number{font-size:.7rem;line-height:1;color:#8a96a6;margin:8px 0 2px;min-height:.7rem}
+.recipe-link-sort{margin:2px 0 6px}
+.recipe-link-preview-title{font-weight:600;margin:4px 0 0}
+.recipe-link-sort-preview{margin:6px 0}
+.recipe-link-preview-heading{font-weight:600;margin:8px 0 2px}
+.recipe-link-preview-line{padding:2px 0}
+.recipe-link-preview-tag{font-size:.75rem;color:#8a96a6}
+.recipe-link-preview-check .recipe-link-preview-tag{color:#9a5b00}
+.recipe-link-preview-actions{display:flex;gap:16px;justify-content:flex-end}

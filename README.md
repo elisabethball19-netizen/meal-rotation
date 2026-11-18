@@ -169,6 +169,8 @@ The viewer’s gear opens a compact settings panel without moving the split divi
 
 In the recipe editor, **Ingredient links for steps** and **Recipe notes** start collapsed. Show/Hide Recipe Notes only changes visibility; saved text (including existing whitespace) and associations remain intact while hidden. Ingredients and Cooking Instructions keep their independent remembered expansion settings.
 
+**Sort by steps** (in the editor's step-links section) previews the ingredient list in step order, then **Apply** puts it in the draft for the normal Save/Cancel and Undo. Each line moves to the first step that uses it, staying inside its own section. A line used by several steps is split only when each step states its amount (one "remaining" is allowed) and the amounts add up; otherwise it stays whole at its first step and the preview marks it "check amount". Split parts drop ", divided", later parts end ", remaining", grocery picks carry to every part, and the grocery list combines the parts into one item. The small muted step numbers are worked out from the links and never saved.
+
 ## Cycle Meals with linked recipes
 
 A weekday group explicitly assigned in the selected meal plan owns a selectable Cycle Meals slot, even when a linked recipe currently fills it. For example, Tuesday Rice and Sides show separate choices for Thai Garlic Pork and its linked rice. A linked recipe whose group is not assigned that day remains an attachment: it has no checkbox and follows its parent. Selection uses the plan/day/group slot and existing parent occurrence identity, not names or recipe ID alone.

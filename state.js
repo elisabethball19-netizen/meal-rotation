@@ -598,7 +598,7 @@ function groceryQuantityParts(line){
  const quantity=parseRecipeQuantity(line);if(!quantity)return null;
  const unitMatch=quantity.rest.match(/^([a-z]+)\.?\s+(.+)$/i),unit=unitMatch?groceryQuantityUnits[unitMatch[1].toLowerCase()]||'':'';
  const name=unit?unitMatch[2]:quantity.rest;
- return {...quantity,unit,name,key:'quantity:'+JSON.stringify([unit,name.normalize('NFKC').toLowerCase().replace(/[a-z]+/g,w=>syncIngredientWords(w).join(' ')).replace(/\s+/g,' ').trim()])};
+ return {...quantity,unit,name,key:'quantity:'+JSON.stringify([unit,name.replace(/,\s*remaining\s*$/i,'').normalize('NFKC').toLowerCase().replace(/[a-z]+/g,w=>syncIngredientWords(w).join(' ')).replace(/\s+/g,' ').trim()])};
 }
 // Optional per-occurrence check states supplement legacy ingredient/quantity keys.
 // Membership and recipe ingredients continue to use their existing saved records.

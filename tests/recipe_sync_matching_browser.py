@@ -1,4 +1,4 @@
-"""Batch 6: split-view step/ingredient sync — better matching + "For this step" box.
+"""Batch 6: split-view step/ingredient sync — better matching + editor "Sort by steps" (split amounts).
 
 Fixture mirrors the real phone example (Mild Chili-Garlic Chicken Broth Bowls step 5).
 Run: python3 tests/recipe_sync_matching_browser.py
@@ -9,13 +9,13 @@ from playwright.sync_api import sync_playwright
 sys.path.insert(0, str(Path(__file__).parent))
 import sides_batch127_browser as sb  # noqa: E402
 
-ING = ['3 tbsp olive oil, divided', '1 lb boneless skinless chicken thighs', '1 1/2 tsp curry powder, divided',
-       '3/4 tsp garlic powder, divided', '4 cloves garlic, minced', '1 cup dairy-free, soy-free chicken stock',
+ING = ['3 tbsp olive oil, divided', '1 lb boneless skinless chicken thighs', '3 tsp curry powder, divided',
+       '1 1/2 tsp garlic powder, divided', '4 cloves garlic, minced', '1 cup dairy-free, soy-free chicken stock',
        '1 can (13.5 oz) full-fat coconut milk', '1 tsp salt', '2 cups cooked rice']
 STEPS = ['Toss the chicken with 1 1/2 tbsp olive oil, 1 1/2 tsp curry powder and 3/4 tsp garlic powder; set aside.',
          'Warm the remaining 1 1/2 tbsp olive oil in a pan. Add minced garlic, remaining curry powder and remaining garlic powder, then pan juices, chicken stock and coconut milk.',
          'Serve over rice with a pinch of salt.']
-sb.fixture.HOOK += '''window.sync6={
+sb.fixture.HOOK += '''const sync6Store=()=>typeof testStorage!=='undefined'?testStorage:localStorage;window.sync6={
  fixture:(ing,steps)=>{const m=meals.find(m=>m.id===2);m.ingredients=ing;m.instructions=steps.map(text=>({type:'step',text}));m.ingredientStepLinks=[];return m.id},
  matches:()=>{const m=meals.find(m=>m.id===2),items=recipeAssociationItems(m),r=recipeIngredientMatches(m),t=new Map(items.ingredients.map(i=>[i.token,i.text]));return items.steps.map(s=>(r.get(s.token)||[]).map(x=>t.get(x)))},
  manual:()=>{const m=meals.find(m=>m.id===2),items=recipeAssociationItems(m);m.ingredientStepLinks=[{step:items.steps[1].token,ingredients:[items.ingredients[7].token]}]},
@@ -23,6 +23,12 @@ sb.fixture.HOOK += '''window.sync6={
  pin:i=>{const steps=[...recipeViewer.content.querySelectorAll('.recipe-instructions-pane [data-cooking-token]')];recipeViewer.syncGeometryHold=false;recipeViewer.syncToInstruction(steps[i].dataset.cookingToken)},
  box:()=>[...document.querySelectorAll('.recipe-step-box .cooking-item')].map(x=>x.textContent),
  full:()=>[...document.querySelectorAll('.recipe-viewer-ingredients [data-cooking-token]')].map(x=>x.textContent),
+ plan:()=>recipeStepSortPlan(meals.find(m=>m.id===2)).lines,
+ editor:()=>{openEditor(2);let d=$('recipeIngredientLinks');while(d){if(d.tagName==='DETAILS')d.open=true;d=d.parentElement}},
+ pick:()=>{const s=JSON.parse(sync6Store().getItem('mealRotationSelectedIngredientsV1')||'{}');s['2']=[...meals.find(m=>m.id===2).ingredients];sync6Store().setItem('mealRotationSelectedIngredientsV1',JSON.stringify(s))},
+ picks:()=>JSON.parse(sync6Store().getItem('mealRotationSelectedIngredientsV1')||'{}')['2'],
+ record:()=>JSON.parse(JSON.stringify(meals.find(m=>m.id===2))),
+ undo:()=>restoreState(JSON.parse(history.pop())),
  lit:()=>[...document.querySelectorAll('.recipe-viewer-ingredients .recipe-sync-relevant')].map(x=>x.textContent)
 };'''
 
@@ -38,33 +44,53 @@ def run(browser, name):
         assert bad not in joined, (bad, steps[1])
     assert any('thighs' in x for x in steps[0]) and not any('stock' in x for x in steps[0]), steps[0]
     assert any('salt' in x for x in steps[2]) and any('rice' in x for x in steps[2]), steps[2]
-    # Box: shows the current step's ingredients together; full list keeps order and highlights.
+    # Split view: highlights only, no extra box; full list order unchanged.
     p.evaluate('sync6.open()')
     p.wait_for_selector('.recipe-ingredients-pane .recipe-viewer-ingredients')
     order = p.evaluate('sync6.full()')
     p.evaluate('sync6.pin(1)')
-    p.wait_for_function('document.querySelectorAll(".recipe-step-box .cooking-item").length>=6')
-    box, lit = p.evaluate('sync6.box()'), p.evaluate('sync6.lit()')
-    assert sorted(box) == sorted(lit) and any('coconut milk' in x for x in box), (box, lit)
-    assert p.evaluate('sync6.full()') == order, 'full list must not reorder'
-    assert p.evaluate("document.querySelector('.recipe-step-box').nextElementSibling.classList.contains('recipe-viewer-ingredients')")
-    sb.shot(p, name, 'batch6-step-box')
-    assert p.evaluate("(()=>{const b=document.querySelector('.recipe-step-box').getBoundingClientRect(),q=document.querySelector('.recipe-ingredients-pane').getBoundingClientRect();return b.top>=q.top-1})()"), 'box scrolled into view'
-    # Tapping in the box is the same state as tapping the full-list item.
-    full_btn = p.locator('.recipe-viewer-ingredients [data-cooking-token]', has_text='coconut milk')
-    before = full_btn.get_attribute('class') + str(full_btn.get_attribute('aria-pressed'))
-    p.locator('.recipe-step-box .cooking-item', has_text='coconut milk').click()
+    p.wait_for_function('document.querySelectorAll(".recipe-viewer-ingredients .recipe-sync-relevant").length>=6')
+    assert p.locator('.recipe-step-box').count() == 0 and p.evaluate('sync6.full()') == order
+    p.keyboard.press('Escape')
+    # Sort by steps plan: olive oil + curry powder split (amounts stated / "remaining"); garlic powder split too.
+    lines = p.evaluate('sync6.plan()')
+    assert lines[:5] == ['1½ tbsp olive oil', '1 lb boneless skinless chicken thighs', '1½ tsp curry powder', '¾ tsp garlic powder', '1½ tbsp olive oil, remaining'], lines
+    assert '1½ tsp curry powder, remaining' in lines and '¾ tsp garlic powder, remaining' in lines and lines[-2:] == ['1 tsp salt', '2 cups cooked rice'], lines
+    # Through the editor: preview, Apply, Save, grocery picks follow, grocery list still one olive-oil item, Undo.
+    p.evaluate('sync6.pick()')
+    before = p.evaluate('sync6.record()')
+    p.evaluate('sync6.editor()')
+    p.get_by_role('button', name='Sort by steps', exact=True).click()
+    assert p.locator('.recipe-link-sort-preview').is_visible() and p.locator('.recipe-link-step-number').count() >= 3
+    assert p.evaluate("document.querySelector('#ingredients').value") == '\n'.join(ING), 'preview must not change the draft'
+    sb.shot(p, name, 'batch6-sort-preview')
+    p.locator('.recipe-link-apply-sort').click()
+    assert p.evaluate("document.querySelector('#ingredients').value").split('\n') == lines
+    sb.shot(p, name, 'batch6-sorted-links')
+    p.locator('#editor').get_by_role('button', name='Save', exact=True).click()
     p.wait_for_timeout(300)
-    full_btn = p.locator('.recipe-viewer-ingredients [data-cooking-token]', has_text='coconut milk')
-    after = full_btn.get_attribute('class') + str(full_btn.get_attribute('aria-pressed'))
-    assert before != after, (before, after)
+    rec = p.evaluate('sync6.record()')
+    assert rec['ingredients'] == lines, rec['ingredients']
+    picks = p.evaluate('sync6.picks()')
+    assert '1½ tbsp olive oil' in picks and '1½ tbsp olive oil, remaining' in picks and '3 tbsp olive oil, divided' not in picks, picks
+    if p.evaluate("typeof getMasterGroceryItems==='function'"):
+        oil = p.evaluate("[...getMasterGroceryItems(getGroceryContributions(true,'rotation')).values()].filter(i=>/olive oil/.test(i.line)).map(i=>[i.line,i.contributions.filter(c=>c.mealId===2).length])")
+        assert len(oil) == 1 and oil[0][1] == 2, oil
+    else:  # test copy keeps grocery code private; the combine key is the shared contract
+        assert "name.replace(/,\\s*remaining\\s*$/i,'')" in (Path(__file__).parent.parent / name).read_text()
+    after = p.evaluate('sync6.matches()')
+    assert '1½ tbsp olive oil' in after[0] and '1½ tbsp olive oil, remaining' not in after[0], after[0]
+    assert '1½ tbsp olive oil, remaining' in after[1] and '1½ tbsp olive oil' not in after[1], after[1]
+    p.evaluate('sync6.undo()')
+    p.wait_for_timeout(200)
+    assert p.evaluate('sync6.record()')['ingredients'] == before['ingredients'] and '3 tbsp olive oil, divided' in p.evaluate('sync6.picks()')
     # Manual links always win.
     p.evaluate('sync6.manual()')
     manual = p.evaluate('sync6.matches()')[1]
     assert manual == ['1 tsp salt'] if len(manual) == 1 else False, manual
     assert not errors, errors
     c.close()
-    print('PASS', name, 'batch 6: matching, step box, same tick state, manual links win', flush=True)
+    print('PASS', name, 'batch 6: matching, no box, sort-by-steps preview/split/apply/save, grocery picks+combine, Undo, manual links win', flush=True)
 
 
 if __name__ == '__main__':

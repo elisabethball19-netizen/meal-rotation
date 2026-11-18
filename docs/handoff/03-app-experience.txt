@@ -187,6 +187,7 @@ Tap ingredient/step complete; persistent progress and manual reset without confi
 Split view narrow draggable divider; landscape ingredients left/instructions right.
 Explicit ingredient-step links: highlighting, optional auto-completion, next-incomplete-step scroll, manual ingredient uncheck; optional complete previous steps.
 Long-press step links ingredients inline. Viewer may reorder by use while saved ingredient order unchanged.
+Editor Link Steps "Sort by steps" (Batch 6): preview then Apply then Save; lines move to their first step within their section; multi-step lines split only when every step states its amount (one "remaining" allowed), otherwise stay whole marked "check amount"; split parts combine to one grocery item. Small muted step numbers are computed, never stored. Split view shows highlights only (no "For this step" box).
 Linked-recipe tabs optional, main first, scroll position per tab, scroll/reorder, truncate long names, hide single-tab bar.
 Edit/scale near title, consistent split/reset/settings.
 Implemented #120 (awaiting phone testing): visible outline lightbulb Keep screen awake icon (approved correction replaces monitor), toggled/highlighted, last preference globally remembered. Replace settings checkbox; migrate choice. Only acquire while recipe/app visible; release on close/background, reacquire on return if enabled/supported. Display actual lock availability honestly.

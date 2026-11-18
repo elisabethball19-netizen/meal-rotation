@@ -119,6 +119,55 @@ function recipeIngredientMatches(meal){
  }
  return matches;
 }
+// Editor-only "Sort by steps". Step numbers are always worked out from links, never stored.
+function recipeIngredientStepUse(meal){
+ const items=recipeAssociationItems(meal),matches=recipeIngredientMatches(meal),all=new Map();
+ items.steps.forEach((step,i)=>{for(const t of matches.get(step.token)||[]){if(!all.has(t))all.set(t,[]);if(!all.get(t).includes(i))all.get(t).push(i)}});
+ return {items,matches,all};
+}
+const stepAmountFiller=new Set(['of','the','fresh','freshly','chopped','minced','diced','sliced','grated','ground','melted','softened','more','extra','additional','reserved','cold','warm','hot']);
+// Amount a step uses: {amount,unit}, {remaining:true}, or null when the step doesn't say.
+function stepIngredientAmount(stepText,line){
+ const words=syncIngredientNameWords(line);if(!words.length)return null;
+ const raw=normalizeRecipeText(stepText).toLowerCase(),name=new RegExp('(^|[^a-z])'+words.map(w=>w.replace(/[^a-z]/g,'')+'(?:e?s)?').join('\\s+')+'(?![a-z])','g');
+ let m;while((m=name.exec(raw))){
+  const before=raw.slice(0,m.index+m[1].length),clause=before.split(/[,;:!?]|\.(?!\d)/).pop().split(/\b(?:and|then|with|plus|into|over|in)\b/).pop().trim();
+  const digit=clause.search(/[\d¼½¾⅓⅔⅛⅜⅝⅞]/);
+  if(digit<0){if(/\b(?:remaining|rest of(?: the)?)\b(?:\s+[a-z]+){0,2}$/.test(clause)||/^(?:the\s+)?(?:remaining|rest of(?: the)?)$/.test(clause))return {remaining:true};continue}
+  const q=parseRecipeQuantity(clause.slice(digit)+' x');if(!q||q.lo!==q.hi)continue;
+  const rest=q.rest.replace(/\s*x$/,'').trim().split(/\s+/).filter(Boolean);let unit='';
+  if(rest.length&&groceryQuantityUnits[rest[0].replace(/\.$/,'')]){unit=groceryQuantityUnits[rest[0].replace(/\.$/,'')];rest.shift()}
+  if(rest.length>2||rest.some(w=>!stepAmountFiller.has(w)))continue;
+  return {amount:q.lo,unit};
+ }
+ return null;
+}
+// Split one line across steps only when every step's amount is known (one "remaining" allowed) and adds up.
+function splitIngredientForSteps(line,stepTexts){
+ const total=groceryQuantityParts(line);if(!total||total.lo!==total.hi||!(total.lo>0))return null;
+ const parts=stepTexts.map(t=>stepIngredientAmount(t,line));if(parts.some(p=>!p)||parts.filter(p=>p.remaining).length>1)return null;
+ if(parts.some(p=>!p.remaining&&p.unit!==total.unit))return null;
+ const known=parts.reduce((sum,p)=>sum+(p.remaining?0:p.amount),0),left=total.lo-known;
+ if(parts.some(p=>p.remaining)?left<=total.lo*.001:Math.abs(left)>total.lo*.02)return null;
+ const base=String(line).replace(/\s*\(\s*divided\s*\)/i,'').replace(/,\s*divided\b/i,'').trim();
+ const texts=parts.map((p,i)=>scaleRecipeIngredient(base,(p.remaining?left:p.amount)/total.lo)+(i?', remaining':''));
+ return new Set(texts.map(ingredientKey)).size===texts.length?texts:null;
+}
+function recipeStepSortPlan(meal){
+ const {items,all}=recipeIngredientStepUse(meal),lines=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(String),tokens=cookingItemTokens(meal).ingredients;
+ const stepText=i=>cleanInstructionBlock(items.steps[i]).text,existing=new Set(lines.map(ingredientKey));
+ const sections=[];let current={heading:null,rows:[]};sections.push(current);
+ lines.forEach((text,i)=>{
+  if(syncIngredientHeading(text)){current={heading:text,rows:[]};sections.push(current);return}
+  const steps=all.get(tokens[i]?.token)||[];
+  if(steps.length>1){const split=splitIngredientForSteps(text,steps.map(stepText));if(split&&split.every(t=>!existing.has(ingredientKey(t))||ingredientKey(t)===ingredientKey(text))){split.forEach((t,k)=>current.rows.push({text:t,step:steps[k]+1,from:text,stepToken:items.steps[steps[k]].token,split:true}));return}
+   current.rows.push({text,step:steps[0]+1,check:steps.map(s=>s+1)});return}
+  current.rows.push({text,step:steps.length?steps[0]+1:Infinity});
+ });
+ for(const section of sections)section.rows=section.rows.map((r,i)=>({...r,i})).sort((a,b)=>a.step-b.step||a.i-b.i);
+ const out=sections.flatMap(section=>[...(section.heading===null?[]:[section.heading]),...section.rows.map(r=>r.text)]);
+ return {sections,lines:out,changed:JSON.stringify(out)!==JSON.stringify(lines)};
+}
 function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
  v.syncCleanup?.();
  const enabled=recipeViewingMode()==='split'&&recipeViewPrefs.syncIngredients===true;
@@ -126,16 +175,7 @@ function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
  if(v.linkEdit){v.syncToInstruction=null;v.cancelIngredientSync=null;return}
  const state=v.ingredientSyncState||(v.ingredientSyncState={suspended:false,lastStep:null,tokens:[]});
  const ingredientButtons=[...ingredientsPane.querySelectorAll('[data-cooking-token]')];
- // Small "For this step" box above the unchanged full list. Its items are copies that forward taps to the real ingredient button, so progress is the same state.
- let stepBox=ingredientsPane.querySelector('.recipe-step-box');
- const renderBox=()=>{
-  const list=enabled?ingredientButtons.filter(b=>state.tokens.includes(b.dataset.cookingToken)):[];
-  if(!list.length){stepBox?.remove();stepBox=null;return}
-  if(!stepBox){stepBox=document.createElement('div');stepBox.className='recipe-step-box';stepBox.setAttribute('role','group');stepBox.setAttribute('aria-label','Ingredients for this step');const ul=ingredientsPane.querySelector('.recipe-viewer-ingredients');ul?ul.before(stepBox):ingredientsPane.prepend(stepBox)}
-  const title=document.createElement('div');title.className='recipe-step-box-title';title.textContent='For this step';stepBox.replaceChildren(title);
-  for(const b of list){const copy=b.cloneNode(true);copy.removeAttribute('data-cooking-token');copy.dataset.stepBoxToken=b.dataset.cookingToken;copy.classList.remove('recipe-sync-relevant');copy.onclick=()=>b.click();stepBox.append(copy)}
- };
- const highlight=()=>{ingredientButtons.forEach(b=>b.classList.toggle('recipe-sync-relevant',enabled&&state.tokens.includes(b.dataset.cookingToken)));renderBox()};
+ const highlight=()=>ingredientButtons.forEach(b=>b.classList.toggle('recipe-sync-relevant',enabled&&state.tokens.includes(b.dataset.cookingToken)));
  highlight();v.syncToInstruction=null;if(!enabled){v.syncPinnedStep=null;state.tokens=[];state.lastStep=null;v.syncWasEnabled=false;return}
  const signature=JSON.stringify([meal.ingredients,meal.instructions,meal.ingredientStepLinks]);
  const matchesChanged=v.syncMatchSignature!==signature;if(matchesChanged){v.syncMatches=recipeIngredientMatches(meal);v.syncMatchSignature=signature;state.lastStep=null;state.tokens=[];highlight()}
@@ -147,7 +187,7 @@ function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
   const box=instructionsPane.getBoundingClientRect(),anchor=box.top+box.height*.35;let active=steps.find(b=>b.dataset.cookingToken===v.syncPinnedStep)||null,distance=active?0:Infinity;const firstStep=steps[0]?.getBoundingClientRect();if(!active&&instructionsPane.scrollTop<2&&firstStep&&firstStep.top<box.bottom&&firstStep.bottom>box.top){active=steps[0];distance=0}
   for(const button of steps){if(v.syncPinnedStep&&active)break;const b=button.getBoundingClientRect();if(b.bottom<=box.top||b.top>=box.bottom)continue;const d=anchor<b.top?b.top-anchor:anchor>b.bottom?anchor-b.bottom:0;if(d<distance){distance=d;active=button}}
   const key=active?.dataset.cookingToken||null;if(key===state.lastStep)return;state.lastStep=key;state.tokens=v.syncMatches.get(key)||[];highlight();
-  const relevant=stepBox?[stepBox]:ingredientButtons.filter(b=>state.tokens.includes(b.dataset.cookingToken));if(!relevant.length||state.suspended)return;
+  const relevant=ingredientButtons.filter(b=>state.tokens.includes(b.dataset.cookingToken));if(!relevant.length||state.suspended)return;
   const pane=ingredientsPane.getBoundingClientRect(),first=relevant[0].getBoundingClientRect(),last=relevant.at(-1).getBoundingClientRect();
   if(first.top>=pane.top+8&&last.bottom<=pane.bottom-8)return;
   ingredientsPane.scrollTo({top:Math.max(0,ingredientsPane.scrollTop+first.top-pane.top-12),behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
@@ -175,12 +215,41 @@ function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
 }
 function installRecipeIngredientLinkEditor(meal){
  const root=$('recipeIngredientLinks');if(!root)return;const body=root.querySelector('.settings-group-content');
- let draft=validRecipeIngredientLinks(meal),selected='';
+ let draft=validRecipeIngredientLinks(meal),selected='',preview=null;const ingredientsField=$('ingredients');root.ingredientRemap=null;
  const draftMeal=()=>({...meal,ingredients:$('ingredients').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),instructions:$('recipeInstructions').value===instructionEditorText(meal.instructions)?meal.instructions:$('recipeInstructions').value});
  root.captureRecoveryDraft=()=>({links:JSON.parse(JSON.stringify(draft)),selectedStep:selected});root.getLinks=next=>validRecipeIngredientLinks(next||draftMeal(),draft);root.hasChanges=()=>JSON.stringify(root.getLinks())!==JSON.stringify(validRecipeIngredientLinks(meal));
+ const stepNumber=text=>{const n=document.createElement('div');n.className='recipe-link-step-number';n.setAttribute('aria-label','Step '+text);n.textContent=text;return n};
+ const applySort=plan=>{
+  const current=draftMeal(),oldMatches=recipeIngredientMatches({...current,ingredientStepLinks:draft}),oldToken=new Map(cookingItemTokens(current).ingredients.map(i=>[i.text,i.token]));
+  const splitRows=plan.sections.flatMap(section=>section.rows).filter(r=>r.split),fromTokens=new Set(splitRows.map(r=>oldToken.get(r.from)));
+  const next={...current,ingredients:plan.lines},newToken=new Map(cookingItemTokens(next).ingredients.map(i=>[i.text,i.token]));
+  // Steps that use a split line get links to their own part, so each part only highlights in its step.
+  const affected=new Set(splitRows.map(r=>r.stepToken));draft=draft.filter(l=>!affected.has(l.step)).map(l=>({step:l.step,ingredients:l.ingredients.filter(t=>!fromTokens.has(t))}));
+  for(const step of affected)draft.push({step,ingredients:[...new Set((oldMatches.get(step)||[]).flatMap(t=>{if(!fromTokens.has(t))return [t];const row=splitRows.find(r=>r.stepToken===step&&oldToken.get(r.from)===t);return row?[newToken.get(row.text)]:[]}).filter(Boolean))]});
+  root.ingredientRemap||={};for(const row of splitRows)(root.ingredientRemap[row.from]||=[]).push(row.text);
+  ingredientsField.value=plan.lines.join('\n');ingredientsField.dispatchEvent(new Event('input',{bubbles:true}));ingredientsField.dispatchEvent(new Event('change',{bubbles:true}));
+  preview=null;render();root.dispatchEvent(new Event('change',{bubbles:true}));
+ };
+ const renderPreview=()=>{
+  const title=document.createElement('p');title.className='recipe-link-preview-title';title.textContent='Preview: ingredients in step order';
+  const note=document.createElement('p');note.className='muted';note.textContent='Nothing changes until you tap Apply, then Save.';
+  const list=document.createElement('div');list.className='recipe-link-sort-preview';
+  for(const section of preview.sections){if(section.heading!==null){const h=document.createElement('div');h.className='recipe-link-preview-heading';h.textContent=section.heading;list.append(h)}let last=null;
+   for(const row of section.rows){if(row.step!==last&&Number.isFinite(row.step))list.append(stepNumber(String(row.step)));else if(row.step!==last)list.append(stepNumber(''));last=row.step;
+    const line=document.createElement('div');line.className='recipe-link-preview-line';line.textContent=row.text;
+    if(row.split){const tag=document.createElement('span');tag.className='recipe-link-preview-tag';tag.textContent=' split';line.append(tag)}
+    if(row.check){line.classList.add('recipe-link-preview-check');const tag=document.createElement('span');tag.className='recipe-link-preview-tag';tag.textContent=' check amount: used in steps '+row.check.join(' and ');line.append(tag)}
+    list.append(line)}}
+  const actions=document.createElement('div');actions.className='recipe-link-preview-actions';
+  const cancel=document.createElement('button');cancel.type='button';cancel.className='meal-editor-text-action';cancel.textContent='Cancel';cancel.onclick=()=>{preview=null;render()};
+  const apply=document.createElement('button');apply.type='button';apply.className='meal-editor-text-action recipe-link-apply-sort';apply.textContent='Apply';apply.onclick=()=>applySort(preview);
+  actions.append(cancel,apply);body.append(title,note,list,actions);
+ };
  const render=()=>{
   const current=draftMeal(),items=recipeAssociationItems(current);draft=validRecipeIngredientLinks(current,draft);body.replaceChildren();
+  if(preview){renderPreview();return}
   const help=document.createElement('p');help.className='muted';help.textContent='Select a step to review or change its ingredients.';body.append(help);
+  if(items.steps.length&&items.ingredients.length){const sort=document.createElement('button');sort.type='button';sort.className='meal-editor-text-action recipe-link-sort';sort.textContent='Sort by steps';sort.onclick=()=>{const plan=recipeStepSortPlan({...draftMeal(),ingredientStepLinks:draft});if(!plan.changed){sort.textContent='Already in step order';return}preview=plan;render()};body.append(sort)}
   const label=document.createElement('label');label.textContent='Instruction step';const select=document.createElement('select');select.setAttribute('aria-label','Instruction step for ingredient links');
   for(const [n,item]of items.steps.entries()){const option=document.createElement('option');option.value=item.token;option.textContent=(n+1)+'. '+cleanInstructionBlock(item).text;select.append(option)}
   if(items.steps.some(i=>i.token===selected))select.value=selected;selected=select.value;select.onchange=()=>{selected=select.value;render()};label.append(select);body.append(label);
@@ -188,7 +257,8 @@ function installRecipeIngredientLinkEditor(meal){
   const automatic=recipeIngredientMatches({...current,ingredientStepLinks:[]}).get(selected)||[],entry=draft.find(link=>link.step===selected),chosen=new Set(entry?entry.ingredients:automatic);
   const reset=document.createElement('button');reset.type='button';reset.className='meal-editor-text-action';reset.textContent='Reset to automatic';reset.hidden=!entry;reset.onclick=()=>{draft=draft.filter(link=>link.step!==selected);render();root.dispatchEvent(new Event('change',{bubbles:true}))};
   const list=document.createElement('div');list.className='recipe-link-choices';
-  for(const ingredient of items.ingredients){const row=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=chosen.has(ingredient.token);input.onchange=()=>{if(input.checked)chosen.add(ingredient.token);else chosen.delete(ingredient.token);draft=draft.filter(link=>link.step!==selected);draft.push({step:selected,ingredients:[...chosen]});reset.hidden=false;root.dispatchEvent(new Event('change',{bubbles:true}))};row.append(input,document.createTextNode(ingredient.text));list.append(row)}body.append(list,reset);
+  const firstStep=recipeIngredientStepUse({...current,ingredientStepLinks:draft}).all;let lastStep=null;
+  for(const ingredient of items.ingredients){const at=firstStep.get(ingredient.token)?.[0];if(at!==lastStep){list.append(stepNumber(at==null?'':String(at+1)));lastStep=at}const row=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=chosen.has(ingredient.token);input.onchange=()=>{if(input.checked)chosen.add(ingredient.token);else chosen.delete(ingredient.token);draft=draft.filter(link=>link.step!==selected);draft.push({step:selected,ingredients:[...chosen]});reset.hidden=false;root.dispatchEvent(new Event('change',{bubbles:true}))};row.append(input,document.createTextNode(ingredient.text));list.append(row)}body.append(list,reset);
  };
  root.ontoggle=()=>{if(root.open)render()};for(const id of ['ingredients','recipeInstructions'])$(id).addEventListener('change',()=>{if(root.open)render()});
 }
