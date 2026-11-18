@@ -2038,3 +2038,24 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .recipe-link-preview-tag{font-size:.75rem;color:#8a96a6}
 .recipe-link-preview-check .recipe-link-preview-tag{color:#9a5b00}
 .recipe-link-preview-actions{display:flex;gap:16px;justify-content:flex-end}
+
+/* Batch 4: Meal Groups page sections, Unassigned checklist, bulk bar */
+.master-group-section{margin:0 0 10px}
+.master-group-section-toggle{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:6px 4px;background:transparent;border:0;border-bottom:1px solid #d5dce4;color:#2f3b48;text-align:left;font:inherit}
+.master-group-section-toggle svg{width:18px;height:18px;flex:0 0 18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.master-group-section-name{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.master-group-section-count{margin-left:auto;font-size:13px;color:#637080}
+.master-group-section-body{padding-top:8px}
+.master-group-section-body[hidden]{display:none!important}
+.master-category-title{gap:14px!important}
+.master-category-meal:not(.group-recipe-expanded) .top-inline-linked{display:none!important}
+.master-category-meal .shared-meal-name-line{line-height:1.25}
+.unassigned-bulk-bar{display:flex;align-items:center;gap:8px;padding:6px 8px;margin:0 0 6px;border:1px solid #cbd3dc;border-radius:10px;background:#fff;box-shadow:0 1px 4px #26334214}
+.unassigned-bulk-count{flex:1;font-size:14px;color:#2f3b48}
+.unassigned-bulk-actions{display:flex;gap:4px}
+.unassigned-bulk-actions button{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:54px;min-height:48px;padding:4px;background:transparent;border:0;border-radius:8px;color:#2f3b48;font-size:12px}
+.unassigned-bulk-actions button:disabled{opacity:.4}
+.unassigned-row{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px}
+.unassigned-check{display:flex;align-items:center;justify-content:center;min-width:32px;min-height:44px}
+#recipeBulkToolbar{background:#fff!important;border-top:2px solid #8fa0b3!important;box-shadow:0 -4px 14px #2633423a!important}
+#recipeBulkToolbar button[aria-label="Done"]{font-weight:inherit!important;color:inherit!important}

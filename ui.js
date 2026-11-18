@@ -2157,7 +2157,7 @@ function selectExpandedBulkRecipes(){for(const meal of eligibleBulkRecipes())sel
 function updateRecipeBulkUI(){
  if(!recipeBulkMode)return;if(recipeBulkSourceGroup&&!cats.includes(recipeBulkSourceGroup)){endRecipeBulk(false);return}for(const id of recipeBulkIds)if(!meals.some(m=>String(m.id)===id))recipeBulkIds.delete(id);document.body.classList.add('recipe-bulk-select');for(const button of document.querySelectorAll('.master-category-header .iconbtn,.master-add-group,[aria-label="Manage recipe labels"]'))button.disabled=true;
  for(const row of document.querySelectorAll('.master-category-meal[data-meal-id]')){const meal=meals.find(m=>String(m.id)===row.dataset.mealId);if(!meal)continue;const allowed=row.closest('.master-category-card')?.dataset.category===recipeBulkSourceGroup&&(recipeBulkSubgroup===null||bulkRecipeSubgroup(meal)===recipeBulkSubgroup);row.querySelector('.recipe-bulk-check')?.remove();row.classList.toggle('recipe-bulk-other-group',!allowed);if(!allowed)continue;const label=document.createElement('label');label.className='recipe-bulk-check';const check=document.createElement('input');check.type='checkbox';check.className='check';check.setAttribute('aria-label','Select '+(meal.name||'Untitled meal'));check.checked=recipeBulkIds.has(String(meal.id));check.onchange=()=>toggleRecipeBulk(meal,check.checked,row.closest('.master-category-card')?.dataset.category);label.append(check);row.prepend(label)}
- let bar=document.getElementById('recipeBulkToolbar');if(!bar){bar=document.createElement('section');bar.id='recipeBulkToolbar';bar.setAttribute('aria-label','Selected recipes');bar.dataset.recipeEditDraft='';const count=document.createElement('div');count.className='recipe-bulk-count';count.setAttribute('role','status');bar.append(count);const actions=document.createElement('div');actions.className='recipe-bulk-actions';for(const [kind,label,action]of [['groups','Groups',openRecipeBulkGroups],['delete','Delete',deleteRecipeBulk],['cancel','Done',endRecipeBulk]]){const b=document.createElement('button');b.type='button';setIconButton(b,kind==='groups'?'rename':kind,label);const text=document.createElement('span');text.textContent=label;b.append(text);b.classList.add('recipe-bulk-labeled-action');b.dataset.needsSelection=String(label!=='Done');b.onclick=action;actions.append(b)}bar.append(actions);document.body.append(bar)}
+ let bar=document.getElementById('recipeBulkToolbar');if(!bar){bar=document.createElement('section');bar.id='recipeBulkToolbar';bar.setAttribute('aria-label','Selected recipes');bar.dataset.recipeEditDraft='';const count=document.createElement('div');count.className='recipe-bulk-count';count.setAttribute('role','status');bar.append(count);const actions=document.createElement('div');actions.className='recipe-bulk-actions';for(const [kind,label,action]of [['move','Move',openRecipeBulkGroups],['delete','Delete',deleteRecipeBulk],['cancel','Done',endRecipeBulk]]){const b=document.createElement('button');b.type='button';setIconButton(b,kind,label);const text=document.createElement('span');text.textContent=label;b.append(text);b.classList.add('recipe-bulk-labeled-action');b.dataset.needsSelection=String(label!=='Done');b.onclick=action;actions.append(b)}bar.append(actions);document.body.append(bar)}
  bar.querySelector('.recipe-bulk-count').textContent=recipeBulkSourceGroup===null?'0 selected':(recipeBulkSourceGroup||'Unassigned')+' ('+recipeIdentityCount([...recipeBulkIds])+')';for(const b of bar.querySelectorAll('button[data-needs-selection="true"]'))b.disabled=!recipeBulkIds.size||recipeBulkBusy;updateRecipeBulkSelectionHeader();
 }
 function bulkRecipeSubgroup(meal){return meal.cat&&groupUsesRotation(meal.cat)?recipeStatus(meal):'all'}
@@ -2785,6 +2785,39 @@ function appendFirstRecipePrompt(parent){
   if(launch.isConnected&&!firstRecipePromptShown&&!meals.length&&!document.querySelector('[aria-modal="true"]')){launch.focus({preventScroll:true});launch.click()}
  });
 }
+// Batch 4: section open/closed state is a UI preference. Kept while using the app and across refresh;
+// resets (Weekly open, others closed) after 5+ minutes in the background.
+const groupPageSectionsKey='mealRotationGroupPageSectionsV1',groupPageSectionDefaults={weekly:true,other:false,unassigned:false},GROUP_SECTION_RESET_MS=5*60*1000;
+function readGroupPageSections(){try{const v=JSON.parse(localStorage.getItem(groupPageSectionsKey)||'null');return v&&typeof v==='object'&&!Array.isArray(v)?v:{}}catch(e){return {}}}
+function writeGroupPageSections(v){try{localStorage.setItem(groupPageSectionsKey,JSON.stringify(v))}catch(e){}}
+function groupPageSectionOpen(key){const v=readGroupPageSections();return typeof v[key]==='boolean'?v[key]:groupPageSectionDefaults[key]}
+function setGroupPageSectionOpen(key,open){const v=readGroupPageSections();v[key]=!!open;writeGroupPageSections(v)}
+function resetGroupPageSectionsIfStale(now=Date.now()){const v=readGroupPageSections();if(typeof v.hiddenAt==='number'&&now-v.hiddenAt>=GROUP_SECTION_RESET_MS){writeGroupPageSections({...groupPageSectionDefaults});return true}if('hiddenAt'in v){delete v.hiddenAt;writeGroupPageSections(v)}return false}
+resetGroupPageSectionsIfStale();
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){const v=readGroupPageSections();v.hiddenAt=Date.now();writeGroupPageSections(v);return}
+ if(resetGroupPageSectionsIfStale()&&editId===null&&!recipeBulkMode){masterExpandedCategories.clear();if(!showTop)renderList({readOnly:true})}
+});
+// Unassigned meals: a flat checklist with an always-visible Move/Delete bar.
+const unassignedSelection=new Set();
+function renderUnassignedChecklist(body,list){
+ const ids=new Set(list.map(m=>String(m.id)));for(const id of [...unassignedSelection])if(!ids.has(id))unassignedSelection.delete(id);
+ const bar=document.createElement('div');bar.className='unassigned-bulk-bar';const count=document.createElement('span');count.className='unassigned-bulk-count';count.setAttribute('role','status');
+ const move=document.createElement('button');move.type='button';move.className='recipe-bulk-labeled-action unassigned-move';setIconButton(move,'move','Move');const moveText=document.createElement('span');moveText.textContent='Move';move.append(moveText);
+ const remove=document.createElement('button');remove.type='button';remove.className='recipe-bulk-labeled-action unassigned-delete';setIconButton(remove,'delete','Delete');const removeText=document.createElement('span');removeText.textContent='Delete';remove.append(removeText);
+ const refresh=()=>{count.textContent=unassignedSelection.size+' selected';move.disabled=remove.disabled=!unassignedSelection.size};
+ const chosen=()=>[...unassignedSelection].filter(id=>meals.some(m=>String(m.id)===id));
+ // The shared group dialog reads its source and picks once, at open; borrow the bulk globals only for that moment.
+ move.onclick=()=>{const picked=chosen();if(!picked.length||recipeBulkMode)return;const saved=[recipeBulkSourceGroup,new Set(recipeBulkIds)];recipeBulkSourceGroup='';recipeBulkIds=new Set(picked);try{chooseBulkGroups(null,change=>{if(bulkGroupChangePending(picked,change)){applyRecipeBulk(picked,{}, {bulkGroups:change});picked.forEach(id=>unassignedSelection.delete(id));renderList({readOnly:true})}},move)}finally{[recipeBulkSourceGroup,recipeBulkIds]=saved}};
+ remove.onclick=async()=>{const picked=await confirmDeleteRecipes(chosen());if(!picked)return;try{applyRecipeBulk(picked,{delete:true});picked.forEach(id=>unassignedSelection.delete(String(id)));renderList({readOnly:true})}catch(error){await showAppMessage('Delete could not be completed: '+error.message)}};
+ const actions=document.createElement('div');actions.className='unassigned-bulk-actions';actions.append(move,remove);bar.append(count,actions);body.append(bar);
+ const rows=document.createElement('div');rows.className='unassigned-checklist';
+ for(const m of list){const row=document.createElement('div');row.className='unassigned-row';row.dataset.mealId=String(m.id);
+  const label=document.createElement('label');label.className='unassigned-check';const check=document.createElement('input');check.type='checkbox';check.className='check';check.setAttribute('aria-label','Select '+(m.name||'Untitled meal'));check.checked=unassignedSelection.has(String(m.id));check.onchange=()=>{if(check.checked)unassignedSelection.add(String(m.id));else unassignedSelection.delete(String(m.id));refresh()};label.append(check);
+  const name=document.createElement('button');name.type='button';name.className='master-category-meal-name unassigned-name';name.textContent=m.name||'Untitled meal';bindGroupMealPress(name,m);
+  row.append(label,name);rows.append(row)}
+ body.append(rows);refresh();
+}
 function renderMasterCategories(list){
  if(!meals.length){renderEmptyMealGroups(list);return}
  const wrap=document.createElement('section');wrap.className='master-categories';wrap.setAttribute('aria-label','Meal Groups');
@@ -2797,7 +2830,7 @@ function renderMasterCategories(list){
  addGroup.onclick=async()=>{let n=await appDialog('New group name','','prompt');if(n&&n.trim()){try{n=createMealGroup(n)}catch(e){await showAppMessage(e.message);return}active=n;persist();const groupResult=await chooseExistingMealsForNewGroup(n.trim());if(groupResult==='delete'){cats=cats.filter(c=>c!==n.trim());active=cats[0]||'';persist();openMasterCategories()}else openMasterCategories(n.trim())}};
  for(const [expand,icon,label] of [[true,'chevrons-down','Expand all groups'],[false,'chevrons-up','Collapse all groups']]){
   const button=document.createElement('button');button.type='button';button.className='iconbtn';setIconButton(button,icon,label);
-  button.onclick=()=>{masterExpansionInitialized=true;masterExpandedCategories.clear();if(expand){masterDisplayOrder().forEach(c=>masterExpandedCategories.add(c));if(hasUnassigned)masterExpandedCategories.add('')}renderList()};controls.append(button);
+  button.onclick=()=>{masterExpansionInitialized=true;masterExpandedCategories.clear();if(expand){masterDisplayOrder().forEach(c=>masterExpandedCategories.add(c));if(hasUnassigned)masterExpandedCategories.add('');for(const key of ['weekly','other','unassigned'])setGroupPageSectionOpen(key,true)}renderList()};controls.append(button);
  }
  controls.append(addGroup);if(groupReorderState){controls.replaceChildren();for(const [icon,label,commit]of [['save','Finish reordering groups',true],['cancel','Cancel reordering groups',false]]){const button=document.createElement('button');button.type='button';button.className='iconbtn';setIconButton(button,icon,label);if(commit){button.append(document.createTextNode('Done'));button.classList.add('group-reorder-done')}button.onclick=()=>finishGroupReorder(commit);controls.append(button)}}heading.append(controls);wrap.append(heading);if(!groupReorderState)appendRotationSetupPrompt(wrap);
  const resetOrder=document.createElement('button');resetOrder.type='button';resetOrder.className='master-order-reset';resetOrder.textContent='Reset to Weekday Order';resetOrder.hidden=!!groupReorderState||!weekdayGroupOrderNeedsReset();resetOrder.onclick=()=>{if(resetWeekdayGroupOrder())renderList()};wrap.append(resetOrder);
@@ -2830,8 +2863,27 @@ function renderMasterCategories(list){
  }
  const displayedGroups=masterOrderedGroups([...baseGroupOrder.filter(cat=>activeGroupNames.has(cat)),...baseGroupOrder.filter(cat=>!activeGroupNames.has(cat))]);
  if(hasUnassigned&&!groupReorderState)displayedGroups.unshift('');
+ // Batch 4: Weekly groups / Other groups / Unassigned sections (flat while reordering groups).
+ const sectioned=!groupReorderState,flatUnassigned=sectioned&&meals.length>1;
+ const assignedGroups=new Set([weekdayCategories,...mealPlans.map(plan=>plan.weekdayCategories)].flatMap(map=>Object.values(map||{}).flatMap(v=>Array.isArray(v)?v:[v])).filter(cat=>cats.includes(cat)));
+ const weeklyGroups=new Set([...activeGroupNames,...assignedGroups].filter(cat=>cats.includes(cat)));
+ const sectionOf=category=>category===''?'unassigned':weeklyGroups.has(category)?'weekly':'other';
+ if(masterExpandedCategories.has('')&&flatUnassigned)setGroupPageSectionOpen('unassigned',true);
+ const forced=new Set([recipeBulkMode&&recipeBulkSourceGroup!==null?sectionOf(recipeBulkSourceGroup):null,newRecipeDraftId!==null?sectionOf(meals.find(m=>m.id===newRecipeDraftId)?.cat??''):null,...[...masterExpandedCategories].filter(cat=>cat!==''&&displayedGroups.includes(cat)).map(sectionOf)].filter(Boolean));
+ const groupSections=new Map();
+ if(sectioned)for(const [key,label]of [['weekly','Weekly groups'],['other','Other groups'],['unassigned','Unassigned']]){
+  const members=displayedGroups.filter(cat=>sectionOf(cat)===key);if(!members.length)continue;
+  const open=forced.has(key)||groupPageSectionOpen(key),box=document.createElement('section');box.className='master-group-section';box.dataset.groupSection=key;
+  const toggle=document.createElement('button');toggle.type='button';toggle.className='master-group-section-toggle';toggle.setAttribute('aria-expanded',String(open));
+  toggle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(open?'m6 15 6-6 6 6':'m6 9 6 6 6-6')+'"/></svg>';
+  const name=document.createElement('span');name.className='master-group-section-name';name.textContent=label;
+  const count=document.createElement('span');count.className='master-group-section-count';const n=key==='unassigned'?meals.filter(m=>m.cat==='').length:members.length;count.textContent=key==='unassigned'?n+' '+(n===1?'meal':'meals'):n+' '+(n===1?'group':'groups');
+  toggle.append(name,count);toggle.onclick=()=>{masterExpansionInitialized=true;if(open)for(const cat of members)masterExpandedCategories.delete(cat);setGroupPageSectionOpen(key,!open);renderList({readOnly:true})};
+  const body=document.createElement('div');body.className='master-group-section-body';body.hidden=!open;box.append(toggle,body);wrap.append(box);groupSections.set(key,body);
+ }
  for(const category of displayedGroups){ 
   const categoryMeals=masterRecipeOrder(category,{scheduledEntries});
+  if(category===''&&flatUnassigned){const body=groupSections.get('unassigned');if(body)renderUnassignedChecklist(body,categoryMeals);continue}
   if(!manualRecipeOrdering&&groupUsesRotation(category)){
    const scheduledHere=new Set(scheduledEntries.filter(entry=>entry.planId===activePlanId&&entry.cat===category).map(entry=>sharedRecipeIdentity(entry.meal)));
    const displayRank=meal=>meal.rotation&&meal.rotationSectionPromotion&&Number.isFinite(meal.rotationPromotionPriority)?-1:!meal.rotation?3:scheduledHere.has(sharedRecipeIdentity(meal))?0:scheduledDaysByMeal.has(String(meal.id))?1:2;
@@ -2906,7 +2958,7 @@ function renderMasterCategories(list){
    }
    card.append(items);
   }
-  wrap.append(card);
+  (sectioned&&groupSections.get(sectionOf(category))||wrap).append(card);
  }
  if(!cats.length&&!hasUnassigned){const empty=document.createElement('div');empty.textContent='No groups yet. Tap + to add one.';wrap.append(empty)}
  list.append(wrap);restoreGroupReturnScroll();if(recipeBulkMode)updateRecipeBulkUI();installMasterGroupDragging(wrap,resetOrder);installUpNextDragging(wrap);
