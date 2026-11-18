@@ -2200,3 +2200,6 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .master-category-card[style*="--group-color"]{border-left:5px solid var(--group-color)}
 .master-category-days{font-weight:600;color:#4a5563}
 .master-category-card.master-category-this-week[style*="--group-color"]{border-left-color:var(--group-color)!important}
+/* Part 2a: every recipe row in a group list is indented the same, so names line up and the watermark heart stays inside the card. */
+.master-categories .master-category-meal:not(.featured-top-meal){padding-left:13px}
+.master-categories .master-category-meal:not(.featured-top-meal)>.master-meal-info{padding-left:0}

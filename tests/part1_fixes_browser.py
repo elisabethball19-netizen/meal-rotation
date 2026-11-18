@@ -51,6 +51,8 @@ def run(browser, name):
     p.evaluate('p1.heart()')
     p.wait_for_timeout(300)
     wm = p.evaluate("""()=>{const w=document.querySelector('.favorite-watermark');if(!w)return null;const cs=getComputedStyle(w),n=w.parentElement.querySelector('.master-category-meal-name').getBoundingClientRect(),b=w.getBoundingClientRect();return [cs.pointerEvents,w.querySelector('.sr-only').textContent,b.left<n.left+20&&b.right>n.left+10,document.querySelector('.expanded-name-heart')===null]}""")
+    ind = p.evaluate("()=>{const row=document.querySelector('.master-category-meal'),n=row.querySelector('.master-category-meal-name').getBoundingClientRect(),r=row.getBoundingClientRect();return n.left-r.left}")
+    assert 12 <= ind <= 16, ind  # names sit 13px in from the row edge, same as a highlighted row
     sb.shot(p, name, 'part2a-watermark')
     assert wm == ['none', 'Favorite', True, True], wm  # faint, untappable, overlaps the first letters, no tappable heart in the row
     # Curry powder with leading descriptors matches the shorter step wording.
