@@ -100,12 +100,12 @@ def run(browser, name):
     assert main.get_by_role('button', name='Add side', exact=True).count() == 1
     assert main.get_by_role('button', name='Close sides', exact=True).is_visible()
     shot(p, name, 'sides-edit-mode')
-    # Expanding a side shows exactly four icon-only actions; chevrons never close the editor.
+    # Expanding a side shows exactly three icon-only actions (the plus lives beside the check); chevrons never close the editor.
     main.get_by_role('button', name='Side actions for Butter').click()
     icons = main.locator('.inline-side-body .serving-icon-row button')
-    assert icons.count() == 4 and icons.evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label"))') == ['Edit side', 'Remove side', 'Edit groceries', 'Add side'], icons.evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label"))')
+    assert icons.count() == 3 and icons.evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label"))') == ['Edit side', 'Remove side', 'Edit groceries'], icons.evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label"))')
     assert all(t.strip() == '' for t in icons.all_inner_texts())
-    assert main.get_by_role('button', name='Add side', exact=True).count() == 1
+    assert main.get_by_role('button', name='Add side', exact=True).count() == 1 and main.locator('.sides-session-footer').get_by_role('button', name='Add side', exact=True).count() == 1
     assert main.locator('.inline-side-body .shared-meal-action-grid').count() == 0
     assert p.evaluate('batch127.session()')
     shot(p, name, 'side-icon-row')
