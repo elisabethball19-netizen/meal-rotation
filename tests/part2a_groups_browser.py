@@ -13,6 +13,7 @@ sb.fixture.HOOK += '''window.p2a={
  setup:()=>{const used=new Set([weekdayCategories,...mealPlans.map(p=>p.weekdayCategories)].flatMap(m=>Object.values(m||{}).flatMap(v=>Array.isArray(v)?v:[v]))),off=cats.find(c=>c&&!used.has(c));const v=JSON.parse(localStorage.getItem(GROUP_ROTATION_KEY)||'{}');v[groupIdentity(off,true)]=false;localStorage.setItem(GROUP_ROTATION_KEY,JSON.stringify(v));for(const k of ['weekly','other','unassigned'])setGroupPageSectionOpen(k,k==='weekly');masterExpansionInitialized=true;masterExpandedCategories.clear();showTop=false;allMealsActive=true;groceryTabActive=false;render();return off},
  sections:()=>[...document.querySelectorAll('.master-group-section')].map(s=>[s.dataset.groupSection,[...s.querySelectorAll('.master-category-card,.master-category')].length,s.querySelector('.master-group-section-body').hidden]),
  picker:()=>{showTop=true;allMealsActive=false;render();openRecurringDayEditor('Monday')},
+ edit:cat=>openMasterCategoryEditMenu(cat),
  names:key=>[...document.querySelectorAll('.master-group-section[data-group-section="'+key+'"] .master-category-heading,.master-group-section[data-group-section="'+key+'"] h3')].map(x=>x.textContent)
 };'''
 
@@ -38,6 +39,11 @@ def run(browser, name):
     labels = p.locator('.recurring-group-row input').evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label"))')
     assert labels and off not in labels, (off, labels)
     sb.shot(p, name, 'part2a-groups')
+    p.locator('.recipe-bulk-dialog button[aria-label^="Cancel"]').first.click()
+    p.evaluate('c=>p2a.edit(c)', off)
+    p.wait_for_timeout(300)
+    gap = p.evaluate("""()=>{const l=document.querySelector('.recipe-bulk-dialog .settings-display-option'),sw=l.querySelector('.preference-switch-control').getBoundingClientRect(),r=document.createRange();r.selectNodeContents(l.lastChild);return r.getBoundingClientRect().left-sw.right}""")
+    assert gap >= 10, gap
     assert not errors, errors
     c.close()
     print('PASS', name, 'part 2a: sections by weekly toggle, accordion, no expand-all, weekday picker', flush=True)

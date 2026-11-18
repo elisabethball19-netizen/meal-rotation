@@ -2187,3 +2187,6 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .favorite-watermark svg{width:100%;height:100%;fill:currentColor;display:block}
 .favorite-watermark~*{position:relative;z-index:1}
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* Part 2a: breathing room between a switch and its label in dialogs and editors. */
+.settings-display-option>.preference-switch-control{margin-right:12px}
+.settings-group-content>.settings-display-option>.preference-switch-control,.collapsed-card-options .settings-display-option>.preference-switch-control,#settingsPanel .settings-display-option>.preference-switch-control{margin-right:0}
