@@ -16,6 +16,7 @@ fixture.HOOK += '''window.batch127={
  simpleOnly:()=>{const parent=meals.find(m=>m.id===2);parent.serveWithEntriesV1=[{id:'simple',type:'simple',name:'Butter',ingredients:[],always:true}];parent.linkedMealIds=[];parent.simpleSides=[{id:'simple',name:'Butter',ingredients:[]}];saveActiveMealPlan();persist();follow126.home()},
  sides:(week=0)=>{const s=week?previewMealPlanAdvance():{plan:mealPlans[0],entries:getDisplayedWeekdayMealsForPlan(mealPlans[0])},e=s.entries.find(x=>!x.linkedTo&&!x.servingParentId);return servingSides(s.plan,e,s.entries).map(x=>x.name||x.mealId)},
  undoDepth:()=>history.length,
+ ing:()=>{const s=mealPlans[0],e=getDisplayedWeekdayMealsForPlan(s).find(x=>!x.linkedTo&&!x.servingParentId);return servingSides(s,e,getDisplayedWeekdayMealsForPlan(s)).filter(x=>x.type==='simple').flatMap(x=>(x.ingredients||[]).map(i=>i.text))},
  fav:id=>meals.find(m=>m.id===id).favorite===true,session:()=>!!servingSideSession,close:()=>closeServingSession(),
  home:week=>{expandedPlanCards.clear();follow126.home(week)},
  nextSide:()=>{const parent=meals.find(m=>m.id===3);parent.serveWithEntriesV1=[{id:'nb',type:'simple',name:'Pickles',ingredients:[],always:true}];parent.simpleSides=[{id:'nb',name:'Pickles',ingredients:[]}];saveActiveMealPlan();persist();batch127.home(1)},
@@ -93,7 +94,23 @@ def run(browser, name):
     main.get_by_role('button', name='Add or edit sides', exact=True).click()
     assert not p.get_by_role('button', name='Save all sides').count()
     assert not p.get_by_role('button', name='Cancel all side changes').count()
+    # Header is a plain title; three sides start collapsed; one plus and the closing check at the bottom.
+    assert main.locator('.inline-sides-header button').count() == 0
+    assert main.locator('.inline-side-body').count() == 0
+    assert main.get_by_role('button', name='Add side', exact=True).count() == 1
+    assert main.get_by_role('button', name='Close sides', exact=True).is_visible()
     shot(p, name, 'sides-edit-mode')
+    # Expanding a side shows exactly four icon-only actions; chevrons never close the editor.
+    main.get_by_role('button', name='Side actions for Butter').click()
+    icons = main.locator('.inline-side-body .serving-icon-row button')
+    assert icons.count() == 4 and icons.evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label"))') == ['Edit side', 'Remove side', 'Edit groceries', 'Add side'], icons.evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label"))')
+    assert all(t.strip() == '' for t in icons.all_inner_texts())
+    assert main.get_by_role('button', name='Add side', exact=True).count() == 1
+    assert main.locator('.inline-side-body .shared-meal-action-grid').count() == 0
+    assert p.evaluate('batch127.session()')
+    shot(p, name, 'side-icon-row')
+    main.get_by_role('button', name='Side actions for Butter').click()
+    assert main.locator('.inline-side-body').count() == 0 and p.evaluate('batch127.session()')
     depth = p.evaluate('batch127.undoDepth()')
     main.get_by_role('button', name='Side actions for Butter').click()
     main.get_by_role('button', name='Remove side', exact=True).click()
@@ -125,6 +142,11 @@ def run(browser, name):
     main.get_by_role('button', name='Side actions for Butter').click()
     main.get_by_role('button', name='Edit side', exact=True).click()
     main.get_by_role('textbox', name='Side name', exact=True).fill('Garlic butter')
+    # A simple side's cart opens its ingredient list so it can still be shopped for.
+    main.get_by_role('button', name='Edit groceries', exact=True).click()
+    ingredients = main.get_by_role('textbox', name='Side ingredients', exact=True)
+    assert ingredients.is_visible()
+    ingredients.fill('2 cups white rice')
     summary = main.locator('.simple-side-ingredients > summary')
     assert summary.locator('svg').count() == 1 and summary.evaluate('s=>getComputedStyle(s).listStyleType') == 'none'
     assert main.get_by_role('textbox', name='Side name').evaluate('x=>parseFloat(getComputedStyle(x).borderTopLeftRadius)') >= 8
@@ -134,14 +156,16 @@ def run(browser, name):
     main.locator('.meal-actions-toggle').click()
     assert not p.evaluate('batch127.session()')
     assert p.evaluate('batch127.sides()') == ['10', '12', 'Garlic butter']
+    assert p.evaluate('batch127.ing()') == ['2 cups white rice'], p.evaluate('batch127.ing()')
     assert not card(p, 2).locator('.shared-meal-actions').is_visible()
 
-    # Closing the open side saves and closes side editing (card stays expanded).
+    # The bottom check closes the editor (changes are already saved); the card stays expanded.
     main = card(p, 2)
     main.locator('.meal-actions-toggle').click()
     main.get_by_role('button', name='Add or edit sides', exact=True).click()
     main.get_by_role('button', name='Side actions for Garlic butter').click()
-    main.get_by_role('button', name='Side actions for Garlic butter').click()
+    assert p.evaluate('batch127.session()')
+    main.get_by_role('button', name='Close sides', exact=True).click()
     assert not p.evaluate('batch127.session()')
     assert card(p, 2).locator('.shared-meal-action-grid').first.is_visible()
 
@@ -182,6 +206,7 @@ def run(browser, name):
     assert main.locator('.inline-side-row').first.locator('.inline-side-heart').is_visible()
     assert main.locator('.inline-side-row').first.locator('.plan-side-details').is_visible()
     main.get_by_role('button', name='Side actions for Golden roast potatoes with rosemary and garlic for the whole family').click()
+    main.get_by_role('button', name='Close sides', exact=True).click()
 
     # Mix it up: group checklist, checked float to top, no "rotating" wording.
     main = card(p, 2)

@@ -21,6 +21,10 @@
 
 No data migration was added, and `version: 2` import/export is unchanged. The service-worker shell was bumped to `v162`. `meal-rotation-test.html` mirrors the same `serving.js`, `ui.js` line edits and CSS.
 
+## Follow-up after first phone check (2026-11-17)
+
+Item 1 passed on phone; the user then asked for a simpler side editor. Changed: the "Choose a different side" / "Use next recipe" text buttons are gone (remove + add replaces them); each expanded side shows four icon-only actions (pencil, trash, cart, plus); a simple side's cart opens its ingredient list so plain items such as white rice can still be shopped for; the Sides header is only a title; a side's chevron only expands/collapses that side; one ✓ at the bottom closes the editor (changes are already saved, so there is no X); one side opens expanded, several start collapsed, a just-added side opens expanded; with every side collapsed a single plus sits above the ✓. This replaces the earlier rule that closing a side also closed the editor. Screenshots: [icon row](evidence/issue127/side-icon-row.png), [collapsed list](evidence/issue127/sides-edit-mode.png). Re-run: `sides_batch127_browser.py` and the five #126 suites pass in both apps (their picker steps now use remove + add).
+
 ## Checks run (both `index.html` and isolated `meal-rotation-test.html`)
 
 - `tests/sides_batch127_browser.py` (new) covers:
