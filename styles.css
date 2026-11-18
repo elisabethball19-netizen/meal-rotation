@@ -2100,3 +2100,7 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .plan-meal-card .plan-linked-names>span{display:block;padding-left:8px!important;margin-left:0!important;font-weight:400!important;color:#242424}
 /* Shared modal scroll lock: no scroll chaining from dialog lists to the page behind */
 [aria-modal="true"],[aria-modal="true"] *,dialog[open],dialog[open] *{overscroll-behavior:contain}
+/* Sort by steps reads as a button */
+.recipe-link-sort{display:inline-flex!important;align-items:center;min-height:36px;padding:4px 14px!important;border:1px solid #9fb0c3!important;border-radius:18px!important;background:#fff!important;color:#2f4a66!important;font-weight:600}
+/* Link Steps: show the whole ingredient list (no hidden inner scroll box) */
+#recipeIngredientLinks .recipe-link-choices{max-height:none!important;overflow:visible!important}

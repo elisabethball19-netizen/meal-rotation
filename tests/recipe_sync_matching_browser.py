@@ -67,6 +67,8 @@ def run(browser, name):
     p.locator('.recipe-link-apply-sort').click()
     assert p.evaluate("document.querySelector('#ingredients').value").split('\n') == lines
     sb.shot(p, name, 'batch6-sorted-links')
+    last = p.locator('.recipe-link-choices label').last
+    assert last.is_visible() and p.evaluate("(()=>{const l=document.querySelector('.recipe-link-choices');return l.scrollHeight<=l.clientHeight+1})()"), 'whole list visible'
     p.locator('#editor').get_by_role('button', name='Save', exact=True).click()
     p.wait_for_timeout(300)
     rec = p.evaluate('sync6.record()')
