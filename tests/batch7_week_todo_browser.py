@@ -15,7 +15,9 @@ sb.fixture.HOOK += '''window.batch7={
  week:()=>{showTop=true;allMealsActive=true;groceryTabActive=false;overviewWeekOffset=0;render()},
  view:()=>appViewSnapshot().view,
  home:()=>{showTop=true;allMealsActive=false;groceryTabActive=false;rotationWeekOffset=0;render()},
- viewer:()=>!!recipeViewer
+ viewer:()=>!!recipeViewer,
+ size:v=>{mealTextSize=v;document.body.dataset.mealTextSize=v;applyMealTextSize()},
+ dish:()=>parseFloat(getComputedStyle(document.querySelector('.all-meals-day .overview-dish .mealname')).fontSize)
 };'''
 
 
@@ -39,6 +41,10 @@ def run(browser, name):
         assert p.evaluate('batch7.view()') == 'all' and not p.evaluate('batch7.viewer()'), 'Week task text must not navigate'
     sizes = p.evaluate("[...document.querySelectorAll('.all-meals-day .overview-dish')].map(e=>{const t=e.querySelector('.mealname')||e;const c=getComputedStyle(t);return c.fontSize+'/'+c.fontWeight})")
     assert len(set(sizes)) == 1 and sizes[0].endswith('/400'), sizes
+    normal = p.evaluate('batch7.dish()')
+    p.evaluate("batch7.size('extra')")
+    assert p.evaluate('batch7.dish()') > normal + 2, 'Week dishes follow Text Size'
+    p.evaluate("batch7.size('normal')")
     sb.shot(p, name, 'batch7-week')
     # To-Do collapse is remembered across reload.
     p.evaluate('batch7.home()')
