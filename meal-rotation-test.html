@@ -4100,7 +4100,8 @@ function renderTodayTodo(provided=null){
   if(rotationWeekOffset?!upcomingOccurrences.has(JSON.stringify([rotationOccurrenceKey({...item.entry,planId:item.plan.id}),item.scheduled])):item.due>today)return false;
   seen.add(id);return true;
  }).sort((a,b)=>Number(a.complete)-Number(b.complete)||a.due.localeCompare(b.due));
- if(!items.some(item=>!item.complete)){visibility?.remove();if(old&&provided&&old.querySelector('#todoTaskItems:not([hidden])'))fadeOutTodo(old);else if(!old?.dataset.fading)old?.remove();return}
+ const shopRows=rotationWeekOffset?[]:shopEarlyReminders();
+ if(!items.some(item=>!item.complete)&&!shopRows.length){visibility?.remove();if(old&&provided&&old.querySelector('#todoTaskItems:not([hidden])'))fadeOutTodo(old);else if(!old?.dataset.fading)old?.remove();return}
  cancelTodoFade(old);
  const section=old||document.createElement('section');section.id='todaysTodo';section.setAttribute('aria-labelledby','todaysTodoHeading');
  const heading=section.querySelector('.today-todo-heading')||document.createElement('div');heading.className='today-todo-heading';
@@ -4113,6 +4114,7 @@ function renderTodayTodo(provided=null){
  const refresh=()=>{body.hidden=todoCollapsed[rotationWeekOffset];collapse.setAttribute('aria-expanded',String(!body.hidden));setRecipeToolbarIcon(collapse,body.hidden?'expand':'collapse',body.hidden?'Expand to-do tasks':'Collapse to-do tasks')};
  collapse.onclick=()=>{todoCollapsed[rotationWeekOffset]=!todoCollapsed[rotationWeekOffset];saveTodoCollapsed();refresh()};refresh();heading.replaceChildren(collapse,title,eye);section.replaceChildren(heading,body);
  for(const item of shown)body.append(makeAheadReminderRow(item,true));
+ for(const item of shopRows)body.append(shopEarlyReminderRow(item));
  visibility?.remove();if(!old)header.after(section);
 }
 let makeAheadDayTimer=null,makeAheadLocalDay=null;
@@ -4292,6 +4294,16 @@ function makeAheadReminderRow(item,today=false,options={}){
  // Week: task text does not open the meal (checkbox and long-press editing unchanged).
  text.onclick=event=>{event.preventDefault();event.stopPropagation();if(options.navigate!==false)navigateToPreparationMeal(item)};if(options.navigate===false)text.classList.add('make-ahead-task-plain');
  check.onchange=()=>setMakeAheadComplete(item,check.checked);label.append(check,text);bindPreparationTaskPress(label,item);return label;
+}
+// Plan ahead: "Shop early for X?" appears a week before a planned meal with Shop early on. Checking it only
+// dismisses the reminder; nothing is added to groceries.
+function shopEarlyReminders(){if(typeof plannedMealsFor!=='function')return [];const today=cookingLocalDate(new Date());return plannedMealsFor().filter(p=>{if(!p.shopEarly||p.shopDismissed||p.date<=today)return false;const start=parseCookingLocalDate(p.date);start.setDate(start.getDate()-7);return cookingLocalDate(start)<=today}).sort((a,b)=>a.date.localeCompare(b.date))}
+function shopEarlyReminderRow(item){
+ const row=document.createElement('div');row.className='make-ahead-reminder shop-early-reminder';row.dataset.plannedId=item.id;
+ const check=document.createElement('input');check.type='checkbox';check.className='check';
+ const text=document.createElement('span');text.className='make-ahead-task-link make-ahead-task-plain';text.textContent='Shop early for '+(meals.find(m=>String(m.id)===String(item.mealId))?.name||'your planned meal')+' ('+parseCookingLocalDate(item.date).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+')?';check.setAttribute('aria-label',text.textContent);
+ check.onchange=()=>{if(!check.checked)return;const before=JSON.parse(captureState());before.plannedMealsUndo=testStorage.getItem(PLANNED_MEALS_KEY);const list=plannedMealsFor();const target=list.find(p=>p.id===item.id);if(!target)return;target.shopDismissed=true;writePlannedMeals(activePlanId,list);snapshot(JSON.stringify(before));setTimeout(()=>renderTodayTodo(scheduledMakeAheadTasks(true)),450)};
+ row.append(check,text);return row;
 }
 function makeAheadTaskVisible(item,today=cookingLocalDate(new Date())){return typeof item.scheduled==='string'&&item.scheduled>=today}
 function makeAheadCardDate(item){return item.due}

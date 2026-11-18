@@ -16,7 +16,9 @@ sb.fixture.HOOK += '''const b13Store=()=>typeof testStorage!=='undefined'?testSt
  dates:()=>{const plan=mealPlans.find(p=>p.id===activePlanId),cur=getDisplayedWeekdayMealsForPlan({...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}).filter(e=>!e.linkedTo&&!e.servingParentId&&!e.occasional&&e.cat&&e.cat!=='@day').map(e=>cookingLocalDate(scheduledOccurrenceDate({...e,planId:activePlanId},plan.rotationCalendar))),nx=previewMealPlanAdvance();return [cur,nx.entries.filter(e=>!e.linkedTo&&!e.servingParentId&&!e.occasional&&e.cat&&e.cat!=='@day').map(e=>cookingLocalDate(scheduledOccurrenceDate({...e,planId:activePlanId},nx.plan.rotationCalendar)))]},
  rice:()=>meals.filter(m=>m.cat==='Rice').map(m=>m.name),
  plans:()=>plannedMealsFor().map(p=>[p.date,meals.find(m=>String(m.id)===p.mealId)?.name,p.shopEarly,p.applied]),
+ dismissed:()=>plannedMealsFor().filter(p=>p.shopDismissed).map(p=>p.date),
  undo:()=>document.getElementById('undo').click(),
+ seedShop:date=>{const list=plannedMealsFor();list.push({id:'shop-'+date,date,mealId:String(meals.find(m=>m.cat==='Rice').id),shopEarly:true,applied:null});writePlannedMeals(activePlanId,list);makeAheadDisplayPrefs.showMakeAheadReminders=true;saveMakeAheadDisplayPrefs();batch13.home()},
  home:()=>{showTop=true;allMealsActive=false;groceryTabActive=false;rotationWeekOffset=0;render()}
 };'''
 
@@ -67,6 +69,17 @@ def run(browser, name):
     p.reload()
     p.wait_for_function('window.batch13')
     assert len(p.evaluate('batch13.plans()')) == 3 and p.evaluate('([w,d])=>batch13.main(w,d)', [0, d0])[0] == pick0
+    # Shop early: a reminder in Today's To-Do within a week of the date (not earlier); checking dismisses only.
+    p.evaluate("batch13.seedShop('2026-11-27')")
+    assert p.locator('.shop-early-reminder').count() == 0, 'more than a week away'
+    p.evaluate("batch13.seedShop('2026-11-21')")
+    rem = p.locator('.shop-early-reminder')
+    assert rem.count() == 1 and 'Shop early for' in rem.inner_text(), p.locator('#list').inner_text()[:300]
+    sb.shot(p, name, 'batch13-shop-early')
+    rem.locator('input').check()
+    p.wait_for_timeout(2500)
+    assert p.locator('.shop-early-reminder').count() == 0, (p.evaluate('batch13.dismissed()'), errors, p.locator('#todaysTodo').inner_text())
+    assert [x for x in p.evaluate('batch13.plans()') if x[0] == '2026-11-21']
     # A real Start next week keeps next week's planned meal in place.
     p.evaluate('batch13.home()')
     p.locator('.start-week-text').first.click()
