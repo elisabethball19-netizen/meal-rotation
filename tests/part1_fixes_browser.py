@@ -50,8 +50,9 @@ def run(browser, name):
     # Favorite heart stays on the same line as a long name.
     p.evaluate('p1.heart()')
     p.wait_for_timeout(300)
-    pos = p.evaluate("""()=>{const h=document.querySelector('.expanded-name-heart'),e=h.closest('.linked-name-ending'),a=h.getBoundingClientRect(),b=(e||h.parentElement).getBoundingClientRect(),last=e?e.querySelector('.master-category-meal-name').getBoundingClientRect():b;return [!!e,a.top,a.bottom,last.top,last.bottom]}""")
-    assert pos[0] and pos[1] < pos[4] and pos[2] > pos[3], pos  # heart shares the last word's line
+    wm = p.evaluate("""()=>{const w=document.querySelector('.favorite-watermark');if(!w)return null;const cs=getComputedStyle(w),n=w.parentElement.querySelector('.master-category-meal-name').getBoundingClientRect(),b=w.getBoundingClientRect();return [cs.pointerEvents,w.querySelector('.sr-only').textContent,b.left<n.left+20&&b.right>n.left+10,document.querySelector('.expanded-name-heart')===null]}""")
+    sb.shot(p, name, 'part2a-watermark')
+    assert wm == ['none', 'Favorite', True, True], wm  # faint, untappable, overlaps the first letters, no tappable heart in the row
     # Curry powder with leading descriptors matches the shorter step wording.
     p.evaluate('([i,s])=>sync6.fixture(i,s)', [['3 tsp mild yellow curry powder, divided', '1 tbsp olive oil'], ['Season with salt.', 'Stir in remaining 1 1/2 tsp curry powder and olive oil.']])
     m = p.evaluate('sync6.matches()')

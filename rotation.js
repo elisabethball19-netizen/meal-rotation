@@ -1164,7 +1164,7 @@ function openHelpModal(){
   ['Grocery List','Review ingredients from the tabs you include; select, deselect, or hide checked groceries.'],
   ['Settings and backups','Configure display and weekday options, export or restore backups. Review changes before saving or discarding.']
  ]:[
-  ['Open a group','Tap its heading or chevron to expand or collapse it. Use the top controls to expand or collapse all groups.'],
+  ['Open a group','Tap its heading or chevron to expand or collapse it. Opening one section closes the others.'],
   ['Edit a group','Tap its pencil to rename or delete it. Long-press a group name or blank card area and drag to save a custom display order. Reset to Weekday Order restores automatic ordering without changing assignments.'],
   ['Add a meal','Tap + to add a meal to the selected group.'],
   ['Edit a meal','Choose Edit meal from its meal actions. The editor opens beneath the selected meal.'],

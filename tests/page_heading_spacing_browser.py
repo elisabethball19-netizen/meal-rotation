@@ -84,7 +84,7 @@ def run(browser,filename,width,size='normal',long=False):
  # Sticky controls still operate: rotate menu, grocery source toggle, group expansion.
  p.evaluate('headingTest.plan','original');view(p,'rotation');p.get_by_role('button',name='Rotate Meals',exact=True).tap();p.get_by_role('dialog',name='Rotate out recipes').get_by_role('button',name='Close',exact=True).tap()
  view(p,'grocery');button=p.locator('.grocery-ingredient-name').first;button.tap();assert button.get_attribute('aria-expanded')=='true';button.tap();assert button.get_attribute('aria-expanded')=='false'
- view(p,'groups');p.get_by_role('button',name='Expand all groups',exact=True).tap();assert p.locator('.master-category-meals').count()>0;p.get_by_role('button',name='Collapse all groups',exact=True).tap()
+ view(p,'groups');assert p.get_by_role('button',name='Expand all groups',exact=True).count()==0
  # A custom order shows the existing reset control between header and first card.
  p.evaluate('headingTest.custom()');m=p.evaluate(METRICS,'groups');reset=p.get_by_role('button',name='Reset to Weekday Order',exact=True).bounding_box()
  assert abs(reset['y']-m['header']['bottom']-8)<1.1 and abs(m['first']['y']-reset['y']-reset['height']-8)<1.1,(m,reset)
