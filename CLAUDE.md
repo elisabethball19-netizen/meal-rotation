@@ -15,7 +15,7 @@ The latest explicit user instruction and approved task take precedence. These do
 - Preserve all saved data and `localStorage` compatibility (`version: 2` JSON import/export). NEVER clear site data.
 - Keep existing `meal-rotation-test.html` equivalent where applicable, retaining isolated storage/test features; do not create extra versions.
 - Respect occurrence/plan/week isolation, cancellation, atomic updates, and Undo/Redo.
-- For authorized implementation tasks, commit and push changes cleanly (via Pull Request when running in Claude web/mobile cloud sessions, or directly on `main` when instructed). Documentation-only updates do not authorize app changes.
+- For authorized implementation tasks, commit and push changes cleanly directly to `main` (standing user instruction, 2026-11-17: always push to `main` so the installed PWA updates, including in Claude web/mobile cloud sessions; no pull request unless the user asks for one). Documentation-only updates do not authorize app changes.
 - Use `README` and relevant existing test scripts to establish actual commands; report checks run, commit/PR status, and real deployment status. Do not invent phone verification.
 - Read the assigned issue or prompt for scope. Do not implement the whole backlog. Mark code-complete work as awaiting phone testing until confirmed.
 - Update only affected lasting decisions/backlog statuses; do not append conflicting corrections or rewrite every document.
