@@ -19,7 +19,8 @@ sb.fixture.HOOK += '''const b2Store=()=>typeof testStorage!=='undefined'?testSto
   const ids=[...new Set(getGroceryContributions(false,'both').map(x=>String(x.mealId)))];const first=meals.find(m=>String(m.id)===ids[0]);first.ingredients=[...lines];s[ids[0]]=[...lines];
   b2Store().setItem('mealRotationSelectedIngredientsV1',JSON.stringify(s));persist();showTop=true;allMealsActive=false;groceryTabActive=true;render();return ids},
  items:()=>[...document.querySelectorAll('.master-grocery-item .grocery-ingredient-name')].map(n=>n.firstChild.textContent),
- chooser:id=>openTopIngredientChooser(meals.find(m=>String(m.id)===String(id)))
+ chooser:id=>openTopIngredientChooser(meals.find(m=>String(m.id)===String(id))),
+ recipe:id=>[...meals.find(m=>String(m.id)===String(id)).ingredients]
 };'''
 
 
@@ -90,6 +91,26 @@ def run(browser, name):
     dlg.get_by_role('button', name='Select all', exact=True).click()
     assert all(switches.evaluate_all('(es)=>es.map(e=>e.checked)'))
     sb.shot(p, name, 'batch2-include-editor')
+    # Pencil renames only the shopping wording (staged until Save); trash turns the ingredient off; recipe unchanged.
+    recipe_before = p.evaluate('id=>batch2.recipe(id)', ids[0])
+    dlg.get_by_role('button', name='Edit shopping name for Kosher salt, to taste', exact=True).click()
+    ed = p.get_by_role('dialog', name='Edit ingredient', exact=True)
+    ed.get_by_role('textbox', name='Ingredient', exact=True).fill('Diamond Crystal kosher salt')
+    ed.get_by_role('button', name='Save ingredient', exact=True).click()
+    assert 'Shopping list: Diamond Crystal kosher salt' in dlg.inner_text()
+    dlg.get_by_role('button', name='Edit shopping name for Fresh cilantro, for garnish', exact=True).click()
+    ed.get_by_role('button', name='Delete ingredient', exact=True).click()
+    assert not dlg.get_by_role('switch', name='Include Fresh cilantro, for garnish', exact=True).is_checked()
+    sb.shot(p, name, 'batch2-include-rename')
+    dlg.get_by_role('button', name='Save', exact=True).click()
+    p.wait_for_timeout(300)
+    items = p.evaluate('batch2.items()')
+    assert 'Diamond Crystal kosher salt' in items and 'Kosher salt' not in items and 'Fresh cilantro' not in items, items
+    assert p.evaluate('id=>batch2.recipe(id)', ids[0]) == recipe_before, 'recipe unchanged'
+    p.locator('#undo').click()
+    p.wait_for_timeout(300)
+    items = p.evaluate('batch2.items()')
+    assert 'Kosher salt' in items and 'Fresh cilantro' in items and 'Diamond Crystal kosher salt' not in items, items
     assert not errors, errors
     c.close()
     print('PASS', name, 'batch 2: shopping names, skipped lines, user names win, item pencil, recipe lines, multi-recipe editor, include editor', flush=True)

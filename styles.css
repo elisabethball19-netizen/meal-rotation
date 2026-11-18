@@ -2142,3 +2142,5 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .plan-ahead-choice{text-align:left;min-height:40px}
 .plan-ahead-choice[aria-pressed="true"]{background:#e8f0fa;font-weight:600}
 .plan-ahead-add{align-self:flex-start}
+.grocery-include-rename{display:block;color:#637080;font-size:calc(12px * var(--meal-text-factor, 1))}
+.grocery-include-edit{flex:0 0 40px;min-width:40px!important}
