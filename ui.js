@@ -1993,7 +1993,7 @@ function openRotateOptions(allTabs=false){
   localStorage.setItem(ROTATE_MARK_COOKED_KEY,String(cooked.checked));d.close();
   advanceMealPlanWeek(boxes.every(x=>x.check.checked)?null:slots,allTabs,cooked.checked,retained,before);
   if(history.at(-1)!==previous){
-   saveManualGroceryItems(before.manualGroceriesUndo.filter(item=>!item.checked));
+   saveManualGroceryItems(before.manualGroceriesUndo.filter(item=>!item.checked));refreshRepeatingRegularItems();
    const undo=JSON.parse(history.at(-1)),keys=new Set();
    for(const [old,current]of [[cookingBefore.sessions,cookingSessions.occurrences],[cookingBefore.scales,occurrenceScales.occurrences]])for(const key of new Set([...Object.keys(old),...Object.keys(current)]))if(JSON.stringify(old[key])!==JSON.stringify(current[key]))keys.add(key);
    undo.startWeekUndo=true;undo.skippedCookingState={keys:[...keys],...cookingBefore};history[history.length-1]=JSON.stringify(undo);

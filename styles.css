@@ -2104,3 +2104,18 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .recipe-link-sort{display:inline-flex!important;align-items:center;min-height:36px;padding:4px 14px!important;border:1px solid #9fb0c3!important;border-radius:18px!important;background:#fff!important;color:#2f4a66!important;font-weight:600}
 /* Link Steps: show the whole ingredient list (no hidden inner scroll box) */
 #recipeIngredientLinks .recipe-link-choices{max-height:none!important;overflow:visible!important}
+
+/* Regular grocery items */
+.regular-groceries-list{display:flex;flex-direction:column;max-height:50vh;overflow-y:auto;overscroll-behavior:contain;margin:6px 0}
+.regular-grocery-row{padding:6px 0;border-bottom:1px solid #eef1f4}
+.regular-grocery-top{display:flex;align-items:center;gap:6px}
+.regular-grocery-name{flex:1;min-width:0;overflow-wrap:anywhere}
+.regular-grocery-top input{flex:1;min-width:0}
+.regular-grocery-top input.regular-grocery-amount,.regular-grocery-add .regular-grocery-amount{flex:0 0 90px;width:90px}
+.regular-grocery-switches{display:flex;gap:18px;margin-top:2px}
+.regular-grocery-switch{display:flex;align-items:center;gap:8px;font-size:calc(13px * var(--meal-text-factor, 1));color:#4b5866;min-height:36px}
+.regular-grocery-add{display:flex;gap:6px;align-items:center;margin-top:6px}
+.regular-grocery-add input:not(.regular-grocery-amount){flex:1;min-width:0}
+/* Groceries toolbar: keep all icons on one row on narrow phones */
+.grocery-header-icons{flex-wrap:nowrap!important;width:100%;justify-content:space-between}
+.grocery-header-icons>button{flex:1 1 0!important;min-width:36px!important;max-width:48px}
