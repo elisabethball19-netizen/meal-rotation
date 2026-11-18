@@ -31,6 +31,15 @@ fixture.HOOK+='''window.follow126={
  advance:()=>advanceMealPlanWeek(),undo:()=>{const s=JSON.parse(history.pop());redoHistory.push(captureHistoryCounterpart(s));restoreState(s)},redo:()=>{const s=JSON.parse(redoHistory.pop());history.push(captureHistoryCounterpart(s));restoreState(s)},
  editor:()=>openEditor(getDisplayedWeekdayMealsForPlan(mealPlans[0])[0].meal.id,false,captureMealEditorOrigin()),settings:()=>{showTop=true;topSettingsOpen=true;renderMenu()},backup:()=>{const b=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(b);return b}
 };'''
+# Issue 127: Add side is one dialog (search/new name, Mix it up) and card side edits save as made.
+def open_add(p,scope):
+ if not p.get_by_role('dialog',name='Add side',exact=True).count():scope.get_by_role('button',name='Add side',exact=True).click()
+def add_simple(p,scope,name):
+ open_add(p,scope);d=p.get_by_role('dialog',name='Add side',exact=True);d.get_by_role('searchbox').fill(name);d.get_by_role('button',name='Add selected side',exact=True).click();p.wait_for_timeout(250)
+def open_side(row):
+ if not row.locator('.inline-side-body').count():row.get_by_role('button',name='Side actions',exact=False).click()
+def add_recipe(p,scope,text,meal_id):
+ open_add(p,scope);d=p.get_by_role('dialog',name='Add side',exact=True);d.get_by_role('searchbox').fill(text);d.locator('[data-meal-id="%s"]'%meal_id).click();d.get_by_role('button',name='Add selected side',exact=True).click();p.wait_for_timeout(250)
 OUT=Path('/workspace/work/follow126/screenshots');OUT.mkdir(parents=True,exist_ok=True)
 def shot(p,name,label):p.screenshot(path=str(OUT/(name+'-'+label+'.png')),full_page=False)
 def run(browser,name):
@@ -51,7 +60,7 @@ def run(browser,name):
  # One shared action layout and inline sides in both weeks; outer cancel is atomic.
  p.evaluate('follow126.seed();follow126.rules()');card=p.locator('.plan-meal-card[data-meal-id="2"]');assert p.locator('.plan-meal-card[data-meal-id="10"]').count()==0;assert card.get_by_text('Butter',exact=True).count()==1
  assert not card.locator('.shared-meal-actions').is_visible();card.locator('.meal-actions-toggle').click();assert card.locator('.shared-meal-actions').is_visible();assert card.locator('.shared-meal-action-grid button').count()==6;shot(p,name,'current-expanded');card.get_by_role('button',name='Add or edit sides',exact=True).click();assert card.get_by_text('Sides',exact=True).count();assert not p.get_by_role('dialog',name='Sides for Chili-Garlic Broth Bowls',exact=True).count();before=p.evaluate('follow126.state()')
- card.get_by_role('button',name='Add side',exact=True).click();p.get_by_role('button',name='Simple side',exact=True).click();card.get_by_role('textbox',name='Side name',exact=True).fill('Rice with a long descriptive label');assert card.get_by_role('switch',name='Always serve this side with Chili-Garlic Broth Bowls?',exact=True).is_visible();shot(p,name,'inline-simple');card.get_by_role('button',name='Cancel all side changes',exact=True).click();after=p.evaluate('follow126.state()');assert after==before,{k:[json.loads(before)[k],json.loads(after)[k]]for k in json.loads(before)if json.loads(before)[k]!=json.loads(after)[k]};p.wait_for_timeout(150)
+ add_simple(p,card,'Rice with a long descriptive label');assert card.get_by_role('switch',name='Always serve this side with Chili-Garlic Broth Bowls?',exact=True).is_visible();shot(p,name,'inline-simple');card.get_by_role('button',name='Close sides',exact=True).click();p.locator('#undo').click();after=p.evaluate('follow126.state()');assert after==before,{k:[json.loads(before)[k],json.loads(after)[k]]for k in json.loads(before)if json.loads(before)[k]!=json.loads(after)[k]};p.wait_for_timeout(150)
  # Grouped grocery name and disclosure have separate meanings; contribution pencil is always visible.
  p.evaluate('follow126.grocery()');p.get_by_role('switch',name='Group by meal',exact=True).check();assert p.locator('.grocery-view-control .preference-switch-thumb').is_visible();assert not p.locator('.grocery-meal-section .grocery-expand').count();assert not p.locator('.grocery-meal-section .grocery-recipe-source').count();assert p.locator('.grocery-meal-section .grocery-contribution-edit').first.is_visible();shot(p,name,'groceries-grouped')
  head=p.locator('.grocery-meal-section').first;head.locator('.grocery-meal-heading .iconbtn').click();assert not head.locator('.master-grocery-item').first.is_visible();head.locator('.grocery-meal-title').click();assert p.locator('#recipeViewer').count();p.evaluate('follow126.close()');p.wait_for_timeout(150)
