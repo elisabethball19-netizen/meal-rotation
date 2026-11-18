@@ -4153,21 +4153,24 @@ function reviewPhotoIngredients(text,originalText,kind='ingredients'){
 }
 const RECIPE_EDITOR_SECTIONS_KEY='mealRotationEditorSectionsV1';
 let recipeEditorSections={ingredients:false,instructions:false},recipeEditorReturn=null;
+// Batch 3: one row, the site name plus a pencil (no link icon); the URL field opens only from the pencil.
 function addRecipeEditorSourceLink(field){
- const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;flex-wrap:wrap';
- const link=document.createElement('a');link.textContent='Original recipe';link.target='_blank';link.rel='noopener noreferrer';
- const edit=document.createElement('button');edit.type='button';edit.className='ingredient-tool';edit.classList.add('recipe-source-action');setRecipeToolbarIcon(edit,'link','Edit recipe link');edit.querySelector('svg').style.cssText='width:18px;height:18px';
- field.before(row);row.append(link,edit);field.hidden=true;if(field.parentElement.tagName==='LABEL')field.parentElement.querySelector('span')?.setAttribute('hidden','');
+ const row=document.createElement('div');row.className='recipe-source-row';
+ const link=document.createElement('a');link.className='recipe-source-site';link.target='_blank';link.rel='noopener noreferrer';
+ const empty=document.createElement('span');empty.className='recipe-source-empty';empty.textContent='No recipe link';
+ const edit=document.createElement('button');edit.type='button';edit.className='iconbtn recipe-source-action';setIconButton(edit,'rename','Edit recipe link');
+ field.before(row);row.append(link,empty,edit);field.hidden=true;if(field.parentElement.tagName==='LABEL')field.parentElement.querySelector('span')?.setAttribute('hidden','');
  const previous=row.previousElementSibling;if(previous?.tagName==='LABEL'){field.setAttribute('aria-label',previous.textContent);previous.remove()}
  edit.onclick=()=>{field.hidden=!field.hidden;if(!field.hidden)field.focus({preventScroll:true})};
- const update=()=>{let url;try{url=new URL(field.value.trim())}catch(_){}const valid=url&&['http:','https:'].includes(url.protocol);link.hidden=!valid;const caption=valid?'Edit recipe link':'Add recipe link';edit.setAttribute('aria-label',caption);edit.title=caption;let text=edit.querySelector('span');if(!text){text=document.createElement('span');edit.append(text)}text.textContent=caption;if(valid)link.href=url.href;else link.removeAttribute('href')};
+ const update=()=>{let url;try{url=new URL(field.value.trim())}catch(_){}const valid=url&&['http:','https:'].includes(url.protocol);link.hidden=!valid;empty.hidden=!!valid;const caption=valid?'Edit recipe link':'Add recipe link';edit.setAttribute('aria-label',caption);edit.title=caption;if(valid){link.href=url.href;link.textContent=url.hostname.replace(/^www\./i,'')||url.href}else{link.removeAttribute('href');link.textContent=''}};
  field.addEventListener('input',update);update();return link;
 }
 function collapseRecipeEditorField(field,title){
  const label=field.parentElement,key=title==='Ingredients'?'ingredients':title==='Steps'?'instructions':'notes',group=makeSettingsGroup(key,title);
  const details=group.details;delete details.dataset.settingsGroup;details.classList.add('viewer-editor-section');details.dataset.editorSubsection=key;
  let saved={};try{saved=JSON.parse(localStorage.getItem(RECIPE_EDITOR_SECTIONS_KEY)||'{}')?.viewer||{}}catch(e){}
- details.open=typeof saved[key]==='boolean'?saved[key]:true;label.before(details);group.content.append(label);label.querySelector('span')?.remove();
+ // Batch 3: opening Edit recipe from the viewer always starts with these fields collapsed.
+ details.open=false;void saved;label.before(details);group.content.append(label);label.querySelector('span')?.remove();
  details.addEventListener('toggle',()=>{try{const prefs=JSON.parse(localStorage.getItem(RECIPE_EDITOR_SECTIONS_KEY)||'{}')||{};prefs.viewer={...prefs.viewer,[key]:details.open};localStorage.setItem(RECIPE_EDITOR_SECTIONS_KEY,JSON.stringify(prefs))}catch(e){}});
  return details;
 }

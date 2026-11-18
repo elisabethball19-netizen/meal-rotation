@@ -1918,6 +1918,21 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .unassigned-check{display:flex;align-items:center;justify-content:center;min-width:32px;min-height:44px}
 #recipeBulkToolbar{background:#fff!important;border-top:2px solid #8fa0b3!important;box-shadow:0 -4px 14px #2633423a!important}
 #recipeBulkToolbar button[aria-label="Done"]{font-weight:inherit!important;color:inherit!important}
+/* Batch 3: recipe source row, step picker */
+.recipe-source-row{display:flex;align-items:center;gap:6px;min-height:44px}
+.recipe-source-site{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#2c5d8f}
+.recipe-source-empty{color:#637080}
+.recipe-source-row .recipe-source-action{flex:none!important;min-width:44px;min-height:44px;padding:0!important;justify-content:center}
+.recipe-source-row .recipe-source-action svg{width:20px!important;height:20px!important}
+.recipe-step-picker-label{font-size:14px;margin:6px 0 4px}
+.recipe-step-picker{position:relative;margin:0 0 8px}
+.recipe-step-picker-button{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:6px 10px;border:1px solid #c7d0da;border-radius:10px;background:#fff;color:inherit;font:inherit;text-align:left}
+.recipe-step-picker-text{flex:1;min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.recipe-step-picker-button svg{width:18px;height:18px;flex:0 0 18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.recipe-step-picker-list{margin-top:4px;border:1px solid #c7d0da;border-radius:10px;background:#fff;box-shadow:0 4px 12px #26334222;max-height:260px;overflow:auto;overscroll-behavior:contain}
+.recipe-step-picker-option{display:block;width:100%;min-height:44px;padding:8px 10px;border:0;border-bottom:1px solid #edf0f3;background:transparent;color:inherit;font:inherit;text-align:left}
+.recipe-step-picker-option:last-child{border-bottom:0}
+.recipe-step-picker-option[aria-selected="true"]{background:#e8f0fa;font-weight:600}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -2865,7 +2880,7 @@ function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
 }
 function installRecipeIngredientLinkEditor(meal){
  const root=$('recipeIngredientLinks');if(!root)return;const body=root.querySelector('.settings-group-content');
- let draft=validRecipeIngredientLinks(meal),selected='',preview=null;const ingredientsField=$('ingredients');root.ingredientRemap=null;
+ let draft=validRecipeIngredientLinks(meal),selected='',preview=null,pickerOpen=false;const ingredientsField=$('ingredients');root.ingredientRemap=null;
  const draftMeal=()=>({...meal,ingredients:$('ingredients').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),instructions:$('recipeInstructions').value===instructionEditorText(meal.instructions)?meal.instructions:$('recipeInstructions').value});
  root.captureRecoveryDraft=()=>({links:JSON.parse(JSON.stringify(draft)),selectedStep:selected});root.getLinks=next=>validRecipeIngredientLinks(next||draftMeal(),draft);root.hasChanges=()=>JSON.stringify(root.getLinks())!==JSON.stringify(validRecipeIngredientLinks(meal));
  const stepNumber=text=>{const n=document.createElement('div');n.className='recipe-link-step-number';n.setAttribute('aria-label','Step '+text);n.textContent=text;return n};
@@ -2900,9 +2915,19 @@ function installRecipeIngredientLinkEditor(meal){
   if(preview){renderPreview();return}
   const help=document.createElement('p');help.className='muted';help.textContent='Select a step to review or change its ingredients.';body.append(help);
   if(items.steps.length&&items.ingredients.length){const sort=document.createElement('button');sort.type='button';sort.className='meal-editor-text-action recipe-link-sort';sort.textContent='Sort by steps';sort.onclick=()=>{const plan=recipeStepSortPlan({...draftMeal(),ingredientStepLinks:draft});if(!plan.changed){sort.textContent='Already in step order';return}preview=plan;render()};body.append(sort)}
-  const label=document.createElement('label');label.textContent='Instruction step';const select=document.createElement('select');select.setAttribute('aria-label','Instruction step for ingredient links');
-  for(const [n,item]of items.steps.entries()){const option=document.createElement('option');option.value=item.token;option.textContent=(n+1)+'. '+cleanInstructionBlock(item).text;select.append(option)}
-  if(items.steps.some(i=>i.token===selected))select.value=selected;selected=select.value;select.onchange=()=>{selected=select.value;render()};label.append(select);body.append(label);
+  // Batch 3: app picker instead of the native dropdown.
+  if(!items.steps.some(i=>i.token===selected))selected=items.steps[0]?.token||'';
+  const label=document.createElement('div');label.className='recipe-step-picker-label';label.textContent='Instruction step';
+  const picker=document.createElement('div');picker.className='recipe-step-picker';
+  const stepText=(n,item)=>(n+1)+'. '+cleanInstructionBlock(item).text,currentStep=items.steps.findIndex(i=>i.token===selected);
+  const button=document.createElement('button');button.type='button';button.className='recipe-step-picker-button';button.setAttribute('aria-label','Instruction step for ingredient links');button.setAttribute('aria-haspopup','listbox');button.setAttribute('aria-expanded',String(pickerOpen));
+  const shown=document.createElement('span');shown.className='recipe-step-picker-text';shown.textContent=currentStep>=0?stepText(currentStep,items.steps[currentStep]):'';
+  button.append(shown);button.insertAdjacentHTML('beforeend','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(pickerOpen?'m6 15 6-6 6 6':'m6 9 6 6 6-6')+'"/></svg>');
+  button.onclick=()=>{pickerOpen=!pickerOpen;render();body.querySelector('.recipe-step-picker-button')?.focus({preventScroll:true})};picker.append(button);
+  if(pickerOpen){const options=document.createElement('div');options.className='recipe-step-picker-list';options.setAttribute('role','listbox');options.setAttribute('aria-label','Instruction steps');
+   for(const [n,item]of items.steps.entries()){const option=document.createElement('button');option.type='button';option.className='recipe-step-picker-option';option.setAttribute('role','option');option.setAttribute('aria-selected',String(item.token===selected));option.textContent=stepText(n,item);option.onclick=()=>{selected=item.token;pickerOpen=false;render();body.querySelector('.recipe-step-picker-button')?.focus({preventScroll:true})};options.append(option)}
+   picker.append(options)}
+  body.append(label,picker);
   if(!items.steps.length){const message=document.createElement('p');message.className='muted';message.textContent='Add distinct instruction steps and ingredients to create links.';body.append(message);return}
   const automatic=recipeIngredientMatches({...current,ingredientStepLinks:[]}).get(selected)||[],entry=draft.find(link=>link.step===selected),chosen=new Set(entry?entry.ingredients:automatic);
   const reset=document.createElement('button');reset.type='button';reset.className='meal-editor-text-action';reset.textContent='Reset to automatic';reset.hidden=!entry;reset.onclick=()=>{draft=draft.filter(link=>link.step!==selected);render();root.dispatchEvent(new Event('change',{bubbles:true}))};
@@ -11081,21 +11106,24 @@ function reviewPhotoIngredients(text,originalText,kind='ingredients'){
 }
 const RECIPE_EDITOR_SECTIONS_KEY='mealRotationEditorSectionsV1';
 let recipeEditorSections={ingredients:false,instructions:false},recipeEditorReturn=null;
+// Batch 3: one row, the site name plus a pencil (no link icon); the URL field opens only from the pencil.
 function addRecipeEditorSourceLink(field){
- const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px';
- const link=document.createElement('a');link.textContent='Original recipe';link.target='_blank';link.rel='noopener noreferrer';
- const edit=document.createElement('button');edit.type='button';edit.className='ingredient-tool';edit.classList.add('recipe-source-action');setRecipeToolbarIcon(edit,'link','Edit recipe link');edit.querySelector('svg').style.cssText='width:18px;height:18px';
- field.before(row);row.append(link,edit);field.hidden=true;if(field.parentElement.tagName==='LABEL')field.parentElement.querySelector('span')?.setAttribute('hidden','');
+ const row=document.createElement('div');row.className='recipe-source-row';
+ const link=document.createElement('a');link.className='recipe-source-site';link.target='_blank';link.rel='noopener noreferrer';
+ const empty=document.createElement('span');empty.className='recipe-source-empty';empty.textContent='No recipe link';
+ const edit=document.createElement('button');edit.type='button';edit.className='iconbtn recipe-source-action';setIconButton(edit,'rename','Edit recipe link');
+ field.before(row);row.append(link,empty,edit);field.hidden=true;if(field.parentElement.tagName==='LABEL')field.parentElement.querySelector('span')?.setAttribute('hidden','');
  const previous=row.previousElementSibling;if(previous?.tagName==='LABEL'){field.setAttribute('aria-label',previous.textContent);previous.remove()}
  edit.onclick=()=>{field.hidden=!field.hidden;if(!field.hidden)field.focus({preventScroll:true})};
- const update=()=>{let url;try{url=new URL(field.value.trim())}catch(_){}const valid=url&&['http:','https:'].includes(url.protocol);link.hidden=!valid;const caption=valid?'Edit recipe link':'Add recipe link';edit.setAttribute('aria-label',caption);edit.title=caption;let text=edit.querySelector('span');if(!text){text=document.createElement('span');edit.append(text)}text.textContent=caption;if(valid)link.href=url.href;else link.removeAttribute('href')};
+ const update=()=>{let url;try{url=new URL(field.value.trim())}catch(_){}const valid=url&&['http:','https:'].includes(url.protocol);link.hidden=!valid;empty.hidden=!!valid;const caption=valid?'Edit recipe link':'Add recipe link';edit.setAttribute('aria-label',caption);edit.title=caption;if(valid){link.href=url.href;link.textContent=url.hostname.replace(/^www\./i,'')||url.href}else{link.removeAttribute('href');link.textContent=''}};
  field.addEventListener('input',update);update();return link;
 }
 function collapseRecipeEditorField(field,title){
  const label=field.parentElement,key=title==='Ingredients'?'ingredients':title==='Steps'?'instructions':'notes',group=makeSettingsGroup(key,title);
  const details=group.details;delete details.dataset.settingsGroup;details.classList.add('viewer-editor-section');details.dataset.editorSubsection=key;
  let saved={};try{saved=JSON.parse(testStorage.getItem(RECIPE_EDITOR_SECTIONS_KEY)||'{}')?.viewer||{}}catch(e){}
- details.open=typeof saved[key]==='boolean'?saved[key]:true;label.before(details);group.content.append(label);label.querySelector('span')?.remove();
+ // Batch 3: opening Edit recipe from the viewer always starts with these fields collapsed.
+ details.open=false;void saved;label.before(details);group.content.append(label);label.querySelector('span')?.remove();
  details.addEventListener('toggle',()=>{try{const prefs=JSON.parse(testStorage.getItem(RECIPE_EDITOR_SECTIONS_KEY)||'{}')||{};prefs.viewer={...prefs.viewer,[key]:details.open};testStorage.setItem(RECIPE_EDITOR_SECTIONS_KEY,JSON.stringify(prefs))}catch(e){}});
  return details;
 }

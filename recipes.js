@@ -215,7 +215,7 @@ function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
 }
 function installRecipeIngredientLinkEditor(meal){
  const root=$('recipeIngredientLinks');if(!root)return;const body=root.querySelector('.settings-group-content');
- let draft=validRecipeIngredientLinks(meal),selected='',preview=null;const ingredientsField=$('ingredients');root.ingredientRemap=null;
+ let draft=validRecipeIngredientLinks(meal),selected='',preview=null,pickerOpen=false;const ingredientsField=$('ingredients');root.ingredientRemap=null;
  const draftMeal=()=>({...meal,ingredients:$('ingredients').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),instructions:$('recipeInstructions').value===instructionEditorText(meal.instructions)?meal.instructions:$('recipeInstructions').value});
  root.captureRecoveryDraft=()=>({links:JSON.parse(JSON.stringify(draft)),selectedStep:selected});root.getLinks=next=>validRecipeIngredientLinks(next||draftMeal(),draft);root.hasChanges=()=>JSON.stringify(root.getLinks())!==JSON.stringify(validRecipeIngredientLinks(meal));
  const stepNumber=text=>{const n=document.createElement('div');n.className='recipe-link-step-number';n.setAttribute('aria-label','Step '+text);n.textContent=text;return n};
@@ -250,9 +250,19 @@ function installRecipeIngredientLinkEditor(meal){
   if(preview){renderPreview();return}
   const help=document.createElement('p');help.className='muted';help.textContent='Select a step to review or change its ingredients.';body.append(help);
   if(items.steps.length&&items.ingredients.length){const sort=document.createElement('button');sort.type='button';sort.className='meal-editor-text-action recipe-link-sort';sort.textContent='Sort by steps';sort.onclick=()=>{const plan=recipeStepSortPlan({...draftMeal(),ingredientStepLinks:draft});if(!plan.changed){sort.textContent='Already in step order';return}preview=plan;render()};body.append(sort)}
-  const label=document.createElement('label');label.textContent='Instruction step';const select=document.createElement('select');select.setAttribute('aria-label','Instruction step for ingredient links');
-  for(const [n,item]of items.steps.entries()){const option=document.createElement('option');option.value=item.token;option.textContent=(n+1)+'. '+cleanInstructionBlock(item).text;select.append(option)}
-  if(items.steps.some(i=>i.token===selected))select.value=selected;selected=select.value;select.onchange=()=>{selected=select.value;render()};label.append(select);body.append(label);
+  // Batch 3: app picker instead of the native dropdown.
+  if(!items.steps.some(i=>i.token===selected))selected=items.steps[0]?.token||'';
+  const label=document.createElement('div');label.className='recipe-step-picker-label';label.textContent='Instruction step';
+  const picker=document.createElement('div');picker.className='recipe-step-picker';
+  const stepText=(n,item)=>(n+1)+'. '+cleanInstructionBlock(item).text,currentStep=items.steps.findIndex(i=>i.token===selected);
+  const button=document.createElement('button');button.type='button';button.className='recipe-step-picker-button';button.setAttribute('aria-label','Instruction step for ingredient links');button.setAttribute('aria-haspopup','listbox');button.setAttribute('aria-expanded',String(pickerOpen));
+  const shown=document.createElement('span');shown.className='recipe-step-picker-text';shown.textContent=currentStep>=0?stepText(currentStep,items.steps[currentStep]):'';
+  button.append(shown);button.insertAdjacentHTML('beforeend','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(pickerOpen?'m6 15 6-6 6 6':'m6 9 6 6 6-6')+'"/></svg>');
+  button.onclick=()=>{pickerOpen=!pickerOpen;render();body.querySelector('.recipe-step-picker-button')?.focus({preventScroll:true})};picker.append(button);
+  if(pickerOpen){const options=document.createElement('div');options.className='recipe-step-picker-list';options.setAttribute('role','listbox');options.setAttribute('aria-label','Instruction steps');
+   for(const [n,item]of items.steps.entries()){const option=document.createElement('button');option.type='button';option.className='recipe-step-picker-option';option.setAttribute('role','option');option.setAttribute('aria-selected',String(item.token===selected));option.textContent=stepText(n,item);option.onclick=()=>{selected=item.token;pickerOpen=false;render();body.querySelector('.recipe-step-picker-button')?.focus({preventScroll:true})};options.append(option)}
+   picker.append(options)}
+  body.append(label,picker);
   if(!items.steps.length){const message=document.createElement('p');message.className='muted';message.textContent='Add distinct instruction steps and ingredients to create links.';body.append(message);return}
   const automatic=recipeIngredientMatches({...current,ingredientStepLinks:[]}).get(selected)||[],entry=draft.find(link=>link.step===selected),chosen=new Set(entry?entry.ingredients:automatic);
   const reset=document.createElement('button');reset.type='button';reset.className='meal-editor-text-action';reset.textContent='Reset to automatic';reset.hidden=!entry;reset.onclick=()=>{draft=draft.filter(link=>link.step!==selected);render();root.dispatchEvent(new Event('change',{bubbles:true}))};
