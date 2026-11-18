@@ -81,6 +81,28 @@ def run(browser, name):
     p.wait_for_timeout(300)
     assert p.evaluate('batch4.cat(%s)' % picked) == target, p.evaluate('batch4.cat(%s)' % picked)
     assert p.locator('.unassigned-row').count() == 1
+    # Undo restores the moved meal to Unassigned.
+    p.evaluate('batch4.undo()')
+    p.wait_for_timeout(200)
+    assert p.evaluate('batch4.cat(%s)' % picked) == '', 'Undo after Move'
+    p.evaluate('batch4.groups()')
+    p.locator('.master-group-section[data-group-section="unassigned"] .master-group-section-toggle').click() if not sections(p)['unassigned'][0] else None
+    # Delete asks first; after deleting, Undo brings the meal back.
+    row = p.locator('.unassigned-row').first
+    victim = row.get_attribute('data-meal-id')
+    row.locator('input').check()
+    p.locator('.unassigned-delete').click()
+    confirm = p.get_by_role('dialog').last
+    confirm.wait_for(state='visible')
+    sb.shot(p, name, 'batch4-delete-confirm')
+    yes = confirm.locator('button[aria-label^="Delete"],button[aria-label="Yes"],button[aria-label^="Confirm"]').first
+    yes.click()
+    p.wait_for_timeout(300)
+    assert not p.evaluate('batch4.exists(%s)' % victim), 'deleted'
+    p.evaluate('batch4.undo()')
+    p.wait_for_timeout(200)
+    assert p.evaluate('batch4.exists(%s)' % victim), 'Undo after Delete'
+    p.evaluate('batch4.groups()')
     # Bulk toolbar: Move with arrow, Done not emphasized.
     p.evaluate('batch4.organize(%r)' % target)
     bar = p.locator('#recipeBulkToolbar')
