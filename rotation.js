@@ -911,20 +911,36 @@ try{
   const nav=performance.getEntriesByType('navigation')[0];
   isPageReload=nav?nav.type==='reload':performance.navigation?.type===1;
 }catch(e){}
+// Batch 5: the first open on a new day starts on Meals; otherwise the app returns to the last page.
+// Last page + local day are a UI preference only (never part of meal data or backups).
+const lastViewKey='mealRotationLastViewV1';
+function appLocalDay(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function savedLastView(){try{const v=JSON.parse(localStorage.getItem(lastViewKey)||'null');return v&&typeof v.view==='string'&&typeof v.day==='string'?v:null}catch(e){return null}}
+function applyStartView(view){
+  showTop=view!=='category';allMealsActive=view==='all';groceryTabActive=view==='grocery';
+}
 // Start on My Meal Plan when there are no recipes, including after a test reset.
-if(isPageReload&&meals.length){
+if(meals.length){
   try{
-    const previousView=sessionStorage.getItem(currentViewKey);
-    if(previousView==='category')showTop=false;
-    else if(previousView==='top'||previousView==='all'||previousView==='grocery')showTop=true;
-    if(previousView==='all'){allMealsActive=true;groceryTabActive=false;}
-    else if(previousView==='grocery'){groceryTabActive=true;allMealsActive=false;}
-    else {allMealsActive=false;groceryTabActive=false;}
+    const saved=savedLastView(),sameDay=saved?.day===appLocalDay();
+    const previousView=isPageReload?sessionStorage.getItem(currentViewKey)||saved?.view:saved?.view;
+    if(sameDay&&['category','top','all','grocery'].includes(previousView))applyStartView(previousView);else applyStartView('top');
   }catch(e){}
 }
 function rememberCurrentView(){
-  try{sessionStorage.setItem(currentViewKey,!showTop?'category':allMealsActive?'all':groceryTabActive?'grocery':'top')}catch(e){}
+  const view=!showTop?'category':allMealsActive?'all':groceryTabActive?'grocery':'top';
+  try{sessionStorage.setItem(currentViewKey,view)}catch(e){}
+  const next=JSON.stringify({view,day:appLocalDay()});try{if(localStorage.getItem(lastViewKey)!==next)localStorage.setItem(lastViewKey,next)}catch(e){}
 }
+// Resuming from the background on a new day also starts on Meals, unless something is open.
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden||!meals.length)return;const saved=savedLastView();
+  if(!saved||saved.day===appLocalDay())return;
+  const busy=editId!==null||recipeViewer||document.querySelector('[role=dialog]:not([hidden]),dialog[open]');
+  if(busy){try{localStorage.setItem(lastViewKey,JSON.stringify({...saved,day:appLocalDay()}))}catch(e){}return}
+  const onMeals=showTop&&!allMealsActive&&!groceryTabActive;applyStartView('top');
+  if(onMeals)rememberCurrentView();else{render();window.scrollTo(0,0)}
+});
 // Rendered-page identity is also used to close Settings on navigation.
 let lastRenderedPageKey=null;
 const $=x=>document.getElementById(x);let backupRestoreReloadPending=false;window.addEventListener('mealRotationBeforeStorageReset',()=>{backupRestoreReloadPending=true});function persist(){if(backupRestoreReloadPending||mealPersistence.paused)return;saveUpNextOrder();if(hasDependentSideSlots()&&!coordinatingDependentSides&&!restoringRotationCalendars){const before=captureGroceryCheckStates();if(coordinateDependentSides())reconcileRotatedGroceryChecks(before,[]);saveActiveMealPlan()}reconcileRotationCalendars();reconcileAllCookingData();try{localStorage.setItem('mealRotationDataV1',JSON.stringify({cats,active,meals:meals.filter(meal=>!meal._scheduledEditorDraft)}))}catch(e){}}window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function captureState(){return JSON.stringify({upNextOrder:normalizedUpNextOrder(),groupIdentities:localStorage.getItem(GROUP_IDENTITIES_KEY),groceryTextUndo:localStorage.getItem('mealRotationGroceryTextOverridesV1'),groupRotation:localStorage.getItem(GROUP_ROTATION_KEY),lastRotationBefore:localStorage.getItem('mealRotationLastRotationBeforeV1'),cats,active,meals:meals.filter(meal=>!meal._scheduledEditorDraft),masterGroupOrder,groceryOccurrenceChecks,checkedIngredients:[...checkedIngredients],weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,pinnedCats,expandedCats,startWeekday,topCounts,categoryColors,weekdayColors,autoPinTopCategories,applyPinsToAllTabs,masterOpenMode,masterPinsOverride,mealPlans,activePlanId,showMealPlanTabs})}
