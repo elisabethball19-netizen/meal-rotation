@@ -71,6 +71,12 @@ def run(browser, name):
     dlg.wait_for(state='visible')
     text = dlg.inner_text()
     assert 'SERVE WITH' not in text and 'Serve with steamed rice' not in text and 'Kosher salt, to taste' in text, text[:400]
+    # Cancel with no changes closes without a save prompt (hidden serve-with lines don't count as changes).
+    dlg.get_by_role('button', name='Cancel', exact=True).click()
+    p.wait_for_timeout(250)
+    assert p.get_by_role('dialog', name='Edit groceries', exact=True).count() == 0, 'no save prompt without changes'
+    p.evaluate('id=>batch2.chooser(id)', ids[0])
+    dlg.wait_for(state='visible')
     # Include editor: toggles, intro sentence, no import controls or bulk trash, footer Deselect/Select/Save/Cancel.
     assert 'Choose which ingredients to include in your weekly shopping list.' in text
     switches = dlg.get_by_role('switch')
