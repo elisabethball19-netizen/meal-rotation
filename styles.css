@@ -2196,3 +2196,7 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .unassigned-bulk-tick .unassigned-tick-all{min-width:40px!important;min-height:40px!important;width:40px;height:40px;padding:4px!important}
 .unassigned-bulk-count{padding-left:4px}
 .unassigned-bulk-actions button{min-height:42px;flex-direction:row;gap:4px}
+/* Part 2c: one steady color per group (stripe + tinted header); assigned weekdays shown under the name. */
+.master-category-card[style*="--group-color"]{border-left:5px solid var(--group-color)}
+.master-category-days{font-weight:600;color:#4a5563}
+.master-category-card.master-category-this-week[style*="--group-color"]{border-left-color:var(--group-color)!important}

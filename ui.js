@@ -2128,6 +2128,10 @@ function saveMealGroupSettings(category,name,use){
 function masterDisplayPlan(){return mealPlans.find(p=>p.id===activePlanId)}
 function masterDisplayCategories(day){const plan=masterDisplayPlan();const raw=plan?.id===activePlanId?weekdayCategories[day]:plan?.weekdayCategories?.[day];return [...new Set((Array.isArray(raw)?raw:[raw]).filter(c=>typeof c==='string'&&cats.includes(c)))];}
 function masterDisplayOrder(){const assigned=[];for(const day of orderedDays())for(const c of masterDisplayCategories(day))if(!assigned.includes(c))assigned.push(c);return [...assigned,...cats.filter(c=>!assigned.includes(c))];}
+// Part 2c: every group gets one steady soft color derived from its saved group id (no new storage; survives renames/exports).
+const GROUP_PALETTE=['#d96c5f','#e09a3e','#c9b23a','#6fae5d','#3fa59a','#4f93c7','#7a83d6','#a678c9','#d575a3','#8a9099'];
+function groupColor(category){const key=groupIdentity(category)||String(category||'');let h=0;for(const ch of key)h=(h*31+ch.charCodeAt(0))>>>0;return GROUP_PALETTE[h%GROUP_PALETTE.length]}
+function groupDayAbbreviations(category){return orderedDays().filter(d=>masterDisplayCategories(d).includes(category)).map(d=>String(d).slice(0,3))}
 function masterDisplayColor(category){const colors=[...new Set(orderedDays().filter(d=>masterDisplayCategories(d).includes(category)).map(colorForDay))];if(!colors.length)return '#ffffff';if(colors.length===1)return colors[0];return 'linear-gradient(90deg, '+colors.flatMap((color,i)=>[`${color} ${100*i/colors.length}%`,`${color} ${100*(i+1)/colors.length}%`]).join(', ')+')';}
 
 let masterReorderCategory=null;
@@ -2902,13 +2906,13 @@ function renderMasterCategories(list){
    categoryMeals.sort((a,b)=>displayRank(a)-displayRank(b));
   }
   const card=document.createElement('section');card.className='master-category-card';card.dataset.category=category;
-  const header=document.createElement('div');header.className='master-category-header';header.style.background='#f8f9fa';if(activeGroupNames.has(category)){card.classList.add('master-category-this-week');}
+  const header=document.createElement('div');header.className='master-category-header';{const color=category?groupColor(category):'';header.style.background=color?'color-mix(in srgb,'+color+' 14%,#ffffff)':'#f8f9fa';if(color)card.style.setProperty('--group-color',color)}if(activeGroupNames.has(category)){card.classList.add('master-category-this-week');}
   const expanded=!groupReorderState&&masterExpandedCategories.has(category);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(expanded));
   toggle.onclick=()=>{if(groupReorderState)return;masterExpansionInitialized=true;const opening=!masterExpandedCategories.has(category);if(opening){if(!recipeBulkMode)masterExpandedCategories.clear();masterExpandedCategories.add(category)}else masterExpandedCategories.delete(category);if(recipeBulkMode){recipeBulkFocus={cat:category,rotation:true};bulkRecipeRender()}else renderList();if(opening&&!recipeBulkMode)requestAnimationFrame(()=>{const target=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category);if(target)target.scrollIntoView({behavior:'smooth',block:'start'});});};
   const chevron=document.createElementNS('http://www.w3.org/2000/svg','svg');chevron.setAttribute('viewBox','0 0 24 24');chevron.setAttribute('aria-hidden','true');chevron.innerHTML=expanded?'<path d="m6 15 6-6 6 6"/>':'<path d="m6 9 6 6 6-6"/>';toggle.append(chevron);
   const name=document.createElement('strong');name.textContent=category||'Unassigned';toggle.append(name);
-  const count=document.createElement('span');count.className='master-category-count';count.textContent=categoryMeals.length+' '+(categoryMeals.length===1?'meal':'meals');toggle.append(count);
+  const count=document.createElement('span');count.className='master-category-count';count.textContent=categoryMeals.length+' '+(categoryMeals.length===1?'meal':'meals');toggle.append(count);{const days=category?groupDayAbbreviations(category):[];if(days.length){const line=document.createElement('span');line.className='master-category-days';line.textContent=' · '+days.join(' · ');count.append(line)}}
 
   header.append(toggle);
   {

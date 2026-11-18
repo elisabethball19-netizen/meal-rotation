@@ -14,6 +14,7 @@ sb.fixture.HOOK += '''window.p2a={
  sections:()=>[...document.querySelectorAll('.master-group-section')].map(s=>[s.dataset.groupSection,[...s.querySelectorAll('.master-category-card,.master-category')].length,s.querySelector('.master-group-section-body').hidden]),
  picker:()=>{showTop=true;allMealsActive=false;render();openRecurringDayEditor('Monday')},
  unassign:()=>{meals.slice(0,3).forEach(m=>{m.cat=''});persist();for(const k of ['weekly','other','unassigned'])setGroupPageSectionOpen(k,k==='unassigned');showTop=false;allMealsActive=true;render();return meals.filter(m=>m.cat==='').length},
+ weeklyOpen:()=>{for(const k of ['weekly','other','unassigned'])setGroupPageSectionOpen(k,k==='weekly');showTop=false;allMealsActive=true;render()},
  edit:cat=>openMasterCategoryEditMenu(cat),
  names:key=>[...document.querySelectorAll('.master-group-section[data-group-section="'+key+'"] .master-category-heading,.master-group-section[data-group-section="'+key+'"] h3')].map(x=>x.textContent)
 };'''
@@ -47,6 +48,13 @@ def run(browser, name):
     assert 4 <= gap <= 8, gap
     p.locator('.recipe-bulk-dialog button[aria-label^="Cancel"]').first.click()
     p.wait_for_timeout(300)
+    p.evaluate('p2a.weeklyOpen()')
+    p.wait_for_timeout(300)
+    days = p.locator('.master-category-days').all_inner_texts()
+    assert days and all(d.strip(' ·') for d in days), days
+    colors = p.locator('.master-category-card').evaluate_all('xs=>xs.map(x=>x.style.getPropertyValue("--group-color")).filter(Boolean)')
+    assert len(colors) >= 3 and len(set(colors)) >= 2, colors
+    sb.shot(p, name, 'part2c-group-colors')
     n = p.evaluate('p2a.unassign()')
     p.wait_for_timeout(400)
     bar = p.locator('.unassigned-bulk-bar')
