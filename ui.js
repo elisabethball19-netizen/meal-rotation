@@ -3442,7 +3442,8 @@ function openTopIngredientChooser(meal){
   let pendingIngredientImportUrl=String(meal.ingredientImportUrl||'');let pendingRecipeDetails=null;
   const overlay=document.createElement('div');overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label','Edit groceries');overlay.dataset.recipeEditDraft='true';overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
   const box=document.createElement('div');box.style.cssText='background:white;color:#222;border-radius:14px;padding:18px;max-width:520px;width:100%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 30px #0004';
-  const title=document.createElement('h3');title.textContent='Add ingredients to grocery list';title.style.marginTop='0';
+  const title=document.createElement('h3');title.textContent='Ingredients to include';title.style.marginTop='0';
+  const intro=document.createElement('p');intro.className='muted grocery-include-intro';intro.textContent='Choose which ingredients to include in your weekly shopping list.';
   const list=document.createElement('div');list.style.cssText='overflow-y:auto;min-height:0;flex:1 1 auto';
   const checks=[];const manualReselections=new Set();
   const renamedIngredients=[];
@@ -3480,11 +3481,12 @@ function openTopIngredientChooser(meal){
     orderedIngredients.sort((a,b)=>Number(selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(b.line)))-Number(selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(a.line))));
     orderedIngredients.forEach(({line,index})=>{
       const label=document.createElement('label');
-      label.style.cssText='display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #eee;touch-action:pan-y';
+      label.className='grocery-include-row';label.style.cssText='display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #eee;touch-action:pan-y';
       label.title='Long press to edit ingredient; swipe right to delete';
-      const cb=document.createElement('input');cb.type='checkbox';cb.checked=selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(line));cb.style.cssText='flex:0 0 auto;margin-top:4px';cb.onchange=()=>{if(cb.checked)manualReselections.add(ingredientKey(line));rememberCheckedIngredients();const scroll=list.scrollTop;renderIngredientRows();list.scrollTop=scroll};
-      const text=document.createElement('span');text.textContent=line;
-      label.append(cb,text);
+      // Batch 2: inclusion is an on/off toggle (purchased state stays a checkbox on the grocery list).
+      const cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('role','switch');cb.className='preference-switch grocery-include-switch';cb.setAttribute('aria-label','Include '+line);cb.checked=selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(line));cb.style.cssText='flex:0 0 auto';cb.onchange=()=>{if(cb.checked)manualReselections.add(ingredientKey(line));rememberCheckedIngredients();const scroll=list.scrollTop;renderIngredientRows();list.scrollTop=scroll};
+      const text=document.createElement('span');text.textContent=line;text.style.cssText='flex:1;min-width:0';
+      label.append(text,cb);
       let sx=0,sy=0,tracking=false,held=false,holdTimer=null;
       const cancelHold=()=>{clearTimeout(holdTimer);holdTimer=null};
       label.addEventListener('pointerdown',e=>{
@@ -3520,7 +3522,7 @@ function openTopIngredientChooser(meal){
       label.addEventListener('contextmenu',e=>{
         e.preventDefault();cancelHold();tracking=false;
       });
-      list.append(label);checks.push({line,cb});
+      list.append(label);checks.push({line,cb});decoratePreferenceSwitches(label);
     });
   }
   renderIngredientRows();
@@ -3641,8 +3643,9 @@ function openTopIngredientChooser(meal){
   let closeConfirmationOpen=false;
   async function requestClose(){const currentIngredients=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);const currentSelected=checks.filter(x=>x.cb.checked).map(x=>x.line);const ingredientsChanged=JSON.stringify(currentIngredients)!==JSON.stringify(originalIngredients)||pendingRecipeUrl!==String(meal.url||'')||pendingIngredientImportUrl!==String(meal.ingredientImportUrl||'')||!!pendingRecipeDetails;const selectionsChanged=JSON.stringify([...currentSelected].sort())!==JSON.stringify([...originalSelected].filter(x=>currentIngredients.includes(x)).sort());if(!ingredientsChanged&&!selectionsChanged){overlay.remove();return}if(closeConfirmationOpen)return;closeConfirmationOpen=true;try{const shouldSave=await appDialog('Save changes before closing?',null,'yesno');if(!overlay.isConnected)return;if(shouldSave){save.click()}else{meal.ingredients=[...originalIngredients];selectedByMeal[key]=[...originalSelected];overlay.remove()}}finally{closeConfirmationOpen=false}}
   cancel.onclick=requestClose;trackGroupPopup(overlay,requestClose);
-  [selectAll,deselectAll,deleteSelected,cancel,save].forEach(btn=>{btn.style.cssText='border:0;background:transparent;color:inherit;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:7px;cursor:pointer'});actions.append(selectAll,deselectAll,deleteSelected,save,cancel);
-  box.append(title,list,addRow,importRow,actions);overlay.append(box);
+  [selectAll,deselectAll,deleteSelected,cancel,save].forEach(btn=>{btn.style.cssText='border:0;background:transparent;color:inherit;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:7px;cursor:pointer'});actions.append(deselectAll,selectAll,save,cancel);
+  // Batch 2: importing stays in Edit recipe; this dialog only chooses what to shop for.
+  box.append(title,intro,list,addRow,actions);overlay.append(box);
   const chooserOpenedAt=Date.now();
   overlay.addEventListener('click',e=>{
     // Ignore the synthetic click generated when the finger that opened this

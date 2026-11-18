@@ -71,6 +71,19 @@ def run(browser, name):
     dlg.wait_for(state='visible')
     text = dlg.inner_text()
     assert 'SERVE WITH' not in text and 'Serve with steamed rice' not in text and 'Kosher salt, to taste' in text, text[:400]
+    # Include editor: toggles, intro sentence, no import controls or bulk trash, footer Deselect/Select/Save/Cancel.
+    assert 'Choose which ingredients to include in your weekly shopping list.' in text
+    switches = dlg.get_by_role('switch')
+    assert switches.count() == len([l for l in LINES if not p.evaluate('l=>batch2.skip(l)', l)]) and dlg.locator('input[type=checkbox]:not([role=switch])').count() == 0
+    assert dlg.get_by_role('button', name='Import ingredients from photo').count() == 0 and dlg.get_by_role('button', name='Take photo of ingredients').count() == 0
+    labels = dlg.locator('button[aria-label]').evaluate_all('(es)=>es.map(e=>e.getAttribute("aria-label"))')
+    footer = [x for x in labels if x in ('Deselect all', 'Select all', 'Save', 'Cancel', 'Delete selected')]
+    assert footer == ['Deselect all', 'Select all', 'Save', 'Cancel'], labels
+    dlg.get_by_role('button', name='Deselect all', exact=True).click()
+    assert not any(switches.evaluate_all('(es)=>es.map(e=>e.checked)'))
+    dlg.get_by_role('button', name='Select all', exact=True).click()
+    assert all(switches.evaluate_all('(es)=>es.map(e=>e.checked)'))
+    sb.shot(p, name, 'batch2-include-editor')
     assert not errors, errors
     c.close()
     print('PASS', name, 'batch 2: shopping names, skipped lines, user names win, item pencil, recipe lines, multi-recipe editor, include editor', flush=True)
