@@ -366,6 +366,7 @@ function renderAllMealsOverview(list){
  const section=document.createElement('section');section.className='all-meals-overview';section.setAttribute('aria-label','Weekly Overview');const heading=document.createElement('h2');heading.textContent='Weekly Overview';section.append(heading);
  const scope=showMealPlanTabs?mealPlans:mealPlans.filter(p=>p.id===activePlanId),current=scope.map(p=>{const plan=p.id===activePlanId?{...p,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:p;return {plan,entries:getDisplayedWeekdayMealsForPlan(plan)}}),upcoming=scope.map(p=>previewMealPlanAdvance(null,null,p.id)),sources=overviewWeekOffset?upcoming:current;
  const week=weekSelector(overviewWeekOffset,value=>{overviewWeekOffset=value;renderList({readOnly:true})});week.classList.add('overview-week-sticky');section.append(week);
+ {const planAhead=document.createElement('button');planAhead.type='button';planAhead.className='iconbtn plan-ahead-open';setIconButton(planAhead,'calendar','Plan ahead');planAhead.onclick=openPlanAheadDialog;heading.after(planAhead);heading.parentElement?.classList.add('has-plan-ahead')}
  const active=sources.find(s=>s.plan.id===activePlanId)||sources[0],start=active?mealPlanWeekStart(active.plan):cookingPlanningWeekStart(),dates=new Set(orderedDays().map(day=>cookingLocalDate(cookingDateInWeek(day,start))));
  for(const source of sources)for(const entry of source.entries)dates.add(cookingLocalDate(scheduledOccurrenceDate({...entry,planId:source.plan.id},source.plan.rotationCalendar)));
  const tasks=makeAheadDisplayPrefs.showMakeAheadReminders?scheduledMakeAheadTasks(true,upcoming).filter(t=>scope.some(p=>p.id===t.plan.id)):[];
@@ -1993,7 +1994,7 @@ function openRotateOptions(allTabs=false){
   localStorage.setItem(ROTATE_MARK_COOKED_KEY,String(cooked.checked));d.close();
   advanceMealPlanWeek(boxes.every(x=>x.check.checked)?null:slots,allTabs,cooked.checked,retained,before);
   if(history.at(-1)!==previous){
-   saveManualGroceryItems(before.manualGroceriesUndo.filter(item=>!item.checked));refreshRepeatingRegularItems();
+   saveManualGroceryItems(before.manualGroceriesUndo.filter(item=>!item.checked));refreshRepeatingRegularItems();setTimeout(()=>applyPlannedMeals(),0);
    const undo=JSON.parse(history.at(-1)),keys=new Set();
    for(const [old,current]of [[cookingBefore.sessions,cookingSessions.occurrences],[cookingBefore.scales,occurrenceScales.occurrences]])for(const key of new Set([...Object.keys(old),...Object.keys(current)]))if(JSON.stringify(old[key])!==JSON.stringify(current[key]))keys.add(key);
    undo.startWeekUndo=true;undo.skippedCookingState={keys:[...keys],...cookingBefore};history[history.length-1]=JSON.stringify(undo);
@@ -4879,3 +4880,82 @@ function groupRotationAssignments(category){
   if(e.cancelable)e.preventDefault();
  },{passive:false,capture:true});
 })();
+// Plan Ahead: meals planned for specific future dates (one meal per date, per meal plan). Stored separately as a
+// UI-owned record so meal/plan data and backups stay compatible. A planned meal only changes the schedule when its
+// date reaches this week or next week; it is then applied through the normal "choose a meal" path (replacing that
+// day's main meal; sides unchanged), once. Nothing is added to groceries automatically.
+const PLANNED_MEALS_KEY='mealRotationPlannedMealsV1';
+function readPlannedMeals(){try{const v=JSON.parse(localStorage.getItem(PLANNED_MEALS_KEY)||'null');if(v&&v.version===1&&v.plans&&typeof v.plans==='object')return v}catch(e){}return {version:1,plans:{}}}
+function plannedMealsFor(planId=activePlanId){const list=readPlannedMeals().plans[String(planId)];return Array.isArray(list)?list.filter(p=>p&&typeof p.id==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(p.date)&&meals.some(m=>String(m.id)===String(p.mealId))):[]}
+function writePlannedMeals(planId,list){const all=readPlannedMeals();if(list.length)all.plans[String(planId)]=list;else delete all.plans[String(planId)];if(Object.keys(all.plans).length)localStorage.setItem(PLANNED_MEALS_KEY,JSON.stringify(all));else localStorage.removeItem(PLANNED_MEALS_KEY)}
+// The main meal slot shown on that date in this week (0) or next week (1), if any.
+function plannedDateSlot(planId,date){
+ const plan=mealPlans.find(p=>p.id===planId);if(!plan)return null;
+ const current={week:0,plan:planId===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan,entries:null};current.entries=getDisplayedWeekdayMealsForPlan(current.plan);
+ let next=null;try{const preview=previewMealPlanAdvance(null,null,planId);if(preview)next={week:1,plan:preview.plan,entries:preview.entries}}catch(e){}
+ for(const source of [current,next].filter(Boolean))for(const entry of source.entries){
+  if(entry.linkedTo||entry.servingParentId||entry.occasional||!entry.cat||entry.cat==='@day')continue;
+  if(cookingLocalDate(scheduledOccurrenceDate({...entry,planId},source.plan.rotationCalendar))!==date)continue;
+  return {week:source.week,day:entry.day,cat:entry.cat,mealId:String(entry.meal.id),key:simpleSideOccurrenceKey(source.plan,entry)};
+ }
+ return null;
+}
+function applyPlannedMeals(planId=activePlanId){
+ const list=plannedMealsFor(planId),today=cookingLocalDate(new Date());let changed=false,applied=0;
+ for(const item of list){
+  if(item.applied===item.date||item.date<today)continue;
+  const slot=plannedDateSlot(planId,item.date);if(!slot)continue;
+  if(slot.mealId!==String(item.mealId)){
+   const savedWeek=rotationWeekOffset;
+   try{rotationWeekOffset=slot.week;applyRecipeBulk([String(item.mealId)],{},{mealSelection:{planId,week:slot.week,day:slot.day,category:slot.cat,replaceFuture:[],mealId:String(item.mealId),occasional:false,sourceKey:null,destinationKey:slot.key},render:false});applied++}
+   catch(e){continue}finally{rotationWeekOffset=savedWeek}
+  }
+  item.applied=item.date;changed=true;
+ }
+ if(changed)writePlannedMeals(planId,list);
+ if(applied)renderList({readOnly:true});
+ return applied;
+}
+function openPlanAheadDialog(){
+ const planId=activePlanId,d=recipeBulkDialog('Plan ahead');d.panel.classList.add('plan-ahead-dialog');
+ const today=cookingLocalDate(new Date()),draft=plannedMealsFor(planId).map(p=>({...p}));
+ const intro=document.createElement('p');intro.className='muted';intro.textContent='Plan a meal for a future date. When that week comes up, it replaces the rotation meal for that day. Sides stay as they are.';
+ const list=document.createElement('div');list.className='plan-ahead-list';
+ const dateLabel=date=>parseCookingLocalDate(date).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:date.slice(0,4)===today.slice(0,4)?undefined:'numeric'});
+ let editing=null;
+ function drawList(){
+  list.replaceChildren();const upcoming=draft.filter(p=>p.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
+  if(!upcoming.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='No planned meals yet.';list.append(empty)}
+  for(const item of upcoming){const row=document.createElement('div');row.className='plan-ahead-row';row.dataset.date=item.date;
+   const when=document.createElement('span');when.className='plan-ahead-date';when.textContent=dateLabel(item.date);
+   const what=document.createElement('span');what.className='plan-ahead-meal';what.textContent=meals.find(m=>String(m.id)===String(item.mealId))?.name||'Recipe';
+   if(item.shopEarly){const tag=document.createElement('small');tag.className='plan-ahead-tag';tag.textContent=' · Shop early';what.append(tag)}
+   const edit=document.createElement('button');edit.type='button';edit.className='iconbtn';setIconButton(edit,'rename','Edit plan for '+dateLabel(item.date));edit.onclick=()=>{editing=item;fillForm(item)};
+   const remove=document.createElement('button');remove.type='button';remove.className='iconbtn';setIconButton(remove,'delete','Remove plan for '+dateLabel(item.date));remove.onclick=()=>{draft.splice(draft.indexOf(item),1);if(editing===item){editing=null;fillForm(null)}drawList()};
+   const text=document.createElement('div');text.className='plan-ahead-text';text.append(when,what);row.append(text,edit,remove);list.append(row)}
+ }
+ // Form: one date at a time.
+ const form=document.createElement('div');form.className='plan-ahead-form';
+ const date=document.createElement('input');date.type='date';date.min=today;date.className='manual-grocery-field';date.setAttribute('aria-label','Planned date');
+ const search=document.createElement('input');search.type='search';search.className='manual-grocery-field';search.placeholder='Search recipes';search.setAttribute('aria-label','Search recipes to plan');
+ const results=document.createElement('div');results.className='plan-ahead-results';let chosen=null;
+ const shopLabel=document.createElement('label');shopLabel.className='regular-grocery-switch';const shop=document.createElement('input');shop.type='checkbox';shop.setAttribute('role','switch');shop.className='preference-switch';shop.setAttribute('aria-label','Shop early');shopLabel.append(document.createTextNode('Shop early'),shop);
+ const add=document.createElement('button');add.type='button';add.className='smallbtn plan-ahead-add';
+ const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
+ function drawResults(){results.replaceChildren();const text=search.value.trim().toLowerCase(),pool=meals.filter(m=>!m._scheduledEditorDraft&&!m.temporaryMeal&&m.cat).filter(m=>!text||mealMatchesSearch(m,search.value.trim())).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const shown=chosen&&!pool.slice(0,6).includes(chosen)?[chosen,...pool.slice(0,5)]:pool.slice(0,6);
+  for(const meal of shown){const b=document.createElement('button');b.type='button';b.className='weekday-meal-choice plan-ahead-choice';b.textContent=meal.name;b.setAttribute('aria-pressed',String(chosen===meal));b.onclick=()=>{chosen=meal;drawResults()};results.append(b)}}
+ function fillForm(item){date.value=item?.date||'';chosen=item?meals.find(m=>String(m.id)===String(item.mealId))||null:null;shop.checked=!!item?.shopEarly;search.value='';add.textContent=item?'Update plan':'Add plan';error.textContent='';drawResults();decoratePreferenceSwitches(form)}
+ search.oninput=drawResults;
+ add.onclick=()=>{
+  if(!date.value||date.value<today){error.textContent='Choose a date from today on.';date.focus();return}
+  if(!chosen){error.textContent='Choose a recipe.';search.focus();return}
+  if(draft.some(p=>p!==editing&&p.date===date.value)){error.textContent='A meal is already planned for that date.';return}
+  const record={id:editing?.id||(crypto.randomUUID?.()||'plan-'+Date.now()+'-'+Math.random().toString(36).slice(2)),date:date.value,mealId:String(chosen.id),shopEarly:shop.checked,applied:editing&&editing.date===date.value&&String(editing.mealId)===String(chosen.id)?editing.applied??null:null};
+  if(editing)draft[draft.indexOf(editing)]=record;else draft.push(record);editing=null;fillForm(null);drawList();
+ };
+ form.append(date,search,results,shopLabel,add,error);
+ const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save planned meals');setIconButton(cancel,'cancel','Cancel');cancel.onclick=d.close;
+ save.onclick=()=>{try{const before=JSON.parse(captureState());before.plannedMealsUndo=localStorage.getItem(PLANNED_MEALS_KEY);writePlannedMeals(planId,draft);snapshot(JSON.stringify(before));d.close();applyPlannedMeals(planId);renderList({readOnly:true})}catch(e){error.textContent='Could not save: '+e.message}};
+ actions.append(save,cancel);d.panel.append(intro,list,form,actions);drawList();fillForm(null);fitOneTimeMealViewport(d.overlay,d.panel);
+}

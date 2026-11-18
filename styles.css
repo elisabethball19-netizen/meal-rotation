@@ -2127,3 +2127,18 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 #recipeViewer .recipe-timer-labelled{min-height:36px}
 #recipeViewer .recipe-timer-labelled .recipe-timer-icon{min-height:36px}
 #recipeViewer .recipe-timer-more{grid-column:1/-1;justify-self:start;min-height:32px;padding:2px 10px;border:1px solid #c7d0da;border-radius:16px;background:#fff;color:#2f4a66;font-size:calc(13px * var(--meal-text-factor, 1))}
+
+/* Plan ahead */
+.all-meals-overview{position:relative}
+.all-meals-overview>.plan-ahead-open{position:absolute;top:-6px;right:0}
+.plan-ahead-list{display:flex;flex-direction:column;max-height:34vh;overflow-y:auto;overscroll-behavior:contain;margin:4px 0 8px}
+.plan-ahead-row{display:flex;align-items:center;gap:4px;padding:4px 0;border-bottom:1px solid #eef1f4}
+.plan-ahead-text{flex:1;min-width:0;display:flex;flex-direction:column}
+.plan-ahead-date{font-size:calc(12px * var(--meal-text-factor, 1));color:#637080}
+.plan-ahead-meal{overflow-wrap:anywhere}
+.plan-ahead-tag{color:#637080}
+.plan-ahead-form{display:flex;flex-direction:column;gap:6px;border-top:1px solid #dde3ea;padding-top:8px}
+.plan-ahead-results{display:flex;flex-direction:column;max-height:30vh;overflow-y:auto;overscroll-behavior:contain}
+.plan-ahead-choice{text-align:left;min-height:40px}
+.plan-ahead-choice[aria-pressed="true"]{background:#e8f0fa;font-weight:600}
+.plan-ahead-add{align-self:flex-start}
