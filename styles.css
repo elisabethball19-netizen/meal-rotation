@@ -2164,3 +2164,13 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 #editor .meal-editor-serve .inline-side-heading>.iconbtn{min-height:34px;height:34px}
 #editor .meal-editor-serve .inline-side-name{padding:2px 0}
 #editor .meal-editor-serve .inline-sides-header{display:none}
+/* Fix part 1c: editor sides use a small left-hand arrow (rotates down when open) as the indent; rows are only as tall as their text. */
+#editor .meal-editor-serve>.settings-group-content{padding-left:0}
+#editor .meal-editor-serve .inline-side-heading{gap:0;min-height:30px}
+#editor .meal-editor-serve .inline-side-heading>.side-arrow-toggle{flex:0 0 40px;width:40px;min-width:40px;min-height:30px;height:30px;padding:0}
+#editor .meal-editor-serve .side-arrow-toggle svg{width:18px;height:18px;transition:transform .15s}
+#editor .meal-editor-serve .side-arrow-toggle[data-open="true"] svg{transform:rotate(90deg)}
+#editor .meal-editor-serve .inline-side-row{margin:0;padding:0}
+#editor .meal-editor-serve .inline-side-name{padding:0;line-height:1.25}
+#editor .meal-editor-serve .inline-side-body{padding-left:40px}
+#editor .meal-editor-serve .inline-side-heading>.side-arrow-toggle{min-width:40px!important;min-height:30px!important;height:30px!important;padding:0!important}

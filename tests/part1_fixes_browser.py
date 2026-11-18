@@ -14,7 +14,7 @@ import recipe_sync_matching_browser  # noqa: E402,F401  (adds the sync6 hooks)
 sb.fixture.HOOK += '''window.p1={
  heart:()=>{const m=meals.find(x=>x.cat);m.name='Thai Chicken Thukpa';m.favorite=true;m.needsTweaking=true;persist();showTop=false;allMealsActive=true;groceryTabActive=false;masterExpansionInitialized=true;masterExpandedCategories.clear();masterExpandedCategories.add(m.cat);for(const k of ['weekly','other','unassigned'])setGroupPageSectionOpen(k,true);render()},
  desc:offset=>{const d=new Date();d.setDate(d.getDate()+offset);return makeAheadTaskDescription({plan:{name:'Dinner'},entry:{day:'Monday',cat:''},scheduled:cookingLocalDate(d),task:{description:'Defrost chicken'},preview:false},true)},
- editor:()=>{const m=meals.find(x=>x.cat);showTop=false;allMealsActive=false;groceryTabActive=false;openEditor(m.id,false)}
+ editor:()=>{const m=meals.find(x=>x.cat);m.serveWithEntriesV1=[{id:'a1',type:'simple',name:'Easy Sourdough Bread',ingredients:[],always:true},{id:'a2',type:'simple',name:'Text',ingredients:[],always:true}];m.simpleSides=m.serveWithEntriesV1.map(x=>({id:x.id,name:x.name,ingredients:[]}));showTop=false;allMealsActive=false;groceryTabActive=false;openEditor(m.id,false)}
 };'''
 
 
@@ -70,6 +70,15 @@ def run(browser, name):
     rows = p.locator('.meal-editor-serve .inline-side-row')
     if rows.count():
         assert all(rows.nth(i).evaluate('e=>getComputedStyle(e).borderTopWidth') == '0px' for i in range(rows.count()))
+    arrows = serve.locator('.side-arrow-toggle')
+    assert arrows.count() == 2, arrows.count()
+    boxes = serve.locator('.inline-side-row').evaluate_all('xs=>xs.map(x=>x.getBoundingClientRect().height)')
+    assert all(h <= 36 for h in boxes), boxes
+    nm = serve.locator('.inline-side-name').first.bounding_box()['x']; ar = arrows.first.bounding_box()['x']
+    assert ar < nm, (ar, nm)
+    arrows.first.click(); p.wait_for_timeout(200)
+    assert arrows.first.get_attribute('data-open') == 'true'
+    arrows.first.click(); p.wait_for_timeout(200)
     assert serve.locator('.settings-group-content').evaluate('e=>getComputedStyle(e).borderTopWidth') == '0px'
     sb.shot(p, name, 'part1-editor-serve-sides')
     assert not errors, errors
