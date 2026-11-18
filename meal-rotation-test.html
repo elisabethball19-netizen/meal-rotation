@@ -7885,15 +7885,22 @@ function bindRecipePersonalName(name,meal,showFavorite=true){
  const wrap=document.createElement('span');wrap.className='recipe-personal-name';target.replaceWith(wrap);wrap.append(target);if(showFavorite&&meal.favorite===true)wrap.append(recipeFavoriteButton(meal));
 }
 
+// Plan ahead: a recipe planned within the next three weeks of this plan's week is ranked last for automatic
+// picks (a soft preference, never a removal, so slots don't go empty; manual choices are untouched).
+function deferPlannedRecipes(plan,list){
+ if(!plan||typeof plannedMealsFor!=='function'||!list.length)return list;
+ try{const start=mealPlanWeekStart(plan),end=new Date(start);end.setDate(end.getDate()+20);const from=cookingLocalDate(start),to=cookingLocalDate(end),soon=new Set(plannedMealsFor(plan.id).filter(p=>p.date>=from&&p.date<=to).map(p=>String(p.mealId)));
+  return soon.size?[...list.filter(m=>!soon.has(String(m.id))),...list.filter(m=>soon.has(String(m.id)))]:list}catch(e){return list}
+}
 function automaticRecipeCandidates(category,labels=[],library=meals,plan=null,derived=null){
  const cacheKey=derived&&JSON.stringify([plan?.id||'',category,labels]);if(derived?.candidates.has(cacheKey))return [...derived.candidates.get(cacheKey)];
  if(!groupUsesRotation(category))return [];
  const ordered=library.filter(meal=>recipeStatus(meal)==='rotation'&&meal.cat===category&&recipeMatchesFilters(meal,labels)).sort((a,b)=>{
   const x=recipeLastCookedTime(a),y=recipeLastCookedTime(b);return x===null?(y===null?0:-1):y===null?1:x-y;
  });
- const weighted=favoriteRotationPool(category,labels,library,plan,ordered);if(!weighted){if(derived)derived.candidates.set(cacheKey,ordered);return [...ordered]}
+ const weighted=favoriteRotationPool(category,labels,library,plan,ordered);if(!weighted){const result=deferPlannedRecipes(plan,ordered);if(derived)derived.candidates.set(cacheKey,result);return [...result]}
  const credit=m=>(Number.isFinite(weighted.scores[String(m.id)])?weighted.scores[String(m.id)]:0)+(m.favorite===true?2:1);
- const result=ordered.sort((a,b)=>credit(b)-credit(a));if(derived)derived.candidates.set(cacheKey,result);return [...result];
+ const result=deferPlannedRecipes(plan,ordered.sort((a,b)=>credit(b)-credit(a)));if(derived)derived.candidates.set(cacheKey,result);return [...result];
 }
 function allocateScheduledWeek(library,categories,plans,days,reservedPlanId=null,reservedByGroup=null){
  // These derived values are valid only within this immutable allocation, never across edits.

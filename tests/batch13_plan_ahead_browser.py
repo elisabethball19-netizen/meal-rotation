@@ -106,9 +106,31 @@ def run(browser, name):
     print('PASS', name, 'batch 13: plan ahead dialog, this/next week applied as main, far date waits, one per date, cancel, persist', flush=True)
 
 
+
+def run_avoid(browser, name):
+    """Rotation tries a recipe planned two weeks out last for next week's automatic slot."""
+    c, p, errors, prefix = sb.open_page(browser, name)
+    cur, nxt = p.evaluate('batch13.dates()')
+    auto_next = p.evaluate('([w,d])=>batch13.main(w,d)', [1, nxt[0]])[0]
+    from datetime import date, timedelta
+    far = (date.fromisoformat(nxt[0]) + timedelta(days=7)).isoformat()
+    p.evaluate('batch13.week()')
+    p.get_by_role('button', name='Plan ahead', exact=True).click()
+    d = p.get_by_role('dialog', name='Plan ahead', exact=True)
+    d.wait_for(state='visible')
+    plan(d, far, auto_next)
+    d.get_by_role('button', name='Save planned meals', exact=True).click()
+    p.wait_for_timeout(400)
+    now_next = p.evaluate('([w,d])=>batch13.main(w,d)', [1, nxt[0]])[0]
+    assert now_next != auto_next, (now_next, auto_next)
+    assert not errors, errors
+    c.close()
+    print('PASS', name, 'batch 13: rotation defers a recipe planned for the following week', flush=True)
+
 if __name__ == '__main__':
     with sync_playwright() as pw:
         b = pw.chromium.launch(executable_path='/usr/bin/chromium', args=['--no-sandbox'])
         for n in ['index.html', 'meal-rotation-test.html']:
             run(b, n)
+            run_avoid(b, n)
         b.close()
