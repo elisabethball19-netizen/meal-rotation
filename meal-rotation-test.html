@@ -12038,6 +12038,16 @@ function plannedDateSlot(planId,date){
   if(cookingLocalDate(scheduledOccurrenceDate({...entry,planId},source.plan.rotationCalendar))!==date)continue;
   return {week:source.week,day:entry.day,cat:entry.cat,mealId:String(entry.meal.id),key:simpleSideOccurrenceKey(source.plan,entry)};
  }
+ // A day with no meal group: the planned meal goes in as that day's one-time meal (same as Choose meal there).
+ const start=mealPlanWeekStart(plan);
+ for(const week of [0,1])for(const day of orderedDays()){
+  const when=cookingDateInWeek(day,start);if(week)when.setDate(when.getDate()+7);if(cookingLocalDate(when)!==date)continue;
+  const source=week?next:current;if(!source)return null;
+  const groups=(source.plan.weekdayCategories?.[day]||[]),assigned=(Array.isArray(groups)?groups:[groups]).filter(g=>g&&cats.includes(g));
+  if(assigned.length)return null;
+  const existing=source.entries.find(e=>e.day===day&&e.occasional&&!e.linkedTo&&!e.servingParentId);
+  return {week,day,cat:null,occasional:true,mealId:existing?String(existing.meal.id):null,key:existing?simpleSideOccurrenceKey(source.plan,existing):null};
+ }
  return null;
 }
 function applyPlannedMeals(planId=activePlanId){
@@ -12047,7 +12057,7 @@ function applyPlannedMeals(planId=activePlanId){
   const slot=plannedDateSlot(planId,item.date);if(!slot)continue;
   if(slot.mealId!==String(item.mealId)){
    const savedWeek=rotationWeekOffset;
-   try{rotationWeekOffset=slot.week;applyRecipeBulk([String(item.mealId)],{},{mealSelection:{planId,week:slot.week,day:slot.day,category:slot.cat,replaceFuture:[],mealId:String(item.mealId),occasional:false,sourceKey:null,destinationKey:slot.key},render:false});applied++}
+   try{rotationWeekOffset=slot.week;applyRecipeBulk([String(item.mealId)],{},{mealSelection:{planId,week:slot.week,day:slot.day,category:slot.cat,replaceFuture:[],mealId:String(item.mealId),occasional:!!slot.occasional,sourceKey:null,destinationKey:slot.key},render:false});applied++}
    catch(e){continue}finally{rotationWeekOffset=savedWeek}
   }
   item.applied=item.date;changed=true;
