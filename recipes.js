@@ -111,7 +111,7 @@ function recipeIngredientMatches(meal){
  for(const step of items.steps){
   if(manual.has(step.token)){matches.set(step.token,manual.get(step.token));continue}
   const text=syncIngredientStepText(cleanInstructionBlock(step).text),found=new Set();
-  const spans=[];for(const [alias,choices] of aliases){const tokens=choices.exact.size?choices.exact:choices.derived;if(!choices.exact.size&&tokens.size!==1)continue;let from=0,index;while((index=text.indexOf(' '+alias+' ',from))!==-1){if(syncIngredientSpecificity(alias,text,index))spans.push({start:index+1,end:index+1+alias.length,tokens:[...tokens]});from=index+1}}
+  const spans=[];for(const [alias,choices] of aliases){const tokens=choices.exact.size?choices.exact:choices.derived;if(tokens.size!==1)continue;let from=0,index;while((index=text.indexOf(' '+alias+' ',from))!==-1){if(syncIngredientSpecificity(alias,text,index))spans.push({start:index+1,end:index+1+alias.length,tokens:[...tokens]});from=index+1}}
   const selected=[];for(const span of spans.sort((a,b)=>(b.end-b.start)-(a.end-a.start)))if(!selected.some(s=>span.start<s.end&&span.end>s.start)){selected.push(span);span.tokens.forEach(t=>found.add(t))}
   const raw=' '+syncIngredientWords(cleanInstructionBlock(step).text).join(' ')+' ';
   for(const [heading,tokens] of groups){if(groupCounts.get(heading)!==1)continue;const name=syncIngredientWords(heading).join(' ');if(raw.includes(' '+name+' ingredient ')||raw.includes(' ingredient for '+name+' ')||raw.includes(' ingredient for the '+name+' '))tokens.forEach(t=>found.add(t))}

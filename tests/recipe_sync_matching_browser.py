@@ -24,6 +24,7 @@ sb.fixture.HOOK += '''const sync6Store=()=>typeof testStorage!=='undefined'?test
  box:()=>[...document.querySelectorAll('.recipe-step-box .cooking-item')].map(x=>x.textContent),
  full:()=>[...document.querySelectorAll('.recipe-viewer-ingredients [data-cooking-token]')].map(x=>x.textContent),
  plan:()=>recipeStepSortPlan(meals.find(m=>m.id===2)).lines,
+ sortRows:()=>recipeStepSortPlan(meals.find(m=>m.id===2)).sections[0].rows.map(r=>[r.text,r.step,!!r.split,r.check||null]),
  editor:()=>{openEditor(2);let d=$('recipeIngredientLinks');while(d){if(d.tagName==='DETAILS')d.open=true;d=d.parentElement}},
  pick:()=>{const s=JSON.parse(sync6Store().getItem('mealRotationSelectedIngredientsV1')||'{}');s['2']=[...meals.find(m=>m.id===2).ingredients];sync6Store().setItem('mealRotationSelectedIngredientsV1',JSON.stringify(s))},
  picks:()=>JSON.parse(sync6Store().getItem('mealRotationSelectedIngredientsV1')||'{}')['2'],
@@ -90,6 +91,15 @@ def run(browser, name):
     p.evaluate('sync6.manual()')
     manual = p.evaluate('sync6.matches()')[1]
     assert manual == ['1 tsp salt'] if len(manual) == 1 else False, manual
+    # Two different lines sharing a name (main list + Sauce section) are never both auto-highlighted.
+    p.evaluate('([i,s])=>sync6.fixture(i,s)', [['1 lb chicken thighs', '2 tbsp soy sauce, divided', 'Sauce:', '1 tbsp honey', '1 tbsp soy sauce'],
+                                             ['Marinate the chicken with 1 tbsp soy sauce.', 'Whisk honey with the remaining soy sauce.']])
+    amb = p.evaluate('sync6.matches()')
+    assert amb == [['1 lb chicken thighs'], ['1 tbsp honey']], amb
+    # Amounts that don't add up stay whole at the first step, marked for checking.
+    p.evaluate('([i,s])=>sync6.fixture(i,s)', [['3 tbsp olive oil', '1 onion'], ['Heat 1 tbsp olive oil.', 'Add the onion and 1 tbsp olive oil.']])
+    rows = p.evaluate("sync6.sortRows()")
+    assert rows == [['3 tbsp olive oil', 1, False, [1, 2]], ['1 onion', 2, False, None]], rows
     assert not errors, errors
     c.close()
     print('PASS', name, 'batch 6: matching, no box, sort-by-steps preview/split/apply/save, grocery picks+combine, Undo, manual links win', flush=True)
