@@ -49,6 +49,10 @@ Run locally with Playwright and Chromium: `python3 tests/sides_batch127_browser.
 
 All 21 Batch 1 phone-checklist items passed. Follow-up covered by `redesign()` in `tests/sides_batch127_browser.py`: Sides box/plus/chevron, plain new simple side, empty-day Choose meal groups and no dash, meal-groups dialog without chevrons and new sentence, Use next recipe inside Choose a different meal (both weeks), gray side hearts, date centered on the header block. All #126/#127 suites pass in both apps; other suites fail identically on the base commit. Awaiting phone test of the follow-up.
 
+## Follow-up 3 (2026-11-17)
+
+Single-view Sides box (no editing mode, nothing expanded by default, no check), shorter card actions, groups option only when no group, new dialog sentence, one card when a group is assigned after a one-time meal (single Undo). Covered by `redesign()`; adapted all #126 suites. Same unrelated failures as the base commit. Awaiting phone test.
+
 ## Original phone checklist (passed)
 
 Remove side → Undo (toolbar and toast). Add side on an empty day. Type a new name vs an existing recipe name. Collapse an editing card. Favorite a side. Compare date position collapsed/expanded. Check a few card colors. Keyboard and large-text behavior on a real Android device.
