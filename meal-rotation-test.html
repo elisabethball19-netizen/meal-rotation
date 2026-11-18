@@ -1876,7 +1876,7 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .serving-sides-box .inline-sides-header{display:flex;align-items:center;gap:4px;min-height:44px}.serving-sides-box .inline-sides-header>strong{flex:1}
 .serving-sides-box .inline-sides-header .serving-icon-action{width:44px;height:44px}
 .plan-linked-names .plan-side-heading button.plan-side-heart,.inline-side-heading button.inline-side-heart{color:#637080}
-.plan-meal-card>.shared-meal-actions{grid-column:2/4;grid-row:2;width:auto!important;margin:0!important;position:relative}
+.plan-meal-card>.shared-meal-actions{grid-column:2/4;grid-row:2;width:auto!important;margin:8px 0 0!important;position:relative}
 .plan-meal-card>.shared-meal-actions:not([hidden])::before{content:'';position:absolute;left:-9px;top:0;bottom:0;border-left:1px solid #56626c24}
 .plan-meal-card>.plan-date,.plan-meal-card:not(.plan-card-expanded)>.plan-date,.plan-meal-card.plan-card-expanded>.plan-date{justify-content:center;padding-top:0;padding-bottom:0}
 
@@ -1888,6 +1888,10 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .plan-meal-card .serving-sides-box{margin-top:4px;padding:2px 10px 4px}
 .serving-sides-box .inline-sides-header{min-height:36px;padding:0}.serving-sides-box .inline-sides-header .serving-icon-action{width:40px;height:36px;min-width:40px;min-height:36px}
 .serving-sides-box .inline-side-row{padding:0}.serving-sides-box .inline-side-heading{min-height:40px}.serving-sides-box .inline-side-heading>.iconbtn{min-height:40px}
+/* Batch 6: "For this step" box above the full ingredient list */
+#recipeViewer .recipe-step-box{margin:0 0 8px;padding:6px 8px 4px;border:1px solid #c9d8ee;border-radius:10px;background:#edf3fb}
+#recipeViewer .recipe-step-box-title{font-size:.78rem;font-weight:700;letter-spacing:.02em;color:#41546e;margin:0 0 2px}
+#recipeViewer .recipe-step-box .cooking-item{display:block;width:100%;text-align:left;padding:4px 0;min-height:32px;background:transparent}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -2678,13 +2682,15 @@ function syncIngredientWords(text){
 }
 // Only matching text is normalized. Stored recipe text and cooking tokens are untouched.
 const syncIngredientUnits=new Set(syncIngredientWords('cup tbsp tbs tsp tablespoon teaspoon gram kilogram kg g mg oz ounce lb lbs pound ml milliliter millilitre liter litre l fl fluid inch cm millimeter mm clove piece pinch dash sprig stalk bunch packet can jar x'));
-const syncIngredientPrep=new Set(syncIngredientWords('a an the of about approximately optional divided medium large small fresh freshly finely roughly thinly thickly lightly gently chopped diced sliced minced grated crushed ground peeled seeded deseeded drained rinsed softened melted packed heaped level boneless skinless dried canned frozen whole halved quartered bruised trimmed smashed squeezed thick thin only'));
+const syncIngredientPrep=new Set(syncIngredientWords('a an the of about approximately optional divided medium large small fresh freshly finely roughly thinly thickly lightly gently chopped diced sliced minced grated crushed ground peeled seeded deseeded drained rinsed softened melted packed heaped level boneless skinless dried canned frozen whole halved quartered bruised trimmed smashed squeezed thick thin only cooked uncooked raw'));
 function syncIngredientMatchWords(value){
  const words=syncIngredientWords(value),typed=words.some(w=>['oil','sauce','pepper','sugar'].includes(w));
  return words.filter(w=>!syncIngredientPrep.has(w)||(typed&&['thin','thick'].includes(w)));
 }
 function syncIngredientNameWords(value){
- let text=normalizeRecipeText(ingredientLine(value)).replace(/\(s\)/gi,'s').split(/[,;]/)[0];
+ let text=normalizeRecipeText(ingredientLine(value)).replace(/\(s\)/gi,'s');
+ // Dietary/fat descriptors ("dairy-free, soy-free", "full-fat", "unsweetened") don't change which food a step means.
+ text=text.replace(/\b[a-z]+[- ]free\b\s*,?/gi,' ').replace(/\b(?:full|low|reduced|non)[- ]fat\b\s*,?/gi,' ').replace(/\b(?:unsweetened|sweetened|unsalted|salted)\b/gi,' ').split(/[,;]/)[0];
  // Trailing usage/quantity notes aren't part of a name (e.g. "salt to start").
  text=text.replace(/\b(?:to\s+(?:taste|start|finish|serve)|as\s+(?:needed|required|desired)|plus\s+(?:more|extra)|for\s+(?:serving|garnish|garnishing|topping)|or\s+(?:more|less)|cut\s+(?:into|in)|(?:sliced|diced|chopped|crushed)\s+into)\b.*$/i,'');
  const words=syncIngredientMatchWords(text);
@@ -2729,8 +2735,8 @@ function recipeIngredientMatches(meal){
  for(const step of items.steps){
   if(manual.has(step.token)){matches.set(step.token,manual.get(step.token));continue}
   const text=syncIngredientStepText(cleanInstructionBlock(step).text),found=new Set();
-  const spans=[];for(const [alias,choices] of aliases){const tokens=choices.exact.size?choices.exact:choices.derived;if(tokens.size!==1)continue;let from=0,index;while((index=text.indexOf(' '+alias+' ',from))!==-1){if(syncIngredientSpecificity(alias,text,index))spans.push({start:index+1,end:index+1+alias.length,token:[...tokens][0]});from=index+1}}
-  const selected=[];for(const span of spans.sort((a,b)=>(b.end-b.start)-(a.end-a.start)))if(!selected.some(s=>span.start<s.end&&span.end>s.start)){selected.push(span);found.add(span.token)}
+  const spans=[];for(const [alias,choices] of aliases){const tokens=choices.exact.size?choices.exact:choices.derived;if(!choices.exact.size&&tokens.size!==1)continue;let from=0,index;while((index=text.indexOf(' '+alias+' ',from))!==-1){if(syncIngredientSpecificity(alias,text,index))spans.push({start:index+1,end:index+1+alias.length,tokens:[...tokens]});from=index+1}}
+  const selected=[];for(const span of spans.sort((a,b)=>(b.end-b.start)-(a.end-a.start)))if(!selected.some(s=>span.start<s.end&&span.end>s.start)){selected.push(span);span.tokens.forEach(t=>found.add(t))}
   const raw=' '+syncIngredientWords(cleanInstructionBlock(step).text).join(' ')+' ';
   for(const [heading,tokens] of groups){if(groupCounts.get(heading)!==1)continue;const name=syncIngredientWords(heading).join(' ');if(raw.includes(' '+name+' ingredient ')||raw.includes(' ingredient for '+name+' ')||raw.includes(' ingredient for the '+name+' '))tokens.forEach(t=>found.add(t))}
   matches.set(step.token,[...found]);
@@ -2744,7 +2750,16 @@ function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
  if(v.linkEdit){v.syncToInstruction=null;v.cancelIngredientSync=null;return}
  const state=v.ingredientSyncState||(v.ingredientSyncState={suspended:false,lastStep:null,tokens:[]});
  const ingredientButtons=[...ingredientsPane.querySelectorAll('[data-cooking-token]')];
- const highlight=()=>ingredientButtons.forEach(b=>b.classList.toggle('recipe-sync-relevant',enabled&&state.tokens.includes(b.dataset.cookingToken)));
+ // Small "For this step" box above the unchanged full list. Its items are copies that forward taps to the real ingredient button, so progress is the same state.
+ let stepBox=ingredientsPane.querySelector('.recipe-step-box');
+ const renderBox=()=>{
+  const list=enabled?ingredientButtons.filter(b=>state.tokens.includes(b.dataset.cookingToken)):[];
+  if(!list.length){stepBox?.remove();stepBox=null;return}
+  if(!stepBox){stepBox=document.createElement('div');stepBox.className='recipe-step-box';stepBox.setAttribute('role','group');stepBox.setAttribute('aria-label','Ingredients for this step');const ul=ingredientsPane.querySelector('.recipe-viewer-ingredients');ul?ul.before(stepBox):ingredientsPane.prepend(stepBox)}
+  const title=document.createElement('div');title.className='recipe-step-box-title';title.textContent='For this step';stepBox.replaceChildren(title);
+  for(const b of list){const copy=b.cloneNode(true);copy.removeAttribute('data-cooking-token');copy.dataset.stepBoxToken=b.dataset.cookingToken;copy.classList.remove('recipe-sync-relevant');copy.onclick=()=>b.click();stepBox.append(copy)}
+ };
+ const highlight=()=>{ingredientButtons.forEach(b=>b.classList.toggle('recipe-sync-relevant',enabled&&state.tokens.includes(b.dataset.cookingToken)));renderBox()};
  highlight();v.syncToInstruction=null;if(!enabled){v.syncPinnedStep=null;state.tokens=[];state.lastStep=null;v.syncWasEnabled=false;return}
  const signature=JSON.stringify([meal.ingredients,meal.instructions,meal.ingredientStepLinks]);
  const matchesChanged=v.syncMatchSignature!==signature;if(matchesChanged){v.syncMatches=recipeIngredientMatches(meal);v.syncMatchSignature=signature;state.lastStep=null;state.tokens=[];highlight()}
@@ -2756,7 +2771,7 @@ function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
   const box=instructionsPane.getBoundingClientRect(),anchor=box.top+box.height*.35;let active=steps.find(b=>b.dataset.cookingToken===v.syncPinnedStep)||null,distance=active?0:Infinity;const firstStep=steps[0]?.getBoundingClientRect();if(!active&&instructionsPane.scrollTop<2&&firstStep&&firstStep.top<box.bottom&&firstStep.bottom>box.top){active=steps[0];distance=0}
   for(const button of steps){if(v.syncPinnedStep&&active)break;const b=button.getBoundingClientRect();if(b.bottom<=box.top||b.top>=box.bottom)continue;const d=anchor<b.top?b.top-anchor:anchor>b.bottom?anchor-b.bottom:0;if(d<distance){distance=d;active=button}}
   const key=active?.dataset.cookingToken||null;if(key===state.lastStep)return;state.lastStep=key;state.tokens=v.syncMatches.get(key)||[];highlight();
-  const relevant=ingredientButtons.filter(b=>state.tokens.includes(b.dataset.cookingToken));if(!relevant.length||state.suspended)return;
+  const relevant=stepBox?[stepBox]:ingredientButtons.filter(b=>state.tokens.includes(b.dataset.cookingToken));if(!relevant.length||state.suspended)return;
   const pane=ingredientsPane.getBoundingClientRect(),first=relevant[0].getBoundingClientRect(),last=relevant.at(-1).getBoundingClientRect();
   if(first.top>=pane.top+8&&last.bottom<=pane.bottom-8)return;
   ingredientsPane.scrollTo({top:Math.max(0,ingredientsPane.scrollTop+first.top-pane.top-12),behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});

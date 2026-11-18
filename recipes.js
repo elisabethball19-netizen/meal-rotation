@@ -58,13 +58,15 @@ function syncIngredientWords(text){
 }
 // Only matching text is normalized. Stored recipe text and cooking tokens are untouched.
 const syncIngredientUnits=new Set(syncIngredientWords('cup tbsp tbs tsp tablespoon teaspoon gram kilogram kg g mg oz ounce lb lbs pound ml milliliter millilitre liter litre l fl fluid inch cm millimeter mm clove piece pinch dash sprig stalk bunch packet can jar x'));
-const syncIngredientPrep=new Set(syncIngredientWords('a an the of about approximately optional divided medium large small fresh freshly finely roughly thinly thickly lightly gently chopped diced sliced minced grated crushed ground peeled seeded deseeded drained rinsed softened melted packed heaped level boneless skinless dried canned frozen whole halved quartered bruised trimmed smashed squeezed thick thin only'));
+const syncIngredientPrep=new Set(syncIngredientWords('a an the of about approximately optional divided medium large small fresh freshly finely roughly thinly thickly lightly gently chopped diced sliced minced grated crushed ground peeled seeded deseeded drained rinsed softened melted packed heaped level boneless skinless dried canned frozen whole halved quartered bruised trimmed smashed squeezed thick thin only cooked uncooked raw'));
 function syncIngredientMatchWords(value){
  const words=syncIngredientWords(value),typed=words.some(w=>['oil','sauce','pepper','sugar'].includes(w));
  return words.filter(w=>!syncIngredientPrep.has(w)||(typed&&['thin','thick'].includes(w)));
 }
 function syncIngredientNameWords(value){
- let text=normalizeRecipeText(ingredientLine(value)).replace(/\(s\)/gi,'s').split(/[,;]/)[0];
+ let text=normalizeRecipeText(ingredientLine(value)).replace(/\(s\)/gi,'s');
+ // Dietary/fat descriptors ("dairy-free, soy-free", "full-fat", "unsweetened") don't change which food a step means.
+ text=text.replace(/\b[a-z]+[- ]free\b\s*,?/gi,' ').replace(/\b(?:full|low|reduced|non)[- ]fat\b\s*,?/gi,' ').replace(/\b(?:unsweetened|sweetened|unsalted|salted)\b/gi,' ').split(/[,;]/)[0];
  // Trailing usage/quantity notes aren't part of a name (e.g. "salt to start").
  text=text.replace(/\b(?:to\s+(?:taste|start|finish|serve)|as\s+(?:needed|required|desired)|plus\s+(?:more|extra)|for\s+(?:serving|garnish|garnishing|topping)|or\s+(?:more|less)|cut\s+(?:into|in)|(?:sliced|diced|chopped|crushed)\s+into)\b.*$/i,'');
  const words=syncIngredientMatchWords(text);
@@ -109,8 +111,8 @@ function recipeIngredientMatches(meal){
  for(const step of items.steps){
   if(manual.has(step.token)){matches.set(step.token,manual.get(step.token));continue}
   const text=syncIngredientStepText(cleanInstructionBlock(step).text),found=new Set();
-  const spans=[];for(const [alias,choices] of aliases){const tokens=choices.exact.size?choices.exact:choices.derived;if(tokens.size!==1)continue;let from=0,index;while((index=text.indexOf(' '+alias+' ',from))!==-1){if(syncIngredientSpecificity(alias,text,index))spans.push({start:index+1,end:index+1+alias.length,token:[...tokens][0]});from=index+1}}
-  const selected=[];for(const span of spans.sort((a,b)=>(b.end-b.start)-(a.end-a.start)))if(!selected.some(s=>span.start<s.end&&span.end>s.start)){selected.push(span);found.add(span.token)}
+  const spans=[];for(const [alias,choices] of aliases){const tokens=choices.exact.size?choices.exact:choices.derived;if(!choices.exact.size&&tokens.size!==1)continue;let from=0,index;while((index=text.indexOf(' '+alias+' ',from))!==-1){if(syncIngredientSpecificity(alias,text,index))spans.push({start:index+1,end:index+1+alias.length,tokens:[...tokens]});from=index+1}}
+  const selected=[];for(const span of spans.sort((a,b)=>(b.end-b.start)-(a.end-a.start)))if(!selected.some(s=>span.start<s.end&&span.end>s.start)){selected.push(span);span.tokens.forEach(t=>found.add(t))}
   const raw=' '+syncIngredientWords(cleanInstructionBlock(step).text).join(' ')+' ';
   for(const [heading,tokens] of groups){if(groupCounts.get(heading)!==1)continue;const name=syncIngredientWords(heading).join(' ');if(raw.includes(' '+name+' ingredient ')||raw.includes(' ingredient for '+name+' ')||raw.includes(' ingredient for the '+name+' '))tokens.forEach(t=>found.add(t))}
   matches.set(step.token,[...found]);
@@ -124,7 +126,16 @@ function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
  if(v.linkEdit){v.syncToInstruction=null;v.cancelIngredientSync=null;return}
  const state=v.ingredientSyncState||(v.ingredientSyncState={suspended:false,lastStep:null,tokens:[]});
  const ingredientButtons=[...ingredientsPane.querySelectorAll('[data-cooking-token]')];
- const highlight=()=>ingredientButtons.forEach(b=>b.classList.toggle('recipe-sync-relevant',enabled&&state.tokens.includes(b.dataset.cookingToken)));
+ // Small "For this step" box above the unchanged full list. Its items are copies that forward taps to the real ingredient button, so progress is the same state.
+ let stepBox=ingredientsPane.querySelector('.recipe-step-box');
+ const renderBox=()=>{
+  const list=enabled?ingredientButtons.filter(b=>state.tokens.includes(b.dataset.cookingToken)):[];
+  if(!list.length){stepBox?.remove();stepBox=null;return}
+  if(!stepBox){stepBox=document.createElement('div');stepBox.className='recipe-step-box';stepBox.setAttribute('role','group');stepBox.setAttribute('aria-label','Ingredients for this step');const ul=ingredientsPane.querySelector('.recipe-viewer-ingredients');ul?ul.before(stepBox):ingredientsPane.prepend(stepBox)}
+  const title=document.createElement('div');title.className='recipe-step-box-title';title.textContent='For this step';stepBox.replaceChildren(title);
+  for(const b of list){const copy=b.cloneNode(true);copy.removeAttribute('data-cooking-token');copy.dataset.stepBoxToken=b.dataset.cookingToken;copy.classList.remove('recipe-sync-relevant');copy.onclick=()=>b.click();stepBox.append(copy)}
+ };
+ const highlight=()=>{ingredientButtons.forEach(b=>b.classList.toggle('recipe-sync-relevant',enabled&&state.tokens.includes(b.dataset.cookingToken)));renderBox()};
  highlight();v.syncToInstruction=null;if(!enabled){v.syncPinnedStep=null;state.tokens=[];state.lastStep=null;v.syncWasEnabled=false;return}
  const signature=JSON.stringify([meal.ingredients,meal.instructions,meal.ingredientStepLinks]);
  const matchesChanged=v.syncMatchSignature!==signature;if(matchesChanged){v.syncMatches=recipeIngredientMatches(meal);v.syncMatchSignature=signature;state.lastStep=null;state.tokens=[];highlight()}
@@ -136,7 +147,7 @@ function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
   const box=instructionsPane.getBoundingClientRect(),anchor=box.top+box.height*.35;let active=steps.find(b=>b.dataset.cookingToken===v.syncPinnedStep)||null,distance=active?0:Infinity;const firstStep=steps[0]?.getBoundingClientRect();if(!active&&instructionsPane.scrollTop<2&&firstStep&&firstStep.top<box.bottom&&firstStep.bottom>box.top){active=steps[0];distance=0}
   for(const button of steps){if(v.syncPinnedStep&&active)break;const b=button.getBoundingClientRect();if(b.bottom<=box.top||b.top>=box.bottom)continue;const d=anchor<b.top?b.top-anchor:anchor>b.bottom?anchor-b.bottom:0;if(d<distance){distance=d;active=button}}
   const key=active?.dataset.cookingToken||null;if(key===state.lastStep)return;state.lastStep=key;state.tokens=v.syncMatches.get(key)||[];highlight();
-  const relevant=ingredientButtons.filter(b=>state.tokens.includes(b.dataset.cookingToken));if(!relevant.length||state.suspended)return;
+  const relevant=stepBox?[stepBox]:ingredientButtons.filter(b=>state.tokens.includes(b.dataset.cookingToken));if(!relevant.length||state.suspended)return;
   const pane=ingredientsPane.getBoundingClientRect(),first=relevant[0].getBoundingClientRect(),last=relevant.at(-1).getBoundingClientRect();
   if(first.top>=pane.top+8&&last.bottom<=pane.bottom-8)return;
   ingredientsPane.scrollTo({top:Math.max(0,ingredientsPane.scrollTop+first.top-pane.top-12),behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
