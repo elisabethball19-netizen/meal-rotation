@@ -1299,7 +1299,19 @@ function setMakeAheadComplete(item,checked){
  for(const row of document.querySelectorAll('[data-make-ahead-key]')){const current=mealPlans.find(plan=>String(plan.id)===row.dataset.planId),complete=current?makeAheadTaskComplete(current,row.dataset.makeAheadKey):false;row.querySelector('input[type="checkbox"]').checked=complete;row.classList.toggle('make-ahead-complete',complete)}if(allMealsActive||rotationWeekOffset)renderList({readOnly:true});else renderTodayTodo(tasks.map(current=>({...current,complete:makeAheadTaskComplete(current.plan,current.key)})));
 }
 function realPreparationDue(item){const scheduled=parseCookingLocalDate(item.scheduled),task=item.task;if(scheduled&&task&&(Number.isFinite(task.daysBefore)||Number.isFinite(task.hoursBefore)))return cookingLocalDate(makeAheadDueDate(scheduled,task));const due=parseCookingLocalDate(item.due);return due?cookingLocalDate(due):null}
-const todoCollapsed={0:false,1:false};
+// To-Do collapse/expand is remembered across refresh/reopen (UI preference only).
+const TODO_COLLAPSED_KEY='mealRotationTodoCollapsedV1',todoCollapsed=(()=>{try{const v=JSON.parse(localStorage.getItem(TODO_COLLAPSED_KEY)||'null');return {0:v?.[0]===true,1:v?.[1]===true}}catch(e){return {0:false,1:false}}})();
+function saveTodoCollapsed(){try{localStorage.setItem(TODO_COLLAPSED_KEY,JSON.stringify(todoCollapsed))}catch(e){}}
+// Completing the final task: keep the checked row briefly, then fade and collapse the section smoothly.
+function fadeOutTodo(section){
+ if(section.dataset.fading)return;section.dataset.fading='true';
+ const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+ section._fadeTimer=setTimeout(()=>{if(!section.isConnected)return;if(reduce){section.remove();return}
+  section.style.overflow='hidden';section.style.height=section.offsetHeight+'px';section.style.transition='opacity .25s ease, height .3s ease .1s, margin .3s ease .1s, padding .3s ease .1s';
+  requestAnimationFrame(()=>{section.style.opacity='0';section.style.height='0px';section.style.marginTop=section.style.marginBottom='0px';section.style.paddingTop=section.style.paddingBottom='0px'});
+  section._fadeTimer=setTimeout(()=>section.remove(),450)},reduce?150:650);
+}
+function cancelTodoFade(section){if(!section?.dataset.fading)return;clearTimeout(section._fadeTimer);delete section.dataset.fading;section.removeAttribute('style')}
 function renderTodayTodo(provided=null){
  const old=document.getElementById('todaysTodo'),visibility=document.getElementById('todoVisibilityControl'),header=document.querySelector('#list>.meal-controls-sticky,#list>.rotation-compact-header');
  if(!header||!showTop||allMealsActive||groceryTabActive||!makeAheadDisplayPrefs.showMakeAheadReminders){old?.remove();visibility?.remove();return}
@@ -1312,7 +1324,8 @@ function renderTodayTodo(provided=null){
   if(rotationWeekOffset?!upcomingOccurrences.has(JSON.stringify([rotationOccurrenceKey({...item.entry,planId:item.plan.id}),item.scheduled])):item.due>today)return false;
   seen.add(id);return true;
  }).sort((a,b)=>Number(a.complete)-Number(b.complete)||a.due.localeCompare(b.due));
- if(!items.some(item=>!item.complete)){old?.remove();visibility?.remove();return}
+ if(!items.some(item=>!item.complete)){visibility?.remove();if(old&&provided&&old.querySelector('#todoTaskItems:not([hidden])'))fadeOutTodo(old);else if(!old?.dataset.fading)old?.remove();return}
+ cancelTodoFade(old);
  const section=old||document.createElement('section');section.id='todaysTodo';section.setAttribute('aria-labelledby','todaysTodoHeading');
  const heading=section.querySelector('.today-todo-heading')||document.createElement('div');heading.className='today-todo-heading';
  const title=heading.querySelector('h3')||document.createElement('h3');title.id='todaysTodoHeading';title.textContent=rotationWeekOffset?'Next Week’s To-Do':"Today's To-Do";
@@ -1322,7 +1335,7 @@ function renderTodayTodo(provided=null){
  const body=document.createElement('div');body.id='todoTaskItems';body.hidden=todoCollapsed[rotationWeekOffset];
  const collapse=heading.querySelector('.todo-collapse-toggle')||document.createElement('button');collapse.type='button';collapse.className='iconbtn todo-collapse-toggle';collapse.setAttribute('aria-controls',body.id);
  const refresh=()=>{body.hidden=todoCollapsed[rotationWeekOffset];collapse.setAttribute('aria-expanded',String(!body.hidden));setRecipeToolbarIcon(collapse,body.hidden?'expand':'collapse',body.hidden?'Expand to-do tasks':'Collapse to-do tasks')};
- collapse.onclick=()=>{todoCollapsed[rotationWeekOffset]=!todoCollapsed[rotationWeekOffset];refresh()};refresh();heading.replaceChildren(collapse,title,eye);section.replaceChildren(heading,body);
+ collapse.onclick=()=>{todoCollapsed[rotationWeekOffset]=!todoCollapsed[rotationWeekOffset];saveTodoCollapsed();refresh()};refresh();heading.replaceChildren(collapse,title,eye);section.replaceChildren(heading,body);
  for(const item of shown)body.append(makeAheadReminderRow(item,true));
  visibility?.remove();if(!old)header.after(section);
 }
@@ -1497,10 +1510,11 @@ function navigateToPreparationMeal(item){
   });
  });
 }
-function makeAheadReminderRow(item,today=false){
+function makeAheadReminderRow(item,today=false,options={}){
  const label=document.createElement('div');label.className='make-ahead-reminder'+(item.complete?' make-ahead-complete':'');label.dataset.makeAheadKey=item.key;label.dataset.planId=String(item.plan.id);const check=document.createElement('input');check.type='checkbox';check.className='check';check.checked=item.complete;
  const text=document.createElement('button');text.type='button';text.className='make-ahead-task-link';text.textContent=makeAheadTaskDescription(item,today);check.setAttribute('aria-label',text.textContent);
- text.onclick=event=>{event.preventDefault();event.stopPropagation();navigateToPreparationMeal(item)};
+ // Week: task text does not open the meal (checkbox and long-press editing unchanged).
+ text.onclick=event=>{event.preventDefault();event.stopPropagation();if(options.navigate!==false)navigateToPreparationMeal(item)};if(options.navigate===false)text.classList.add('make-ahead-task-plain');
  check.onchange=()=>setMakeAheadComplete(item,check.checked);label.append(check,text);bindPreparationTaskPress(label,item);return label;
 }
 function makeAheadTaskVisible(item,today=cookingLocalDate(new Date())){return typeof item.scheduled==='string'&&item.scheduled>=today}

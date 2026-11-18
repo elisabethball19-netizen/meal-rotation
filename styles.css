@@ -2084,3 +2084,17 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .grocery-contribution-fields{display:flex;flex-direction:column;gap:10px;margin:8px 0;}
 .grocery-contribution-field{display:flex;flex-direction:column;gap:4px;}
 .grocery-contribution-recipe{font-size:13px;color:#637080;}
+
+/* Batch 7: Week divider between dishes and tasks; plain task text */
+.all-meals-day .overview-task-divider{border:0;border-top:1px solid #0000001f;margin:6px 0 4px}
+.make-ahead-task-plain{cursor:default}
+/* Week: every dish (main, linked side, simple side) same regular weight and size */
+.all-meals-day .overview-dish,.all-meals-day .overview-dish .mealname{font-size:16px!important;font-weight:400!important;line-height:1.3!important;color:#242424}
+.all-meals-day .overview-dish{padding:3px 0}
+.all-meals-day .overview-dish .mealname{display:block;margin:0!important;padding:0!important;text-align:left;background:none;border:0}
+/* Approved presentation: main meal-plan title regular weight; sides regular dark text, smaller, one per line,
+   subtle indent (wrapped lines align to their own text), no bullets; every side type styled the same */
+.plan-meal-card .plan-card-recipe>.mealname,.plan-meal-card .mealname{font-weight:400!important}
+.plan-meal-card .plan-linked-names .plan-side-line{padding-left:8px}
+.plan-meal-card .plan-linked-names .plan-side-heading>button:first-child,.plan-meal-card .plan-linked-names .plan-side-heading>span:first-child{font-weight:400!important;color:#242424;text-align:left}
+.plan-meal-card .plan-linked-names>span{display:block;padding-left:8px!important;margin-left:0!important;font-weight:400!important;color:#242424}

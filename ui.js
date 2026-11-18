@@ -375,9 +375,12 @@ function renderAllMealsOverview(list){
     for(const side of simpleSidesForEntry(plan,entry)){const simple=document.createElement('div');simple.className='overview-dish';simple.textContent=side.name;card.append(simple)}
    }
   }
-  for(const task of tasks.filter(t=>t.due===date&&makeAheadTaskVisible(t)))card.append(makeAheadReminderRow(task));section.append(card);
+  // Week: a subtle divider between dishes and tasks only when this day has tasks; task text doesn't navigate.
+  const dayTasks=tasks.filter(t=>t.due===date&&makeAheadTaskVisible(t));if(dayTasks.length&&card.querySelector('.overview-dish,.all-meals-entry')){const rule=document.createElement('hr');rule.className='overview-task-divider';card.append(rule)}
+  for(const task of dayTasks)card.append(makeAheadReminderRow(task,false,{navigate:false}));section.append(card);
  }
- const outside=tasks.filter(t=>!dates.has(t.due)&&makeAheadTaskVisible(t));if(outside.length){const more=document.createElement('section');more.className='make-ahead-outside';for(const task of outside){const date=document.createElement('small');date.textContent=parseCookingLocalDate(task.due).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});more.append(date,makeAheadReminderRow(task))}section.append(more)}list.append(section);
+ // No separate dated task list below the day cards; tasks stay in their own day cards and Today's To-Do.
+ list.append(section);
 }
 // From an empty weekday, take the user directly to the relevant recipe group.
 // Choosing a group here never changes the weekday assignment.
