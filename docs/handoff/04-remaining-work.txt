@@ -34,7 +34,7 @@ UNRESOLVED BUGS / ALGORITHM DECISION
 
 
 APPROVED 2026-11-18 PHONE-REVIEW DECISIONS (approved, NOT implemented; user answered each question; batches below)
-BATCH 1 — MEAL CARD + SIDES: #127 IMPLEMENTED / CODE-CHECKED; AWAITING PHONE TEST (tests/sides_batch127_test_report.md). Batches 2–5, renames and Plan Ahead remain NOT implemented.
+BATCH 1 — MEAL CARD + SIDES: #127 PHONE-CONFIRMED (21-item checklist passed 2026-11-17). Follow-up redesign implemented/code-checked, AWAITING PHONE TEST (tests/sides_batch127_test_report.md): Sides box under main actions (title, plus, chevron; chevron opens the side editor, plus beside the check inside it); no 'Add or edit sides' or 'Use next recipe' on the card ('Use next recipe' now first row of Choose a different meal); new simple side shows as plain text; meal-groups dialog has no sort chevrons (checked groups use their existing order) and a clearer sentence; side hearts gray; empty day card offers Choose meal groups and no dash; date centered on the header block. Batches 2–5, renames and Plan Ahead remain NOT implemented.
 - Bug: Undo after removing a SAVED side must restore it.
 - Side edits save as made; remove the ✓/✗ row under Sides. Collapsing the card or closing a side saves, never discards. Removing a side shows brief "Side removed · Undo" message; no confirm dialog.
 - Meal with no sides: "Add or edit sides" opens Add side pop-up directly; ✗ returns to expanded card. One side: show auto-expanded. Move divider above "Sides" or drop it. Collapsing main card collapses any open edit/add-side area.

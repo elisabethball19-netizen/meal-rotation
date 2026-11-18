@@ -32,6 +32,8 @@ fixture.HOOK+='''window.follow126={
  editor:()=>openEditor(getDisplayedWeekdayMealsForPlan(mealPlans[0])[0].meal.id,false,captureMealEditorOrigin()),settings:()=>{showTop=true;topSettingsOpen=true;renderMenu()},backup:()=>{const b=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(b);return b}
 };'''
 # Issue 127: Add side is one dialog (search/new name, Mix it up) and card side edits save as made.
+def open_sides(scope):
+ (scope.get_by_role('button',name='Show sides',exact=True) if scope.get_by_role('button',name='Show sides',exact=True).count() else scope.get_by_role('button',name='Add side',exact=True)).first.click()
 def open_add(p,scope):
  if not p.get_by_role('dialog',name='Add side',exact=True).count():scope.get_by_role('button',name='Add side',exact=True).click()
 def add_simple(p,scope,name):
@@ -59,7 +61,7 @@ def run(browser,name):
  p.get_by_role('button',name='Scale Recipe',exact=True).click();assert not p.get_by_role('switch',name='Remember',exact=True).is_checked();p.get_by_role('button',name='2×',exact=True).click();p.get_by_role('button',name='Apply recipe scale',exact=True).click();p.evaluate('follow126.close()');p.wait_for_timeout(150)
  # One shared action layout and inline sides in both weeks; outer cancel is atomic.
  p.evaluate('follow126.seed();follow126.rules()');card=p.locator('.plan-meal-card[data-meal-id="2"]');assert p.locator('.plan-meal-card[data-meal-id="10"]').count()==0;assert card.get_by_text('Butter',exact=True).count()==1
- assert not card.locator('.shared-meal-actions').is_visible();card.locator('.meal-actions-toggle').click();assert card.locator('.shared-meal-actions').is_visible();assert card.locator('.shared-meal-action-grid button').count()==6;shot(p,name,'current-expanded');card.get_by_role('button',name='Add or edit sides',exact=True).click();assert card.get_by_text('Sides',exact=True).count();assert not p.get_by_role('dialog',name='Sides for Chili-Garlic Broth Bowls',exact=True).count();before=p.evaluate('follow126.state()')
+ assert not card.locator('.shared-meal-actions').is_visible();card.locator('.meal-actions-toggle').click();assert card.locator('.shared-meal-actions').is_visible();assert card.locator('.shared-meal-action-grid button').count()==4;shot(p,name,'current-expanded');open_sides(card);assert card.get_by_text('Sides',exact=True).count();assert not p.get_by_role('dialog',name='Sides for Chili-Garlic Broth Bowls',exact=True).count();before=p.evaluate('follow126.state()')
  add_simple(p,card,'Rice with a long descriptive label');assert card.get_by_role('switch',name='Always serve this side with Chili-Garlic Broth Bowls?',exact=True).is_visible();shot(p,name,'inline-simple');card.get_by_role('button',name='Close sides',exact=True).click();p.locator('#undo').click();after=p.evaluate('follow126.state()');assert after==before,{k:[json.loads(before)[k],json.loads(after)[k]]for k in json.loads(before)if json.loads(before)[k]!=json.loads(after)[k]};p.wait_for_timeout(150)
  # Grouped grocery name and disclosure have separate meanings; contribution pencil is always visible.
  p.evaluate('follow126.grocery()');p.get_by_role('switch',name='Group by meal',exact=True).check();assert p.locator('.grocery-view-control .preference-switch-thumb').is_visible();assert not p.locator('.grocery-meal-section .grocery-expand').count();assert not p.locator('.grocery-meal-section .grocery-recipe-source').count();assert p.locator('.grocery-meal-section .grocery-contribution-edit').first.is_visible();shot(p,name,'groceries-grouped')

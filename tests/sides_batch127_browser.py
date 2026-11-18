@@ -21,6 +21,7 @@ fixture.HOOK += '''window.batch127={
  home:week=>{expandedPlanCards.clear();follow126.home(week)},
  nextSide:()=>{const parent=meals.find(m=>m.id===3);parent.serveWithEntriesV1=[{id:'nb',type:'simple',name:'Pickles',ingredients:[],always:true}];parent.simpleSides=[{id:'nb',name:'Pickles',ingredients:[]}];saveActiveMealPlan();persist();batch127.home(1)},
  allSides:()=>{for(const m of meals.filter(m=>m.cat==='Rice'&&m.id!==2)){m.serveWithEntriesV1=[{id:'s'+m.id,type:'simple',name:'Butter',ingredients:[],always:true}];m.simpleSides=[{id:'s'+m.id,name:'Butter',ingredients:[]}]}for(const day of orderedDays())weekdayCategories[day]=['Rice'];mealPlans[0].weekdayCategories={...weekdayCategories};saveActiveMealPlan();persist();follow126.home()},
+ emptyDay:()=>{weekdayCategories.Wednesday=[EMPTY_DAY_ASSIGNMENT];mealPlans[0].weekdayCategories={...weekdayCategories};saveActiveMealPlan();persist();follow126.home()},
  tasks:()=>[...document.querySelectorAll('#todaysTodo .make-ahead-task-link')].map(x=>x.textContent)
 };'''
 OUT = Path(os.environ.get('BATCH127_OUT', '/tmp/batch127'))
@@ -48,6 +49,11 @@ def state(p):
     return p.evaluate('follow126.state()')
 
 
+def date_center_gap(p, c):
+    """Date block centre minus the header block's centre (the date is centred on the header, not the whole card)."""
+    return c.evaluate('c=>{const d=c.querySelector(".plan-date").getBoundingClientRect(),b=c.querySelector(".plan-card-content").getBoundingClientRect();return (d.top+d.height/2)-(b.top+b.height/2)}')
+
+
 def date_offset(p, c):
     return c.evaluate('c=>c.querySelector(".plan-date strong").getBoundingClientRect().top-c.getBoundingClientRect().top')
 
@@ -73,16 +79,16 @@ def run(browser, name):
 
     # Expanded: side details and a heart on recipe sides only; date column does not move.
     main.locator('.meal-actions-toggle').click()
-    assert date_offset(p, main) == collapsed_offset
+    assert abs(date_center_gap(p, main)) < 1.5, date_center_gap(p, main)  # date stays centred on the header block
     assert line.is_visible() and line.locator('.plan-marinate-detail').evaluate('x=>getComputedStyle(x,"::before").content') == '" · "'
     assert line.evaluate('x=>x.getBoundingClientRect().height') < 22  # one line, tied to the main meal
-    side_lines = main.locator('.plan-side-line')
+    side_lines = main.locator('.serving-sides-box .plan-side-line')
     assert side_lines.count() == 2, side_lines.count()
     assert side_lines.first.locator('.plan-side-details').is_visible()
     assert '10m prep' in side_lines.first.locator('.plan-side-details').inner_text()
     assert side_lines.first.locator('.plan-cooked-detail').is_visible()
     assert side_lines.first.locator('.plan-side-heart').is_visible()
-    assert main.locator('.plan-linked-names > span', has_text='Butter').count() == 1
+    assert main.locator('.serving-sides-box .plan-linked-names > span', has_text='Butter').count() == 1
     shot(p, name, 'expanded-side-details')
 
     # Favorite a recipe side from the card: recipe-wide favorite.
@@ -91,11 +97,11 @@ def run(browser, name):
     main = card(p, 2)
 
     # Edit sides: no check/X row; remove a saved side auto-saves with a toast; toolbar Undo/Redo.
-    main.get_by_role('button', name='Add or edit sides', exact=True).click()
+    base.open_sides(main)
     assert not p.get_by_role('button', name='Save all sides').count()
     assert not p.get_by_role('button', name='Cancel all side changes').count()
     # Header is a plain title; three sides start collapsed; one plus and the closing check at the bottom.
-    assert main.locator('.inline-sides-header button').count() == 0
+    assert main.locator('.inline-sides-header button').count() == 1  # only the hide-sides chevron
     assert main.locator('.inline-side-body').count() == 0
     assert main.get_by_role('button', name='Add side', exact=True).count() == 1
     assert main.get_by_role('button', name='Close sides', exact=True).is_visible()
@@ -138,12 +144,12 @@ def run(browser, name):
     # Collapsing an editing card saves a pending simple-side name and closes editing.
     main = card(p, 2)
     main.locator('.meal-actions-toggle').click()
-    main.get_by_role('button', name='Add or edit sides', exact=True).click()
+    base.open_sides(main)
     main.get_by_role('button', name='Side actions for Butter').click()
     main.get_by_role('button', name='Edit side', exact=True).click()
     main.get_by_role('textbox', name='Side name', exact=True).fill('Garlic butter')
     # A simple side's cart opens its ingredient list so it can still be shopped for.
-    main.get_by_role('button', name='Edit groceries', exact=True).click()
+    main.locator('.serving-sides-box').get_by_role('button', name='Edit groceries', exact=True).click()
     ingredients = main.get_by_role('textbox', name='Side ingredients', exact=True)
     assert ingredients.is_visible()
     ingredients.fill('2 cups white rice')
@@ -162,7 +168,7 @@ def run(browser, name):
     # The bottom check closes the editor (changes are already saved); the card stays expanded.
     main = card(p, 2)
     main.locator('.meal-actions-toggle').click()
-    main.get_by_role('button', name='Add or edit sides', exact=True).click()
+    base.open_sides(main)
     main.get_by_role('button', name='Side actions for Garlic butter').click()
     assert p.evaluate('batch127.session()')
     main.get_by_role('button', name='Close sides', exact=True).click()
@@ -171,7 +177,7 @@ def run(browser, name):
 
     # Add side: exact recipe match first, simple side second, other matches labeled with group.
     main = card(p, 2)
-    main.get_by_role('button', name='Add or edit sides', exact=True).click()
+    base.open_sides(main)
     before = state(p)
     main.get_by_role('button', name='Add side', exact=True).click()
     dialog = p.get_by_role('dialog', name='Add side')
@@ -210,7 +216,7 @@ def run(browser, name):
 
     # Mix it up: group checklist, checked float to top, no "rotating" wording.
     main = card(p, 2)
-    main.get_by_role('button', name='Add or edit sides', exact=True).click()
+    base.open_sides(main)
     main.get_by_role('button', name='Add side', exact=True).click()
     dialog = p.get_by_role('dialog', name='Add side')
     dialog.get_by_role('tab', name='Mix it up').click()
@@ -235,14 +241,14 @@ def run(browser, name):
     main = card(p, 2)
     main.locator('.meal-actions-toggle').click()
     before = state(p)
-    main.get_by_role('button', name='Add or edit sides', exact=True).click()
+    base.open_sides(main)
     assert p.get_by_role('dialog', name='Add side').is_visible()
     p.get_by_role('dialog', name='Add side').get_by_role('button', name='Cancel', exact=True).click()
     p.wait_for_timeout(250)
     assert state(p) == before and not p.evaluate('batch127.session()')
     assert card(p, 2).locator('.shared-meal-action-grid').first.is_visible()
     # Choosing a recipe from an empty card saves it and shows it auto-expanded (one side).
-    card(p, 2).get_by_role('button', name='Add or edit sides', exact=True).click()
+    base.open_sides(card(p, 2))
     dialog = p.get_by_role('dialog', name='Add side')
     dialog.get_by_role('searchbox').fill('Creamy mashed potatoes')
     dialog.get_by_role('button', name='Add selected side').click()
@@ -251,18 +257,18 @@ def run(browser, name):
     assert card(p, 2).locator('.inline-side-row .inline-side-body').count() == 1
     # One saved side reopens auto-expanded.
     p.evaluate('batch127.close()')
-    card(p, 2).get_by_role('button', name='Add or edit sides', exact=True).click()
+    base.open_sides(card(p, 2))
     assert card(p, 2).locator('.inline-side-row .inline-side-body').count() == 1
     p.evaluate('batch127.close()')
 
-    # Date column: same offset collapsed/expanded, equal across cards, both weeks.
+    # Date column: centred on the header block, collapsed and expanded, both weeks.
     for week in (0, 1):
         p.evaluate('batch127.home(%d)' % week)
-        offsets = [date_offset(p, x) for x in p.locator('.plan-meal-card').all()]
-        assert max(offsets) - min(offsets) < 0.5, (week, offsets)
+        gaps = [date_center_gap(p, x) for x in p.locator('.plan-meal-card').all()]
+        assert max(abs(g) for g in gaps) < 1.5, (week, gaps)
         first = p.locator('.plan-meal-card').first
         first.locator('.meal-actions-toggle').click()
-        assert abs(date_offset(p, p.locator('.plan-meal-card').first) - offsets[0]) < 0.5
+        assert abs(date_center_gap(p, p.locator('.plan-meal-card').first)) < 1.5
         shot(p, name, 'dates-week%d' % week)
 
     # Next week: removal auto-saves to next week only and undoes.
@@ -270,7 +276,7 @@ def run(browser, name):
     current_before = p.evaluate('batch127.sides(0)')
     nxt = card(p, 3)
     nxt.locator('.meal-actions-toggle').click()
-    nxt.get_by_role('button', name='Add or edit sides', exact=True).click()
+    base.open_sides(nxt)
     nxt.get_by_role('button', name='Remove side', exact=True).click()  # one side is auto-expanded
     assert p.evaluate('batch127.sides(1)') == []
     assert p.evaluate('batch127.sides(0)') == current_before
@@ -294,7 +300,7 @@ def colors(browser, name):
     for i in range(min(cards.count(), 7)):
         cd = p.locator('.plan-meal-card[data-meal-id]').nth(i)
         cd.locator('.meal-actions-toggle').click()
-        cd.get_by_role('button', name='Add or edit sides', exact=True).click()
+        base.open_sides(cd)
         cd = p.locator('.plan-meal-card.card-sides-editing')
         bg = cd.evaluate('c=>getComputedStyle(c).backgroundColor')
         seen.append(bg)
@@ -306,10 +312,104 @@ def colors(browser, name):
     print('PASS', name, 'edit area on', len(seen), 'card colors', flush=True)
 
 
+def redesign(browser, name):
+    """Follow-up redesign: Sides box under the main actions, plus/chevron row, no Use next recipe / Add or edit sides on the card."""
+    c, p, errors, prefix = open_page(browser, name)
+    p.evaluate('follow126.rules();batch127.times()')
+    main = card(p, 2)
+    main.locator('.meal-actions-toggle').click()
+    labels = [t.strip() for t in main.locator('.shared-meal-action-grid button').all_inner_texts()]
+    assert labels == ['Edit recipe', 'Choose a different meal', 'Edit groceries', 'Leave this meal empty'], labels
+    box = main.locator('.serving-sides-box')
+    assert box.count() == 1
+    grid_bottom = main.locator('.shared-meal-action-grid').evaluate('x=>x.getBoundingClientRect().bottom')
+    assert box.evaluate('x=>x.getBoundingClientRect().top') >= grid_bottom - 1
+    header_buttons = box.locator('.inline-sides-header button').evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label"))')
+    assert header_buttons == ['Add side', 'Show sides'], header_buttons
+    shot(p, name, 'redesign-collapsed-sides')
+    # Side hearts use the main heart's gray.
+    main_heart = main.locator('.expanded-name-heart').evaluate('x=>getComputedStyle(x).color')
+    side_heart = main.locator('.plan-side-heart').first.evaluate('x=>getComputedStyle(x).color')
+    assert main_heart == side_heart, (main_heart, side_heart)
+    # Chevron opens the editor; the header plus is replaced by the footer plus beside the check.
+    box.get_by_role('button', name='Show sides', exact=True).click()
+    box = main.locator('.serving-sides-box')
+    assert p.evaluate('batch127.session()') and box.get_by_role('button', name='Hide sides', exact=True).count() == 1
+    assert box.get_by_role('button', name='Add side', exact=True).count() == 1 and box.locator('.sides-session-footer').count() == 1
+    assert main.locator('.shared-meal-action-grid').is_visible()  # main actions stay put while sides are open
+    side_heart = main.locator('.inline-side-heart').first.evaluate('x=>getComputedStyle(x).color') if main.locator('.inline-side-heart').count() else main_heart
+    assert side_heart == main_heart, (main_heart, side_heart)
+    box.get_by_role('button', name='Hide sides', exact=True).click()
+    assert not p.evaluate('batch127.session()')
+    # The header plus: pick a side first; the editor opens with it expanded as plain text, not a text box.
+    box = card(p, 2).locator('.serving-sides-box')
+    box.get_by_role('button', name='Add side', exact=True).click()
+    d = p.get_by_role('dialog', name='Add side', exact=True)
+    d.get_by_role('searchbox').fill('Garlic green beans')
+    d.get_by_role('button', name='Add selected side', exact=True).click()
+    p.wait_for_timeout(250)
+    main = card(p, 2)
+    assert p.evaluate('batch127.session()') and 'Garlic green beans' in p.evaluate('batch127.sides()')
+    assert main.get_by_role('textbox', name='Side name').count() == 0
+    row = main.locator('.inline-side-row', has_text='Garlic green beans')
+    assert row.locator('.inline-side-body').count() == 1
+    shot(p, name, 'redesign-added-plain')
+    p.evaluate('batch127.close()')
+
+    # Empty day: Choose a meal + Choose meal groups, and no dash while expanded.
+    p.evaluate('batch127.emptyDay()')
+    empty = p.locator('.plan-meal-card.empty-plan-card').first
+    assert empty.locator('.mealname').is_visible()
+    empty.locator('.meal-actions-toggle').click()
+    labels = [t.strip() for t in empty.locator('.shared-meal-action-grid button').all_inner_texts()]
+    assert labels == ['Choose a meal', 'Choose meal groups'], labels
+    assert not empty.locator('.mealname').is_visible()
+    shot(p, name, 'redesign-empty-day')
+    empty.get_by_role('button', name='Choose meal groups', exact=True).click()
+    day = p.locator('[role=dialog]').last.inner_text()
+    assert 'Choose Wednesday’s meal groups' in day, day
+    p.get_by_role('button', name='Cancel meal groups', exact=True).click()
+
+    # Meal groups dialog: no sort chevrons, clear sentence.
+    p.evaluate('batch127.home()')
+    card(p, 2).locator('.plan-date').click()
+    dlg = p.get_by_role('dialog', name='Choose Tuesday’s meal groups', exact=True)
+    text = dlg.inner_text()
+    assert 'Select the groups Tuesday can select meals from. If you want to leave Tuesday empty, don’t select any groups.' in text, text
+    assert dlg.get_by_role('button', name='Earlier', exact=False).count() == 0 and dlg.get_by_role('button', name='Later', exact=False).count() == 0
+    shot(p, name, 'redesign-groups-dialog')
+    dlg.get_by_role('button', name='Cancel meal groups', exact=True).click()
+
+    # This week: Use next recipe lives in Choose a different meal too.
+    p.evaluate('batch127.home()')
+    now = card(p, 2)
+    now.locator('.meal-actions-toggle').click()
+    assert now.get_by_role('button', name='Use next recipe', exact=True).count() == 0
+    now.get_by_role('button', name='Choose a different meal', exact=True).click()
+    assert p.locator('.weekday-meal-picker').last.get_by_role('button', name='Use next recipe', exact=True).is_visible()
+    p.locator('.weekday-meal-picker').last.get_by_role('button', name='Cancel', exact=True).click()
+
+    # Next week: Use next recipe lives in Choose a different meal.
+    p.evaluate('batch127.home(1)')
+    future = p.locator('.preview-plan-card[data-meal-id]').first
+    future.locator('.meal-actions-toggle').click()
+    assert future.get_by_role('button', name='Use next recipe', exact=True).count() == 0
+    future.get_by_role('button', name='Choose a different meal', exact=True).click()
+    picker = p.locator('.weekday-meal-picker').last
+    assert picker.get_by_role('button', name='Use next recipe', exact=True).is_visible()
+    picker.get_by_role('button', name='Use next recipe', exact=True).click()
+    p.wait_for_timeout(300)
+    assert not p.locator('.weekday-meal-picker').count()
+    assert not errors, errors
+    c.close()
+    print('PASS', name, 'redesign: Sides box, plus/chevron, plain new side, empty day, groups dialog, next-week Use next recipe', flush=True)
+
+
 if __name__ == '__main__':
     with sync_playwright() as pw:
         b = pw.chromium.launch(executable_path='/usr/bin/chromium', args=['--no-sandbox'])
         for name in ['index.html', 'meal-rotation-test.html']:
             run(b, name)
             colors(b, name)
+            redesign(b, name)
         b.close()

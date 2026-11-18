@@ -45,6 +45,10 @@ Run locally with Playwright and Chromium: `python3 tests/sides_batch127_browser.
 
 [collapsed](evidence/issue127/collapsed-with-sides.png) · [expanded with side details/hearts](evidence/issue127/expanded-side-details.png) · [sides editing](evidence/issue127/sides-edit-mode.png) · [removed toast](evidence/issue127/removed-toast.png) · [simple side editor](evidence/issue127/simple-edit.png) · [Add side browse](evidence/issue127/add-side-browse.png) · [exact match](evidence/issue127/add-side-exact.png) · [new name](evidence/issue127/add-side-new-name.png) · [Mix it up](evidence/issue127/mix-it-up.png) · [next week dates](evidence/issue127/dates-week1.png) · [edit area on 7 colors](evidence/issue127/edit-area-colors.png) · test app: [editing](evidence/issue127/test-sides-edit-mode.png), [exact match](evidence/issue127/test-add-side-exact.png)
 
-## Phone checklist (not yet done)
+## Follow-up redesign (2026-11-17)
+
+All 21 Batch 1 phone-checklist items passed. Follow-up covered by `redesign()` in `tests/sides_batch127_browser.py`: Sides box/plus/chevron, plain new simple side, empty-day Choose meal groups and no dash, meal-groups dialog without chevrons and new sentence, Use next recipe inside Choose a different meal (both weeks), gray side hearts, date centered on the header block. All #126/#127 suites pass in both apps; other suites fail identically on the base commit. Awaiting phone test of the follow-up.
+
+## Original phone checklist (passed)
 
 Remove side → Undo (toolbar and toast). Add side on an empty day. Type a new name vs an existing recipe name. Collapse an editing card. Favorite a side. Compare date position collapsed/expanded. Check a few card colors. Keyboard and large-text behavior on a real Android device.

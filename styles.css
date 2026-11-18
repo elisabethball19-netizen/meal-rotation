@@ -2008,3 +2008,16 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .serving-undo-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:13030;display:flex;align-items:center;gap:14px;background:#2f3439;color:#fff;border-radius:10px;padding:4px 6px 4px 16px;box-shadow:0 4px 14px #0004;font-size:15px;max-width:calc(100vw - 32px);white-space:nowrap}.serving-undo-toast button{border:0;background:transparent;color:#b9cfff;font:inherit;font-weight:650;min-height:44px;padding:0 12px}
 /* Issue 127 follow-up: icon-only side actions, check closes the editor. */
 .serving-icon-row{display:flex;justify-content:space-around;align-items:center;margin:4px 0 2px}.serving-icon-row .serving-icon-action{width:44px;height:44px;min-width:44px;min-height:44px}.serving-empty-sides{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0}.sides-edit-mode .sides-session-footer{justify-content:space-evenly;border-top:1px solid #b7bdc4;margin-top:6px;padding-top:2px}
+
+/* Issue 127 follow-up 2: Sides box under the main actions, date centered on the header block, gray side hearts. */
+.plan-meal-card .serving-sides-box{background:#ffffff70;border-radius:10px;padding:6px 10px 8px;margin-top:8px}
+.serving-sides-box .inline-sides-header{display:flex;align-items:center;gap:4px;min-height:44px}.serving-sides-box .inline-sides-header>strong{flex:1}
+.serving-sides-box .inline-sides-header .serving-icon-action{width:44px;height:44px}
+.plan-linked-names .plan-side-heading button.plan-side-heart,.inline-side-heading button.inline-side-heart{color:#637080}
+.plan-meal-card>.shared-meal-actions{grid-column:2/4;grid-row:2;width:auto!important;margin:0!important;position:relative}
+.plan-meal-card>.shared-meal-actions:not([hidden])::before{content:'';position:absolute;left:-9px;top:0;bottom:0;border-left:1px solid #56626c24}
+.plan-meal-card>.plan-date,.plan-meal-card:not(.plan-card-expanded)>.plan-date,.plan-meal-card.plan-card-expanded>.plan-date{justify-content:center;padding-top:0;padding-bottom:0}
+
+.plan-meal-card.plan-card-expanded.empty-plan-card .plan-card-recipe>.mealname{display:none!important}
+.weekday-next-recipe-row{display:flex;flex:0 0 auto}.weekday-next-recipe-row .smallbtn{min-height:44px}
+.plan-meal-card.plan-card-expanded .plan-card-content>.plan-linked-names{display:none}.serving-box-names .plan-linked-names{margin:0 0 4px}
