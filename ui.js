@@ -2580,7 +2580,7 @@ function appendGroupInlineActions(row,info,nameLine,meal,category){
  groupMealTimes(info,meal,open);
  const controls=document.createElement('div');controls.className='group-row-actions';row.dataset.groupHasStatus='false';
  const toggle=document.createElement('button');toggle.type='button';toggle.className='iconbtn group-recipe-toggle';setIconButton(toggle,'down','Recipe actions for '+meal.name);if(open)toggle.querySelector('svg').innerHTML='<path d="m6 15 6-6 6 6"/>';toggle.setAttribute('aria-expanded',String(open));toggle.disabled=recipeBulkMode;toggle.onclick=e=>{e.preventDefault();e.stopPropagation();groupReturnScroll=scrollY;expandedGroupRecipe=open?null:key;renderList({readOnly:true})};controls.append(toggle);nameLine.append(controls);
- if(!recipeBulkMode&&!open&&meal.favorite===true){const heart=recipeFavoriteButton(meal),favorite=heart.onclick;heart.classList.add('expanded-name-heart');heart.onclick=e=>groupInlineAction(()=>favorite(e));nameLine.append(heart)}
+ if(!recipeBulkMode&&!open&&meal.favorite===true){const heart=recipeFavoriteButton(meal),favorite=heart.onclick;heart.classList.add('expanded-name-heart');heart.onclick=e=>groupInlineAction(()=>favorite(e));(nameLine.querySelector(':scope>.linked-name-ending')||nameLine).append(heart)}
  const cooked=document.createElement('button');cooked.type='button';cooked.className='meal-options-last-cooked group-last-cooked';setLastCookedValue(cooked,meal);cooked.setAttribute('aria-label','Edit last cooked date for '+meal.name);cooked.onclick=e=>{e.stopPropagation();groupInlineAction(()=>editMealCookedDate(meal))};
  if(!open){if(showLastCooked)info.append(cooked);return}
  const panel=document.createElement('div');panel.className='group-inline-panel';panel.append(cooked);

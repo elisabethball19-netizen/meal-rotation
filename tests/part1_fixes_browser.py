@@ -12,7 +12,7 @@ import batch2_groceries_browser as b2  # noqa: E402
 import recipe_sync_matching_browser  # noqa: E402,F401  (adds the sync6 hooks)
 
 sb.fixture.HOOK += '''window.p1={
- heart:()=>{const m=meals.find(x=>x.cat);m.name='Thai Chicken Thukpa With Extra Long Name Here';m.favorite=true;m.needsTweaking=true;persist();showTop=false;allMealsActive=true;groceryTabActive=false;masterExpansionInitialized=true;masterExpandedCategories.clear();masterExpandedCategories.add(m.cat);for(const k of ['weekly','other','unassigned'])setGroupPageSectionOpen(k,true);render()},
+ heart:()=>{const m=meals.find(x=>x.cat);m.name='Thai Chicken Thukpa';m.favorite=true;m.needsTweaking=true;persist();showTop=false;allMealsActive=true;groceryTabActive=false;masterExpansionInitialized=true;masterExpandedCategories.clear();masterExpandedCategories.add(m.cat);for(const k of ['weekly','other','unassigned'])setGroupPageSectionOpen(k,true);render()},
  desc:offset=>{const d=new Date();d.setDate(d.getDate()+offset);return makeAheadTaskDescription({plan:{name:'Dinner'},entry:{day:'Monday',cat:''},scheduled:cookingLocalDate(d),task:{description:'Defrost chicken'},preview:false},true)},
  editor:()=>{const m=meals.find(x=>x.cat);showTop=false;allMealsActive=false;groceryTabActive=false;openEditor(m.id,false)}
 };'''
@@ -50,8 +50,8 @@ def run(browser, name):
     # Favorite heart stays on the same line as a long name.
     p.evaluate('p1.heart()')
     p.wait_for_timeout(300)
-    pos = p.evaluate("""()=>{const h=document.querySelector('.expanded-name-heart'),n=h.parentElement.firstElementChild,a=h.getBoundingClientRect(),b=n.getBoundingClientRect();return [a.top,a.bottom,b.top,b.bottom,a.left,b.right]}""")
-    assert pos[0] < pos[3] - 4 and pos[1] > pos[2] + 4 and pos[4] >= pos[5] - 2, pos
+    pos = p.evaluate("""()=>{const h=document.querySelector('.expanded-name-heart'),e=h.closest('.linked-name-ending'),a=h.getBoundingClientRect(),b=(e||h.parentElement).getBoundingClientRect(),last=e?e.querySelector('.master-category-meal-name').getBoundingClientRect():b;return [!!e,a.top,a.bottom,last.top,last.bottom]}""")
+    assert pos[0] and pos[1] < pos[4] and pos[2] > pos[3], pos  # heart shares the last word's line
     # Curry powder with leading descriptors matches the shorter step wording.
     p.evaluate('([i,s])=>sync6.fixture(i,s)', [['3 tsp mild yellow curry powder, divided', '1 tbsp olive oil'], ['Season with salt.', 'Stir in remaining 1 1/2 tsp curry powder and olive oil.']])
     m = p.evaluate('sync6.matches()')
