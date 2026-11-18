@@ -635,8 +635,9 @@ function buildRecipeNotesSection(meal){
 }
 
 // One deadline-based timer, independent of cooking progress and scheduled occurrences.
-const COOKING_TIMER_KEY='mealRotationCookingTimerV1',COOKING_TIMER_MAX=30*24*60*60*1000,COOKING_TIMER_ALARM_MS=6000;
-let cookingTimer=null,cookingTimerInterval=null,cookingTimerAudio=null,cookingTimerStarting=false,cookingTimerDismissDialog=null,cookingTimerSound=null;
+const COOKING_TIMERS_KEY='mealRotationCookingTimersV1',COOKING_TIMER_LIMIT=6,COOKING_TIMER_KEY='mealRotationCookingTimerV1',COOKING_TIMER_MAX=30*24*60*60*1000,COOKING_TIMER_ALARM_MS=6000;
+// Multiple timers: cookingTimers holds every timer; cookingTimer is the most urgent one (kept for older call sites).
+let cookingTimers=[],cookingTimer=null,cookingTimerInterval=null,cookingTimerAudio=null,cookingTimerStarting=false,cookingTimerDismissDialog=null,cookingTimerSound=null;
 function recipeCookingDurations(text){
  const source=String(text||'').replace(/\u00a0/g,' '),found=[];
  const numbers='(?:\\d+(?:\\s+\\d+\\/\\d+|[.,]\\d+|[½¼¾])?|\\d+\\/\\d+|[½¼¾]|one and a half|(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:[ -](?:one|two|three|four|five|six|seven|eight|nine))?|half(?: an?)?|quarter(?: of an?)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen)';
@@ -659,11 +660,25 @@ function recipeCookingDurations(text){
  }
  return found;
 }
-function readCookingTimer(){
- try{const t=JSON.parse(localStorage.getItem(COOKING_TIMER_KEY)||'null');if(!t||t.version!==1||typeof t.id!=='string'||!['running','paused','complete'].includes(t.status)||typeof t.recipeId!=='string'||typeof t.recipeName!=='string'||typeof t.stepToken!=='string'||typeof t.stepText!=='string')return null;if(t.status==='running'&&(!Number.isFinite(t.deadline)||t.deadline>Date.now()+COOKING_TIMER_MAX))return null;if(t.status==='paused'&&(!Number.isFinite(t.remaining)||t.remaining<=0||t.remaining>COOKING_TIMER_MAX))return null;return t}catch(e){return null}
+function validCookingTimer(t){if(!t||t.version!==1||typeof t.id!=='string'||!['running','paused','complete'].includes(t.status)||typeof t.recipeId!=='string'||typeof t.recipeName!=='string'||typeof t.stepToken!=='string'||typeof t.stepText!=='string')return false;if(t.status==='running'&&(!Number.isFinite(t.deadline)||t.deadline>Date.now()+COOKING_TIMER_MAX))return false;if(t.status==='paused'&&(!Number.isFinite(t.remaining)||t.remaining<=0||t.remaining>COOKING_TIMER_MAX))return false;return true}
+function readCookingTimer(){try{const t=JSON.parse(localStorage.getItem(COOKING_TIMER_KEY)||'null');return validCookingTimer(t)?t:null}catch(e){return null}}
+// The list key is the source of truth; an older single-timer record (or backup) becomes a one-item list.
+function readStoredCookingTimers(){
+ try{const raw=localStorage.getItem(COOKING_TIMERS_KEY);if(raw!==null){const v=JSON.parse(raw);if(v&&v.version===1&&Array.isArray(v.timers)){const seen=new Set();return v.timers.filter(t=>validCookingTimer(t)&&!seen.has(t.id)&&seen.add(t.id)).slice(0,COOKING_TIMER_LIMIT)}}}catch(e){}
+ const legacy=readCookingTimer();return legacy?[legacy]:[];
 }
-function saveCookingTimer(){try{if(cookingTimer)localStorage.setItem(COOKING_TIMER_KEY,JSON.stringify(cookingTimer));else localStorage.removeItem(COOKING_TIMER_KEY)}catch(e){/* In-memory timer still works when storage is unavailable. */}}
-function cookingTimerRemaining(){return !cookingTimer||cookingTimer.status==='complete'?0:cookingTimer.status==='paused'?cookingTimer.remaining:Math.max(0,cookingTimer.deadline-Date.now())}
+function cookingTimerUrgency(t){return t.status==='complete'?[0,t.completedAt||0]:t.status==='running'?[1,t.deadline]:[2,t.remaining]}
+function primaryCookingTimer(list){return [...list].sort((a,b)=>{const x=cookingTimerUrgency(a),y=cookingTimerUrgency(b);return x[0]-y[0]||x[1]-y[1]})[0]||null}
+function writeStoredCookingTimers(list){
+ // The single-timer key mirrors the most urgent timer so older backups/versions still see one.
+ if(list.length)localStorage.setItem(COOKING_TIMERS_KEY,JSON.stringify({version:1,timers:list}));else localStorage.removeItem(COOKING_TIMERS_KEY);
+ const primary=primaryCookingTimer(list);if(primary)localStorage.setItem(COOKING_TIMER_KEY,JSON.stringify(primary));else localStorage.removeItem(COOKING_TIMER_KEY);
+}
+function loadCookingTimers(){cookingTimers=readStoredCookingTimers();cookingTimer=primaryCookingTimer(cookingTimers)}
+function saveCookingTimer(){cookingTimer=primaryCookingTimer(cookingTimers);try{writeStoredCookingTimers(cookingTimers)}catch(e){/* In-memory timers still work when storage is unavailable. */}}
+function updateCookingTimerRecord(next){cookingTimers=cookingTimers.map(t=>t.id===next.id?next:t);saveCookingTimer()}
+function findCookingTimer(id){return id==null?cookingTimer:cookingTimers.find(t=>t.id===id)||null}
+function cookingTimerRemaining(timer=cookingTimer){return !timer||timer.status==='complete'?0:timer.status==='paused'?timer.remaining:Math.max(0,timer.deadline-Date.now())}
 function cookingTimerClock(ms){const s=Math.ceil(ms/1000),h=Math.floor(s/3600),m=Math.floor(s/60)%60;return h?h+':'+String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0'):m+':'+String(s%60).padStart(2,'0')}
 function prepareCookingTimerAudio(){try{const Audio=window.AudioContext||window.webkitAudioContext;if(Audio){cookingTimerAudio||=new Audio();cookingTimerAudio.resume()?.catch(()=>{})}}catch(e){}}
 function stopCookingTimerSound(kind=null){
@@ -696,7 +711,7 @@ function startCookingTimerSound(kind,timerId=null,endsAt=null){
 }
 function syncCookingTimerAlarm(){
  const sound=cookingTimerSound;
- if(sound?.kind==='alarm'&&(!cookingTimer||cookingTimer.status!=='complete'||sound.timerId!==cookingTimer.id||document.hidden||Date.now()>=sound.stopAt||cookingTimerAudio?.state!=='running'))stopCookingTimerSound('alarm');
+ if(sound?.kind==='alarm'&&(findCookingTimer(sound.timerId)?.status!=='complete'||document.hidden||Date.now()>=sound.stopAt||cookingTimerAudio?.state!=='running'))stopCookingTimerSound('alarm');
  updateCookingTimerSoundControls();
 }
 function updateCookingTimerSoundControls(){
@@ -726,44 +741,50 @@ async function alertCookingTimer(timer){
 }
 // A completion is handled once. Audio is only attempted while visible and within
 // the original five-second deadline window; returning to the app never replays it.
-let cookingTimerObservedId=null,cookingTimerAudibleId=null,cookingTimerCompletionDialog=null,cookingTimerCompletionFrame=null;
-function suspendCookingTimerAlert(){cookingTimerAudibleId=null;stopCookingTimerSound()}
+const cookingTimerObservedIds=new Set(),cookingTimerAudibleIds=new Set();let cookingTimerCompletionDialog=null,cookingTimerCompletionFrame=null;
+function suspendCookingTimerAlert(){cookingTimerAudibleIds.clear();stopCookingTimerSound()}
 function closeCookingTimerCompletion(){
  const dialog=cookingTimerCompletionDialog;if(!dialog)return;cookingTimerCompletionDialog=null;dialog.cover.remove();
  for(const [el,was]of dialog.inert)if(el.isConnected)el.inert=was;
  if(dialog.focus?.isConnected)dialog.focus.focus({preventScroll:true});
 }
 function requestCookingTimerCompletion(){
- if(cookingTimerCompletionDialog&&(!cookingTimer||cookingTimer.status!=='complete'||cookingTimerCompletionDialog.id!==cookingTimer.id))closeCookingTimerCompletion();
- if(document.hidden||cookingTimer?.status!=='complete'||cookingTimerCompletionFrame!==null)return;
- cookingTimerCompletionFrame=requestAnimationFrame(()=>{cookingTimerCompletionFrame=null;if(document.hidden||cookingTimer?.status!=='complete')return;
+ const finished=cookingTimers.filter(t=>t.status==='complete').sort((a,b)=>(a.completedAt||0)-(b.completedAt||0))[0]||null;
+ if(cookingTimerCompletionDialog&&(!finished||cookingTimerCompletionDialog.id!==finished.id))closeCookingTimerCompletion();
+ if(document.hidden||!finished||cookingTimerCompletionFrame!==null)return;
+ cookingTimerCompletionFrame=requestAnimationFrame(()=>{cookingTimerCompletionFrame=null;const timer=cookingTimers.filter(t=>t.status==='complete').sort((a,b)=>(a.completedAt||0)-(b.completedAt||0))[0];if(document.hidden||!timer)return;
   if(cookingTimerCompletionDialog){const dialog=cookingTimerCompletionDialog;for(const el of document.body.children)if(el!==dialog.cover){if(!dialog.inert.some(([prior])=>prior===el))dialog.inert.push([el,el.inert]);el.inert=true}dialog.cover.inert=false;dialog.cover.querySelector('button')?.focus({preventScroll:true});return}
   cookingTimerDismissDialog?.();recipeViewer?.openRecipesDialog?.();closeCookingTimerControls();
   const cover=document.createElement('div');cover.id='cookingTimerCompletion';cover.className='recipe-timer-dialog';cover.setAttribute('role','alertdialog');cover.setAttribute('aria-modal','true');cover.setAttribute('aria-labelledby','cookingTimerCompletionTitle');cover.setAttribute('aria-describedby','cookingTimerCompletionRecipe');
   const panel=document.createElement('div'),title=document.createElement('strong');title.id='cookingTimerCompletionTitle';title.textContent="Time's Up!";
-  const name=document.createElement('p');name.id='cookingTimerCompletionRecipe';name.textContent=meals.find(m=>String(m.id)===String(cookingTimer.recipeId))?.name||cookingTimer.recipeName;
-  const acknowledge=document.createElement('button');acknowledge.type='button';acknowledge.className='recipe-timer-icon';setRecipeToolbarIcon(acknowledge,'save','Acknowledge completed timer');acknowledge.onclick=cancelCookingTimer;panel.append(title,name,acknowledge);cover.append(panel);
+  const name=document.createElement('p');name.id='cookingTimerCompletionRecipe';name.textContent=(meals.find(m=>String(m.id)===String(timer.recipeId))?.name||timer.recipeName)+(cookingTimers.length>1&&timer.stepNumber?' · Step '+timer.stepNumber:'');
+  const acknowledge=document.createElement('button');acknowledge.type='button';acknowledge.className='recipe-timer-icon';setRecipeToolbarIcon(acknowledge,'save','Acknowledge completed timer');acknowledge.onclick=()=>cancelCookingTimer(timer.id);panel.append(title,name,acknowledge);cover.append(panel);
   const focus=document.activeElement,inert=[...document.body.children].map(el=>[el,el.inert]);for(const [el]of inert)el.inert=true;
-  cookingTimerCompletionDialog={cover,inert,focus,id:cookingTimer.id};document.body.append(cover);acknowledge.focus({preventScroll:true});
+  cookingTimerCompletionDialog={cover,inert,focus,id:timer.id};document.body.append(cover);acknowledge.focus({preventScroll:true});
   cover.onkeydown=e=>{if(e.key==='Escape'||e.key==='Tab'){e.preventDefault();e.stopPropagation();acknowledge.focus({preventScroll:true})}};
   cover.addEventListener('wheel',e=>e.preventDefault(),{passive:false});cover.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
  });
 }
 function syncCookingTimer(){
- const now=Date.now();
- if(cookingTimer?.status==='running'&&cookingTimerRemaining()>0){cookingTimerObservedId=cookingTimer.id;if(!document.hidden)cookingTimerAudibleId=cookingTimer.id}
- if(cookingTimer?.status==='running'&&cookingTimerRemaining()===0){
-  const prior=cookingTimer,endsAt=prior.deadline+COOKING_TIMER_ALARM_MS,audible=cookingTimerAudibleId===prior.id&&!document.hidden&&now<endsAt;
-  cookingTimer={...prior,status:'complete',remaining:0,completedAt:prior.deadline,alertHandled:true};saveCookingTimer();
-  if(!prior.alertHandled&&cookingTimerObservedId===prior.id)alertCookingTimer(cookingTimer);
-  if(!prior.alertHandled&&audible)startCookingTimerSound('alarm',prior.id,endsAt);
- }else if(cookingTimer?.status==='complete'&&!cookingTimer.alertHandled){cookingTimer={...cookingTimer,alertHandled:true};saveCookingTimer()}
- if(cookingTimer?.status==='running'){if(!cookingTimerInterval)cookingTimerInterval=setInterval(syncCookingTimer,500)}else{clearInterval(cookingTimerInterval);cookingTimerInterval=null}
+ const now=Date.now();let changed=false;
+ cookingTimers=cookingTimers.map(timer=>{
+  if(timer.status==='running'&&cookingTimerRemaining(timer)>0){cookingTimerObservedIds.add(timer.id);if(!document.hidden)cookingTimerAudibleIds.add(timer.id);return timer}
+  if(timer.status==='running'){
+   const endsAt=timer.deadline+COOKING_TIMER_ALARM_MS,audible=cookingTimerAudibleIds.has(timer.id)&&!document.hidden&&now<endsAt,done={...timer,status:'complete',remaining:0,completedAt:timer.deadline,alertHandled:true};changed=true;
+   if(!timer.alertHandled&&cookingTimerObservedIds.has(timer.id))alertCookingTimer(done);
+   if(!timer.alertHandled&&audible)startCookingTimerSound('alarm',timer.id,endsAt);
+   return done;
+  }
+  if(timer.status==='complete'&&!timer.alertHandled){changed=true;return {...timer,alertHandled:true}}
+  return timer;
+ });
+ if(changed)saveCookingTimer();else cookingTimer=primaryCookingTimer(cookingTimers);
+ if(cookingTimers.some(t=>t.status==='running')){if(!cookingTimerInterval)cookingTimerInterval=setInterval(syncCookingTimer,500)}else{clearInterval(cookingTimerInterval);cookingTimerInterval=null}
  syncCookingTimerAlarm();renderCookingTimer();requestCookingTimerCompletion();
 }
-function cancelCookingTimer(){stopCookingTimerSound();cookingTimer=null;saveCookingTimer();syncCookingTimer()}
-function pauseCookingTimer(){syncCookingTimer();if(cookingTimer?.status!=='running')return;cookingTimer={...cookingTimer,status:'paused',remaining:cookingTimerRemaining()};saveCookingTimer();syncCookingTimer()}
-function resumeCookingTimer(){if(cookingTimer?.status!=='paused')return;prepareCookingTimerAudio();cookingTimer={...cookingTimer,status:'running',deadline:Date.now()+cookingTimer.remaining};saveCookingTimer();syncCookingTimer()}
+function cancelCookingTimer(id=cookingTimer?.id){if(cookingTimerSound?.timerId===id||!cookingTimers.length)stopCookingTimerSound();cookingTimers=cookingTimers.filter(t=>t.id!==id);recipeViewer?.hiddenTimerIds?.delete(id);saveCookingTimer();syncCookingTimer()}
+function pauseCookingTimer(id=cookingTimer?.id){syncCookingTimer();const timer=findCookingTimer(id);if(timer?.status!=='running')return;updateCookingTimerRecord({...timer,status:'paused',remaining:cookingTimerRemaining(timer)});syncCookingTimer()}
+function resumeCookingTimer(id=cookingTimer?.id){const timer=findCookingTimer(id);if(timer?.status!=='paused')return;prepareCookingTimerAudio();updateCookingTimerRecord({...timer,status:'running',deadline:Date.now()+timer.remaining});syncCookingTimer()}
 function cookingTimerDialog(title,choices,compact=false){return new Promise(resolve=>{
  const view=recipeViewer,shade=document.createElement('div');shade.className='recipe-timer-dialog'+(compact?' recipe-timer-confirm':'');shade.setAttribute('role','dialog');shade.setAttribute('aria-modal','true');shade.setAttribute('aria-label',title);
  const panel=document.createElement('div'),heading=document.createElement('strong');heading.textContent=title;panel.append(heading);const focused=document.activeElement,inert=[...document.body.children].map(el=>[el,el.inert]);inert.forEach(([el])=>el.inert=true);
@@ -775,14 +796,14 @@ function cookingTimerDialog(title,choices,compact=false){return new Promise(reso
  })}
 async function startRecipeCookingTimer(meal,item,durations,stepNumber){
  if(cookingTimerStarting||!recipeViewer||recipeViewer.mealId!==String(meal.id))return;
- if(cookingTimer&&recipeViewer.hiddenTimerId===cookingTimer.id&&String(cookingTimer.recipeId)===String(meal.id)&&cookingTimer.stepToken===item.token){showRecipeCookingTimer();return}
+ syncCookingTimer();const existing=cookingTimers.find(t=>String(t.recipeId)===String(meal.id)&&t.stepToken===item.token&&t.status!=='complete');if(existing){recipeViewer.hiddenTimerIds?.delete(existing.id);renderCookingTimer();return}
  cookingTimerStarting=true;prepareCookingTimerAudio();const view=recipeViewer;
  try{
   let duration=durations[0];
   if(durations.length>1){const index=await cookingTimerDialog('Choose cooking duration',durations.map((d,i)=>({label:(i+1)+'. '+d.label+' · '+item.text.slice(Math.max(0,d.start-24),Math.min(item.text.length,d.end+24)),value:i})));if(index===null)return;duration=durations[index]}
   if(recipeViewer!==view)return;
-  syncCookingTimer();if(cookingTimer){const replace=await cookingTimerDialog('Replace current timer?',[{label:'Replace timer',value:true},{label:'Keep current timer',value:false}],true);if(replace!==true||recipeViewer!==view)return}
-  cookingTimer={version:1,id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),recipeId:String(meal.id),recipeName:meal.name||'Recipe',stepToken:item.token,stepText:item.text,stepNumber,context:view.context?{...view.context}:null,status:'running',deadline:Date.now()+duration.ms,remaining:duration.ms};saveCookingTimer();syncCookingTimer();
+  syncCookingTimer();if(cookingTimers.length>=COOKING_TIMER_LIMIT){await showAppMessage('Up to '+COOKING_TIMER_LIMIT+' timers can run at once. Delete one to start another.');return}
+  const timer={version:1,id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),recipeId:String(meal.id),recipeName:meal.name||'Recipe',stepToken:item.token,stepText:item.text,stepNumber,context:view.context?{...view.context}:null,status:'running',deadline:Date.now()+duration.ms,remaining:duration.ms};cookingTimers=[...cookingTimers,timer];saveCookingTimer();syncCookingTimer();
  }finally{cookingTimerStarting=false}
 }
 function addRecipeCookingTimer(li,meal,item,stepNumber){
@@ -795,15 +816,15 @@ function addRecipeCookingTimer(li,meal,item,stepNumber){
 let cookingTimerControlsDialog=null;
 function bindRecipeTimerName(name,meal,showFavorite=true){name.dataset.recipeTimerName=String(meal.id);updateRecipeTimerName(name);bindRecipePersonalName(name,meal,showFavorite)}
 function updateRecipeTimerName(name){
- const active=!!cookingTimer&&name.dataset.recipeTimerName===String(cookingTimer.recipeId);
+ const mine=cookingTimers.filter(t=>String(t.recipeId)===name.dataset.recipeTimerName),timer=primaryCookingTimer(mine),active=!!timer;
  let wrap=name.parentElement?.classList.contains('recipe-name-with-timer')?name.parentElement:null;
  if(!active){if(wrap){wrap.replaceWith(name)}return}
  if(!wrap){wrap=document.createElement('span');wrap.className='recipe-name-with-timer';name.replaceWith(wrap);wrap.append(name);const icon=document.createElement('button');icon.type='button';icon.className='recipe-list-timer';
   for(const event of ['pointerdown','pointerup','touchstart','touchend','dblclick'])icon.addEventListener(event,e=>e.stopPropagation());
-  icon.onclick=e=>{e.preventDefault();e.stopPropagation();if(cookingTimer&&String(cookingTimer.recipeId)===name.dataset.recipeTimerName)openCookingTimerControls()};wrap.append(icon)}
- const icon=wrap.querySelector('.recipe-list-timer'),label=(cookingTimer.status==='complete'?'Finished':cookingTimer.status==='paused'?'Paused':'Running')+' timer: '+(meals.find(m=>String(m.id)===String(cookingTimer.recipeId))?.name||cookingTimer.recipeName);
+  icon.onclick=e=>{e.preventDefault();e.stopPropagation();if(cookingTimers.some(t=>String(t.recipeId)===name.dataset.recipeTimerName))openCookingTimerControls(name.dataset.recipeTimerName)};wrap.append(icon)}
+ const icon=wrap.querySelector('.recipe-list-timer'),label=(timer.status==='complete'?'Finished':timer.status==='paused'?'Paused':'Running')+' timer'+(mine.length>1?'s ('+mine.length+')':'')+': '+(meals.find(m=>String(m.id)===String(timer.recipeId))?.name||timer.recipeName);
  if(icon.getAttribute('aria-label')!==label)setRecipeToolbarIcon(icon,'timer',label);
- icon.dataset.timerStatus=cookingTimer.status;
+ icon.dataset.timerStatus=timer.status;
 }
 function refreshRecipeTimerIndicators(){document.querySelectorAll('#list [data-recipe-timer-name]').forEach(updateRecipeTimerName)}
 function closeCookingTimerControls(){
@@ -811,51 +832,63 @@ function closeCookingTimerControls(){
  for(const [el,was]of dialog.inert)if(el.isConnected)el.inert=was;
  if(dialog.focus?.isConnected)dialog.focus.focus({preventScroll:true});else [...document.querySelectorAll('#list [data-recipe-timer-name]')].find(el=>el.dataset.recipeTimerName===dialog.recipeId)?.focus({preventScroll:true});
 }
-function openCookingTimerControls(){
- if(!cookingTimer||cookingTimerControlsDialog)return;
+function openCookingTimerControls(recipeId=null){
+ if(!cookingTimers.length||cookingTimerControlsDialog)return;
  const cover=document.createElement('div');cover.id='cookingTimerControlsDialog';cover.className='recipe-timer-dialog';cover.setAttribute('role','dialog');cover.setAttribute('aria-modal','true');cover.setAttribute('aria-label','Cooking timer');
  const panel=document.createElement('div');
  const focus=document.activeElement,inert=[...document.body.children].map(el=>[el,el.inert]);inert.forEach(([el])=>el.inert=true);
- cookingTimerControlsDialog={cover,panel,focus,inert,recipeId:String(cookingTimer.recipeId)};cover.append(panel);document.body.append(cover);
+ cookingTimerControlsDialog={cover,panel,focus,inert,recipeId:String(recipeId??cookingTimer.recipeId)};cover.append(panel);document.body.append(cover);
  cover.onclick=e=>{if(e.target===cover)closeCookingTimerControls()};cover.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();closeCookingTimerControls()}if(e.key==='Tab'){const buttons=[...cover.querySelectorAll('button:not([disabled])')],first=buttons[0],last=buttons.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}};
  window.addEventListener('popstate',closeCookingTimerControls);syncCookingTimer();panel.querySelector('button:not([disabled])')?.focus({preventScroll:true});
 }
 
-function showRecipeCookingTimer(){if(!recipeViewer||!cookingTimer)return;recipeViewer.hiddenTimerId=null;renderCookingTimer()}
-function hideRecipeCookingTimer(){if(!recipeViewer||!cookingTimer)return;recipeViewer.hiddenTimerId=cookingTimer.id;renderCookingTimer()}
+function showRecipeCookingTimer(){if(!recipeViewer)return;recipeViewer.hiddenTimerIds=new Set();renderCookingTimer()}
+function hideRecipeCookingTimer(id=cookingTimer?.id){if(!recipeViewer||id==null)return;(recipeViewer.hiddenTimerIds||=new Set()).add(id);renderCookingTimer()}
 function updateRecipeTimerReopenControl(){
  const view=recipeViewer,actions=view?.cover.querySelector('.recipe-title-actions');if(!actions)return;
  let button=actions.querySelector('.recipe-timer-reopen');
- if(!cookingTimer||view.hiddenTimerId!==cookingTimer.id){button?.remove();return}
+ if(!cookingTimers.some(t=>view.hiddenTimerIds?.has(t.id))){button?.remove();return}
  if(!button){button=document.createElement('button');button.type='button';button.className='recipe-header-icon recipe-timer-reopen';setRecipeToolbarIcon(button,'timer','Show timer');button.onclick=showRecipeCookingTimer;actions.append(button)}
 }
-function renderCookingTimerSurface(bar,hide){
- let strip=bar.querySelector('.recipe-timer-strip');
- if(!cookingTimer){strip?.remove();return}
- const key=cookingTimer.id+':'+cookingTimer.status;
- if(!strip||strip.dataset.timerState!==key){
-  strip?.remove();strip=document.createElement('div');strip.className='recipe-timer-strip';strip.dataset.timerState=key;
-  const readout=document.createElement('div');readout.className='recipe-timer-readout';readout.setAttribute('role','timer');readout.setAttribute('aria-live','off');strip.append(readout);
-  const controls=document.createElement('div');controls.className='recipe-timer-controls';
-  const control=(kind,label,action,disabled=false)=>{const b=document.createElement('button');b.type='button';b.className='recipe-timer-icon';setRecipeToolbarIcon(b,kind,label);b.disabled=disabled;b.onclick=action;controls.append(b)};
-  const complete=cookingTimer.status==='complete',paused=cookingTimer.status==='paused';
-  control(paused||complete?'play':'pause',complete?'Timer finished':paused?'Resume timer':'Pause timer',paused?resumeCookingTimer:pauseCookingTimer,complete);
-  control('close','Hide timer controls',hide);
-  control('delete','Delete timer',cancelCookingTimer);
-  strip.append(controls);bar.append(strip);
-  if(complete){strip.classList.add('recipe-timer-finished');const notice=document.createElement('span');notice.className='recipe-timer-announcement';notice.setAttribute('role','status');notice.textContent='Cooking timer finished';strip.append(notice)}
+function cookingTimerLabel(timer,viewMealId){return String(timer.recipeId)===String(viewMealId)&&timer.stepNumber?'Step '+timer.stepNumber:(meals.find(m=>String(m.id)===String(timer.recipeId))?.name||timer.recipeName)+(timer.stepNumber?' · '+timer.stepNumber:'')}
+function renderCookingTimerSurface(bar,hide,timers=cookingTimers,viewMealId=null){
+ const wanted=new Set(timers.map(t=>t.id+':'+t.status)),labelled=cookingTimers.length>1;
+ for(const strip of [...bar.querySelectorAll(':scope>.recipe-timer-strip')])if(!wanted.has(strip.dataset.timerState)||strip.classList.contains('recipe-timer-labelled')!==labelled)strip.remove();
+ let previous=null;
+ for(const timer of timers){
+  const key=timer.id+':'+timer.status;let strip=[...bar.querySelectorAll(':scope>.recipe-timer-strip')].find(el=>el.dataset.timerState===key);
+  if(!strip){
+   strip=document.createElement('div');strip.className='recipe-timer-strip';strip.dataset.timerState=key;strip.dataset.timerId=timer.id;
+   if(labelled){strip.classList.add('recipe-timer-labelled');const label=document.createElement('span');label.className='recipe-timer-label';label.textContent=cookingTimerLabel(timer,viewMealId);strip.append(label)}
+   const readout=document.createElement('div');readout.className='recipe-timer-readout';readout.setAttribute('role','timer');readout.setAttribute('aria-live','off');strip.append(readout);
+   const controls=document.createElement('div');controls.className='recipe-timer-controls';
+   const control=(kind,label,action,disabled=false)=>{const b=document.createElement('button');b.type='button';b.className='recipe-timer-icon';setRecipeToolbarIcon(b,kind,label);b.disabled=disabled;b.onclick=action;controls.append(b)};
+   const complete=timer.status==='complete',paused=timer.status==='paused',suffix=labelled?' ('+cookingTimerLabel(timer,viewMealId)+')':'';
+   control(paused||complete?'play':'pause',(complete?'Timer finished':paused?'Resume timer':'Pause timer')+suffix,()=>paused?resumeCookingTimer(timer.id):pauseCookingTimer(timer.id),complete);
+   control('close','Hide timer controls'+suffix,()=>hide(timer.id));
+   control('delete','Delete timer'+suffix,()=>cancelCookingTimer(timer.id));
+   strip.append(controls);
+   if(complete){strip.classList.add('recipe-timer-finished');const notice=document.createElement('span');notice.className='recipe-timer-announcement';notice.setAttribute('role','status');notice.textContent='Cooking timer finished';strip.append(notice)}
+  }
+  if(previous?previous.nextElementSibling!==strip:false)previous.after(strip);else if(!strip.isConnected)bar.append(strip);previous=strip;
+  const clock=cookingTimerClock(cookingTimerRemaining(timer)).padStart(5,'0'),readout=strip.querySelector('.recipe-timer-readout');readout.textContent=clock;readout.classList.toggle('recipe-timer-long',clock.length>5);readout.setAttribute('aria-label',(timer.status==='complete'?'Finished':timer.status==='paused'?'Paused':'Running')+' timer: '+clock);
  }
- const clock=cookingTimerClock(cookingTimerRemaining()).padStart(5,'0'),readout=strip.querySelector('.recipe-timer-readout');readout.textContent=clock;readout.classList.toggle('recipe-timer-long',clock.length>5);readout.setAttribute('aria-label',(cookingTimer.status==='complete'?'Finished':cookingTimer.status==='paused'?'Paused':'Running')+' timer: '+clock);
 }
 function renderCookingTimer(){
  refreshRecipeTimerIndicators();updateRecipeTimerReopenControl();
  const view=recipeViewer,bar=view?.cover.querySelector('.recipe-viewer-bar');
- if(bar){if(cookingTimer&&view.hiddenTimerId===cookingTimer.id)bar.querySelector('.recipe-timer-strip')?.remove();else renderCookingTimerSurface(bar,hideRecipeCookingTimer)}
- if(cookingTimerControlsDialog){if(!cookingTimer)closeCookingTimerControls();else renderCookingTimerSurface(cookingTimerControlsDialog.panel,closeCookingTimerControls)}
+ if(bar){
+  // At most three rows in the viewer (most urgent first); the rest open from "+N more".
+  const visible=cookingTimers.filter(t=>!view.hiddenTimerIds?.has(t.id)),order=new Map([...visible].sort((a,b)=>{const x=cookingTimerUrgency(a),y=cookingTimerUrgency(b);return x[0]-y[0]||x[1]-y[1]}).map((t,i)=>[t.id,i])),shown=visible.filter(t=>order.get(t.id)<3);
+  renderCookingTimerSurface(bar,id=>hideRecipeCookingTimer(id),shown,view.mealId);
+  let more=bar.querySelector(':scope>.recipe-timer-more');const extra=visible.length-shown.length;
+  if(extra>0){if(!more){more=document.createElement('button');more.type='button';more.className='recipe-timer-more';more.onclick=()=>openCookingTimerControls(view.mealId);bar.append(more)}more.textContent='+'+extra+' more timer'+(extra===1?'':'s');bar.append(more)}else more?.remove();
+ }
+ if(cookingTimerControlsDialog){if(!cookingTimers.length)closeCookingTimerControls();else{const id=cookingTimerControlsDialog.recipeId;renderCookingTimerSurface(cookingTimerControlsDialog.panel,()=>closeCookingTimerControls(),[...cookingTimers.filter(t=>String(t.recipeId)===id),...cookingTimers.filter(t=>String(t.recipeId)!==id)],id)}}
 }
-cookingTimer=readCookingTimer();
+loadCookingTimers();
 window.addEventListener('focus',syncCookingTimer);window.addEventListener('pageshow',syncCookingTimer);document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendCookingTimerAlert();else syncCookingTimer()});window.addEventListener('pagehide',suspendCookingTimerAlert);document.addEventListener('freeze',suspendCookingTimerAlert);
-window.addEventListener('storage',e=>{if(e.key===null||e.key===COOKING_TIMER_KEY){cookingTimer=readCookingTimer();syncCookingTimer()}});
+window.addEventListener('storage',e=>{if(e.key===null||e.key===COOKING_TIMERS_KEY||e.key===COOKING_TIMER_KEY&&localStorage.getItem(COOKING_TIMERS_KEY)===null){loadCookingTimers();syncCookingTimer()}});
 
 function revealRecipeAssociation(ingredientToken,stepToken){
  const view=recipeViewer;if(!view)return;cancelRecipeAdvance(view);view.cancelIngredientSync?.();

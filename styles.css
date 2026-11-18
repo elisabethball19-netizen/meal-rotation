@@ -2119,3 +2119,11 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 /* Groceries toolbar: keep all icons on one row on narrow phones */
 .grocery-header-icons{flex-wrap:nowrap!important;width:100%;justify-content:space-between}
 .grocery-header-icons>button{flex:1 1 0!important;min-width:36px!important;max-width:48px}
+
+/* Multiple timers: one compact row per timer, labelled when there is more than one */
+#recipeViewer .recipe-timer-strip+.recipe-timer-strip,#cookingTimerControlsDialog .recipe-timer-strip+.recipe-timer-strip{border-top:1px solid #e3e7ec;padding-top:2px}
+#recipeViewer .recipe-timer-labelled .recipe-timer-readout,#cookingTimerControlsDialog .recipe-timer-labelled .recipe-timer-readout{font-size:22px}
+.recipe-timer-label{flex:0 1 34%;min-width:0;font-size:calc(12px * var(--meal-text-factor, 1));color:#4b5866;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#recipeViewer .recipe-timer-labelled{min-height:36px}
+#recipeViewer .recipe-timer-labelled .recipe-timer-icon{min-height:36px}
+#recipeViewer .recipe-timer-more{grid-column:1/-1;justify-self:start;min-height:32px;padding:2px 10px;border:1px solid #c7d0da;border-radius:16px;background:#fff;color:#2f4a66;font-size:calc(13px * var(--meal-text-factor, 1))}

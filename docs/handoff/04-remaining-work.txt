@@ -138,7 +138,7 @@ ACCEPTED / NO NEW FEATURE NEEDED
 - User-requested date/count/visual defaults, no extra display settings.
 
 FUTURE DESIGN — ON HOLD
-- Multiple simultaneous cooking timers: explicitly on hold while smaller batches proceed. No detailed design yet; eventual Android background limits need honest verification.
+- [BUILT 2026-11-17 overnight at user's request (best-judgement design), awaiting phone test: up to 6 timers; list in mealRotationCookingTimersV1 {version:1,timers}, legacy mealRotationCookingTimerV1 mirrors the most urgent timer and old single records/backups migrate; starting a timer on another step adds one (no replace prompt; same step reopens its row); viewer shows up to 3 rows, labelled Step N / recipe name when 2+, '+N more' opens the list popup; per-row pause/hide/delete; finished timers alert one at a time, acknowledging removes only that timer; list icon covers all of a recipe's timers; deleting a recipe clears/reparents its timers. Android background limits still unverified. tests/batch12_multiple_timers_browser.py] Multiple simultaneous cooking timers: explicitly on hold while smaller batches proceed. No detailed design yet; eventual Android background limits need honest verification.
 - Automatically extracting genuinely useful advance-prep tasks: possible future idea, not approved implementation. Do not add manual detailed to-do authoring.
 
 EXPLICITLY DEFERRED FUNCTIONAL REFINEMENTS
