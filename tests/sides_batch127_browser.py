@@ -151,7 +151,7 @@ def run(browser, name):
     main.get_by_role('textbox', name='Side name', exact=True).fill('Garlic butter')
     # A simple side's cart opens its ingredient list so it can still be shopped for.
     main.locator('.serving-sides-box').get_by_role('button', name='Edit groceries', exact=True).click()
-    ingredients = main.get_by_role('textbox', name='Side ingredients', exact=True)
+    ingredients = main.get_by_role('textbox', name='Side grocery list', exact=True)
     assert ingredients.is_visible()
     ingredients.fill('2 cups white rice')
     summary = main.locator('.simple-side-ingredients > summary')

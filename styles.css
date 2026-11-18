@@ -2021,3 +2021,8 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .plan-meal-card.plan-card-expanded.empty-plan-card .plan-card-recipe>.mealname{display:none!important}
 .weekday-next-recipe-row{display:flex;flex:0 0 auto}.weekday-next-recipe-row .smallbtn{min-height:44px}
 .plan-meal-card.plan-card-expanded .plan-card-content>.plan-linked-names{display:none}
+/* Issue 127 follow-up 4: tighter vertical spacing in the action grid and Sides box. */
+.shared-meal-action-grid{row-gap:0}.shared-meal-action-grid .meal-inline-action{min-height:34px!important;padding:2px 0!important}
+.plan-meal-card .serving-sides-box{margin-top:4px;padding:2px 10px 4px}
+.serving-sides-box .inline-sides-header{min-height:36px;padding:0}.serving-sides-box .inline-sides-header .serving-icon-action{width:40px;height:36px;min-width:40px;min-height:36px}
+.serving-sides-box .inline-side-row{padding:0}.serving-sides-box .inline-side-heading{min-height:40px}.serving-sides-box .inline-side-heading>.iconbtn{min-height:40px}
