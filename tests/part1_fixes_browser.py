@@ -78,6 +78,10 @@ def run(browser, name):
     assert ar < nm, (ar, nm)
     arrows.first.click(); p.wait_for_timeout(200)
     assert arrows.first.get_attribute('data-open') == 'true'
+    sb.shot(p, name, 'part1-editor-serve-open')
+    right = serve.locator('.settings-group-content').bounding_box(); right = right['x'] + right['width']
+    icons = serve.locator('.serving-icon-row button').evaluate_all('xs=>xs.map(x=>x.getBoundingClientRect().right)')
+    assert icons and max(icons) < right - 50, (icons, right)
     arrows.first.click(); p.wait_for_timeout(200)
     assert serve.locator('.settings-group-content').evaluate('e=>getComputedStyle(e).borderTopWidth') == '0px'
     sb.shot(p, name, 'part1-editor-serve-sides')

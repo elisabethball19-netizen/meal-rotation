@@ -2026,6 +2026,13 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 #editor .meal-editor-serve .inline-side-name{padding:0;line-height:1.25}
 #editor .meal-editor-serve .inline-side-body{padding-left:40px}
 #editor .meal-editor-serve .inline-side-heading>.side-arrow-toggle{min-width:40px!important;min-height:30px!important;height:30px!important;padding:0!important}
+/* Fix part 1d: tighter gap under "Serve with"; heart and action icons pulled in from the right edge. */
+#editor .meal-editor-serve>summary{min-height:34px}
+#editor .meal-editor-serve>summary .meal-editor-serve-add{min-height:34px;height:34px}
+#editor .meal-editor-serve>.settings-group-content{padding-top:0;margin-top:-4px}
+#editor .meal-editor-serve .inline-side-heading{padding-right:12px}
+#editor .meal-editor-serve .inline-side-heart{margin-right:4px}
+#editor .meal-editor-serve .serving-icon-row{justify-content:flex-start;gap:20px;padding-left:4px}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
