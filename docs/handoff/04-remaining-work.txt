@@ -34,7 +34,7 @@ UNRESOLVED BUGS / ALGORITHM DECISION
 
 
 APPROVED 2026-11-18 PHONE-REVIEW DECISIONS (approved, NOT implemented; user answered each question; batches below)
-BATCH 1 — MEAL CARD + SIDES (first to implement):
+BATCH 1 — MEAL CARD + SIDES: #127 IMPLEMENTED / CODE-CHECKED; AWAITING PHONE TEST (tests/sides_batch127_test_report.md). Batches 2–5, renames and Plan Ahead remain NOT implemented.
 - Bug: Undo after removing a SAVED side must restore it.
 - Side edits save as made; remove the ✓/✗ row under Sides. Collapsing the card or closing a side saves, never discards. Removing a side shows brief "Side removed · Undo" message; no confirm dialog.
 - Meal with no sides: "Add or edit sides" opens Add side pop-up directly; ✗ returns to expanded card. One side: show auto-expanded. Move divider above "Sides" or drop it. Collapsing main card collapses any open edit/add-side area.
