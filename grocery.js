@@ -50,9 +50,10 @@ function groceryContributionText(source,overrides=groceryTextOverrides()){
   }
   return scaleRecipeIngredient(record.text,source.multiplier/record.multiplier);
  }
- return source.line;
+ return groceryShoppingText(source.line);
 }
 function openGroceryTextEditor(line,refresh){
+ if((line.contributions||[]).length>1){openGroceryContributionEditor(line,refresh);return}
  const d=recipeBulkDialog('Edit grocery item'),field=document.createElement('input');field.type='text';field.className='manual-grocery-field';field.setAttribute('aria-label','Grocery item');field.value=line.line;
  const note=document.createElement('p');note.className='muted';note.textContent='Changes apply only to your grocery list. Quantities still update when you scale the recipe.';
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save grocery item');setIconButton(cancel,'cancel','Cancel');
@@ -62,6 +63,19 @@ function openGroceryTextEditor(line,refresh){
  if(entered&&total&&original&&total.lo>0){const ratio=entered.lo/total.lo,amount=formatRecipeQuantity(original.lo*ratio)+(original.hi!==original.lo?'–'+formatRecipeQuantity(original.hi*ratio):'');wording=amount+' '+(entered.unit?entered.unit+' ':'')+entered.name}
  records[JSON.stringify([source.id])]={text:wording,multiplier:source.multiplier||1};}const before=captureState();localStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records));snapshot(before);d.close();refresh()}catch(e){error.textContent=e.message}};
  cancel.onclick=d.close;field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save.click()}};actions.append(save,cancel);d.panel.append(field,note,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);field.focus({preventScroll:true});
+}
+// Batch 2: a multi-recipe item lists each recipe's own amount; each saves as that recipe's shopping wording only.
+function openGroceryContributionEditor(line,refresh){
+ const d=recipeBulkDialog('Edit grocery item'),fields=[];
+ const note=document.createElement('p');note.className='muted';note.textContent='Changes apply only to your grocery list. Quantities still update when you scale the recipe.';
+ const list=document.createElement('div');list.className='grocery-contribution-fields';
+ for(const source of line.contributions){const label=document.createElement('label');label.className='grocery-contribution-field';const name=document.createElement('span');name.className='grocery-contribution-recipe';name.textContent=source.mealName;const field=document.createElement('input');field.type='text';field.className='manual-grocery-field';field.setAttribute('aria-label','Grocery item for '+source.mealName);field.value=groceryContributionText(source);label.append(name,field);list.append(label);fields.push([source,field])}
+ const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save grocery item');setIconButton(cancel,'cancel','Cancel');
+ const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
+ save.onclick=()=>{const empty=fields.find(([,field])=>!field.value.trim());if(empty){error.textContent='Enter a grocery item.';empty[1].focus();return}try{const records=groceryTextOverrides();delete records[groceryTextKey(line)];
+  for(const [source,field]of fields){const text=field.value.trim();if(text===groceryContributionText(source))continue;records[JSON.stringify([source.id])]={text,multiplier:source.multiplier||1}}
+  const before=captureState();localStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records));snapshot(before);d.close();refresh()}catch(e){error.textContent=e.message}};
+ cancel.onclick=d.close;actions.append(save,cancel);d.panel.append(list,note,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);fields[0]?.[1].focus({preventScroll:true});
 }
 function bindGroceryTextPress(name,line,refresh){
  let timer=null,start=null,held=false;name.style.touchAction='pan-y';name.style.userSelect='none';
@@ -99,7 +113,7 @@ function getGroceryContributions(allPlans=false,period='rotation'){
    const selectedKeys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),actualPlan=mealPlans.find(item=>item.id===plan.id),sameDate=actualPlan&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},actualPlan.rotationCalendar))===scheduledDate,multiplier=preview?projectedOccurrenceMultiplier(plan,entry,retainedKeys):occurrenceMultiplier(context),counts=new Map();
    if(!ingredientTokens.has(meal))ingredientTokens.set(meal,cookingItemTokens(meal).ingredients);
    for(const [ingredientIndex,raw]of (Array.isArray(meal.ingredients)?meal.ingredients:[]).entries()){
-    const original=String(raw??'').trim(),oldKey=ingredientKey(original);if(!oldKey||!selectedKeys.has(oldKey)||syncIngredientHeading(original))continue;
+    const original=String(raw??'').trim(),oldKey=ingredientKey(original);if(!oldKey||!selectedKeys.has(oldKey)||syncIngredientHeading(original)||groceryNonIngredientLine(original))continue;
     const normalized=ingredientKey(compactIngredientFractions(original)),index=counts.get(normalized)||0;counts.set(normalized,index+1);
     const line=scaleRecipeIngredient(original,multiplier),quantity=groceryQuantityParts(line),baseKey=quantity?.key||'unmeasured:'+oldKey;
     result.push({id:JSON.stringify([dated,normalized,index]),occurrence,scheduledDate,preview:!!preview,legacyId:JSON.stringify([occurrence,normalized,index]),legacyIds:[JSON.stringify([occurrence,normalized,index]),JSON.stringify([legacyOccurrence,normalized,index])],legacyOwner,parentId:linkedParent==null?null:String(linkedParent),planId:plan.id,day,cat:entry.cat,mealId:meal.id,mealName:meal.name,original,ingredientToken:ingredientTokens.get(meal)[ingredientIndex]?.token,multiplier,line,quantity,baseKey,checkKeys:[...new Set([oldKey,original.toLowerCase().replace(/\s+/g,' ').trim()])]});
@@ -227,8 +241,7 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
      const detail=document.createElement('span');detail.className='grocery-contribution';
      if(line.contributions.length>1){const cb=document.createElement('input');cb.type='checkbox';cb.checked=grocerySourceChecked(contribution);cb.indeterminate=!cb.checked&&groceryCheckedAmount(contribution)?.lo>0;cb.setAttribute('aria-label','Check '+contribution.mealName);cb.onchange=()=>changeCheck({contributions:[contribution],baseKey:contribution.baseKey,checkKeys:contribution.checkKeys},cb.checked);detail.append(cb)}
      const link=document.createElement('button');link.type='button';link.className='grocery-recipe-link';link.dataset.mealId=String(contribution.mealId);link.dataset.planId=contribution.planId;link.dataset.day=contribution.day;link.dataset.grocerySourceId=contribution.id;link.textContent=contribution.mealName;
-     link.onclick=()=>openGroceryRecipeSource(contribution);detail.append(link);
-     if(contribution===line.contributions[0]){const pencil=document.createElement('button');pencil.type='button';pencil.className='iconbtn grocery-contribution-edit';setIconButton(pencil,'rename','Edit shopping wording');pencil.onclick=()=>openGroceryTextEditor(line,updateRows);detail.append(pencil)}source.append(detail);
+     link.onclick=()=>openGroceryRecipeSource(contribution);detail.append(link);source.append(detail);
     }
     const expandedKey=groceryTextKey(line);source.hidden=!expanded.has(expandedKey);
     const chevron=document.createElement('button');chevron.type='button';chevron.className='iconbtn grocery-expand';chevron.setAttribute('aria-label','Show contributions for '+line.line);
@@ -236,7 +249,8 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
     name.onclick=chevron.onclick=()=>{source.hidden=!source.hidden;if(source.hidden)expanded.delete(expandedKey);else expanded.add(expandedKey);disclosure()};disclosure();
     if(line.contributions.length>1){const count=document.createElement('span');count.className='muted grocery-source-count';count.textContent=' ('+line.contributions.length+')';name.append(count)}
     details.append(name,source);
-    const target=document.createElement('label');target.className='grocery-checkbox-target';target.append(check);row.replaceChildren(target,details,chevron);container.append(row);
+    const pencil=document.createElement('button');pencil.type='button';pencil.className='iconbtn grocery-contribution-edit grocery-item-edit';setIconButton(pencil,'rename','Edit shopping wording for '+line.line);pencil.onclick=()=>openGroceryTextEditor(line,updateRows);
+    const target=document.createElement('label');target.className='grocery-checkbox-target';target.append(check);row.replaceChildren(target,details,pencil,chevron);container.append(row);
    });
    appendManualGroceries(rows,updateRows);
   }

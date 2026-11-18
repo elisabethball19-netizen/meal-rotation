@@ -1933,6 +1933,14 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .recipe-step-picker-option{display:block;width:100%;min-height:44px;padding:8px 10px;border:0;border-bottom:1px solid #edf0f3;background:transparent;color:inherit;font:inherit;text-align:left}
 .recipe-step-picker-option:last-child{border-bottom:0}
 .recipe-step-picker-option[aria-selected="true"]{background:#e8f0fa;font-weight:600}
+/* Batch 2: grocery item pencil on its own line; recipe lines = checkbox + name, tighter */
+.master-grocery-item>.grocery-item-edit{flex:0 0 36px;width:36px;min-height:36px;margin-top:-7px;}
+.grocery-contribution,.grocery-contribution:has(input){display:flex!important;align-items:center;gap:8px;padding:3px 0!important;}
+.grocery-contribution input{flex:0 0 18px;}
+.grocery-contribution .grocery-recipe-link{min-height:32px;text-align:left;}
+.grocery-contribution-fields{display:flex;flex-direction:column;gap:10px;margin:8px 0;}
+.grocery-contribution-field{display:flex;flex-direction:column;gap:4px;}
+.grocery-contribution-recipe{font-size:13px;color:#637080;}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -2456,6 +2464,21 @@ function scaleRecipeIngredient(line,multiplier){
  return quantity.leading+formatRecipeQuantity(quantity.lo*multiplier)+(quantity.hi!==quantity.lo?'–'+formatRecipeQuantity(quantity.hi*multiplier):'')+' '+quantity.rest;
 }
 const groceryQuantityUnits={cup:'cup',cups:'cup',tbsp:'tbsp',tablespoon:'tbsp',tablespoons:'tbsp',tsp:'tsp',teaspoon:'tsp',teaspoons:'tsp',g:'g',gram:'g',grams:'g',kg:'kg',oz:'oz',ounce:'oz',ounces:'oz',lb:'lb',lbs:'lb',pound:'lb',pounds:'lb',ml:'ml',l:'l',liter:'l',litre:'l',clove:'clove',cloves:'clove',piece:'piece',pieces:'piece',sprig:'sprig',sprigs:'sprig'};
+// Batch 2: shopping-list wording only (recipes are never changed; user-edited grocery names win).
+// Drops parentheticals and non-shopping phrases; keeps prep words such as minced, frozen, shredded.
+function groceryShoppingText(line){
+ const original=String(line??'');
+ let t=original.replace(/\s*\([^()]*\)/g,'').replace(/\s*\[[^\[\]]*\]/g,'');
+ t=t.replace(/(?:\s*[,;]|\s+-)?\s*\b(?:see\s+(?:the\s+)?(?:recipe\s+)?notes?(?:\s+below)?|divided|to\s+taste|(?:for|as)\s+(?:a\s+|the\s+)?garnish(?:ing)?|(?:for|to)\s+serv(?:e|ing)|as\s+needed|plus\s+(?:more|extra)(?:\s+(?:for|to|as)\s+[a-z ]+)?)\b\.?/gi,'');
+ t=t.replace(/\s*,(?:\s*,)+/g,',').replace(/^[\s,;:-]+|[\s,;:-]+$/g,'').replace(/\s{2,}/g,' ').trim();
+ return t||original.trim();
+}
+// Lines that name no ingredient (e.g. "SERVE WITH", "Serve with rice") never go on the grocery list.
+function groceryNonIngredientLine(line){
+ const t=String(line??'').trim();if(!t)return true;
+ if(/^(?:to\s+)?serv(?:e|ing)\s+(?:with|suggestions?|ideas?)\b/i.test(t)||/^(?:optional\s+)?(?:garnish(?:es)?|toppings?)\s*:?$/i.test(t))return true;
+ return /^[^a-z\d]+$/.test(t)&&/[A-Z]/.test(t)&&/\s|:$/.test(t.trim());
+}
 function groceryQuantityParts(line){
  const quantity=parseRecipeQuantity(line);if(!quantity)return null;
  const unitMatch=quantity.rest.match(/^([a-z]+)\.?\s+(.+)$/i),unit=unitMatch?groceryQuantityUnits[unitMatch[1].toLowerCase()]||'':'';
@@ -6786,9 +6809,10 @@ function groceryContributionText(source,overrides=groceryTextOverrides()){
   }
   return scaleRecipeIngredient(record.text,source.multiplier/record.multiplier);
  }
- return source.line;
+ return groceryShoppingText(source.line);
 }
 function openGroceryTextEditor(line,refresh){
+ if((line.contributions||[]).length>1){openGroceryContributionEditor(line,refresh);return}
  const d=recipeBulkDialog('Edit grocery item'),field=document.createElement('input');field.type='text';field.className='manual-grocery-field';field.setAttribute('aria-label','Grocery item');field.value=line.line;
  const note=document.createElement('p');note.className='muted';note.textContent='Changes apply only to your grocery list. Quantities still update when you scale the recipe.';
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save grocery item');setIconButton(cancel,'cancel','Cancel');
@@ -6798,6 +6822,19 @@ function openGroceryTextEditor(line,refresh){
  if(entered&&total&&original&&total.lo>0){const ratio=entered.lo/total.lo,amount=formatRecipeQuantity(original.lo*ratio)+(original.hi!==original.lo?'–'+formatRecipeQuantity(original.hi*ratio):'');wording=amount+' '+(entered.unit?entered.unit+' ':'')+entered.name}
  records[JSON.stringify([source.id])]={text:wording,multiplier:source.multiplier||1};}const before=captureState();testStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records));snapshot(before);d.close();refresh()}catch(e){error.textContent=e.message}};
  cancel.onclick=d.close;field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save.click()}};actions.append(save,cancel);d.panel.append(field,note,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);field.focus({preventScroll:true});
+}
+// Batch 2: a multi-recipe item lists each recipe's own amount; each saves as that recipe's shopping wording only.
+function openGroceryContributionEditor(line,refresh){
+ const d=recipeBulkDialog('Edit grocery item'),fields=[];
+ const note=document.createElement('p');note.className='muted';note.textContent='Changes apply only to your grocery list. Quantities still update when you scale the recipe.';
+ const list=document.createElement('div');list.className='grocery-contribution-fields';
+ for(const source of line.contributions){const label=document.createElement('label');label.className='grocery-contribution-field';const name=document.createElement('span');name.className='grocery-contribution-recipe';name.textContent=source.mealName;const field=document.createElement('input');field.type='text';field.className='manual-grocery-field';field.setAttribute('aria-label','Grocery item for '+source.mealName);field.value=groceryContributionText(source);label.append(name,field);list.append(label);fields.push([source,field])}
+ const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save grocery item');setIconButton(cancel,'cancel','Cancel');
+ const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
+ save.onclick=()=>{const empty=fields.find(([,field])=>!field.value.trim());if(empty){error.textContent='Enter a grocery item.';empty[1].focus();return}try{const records=groceryTextOverrides();delete records[groceryTextKey(line)];
+  for(const [source,field]of fields){const text=field.value.trim();if(text===groceryContributionText(source))continue;records[JSON.stringify([source.id])]={text,multiplier:source.multiplier||1}}
+  const before=captureState();testStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records));snapshot(before);d.close();refresh()}catch(e){error.textContent=e.message}};
+ cancel.onclick=d.close;actions.append(save,cancel);d.panel.append(list,note,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);fields[0]?.[1].focus({preventScroll:true});
 }
 function bindGroceryTextPress(name,line,refresh){
  let timer=null,start=null,held=false;name.style.touchAction='pan-y';name.style.userSelect='none';
@@ -6835,7 +6872,7 @@ function getGroceryContributions(allPlans=false,period='rotation'){
    const selectedKeys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),actualPlan=mealPlans.find(item=>item.id===plan.id),sameDate=actualPlan&&cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},actualPlan.rotationCalendar))===scheduledDate,multiplier=preview?projectedOccurrenceMultiplier(plan,entry,retainedKeys):occurrenceMultiplier(context),counts=new Map();
    if(!ingredientTokens.has(meal))ingredientTokens.set(meal,cookingItemTokens(meal).ingredients);
    for(const [ingredientIndex,raw]of (Array.isArray(meal.ingredients)?meal.ingredients:[]).entries()){
-    const original=String(raw??'').trim(),oldKey=ingredientKey(original);if(!oldKey||!selectedKeys.has(oldKey)||syncIngredientHeading(original))continue;
+    const original=String(raw??'').trim(),oldKey=ingredientKey(original);if(!oldKey||!selectedKeys.has(oldKey)||syncIngredientHeading(original)||groceryNonIngredientLine(original))continue;
     const normalized=ingredientKey(compactIngredientFractions(original)),index=counts.get(normalized)||0;counts.set(normalized,index+1);
     const line=scaleRecipeIngredient(original,multiplier),quantity=groceryQuantityParts(line),baseKey=quantity?.key||'unmeasured:'+oldKey;
     result.push({id:JSON.stringify([dated,normalized,index]),occurrence,scheduledDate,preview:!!preview,legacyId:JSON.stringify([occurrence,normalized,index]),legacyIds:[JSON.stringify([occurrence,normalized,index]),JSON.stringify([legacyOccurrence,normalized,index])],legacyOwner,parentId:linkedParent==null?null:String(linkedParent),planId:plan.id,day,cat:entry.cat,mealId:meal.id,mealName:meal.name,original,ingredientToken:ingredientTokens.get(meal)[ingredientIndex]?.token,multiplier,line,quantity,baseKey,checkKeys:[...new Set([oldKey,original.toLowerCase().replace(/\s+/g,' ').trim()])]});
@@ -6963,8 +7000,7 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
      const detail=document.createElement('span');detail.className='grocery-contribution';
      if(line.contributions.length>1){const cb=document.createElement('input');cb.type='checkbox';cb.checked=grocerySourceChecked(contribution);cb.indeterminate=!cb.checked&&groceryCheckedAmount(contribution)?.lo>0;cb.setAttribute('aria-label','Check '+contribution.mealName);cb.onchange=()=>changeCheck({contributions:[contribution],baseKey:contribution.baseKey,checkKeys:contribution.checkKeys},cb.checked);detail.append(cb)}
      const link=document.createElement('button');link.type='button';link.className='grocery-recipe-link';link.dataset.mealId=String(contribution.mealId);link.dataset.planId=contribution.planId;link.dataset.day=contribution.day;link.dataset.grocerySourceId=contribution.id;link.textContent=contribution.mealName;
-     link.onclick=()=>openGroceryRecipeSource(contribution);detail.append(link);
-     if(contribution===line.contributions[0]){const pencil=document.createElement('button');pencil.type='button';pencil.className='iconbtn grocery-contribution-edit';setIconButton(pencil,'rename','Edit shopping wording');pencil.onclick=()=>openGroceryTextEditor(line,updateRows);detail.append(pencil)}source.append(detail);
+     link.onclick=()=>openGroceryRecipeSource(contribution);detail.append(link);source.append(detail);
     }
     const expandedKey=groceryTextKey(line);source.hidden=!expanded.has(expandedKey);
     const chevron=document.createElement('button');chevron.type='button';chevron.className='iconbtn grocery-expand';chevron.setAttribute('aria-label','Show contributions for '+line.line);
@@ -6972,7 +7008,8 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
     name.onclick=chevron.onclick=()=>{source.hidden=!source.hidden;if(source.hidden)expanded.delete(expandedKey);else expanded.add(expandedKey);disclosure()};disclosure();
     if(line.contributions.length>1){const count=document.createElement('span');count.className='muted grocery-source-count';count.textContent=' ('+line.contributions.length+')';name.append(count)}
     details.append(name,source);
-    const target=document.createElement('label');target.className='grocery-checkbox-target';target.append(check);row.replaceChildren(target,details,chevron);container.append(row);
+    const pencil=document.createElement('button');pencil.type='button';pencil.className='iconbtn grocery-contribution-edit grocery-item-edit';setIconButton(pencil,'rename','Edit shopping wording for '+line.line);pencil.onclick=()=>openGroceryTextEditor(line,updateRows);
+    const target=document.createElement('label');target.className='grocery-checkbox-target';target.append(check);row.replaceChildren(target,details,pencil,chevron);container.append(row);
    });
    appendManualGroceries(rows,updateRows);
   }
@@ -10360,7 +10397,7 @@ function openTopIngredientChooser(meal){
   function renderIngredientRows(){
     list.innerHTML='';checks.length=0;
     meal.ingredients=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);
-    const orderedIngredients=meal.ingredients.map((line,index)=>({line,index}));
+    const orderedIngredients=meal.ingredients.map((line,index)=>({line,index})).filter(({line})=>!groceryNonIngredientLine(line));
     orderedIngredients.sort((a,b)=>Number(selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(b.line)))-Number(selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(a.line))));
     orderedIngredients.forEach(({line,index})=>{
       const label=document.createElement('label');

@@ -2075,3 +2075,12 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .recipe-step-picker-option{display:block;width:100%;min-height:44px;padding:8px 10px;border:0;border-bottom:1px solid #edf0f3;background:transparent;color:inherit;font:inherit;text-align:left}
 .recipe-step-picker-option:last-child{border-bottom:0}
 .recipe-step-picker-option[aria-selected="true"]{background:#e8f0fa;font-weight:600}
+
+/* Batch 2: grocery item pencil on its own line; recipe lines = checkbox + name, tighter */
+.master-grocery-item>.grocery-item-edit{flex:0 0 36px;width:36px;min-height:36px;margin-top:-7px;}
+.grocery-contribution,.grocery-contribution:has(input){display:flex!important;align-items:center;gap:8px;padding:3px 0!important;}
+.grocery-contribution input{flex:0 0 18px;}
+.grocery-contribution .grocery-recipe-link{min-height:32px;text-align:left;}
+.grocery-contribution-fields{display:flex;flex-direction:column;gap:10px;margin:8px 0;}
+.grocery-contribution-field{display:flex;flex-direction:column;gap:4px;}
+.grocery-contribution-recipe{font-size:13px;color:#637080;}

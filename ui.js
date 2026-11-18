@@ -3476,7 +3476,7 @@ function openTopIngredientChooser(meal){
   function renderIngredientRows(){
     list.innerHTML='';checks.length=0;
     meal.ingredients=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);
-    const orderedIngredients=meal.ingredients.map((line,index)=>({line,index}));
+    const orderedIngredients=meal.ingredients.map((line,index)=>({line,index})).filter(({line})=>!groceryNonIngredientLine(line));
     orderedIngredients.sort((a,b)=>Number(selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(b.line)))-Number(selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(a.line))));
     orderedIngredients.forEach(({line,index})=>{
       const label=document.createElement('label');

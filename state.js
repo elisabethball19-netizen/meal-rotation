@@ -594,6 +594,21 @@ function scaleRecipeIngredient(line,multiplier){
  return quantity.leading+formatRecipeQuantity(quantity.lo*multiplier)+(quantity.hi!==quantity.lo?'–'+formatRecipeQuantity(quantity.hi*multiplier):'')+' '+quantity.rest;
 }
 const groceryQuantityUnits={cup:'cup',cups:'cup',tbsp:'tbsp',tablespoon:'tbsp',tablespoons:'tbsp',tsp:'tsp',teaspoon:'tsp',teaspoons:'tsp',g:'g',gram:'g',grams:'g',kg:'kg',oz:'oz',ounce:'oz',ounces:'oz',lb:'lb',lbs:'lb',pound:'lb',pounds:'lb',ml:'ml',l:'l',liter:'l',litre:'l',clove:'clove',cloves:'clove',piece:'piece',pieces:'piece',sprig:'sprig',sprigs:'sprig'};
+// Batch 2: shopping-list wording only (recipes are never changed; user-edited grocery names win).
+// Drops parentheticals and non-shopping phrases; keeps prep words such as minced, frozen, shredded.
+function groceryShoppingText(line){
+ const original=String(line??'');
+ let t=original.replace(/\s*\([^()]*\)/g,'').replace(/\s*\[[^\[\]]*\]/g,'');
+ t=t.replace(/(?:\s*[,;]|\s+-)?\s*\b(?:see\s+(?:the\s+)?(?:recipe\s+)?notes?(?:\s+below)?|divided|to\s+taste|(?:for|as)\s+(?:a\s+|the\s+)?garnish(?:ing)?|(?:for|to)\s+serv(?:e|ing)|as\s+needed|plus\s+(?:more|extra)(?:\s+(?:for|to|as)\s+[a-z ]+)?)\b\.?/gi,'');
+ t=t.replace(/\s*,(?:\s*,)+/g,',').replace(/^[\s,;:-]+|[\s,;:-]+$/g,'').replace(/\s{2,}/g,' ').trim();
+ return t||original.trim();
+}
+// Lines that name no ingredient (e.g. "SERVE WITH", "Serve with rice") never go on the grocery list.
+function groceryNonIngredientLine(line){
+ const t=String(line??'').trim();if(!t)return true;
+ if(/^(?:to\s+)?serv(?:e|ing)\s+(?:with|suggestions?|ideas?)\b/i.test(t)||/^(?:optional\s+)?(?:garnish(?:es)?|toppings?)\s*:?$/i.test(t))return true;
+ return /^[^a-z\d]+$/.test(t)&&/[A-Z]/.test(t)&&/\s|:$/.test(t.trim());
+}
 function groceryQuantityParts(line){
  const quantity=parseRecipeQuantity(line);if(!quantity)return null;
  const unitMatch=quantity.rest.match(/^([a-z]+)\.?\s+(.+)$/i),unit=unitMatch?groceryQuantityUnits[unitMatch[1].toLowerCase()]||'':'';
