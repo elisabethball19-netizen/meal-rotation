@@ -4860,3 +4860,22 @@ function groupRotationAssignments(category){
  for(const item of previewNextWeekPlans())collect(item.plan,'Next week');
  return [...new Set(result)];
 }
+// Shared modal scroll lock: while any modal is open, a vertical swipe never moves the page behind it, including
+// when a list inside the modal reaches its top or bottom. Scrolling inside the modal is unchanged, and the page
+// scroll position is never touched, so closing a dialog leaves the page exactly where it was.
+(()=>{
+ const topModal=()=>[...document.querySelectorAll('[aria-modal="true"],dialog[open]')].filter(el=>el.getClientRects().length).at(-1)||null;
+ let start=null;
+ document.addEventListener('touchstart',e=>{const t=e.touches[0];start=t?{x:t.clientX,y:t.clientY}:null},{passive:true,capture:true});
+ document.addEventListener('touchmove',e=>{
+  const modal=topModal(),t=e.touches[0];if(!modal||!t||!start||e.touches.length>1)return;
+  const dx=t.clientX-start.x,dy=t.clientY-start.y;if(Math.abs(dy)<=Math.abs(dx))return;
+  for(let el=e.target instanceof Element?e.target:null;el&&el!==document.documentElement;el=el.parentElement){
+   if(!modal.contains(el))break;
+   const style=getComputedStyle(el);if(!/(auto|scroll)/.test(style.overflowY)||el.scrollHeight<=el.clientHeight+1)continue;
+   const atTop=el.scrollTop<=0,atBottom=el.scrollTop+el.clientHeight>=el.scrollHeight-1;
+   if((dy>0&&!atTop)||(dy<0&&!atBottom))return;
+  }
+  if(e.cancelable)e.preventDefault();
+ },{passive:false,capture:true});
+})();

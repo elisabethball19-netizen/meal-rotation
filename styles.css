@@ -2098,3 +2098,5 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .plan-meal-card .plan-linked-names .plan-side-line{padding-left:8px}
 .plan-meal-card .plan-linked-names .plan-side-heading>button:first-child,.plan-meal-card .plan-linked-names .plan-side-heading>span:first-child{font-weight:400!important;color:#242424;text-align:left}
 .plan-meal-card .plan-linked-names>span{display:block;padding-left:8px!important;margin-left:0!important;font-weight:400!important;color:#242424}
+/* Shared modal scroll lock: no scroll chaining from dialog lists to the page behind */
+[aria-modal="true"],[aria-modal="true"] *,dialog[open],dialog[open] *{overscroll-behavior:contain}
