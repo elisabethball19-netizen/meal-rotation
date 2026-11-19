@@ -117,6 +117,13 @@ def run(browser, name):
     p.wait_for_timeout(500)
     saved = p.evaluate('n=>ai.savedLinks(n)', 'Garlic Chicken Stir-Fry')
     assert saved == [links, False], saved
+    # Pasting the same answer again still opens the single-recipe review (not the bulk importer).
+    p.evaluate('follow126.home()')
+    p.get_by_role('button', name='Ask AI').click()
+    p.locator('.ask-ai-dialog').get_by_label('Paste the answer').fill(ANSWER)
+    p.locator('.ask-ai-dialog').get_by_role('button', name='Review recipe').click()
+    p.wait_for_timeout(600)
+    assert p.evaluate('ai.editorOpen()'), 'repeat paste should open the review editor'
     assert not errors, errors
     c.close()
     print('PASS', name, 'Ask AI: family tastes, request, Open in Claude, paste -> review with restriction flags', flush=True)

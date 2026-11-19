@@ -931,6 +931,8 @@ function askAiItemFromAnswer(answer){
  const block=[],stepTags={},lines=text.split('\n');let inside=false;for(const line of lines){const head=line.trim().replace(/^#{1,6}\s*/,'').replace(/\*\*/g,'').replace(/:$/,'').trim();if(/^ingredients$/i.test(head)){inside=true;continue}if(inside&&/^(?:instructions|directions|method|steps|notes)$/i.test(head))break;if(inside&&line.trim()){const clean=line.trim().replace(/^(?:[-*•]|\d+[.)])\s+/,''),tag=clean.match(/\s*\[\s*(?:steps?\s*)?(\d+(?:\s*(?:,|&|and)\s*\d+)*)\s*\]\s*$/i),text=tag?clean.slice(0,tag.index).trim():clean;block.push(text);if(tag)stepTags[ingredientLine(text)]=tag[1].split(/\s*(?:,|&|and)\s*/).map(Number)}}
  const item={...details,name:(details.name||field('Title')||text.split('\n')[0]).replace(/\*\*/g,'').trim()||'AI recipe',ingredients:block.length?block:details.ingredients?.length?details.ingredients:extractRecipeIngredients(text)};
  const prep=askAiDurationMinutes(field('Prep time')),cook=askAiDurationMinutes(field('Cook time'));if(prep&&!item.prep)item.prep=prep;if(cook&&!item.cook)item.cook=cook;if(Object.keys(stepTags).length)item.aiStepTags=stepTags;
+ // Its own identity, so a repeat paste always opens the single-recipe review (not the bulk file importer).
+ item.importSourceId='ask-ai:'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
  if(!item.ingredients?.length)throw Error('No ingredients were found. Paste the full recipe (Title, Ingredients, Instructions).');
  return item;
 }
