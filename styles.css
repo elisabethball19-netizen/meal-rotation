@@ -2019,7 +2019,7 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .plan-meal-card>.plan-date,.plan-meal-card:not(.plan-card-expanded)>.plan-date,.plan-meal-card.plan-card-expanded>.plan-date{justify-content:center;padding-top:0;padding-bottom:0}
 
 .plan-meal-card.plan-card-expanded.empty-plan-card .plan-card-recipe>.mealname{display:none!important}
-.weekday-next-recipe-row{display:flex;flex:0 0 auto}.weekday-next-recipe-row .smallbtn{min-height:44px}
+.weekday-next-recipe-row{display:flex;flex:0 0 auto;flex-wrap:wrap;gap:8px}.weekday-next-recipe-row .smallbtn{min-height:44px;margin:0;white-space:nowrap}
 .plan-meal-card.plan-card-expanded .plan-card-content>.plan-linked-names{display:none}
 /* Issue 127 follow-up 4: tighter vertical spacing in the action grid and Sides box. */
 .shared-meal-action-grid{row-gap:0}.shared-meal-action-grid .meal-inline-action{min-height:34px!important;padding:2px 0!important}

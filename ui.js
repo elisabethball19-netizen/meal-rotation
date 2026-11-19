@@ -238,16 +238,31 @@ function sequenceGroupShares(plan,seq){
  return live.map(g=>({id:g.id,cat:g.cat,share:shares.get(g.id)}));
 }
 function nextSequenceTurn(plan,seq){
- const shares=sequenceGroupShares(plan,seq);if(!shares.length)return null;
+ const shares=sequenceGroupShares(plan,seq);if(!shares.length)return null;const forced=shares.find(g=>g.id===seq.forceNext);
  const prior=seq.credits&&typeof seq.credits==='object'?seq.credits:{},credits={};for(const g of shares)credits[g.id]=(Number.isFinite(prior[g.id])?prior[g.id]:0)+g.share;
  const current=seq.groups[seq.position%seq.groups.length];let pick=null;
- for(const g of shares){if(!pick||credits[g.id]>credits[pick.id]+1e-9||Math.abs(credits[g.id]-credits[pick.id])<=1e-9&&pick.id===current&&g.id!==current)pick=g}
+ if(forced)pick=forced;else for(const g of shares){if(!pick||credits[g.id]>credits[pick.id]+1e-9||Math.abs(credits[g.id]-credits[pick.id])<=1e-9&&pick.id===current&&g.id!==current)pick=g}
  credits[pick.id]-=1;for(const id of Object.keys(credits))credits[id]=Math.round(credits[id]*1e6)/1e6;
  return {index:seq.groups.indexOf(pick.id),credits};
 }
+// "Use next <Group> meal" (2026-11-19). The day's other groups, active first; empty unless 2+ usable groups.
+function dayGroupChoices(plan,day,active){const seq=Object.values(plan?.alternatingGroupsV1||{}).find(s=>s.day===day);if(!seq)return [];const groups=sequenceGroupShares(plan,seq).map(g=>g.cat);return groups.length>1&&groups.includes(active)?[active,...groups.filter(g=>g!==active)]:[]}
+// This week: make another of the day's groups active now; it takes that group's turn (its credit is
+// charged and the replaced group's refunded) and the slot fills with that group's next recipe.
+function switchDayGroupThisWeek(day,toCat){servingTransaction(()=>{
+ const plan=mealPlans.find(p=>p.id===activePlanId),seq=Object.values(plan.alternatingGroupsV1||{}).find(s=>s.day===day),fromId=seq.groups[seq.position],old=sequenceGroup(fromId),to=groupIdentity(toCat,true);if(!seq.groups.includes(to)||old===toCat)return;
+ seq.position=seq.groups.indexOf(to);seq.credits={...(seq.credits||{})};seq.credits[fromId]=(seq.credits[fromId]||0)+1;seq.credits[to]=(seq.credits[to]||0)-1;
+ for(const field of ['weekdayMealOverrides','cycleSlotChoices','cycleRetainedSlots'])for(const cat of [old,toCat])if(plan[field])delete plan[field][weekdaySlotKey(day,cat)];
+ clearTemporarySlot(plan,day,old);plan.weekdayCategories[day]=(plan.weekdayCategories[day]||[]).map(g=>g===old?toCat:g);weekdayCategories=JSON.parse(JSON.stringify(plan.weekdayCategories));weekdayMealOverrides={...plan.weekdayMealOverrides};
+})}
+// Next week: the next Start next week gives this day to that group (shown at once in the Next week view).
+function forceDayGroupNextWeek(day,toCat){servingTransaction(()=>{
+ const plan=mealPlans.find(p=>p.id===activePlanId),seq=Object.values(plan.alternatingGroupsV1||{}).find(s=>s.day===day),to=groupIdentity(toCat,true);if(!seq.groups.includes(to))return;seq.forceNext=to;
+ if(plan.pendingNextWeekV1?.choices)for(const [key,choice]of Object.entries(plan.pendingNextWeekV1.choices))if(choice.day===day)delete plan.pendingNextWeekV1.choices[key];
+})}
 function advanceGroupSequences(plan,retained=new Set()){
  for(const seq of Object.values(plan.alternatingGroupsV1||{})){
-  const old=sequenceGroup(seq.groups[seq.position%seq.groups.length]),turn=nextSequenceTurn(plan,seq);if(!turn)continue;seq.position=turn.index;seq.credits=turn.credits;const cat=sequenceGroup(seq.groups[seq.position]);if(!cat||!groupUsesRotation(cat)||!automaticRecipeCandidates(cat).length)continue;
+  const old=sequenceGroup(seq.groups[seq.position%seq.groups.length]),turn=nextSequenceTurn(plan,seq);delete seq.forceNext;if(!turn)continue;seq.position=turn.index;seq.credits=turn.credits;const cat=sequenceGroup(seq.groups[seq.position]);if(!cat||!groupUsesRotation(cat)||!automaticRecipeCandidates(cat).length)continue;
   const groups=plan.weekdayCategories[seq.day]||[];plan.weekdayCategories[seq.day]=groups.map(group=>group===old?cat:group);if(!groups.includes(old))continue;
   for(const field of ['weekdayMealOverrides','cycleSlotChoices','cycleRetainedSlots']){const prior=plan[field]?.[weekdaySlotKey(seq.day,old)];delete plan[field]?.[weekdaySlotKey(seq.day,old)];delete plan[field]?.[weekdaySlotKey(seq.day,cat)];if(prior!==undefined&&retained.has(JSON.stringify([plan.id,seq.day,old]))){plan[field]??={};plan[field][weekdaySlotKey(seq.day,cat)]=field==='cycleSlotChoices'?{...prior,retain:true,substitution:true,carried:true}:prior}}
  }
@@ -3415,8 +3430,10 @@ function openWeekdayMealChooser(day,category,currentMeal,occasional=false,option
   catch(error){await showAppMessage(error.message)}finally{busy=false;alternate.disabled=!nextAvailable()}
  };if(!pickerWeek)quick.append(alternate);
  // "Use next recipe" lives here, in Choose a different meal, instead of on the expanded card.
- const nextRow=document.createElement('div');nextRow.className='weekday-next-recipe-row';if(currentMeal&&!pickerWeek)nextRow.append(alternate);
- if(pickerWeek&&currentMeal){const nextRecipe=document.createElement('button');nextRecipe.type='button';nextRecipe.className='smallbtn';nextRecipe.textContent='Use next recipe';nextRecipe.onclick=()=>{if(busy||!overlay.isConnected||activePlanId!==pickerPlanId||rotationWeekOffset!==pickerWeek||signature()!==initialSignature)return;try{const source=previewMealPlanAdvance(null,null,pickerPlanId),entry=source.entries.find(e=>e.day===day&&e.cat===category&&!e.linkedTo&&String(e.meal?.id)===String(currentMeal.id)),next=futureReplacement(source,entry,currentMeal.id);applyRecipeBulk([String(next.id)],{},{mealSelection:{planId:pickerPlanId,week:1,day,category,mealId:String(next.id),automatic:true}});expandedPlanCards.delete(options.cardIdentity);close()}catch(error){showAppMessage(error.message)}};nextRow.append(nextRecipe)}
+ const nextRow=document.createElement('div');nextRow.className='weekday-next-recipe-row';const groupChoices=currentMeal&&!occasional?dayGroupChoices(pickerPlan(),day,category):[];
+ if(groupChoices.length){if(!pickerWeek)alternate.textContent='Use next '+category+' meal';for(const cat of groupChoices.slice(1)){const b=document.createElement('button');b.type='button';b.className='smallbtn weekday-next-group';b.textContent='Use next '+cat+' meal';b.onclick=async()=>{if(busy||!overlay.isConnected||activePlanId!==pickerPlanId||rotationWeekOffset!==pickerWeek||signature()!==initialSignature)return;busy=true;b.disabled=true;try{if(pickerWeek)forceDayGroupNextWeek(day,cat);else switchDayGroupThisWeek(day,cat);expandedPlanCards.delete(options.cardIdentity);close();renderList({readOnly:!pickerWeek})}catch(error){await showAppMessage(error.message)}finally{busy=false;b.disabled=false}};nextRow.append(b)}}
+ if(currentMeal&&!pickerWeek)nextRow.prepend(alternate);
+ if(pickerWeek&&currentMeal){const nextRecipe=document.createElement('button');nextRecipe.type='button';nextRecipe.className='smallbtn';nextRecipe.textContent=groupChoices.length?'Use next '+category+' meal':'Use next recipe';nextRecipe.onclick=()=>{if(busy||!overlay.isConnected||activePlanId!==pickerPlanId||rotationWeekOffset!==pickerWeek||signature()!==initialSignature)return;try{const source=previewMealPlanAdvance(null,null,pickerPlanId),entry=source.entries.find(e=>e.day===day&&e.cat===category&&!e.linkedTo&&String(e.meal?.id)===String(currentMeal.id)),next=futureReplacement(source,entry,currentMeal.id);applyRecipeBulk([String(next.id)],{},{mealSelection:{planId:pickerPlanId,week:1,day,category,mealId:String(next.id),automatic:true}});expandedPlanCards.delete(options.cardIdentity);close()}catch(error){showAppMessage(error.message)}};nextRow.prepend(nextRecipe)}
  const cancel=document.createElement('button');cancel.type='button';setIconButton(cancel,'cancel','Cancel');cancel.onclick=close;actions.append(save);actions.append(cancel);const empty=document.createElement('button');empty.type='button';empty.className='smallbtn';empty.textContent='Leave '+day+(showMealPlanTabs?'’s '+(mealPlans.find(plan=>plan.id===pickerPlanId)?.name||'meal').toLocaleLowerCase():'')+' empty';empty.onclick=()=>{if(busy||activePlanId!==pickerPlanId||rotationWeekOffset!==pickerWeek||signature()!==initialSignature)return;busy=true;empty.disabled=true;try{const plan=mealPlans.find(plan=>plan.id===pickerPlanId),entry=recipePlanEntries(pickerPlanId).find(entry=>(!options.occurrenceKey||simpleSideOccurrenceKey(plan,entry)===options.occurrenceKey)&&entry.day===day&&(occasional?entry.occasional:entry.cat===category)&&String(entry.meal.id)===String(currentMeal?.id));if(entry){skipMealOccurrence(pickerPlanId,entry,simpleSideOccurrenceKey(plan,entry));expandedPlanCards.delete(options.cardIdentity);renderList({readOnly:true})}close()}catch(error){busy=false;empty.disabled=false;showAppMessage(error.message)}};if(!pickerWeek)quick.append(empty);const heading=document.createElement('h4');heading.textContent='Choose a different meal';heading.style.margin='4px 0 0';box.append(header,...(nextRow.childElementCount?[nextRow]:[]),search,list,actions);overlay.append(box);
  overlay.addEventListener('click',event=>{if(event.target===overlay)close()});overlay.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();close()}});document.body.append(overlay);window.visualViewport?.addEventListener('resize',fit);window.visualViewport?.addEventListener('scroll',fit);fit();renderChoices();trackGroupPopup(overlay,close,true);
 }

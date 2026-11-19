@@ -30,6 +30,9 @@ sb.fixture.HOOK += '''window.bal={
  fixedSide:()=>{const parent=meals.find(m=>m.id===3),veg=meals.find(m=>m.cat==='Vegetables');parent.serveWithEntriesV1=[{id:'fx',type:'fixed',recipeId:String(veg.id),always:true}];persist()},
  dayEditor:()=>openRecurringDayEditor('Tuesday'),
  tuesdayMeal:()=>getDisplayedWeekdayMeals().find(e=>e.day==='Tuesday'&&!e.linkedTo&&!e.servingParentId)?.meal.name,
+ openTue:(week=0)=>{follow126.home(week);const src=week?previewMealPlanAdvance():{entries:getDisplayedWeekdayMeals()};const e=src.entries.find(x=>x.day==='Tuesday'&&!x.linkedTo&&!x.servingParentId);openWeekdayMealChooser(e.day,e.cat,e.meal)},
+ nextTue:()=>{const e=previewMealPlanAdvance().entries.find(x=>x.day==='Tuesday'&&!x.linkedTo&&!x.servingParentId);return [e.cat,e.meal.cat]},
+ tueCat:()=>getDisplayedWeekdayMeals().find(e=>e.day==='Tuesday'&&!e.linkedTo&&!e.servingParentId)?.meal.cat,
  cats:()=>[...cats],
  sideGroups:()=>sidePickerGroups(),
  openSide:()=>{const e=getDisplayedWeekdayMeals().find(x=>!x.linkedTo&&!x.servingParentId);openAddSideDialog(e.meal,e.day,[],()=>{})},
@@ -127,6 +130,33 @@ def run(browser, name):
     p.wait_for_timeout(300)
     assert p.evaluate('bal.tuesday()') == 'Rice' and p.evaluate('bal.tuesdayMeal()') == meal
     assert p.locator('.plan-card-group').first.text_content() == 'Rice · Vegetables · Potatoes'
+    assert not errors, errors
+    c.close()
+    # Use next <Group> meal buttons, this week and next week, with Undo.
+    c, p, errors, _ = sb.open_page(browser, name)
+    p.evaluate('bal.setSeq(["Rice","Potatoes"])')
+    meal = p.evaluate('bal.tuesdayMeal()')
+    p.evaluate('bal.openTue()')
+    labels = p.locator('.weekday-next-recipe-row button').all_text_contents()
+    assert labels == ['Use next Rice meal', 'Use next Potatoes meal'], labels
+    p.screenshot(path=str(OUT / (name.split('.')[0] + '-use-next-groups.png')))
+    p.get_by_role('button', name='Use next Potatoes meal').click()
+    p.wait_for_timeout(300)
+    assert p.evaluate('bal.tuesday()') == 'Potatoes' and p.evaluate('bal.tueCat()') == 'Potatoes'
+    assert p.locator('.plan-card-group').first.text_content() == 'Potatoes · Rice'
+    p.get_by_role('button', name='Undo', exact=True).first.click()
+    p.wait_for_timeout(300)
+    assert p.evaluate('bal.tuesday()') == 'Rice' and p.evaluate('bal.tuesdayMeal()') == meal
+    before = p.evaluate('bal.nextTue()')
+    other = 'Rice' if before[0] == 'Potatoes' else 'Potatoes'
+    p.evaluate('bal.openTue(1)')
+    p.get_by_role('button', name='Use next %s meal' % other).click()
+    p.wait_for_timeout(300)
+    assert p.evaluate('bal.nextTue()') == [other, other], p.evaluate('bal.nextTue()')
+    assert p.evaluate('bal.tuesday()') == 'Rice' and p.evaluate('bal.tuesdayMeal()') == meal, 'this week must not change'
+    p.reload()
+    p.wait_for_timeout(400)
+    assert p.evaluate('bal.nextTue()') == [other, other]
     assert not errors, errors
     c.close()
     print('side groups', side_groups, 'shown', shown)
