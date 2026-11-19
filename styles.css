@@ -1864,7 +1864,7 @@ body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{
 .recipe-import-popup>div{display:flex;flex-direction:column;gap:12px;max-height:calc(100dvh - 24px);overflow:auto;}
 .recipe-import-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:20px;}
 .recipe-import-heading>span{min-width:0;}
-.recipe-import-methods{display:flex;flex-wrap:wrap;gap:0 16px;border:0;padding:0;margin:0;}
+.recipe-import-methods{display:grid;grid-template-columns:repeat(2,minmax(0,max-content));gap:0 24px;border:0;padding:0;margin:0;}
 .recipe-import-methods legend{font-size:13px;color:#777;margin-bottom:4px;}
 .recipe-import-methods label,.import-side-review label,.import-side-suggestion{display:flex;align-items:center;gap:8px;min-height:44px;}
 .recipe-import-methods input,.import-side-review input{flex:0 0 18px;width:18px;height:18px;margin:0;}
