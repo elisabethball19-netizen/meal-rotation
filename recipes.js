@@ -2,7 +2,7 @@ const RECIPE_VIEW_PREFS_KEY='mealRotationRecipeViewPrefsV1';
 let recipeViewPrefs={mode:'full',ratio:.4,landscapeRatio:.5,syncIngredients:true,autoCompleteIngredients:true,keepScreenAwake:true,autoOpenLinkedRecipes:true,timerAlarmVolume:.8};
 try{const p=JSON.parse(localStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null');if(p&&typeof p.keepScreenAwake==='boolean')recipeViewPrefs.keepScreenAwake=p.keepScreenAwake;if(p&&['full','split'].includes(p.mode)&&Number.isFinite(p.ratio))recipeViewPrefs={mode:p.mode,ratio:Math.max(.1,Math.min(.9,p.ratio)),landscapeRatio:Number.isFinite(p.landscapeRatio)?Math.max(.1,Math.min(.9,p.landscapeRatio)):.5,syncIngredients:p.syncIngredients!==false,autoCompleteIngredients:p.autoCompleteIngredients!==false,keepScreenAwake:p.keepScreenAwake!==false,autoOpenLinkedRecipes:true,timerAlarmVolume:Number.isFinite(p.timerAlarmVolume)?Math.max(0,Math.min(1,p.timerAlarmVolume)):.8}}catch(e){}
 try{const saved=JSON.parse(localStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null');for(const key of ['syncIngredients','autoCompleteIngredients'])if(typeof saved?.[key]==='boolean')recipeViewPrefs[key]=saved[key]}catch(_){}
-recipeViewPrefs.phoneTimer=false;try{recipeViewPrefs.phoneTimer=JSON.parse(localStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null')?.phoneTimer===true}catch(e){}recipeViewPrefs.needsAdjustingCollapsed={};try{const saved=JSON.parse(localStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null')?.needsAdjustingCollapsed;if(saved&&typeof saved==='object'&&!Array.isArray(saved))recipeViewPrefs.needsAdjustingCollapsed=Object.fromEntries(Object.entries(saved).filter(([,value])=>typeof value==='boolean'))}catch(e){}
+recipeViewPrefs.needsAdjustingCollapsed={};try{const saved=JSON.parse(localStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null')?.needsAdjustingCollapsed;if(saved&&typeof saved==='object'&&!Array.isArray(saved))recipeViewPrefs.needsAdjustingCollapsed=Object.fromEntries(Object.entries(saved).filter(([,value])=>typeof value==='boolean'))}catch(e){}
 function saveRecipeViewPrefs(){recipeViewPrefs.autoOpenLinkedRecipes=true;try{localStorage.setItem(RECIPE_VIEW_PREFS_KEY,JSON.stringify(recipeViewPrefs))}catch(e){/* Keep viewing available when preferences cannot be saved. */}}
 // Recipe associations use existing content tokens, never schedule positions or progress state.
 function syncIngredientHeading(text){
@@ -779,7 +779,6 @@ function buildCookingTimerVolumeControl(settings){
  const slider=document.createElement('input');slider.type='range';slider.id='recipeTimerAlarmVolume';slider.min='0';slider.max='100';slider.step='1';slider.dataset.timerAlarmVolume='';slider.value=String(Math.round(recipeViewPrefs.timerAlarmVolume*100));slider.setAttribute('aria-valuetext',slider.value+'%');slider.oninput=()=>setCookingTimerAlarmVolume(slider.value);
  const preview=document.createElement('button');preview.type='button';preview.className='recipe-timer-icon recipe-timer-test-sound';setRecipeToolbarIcon(preview,'sound','Test alarm sound');preview.onclick=()=>{if(cookingTimer?.status==='complete')return;if(cookingTimerSound?.kind==='test')stopCookingTimerSound('test');else startCookingTimerSound('test')};
  row.append(label,output,slider,preview);settings.append(row);
- {const phone=document.createElement('label');phone.className='settings-display-option recipe-timer-phone';const sw=document.createElement('input');sw.type='checkbox';sw.setAttribute('role','switch');sw.className='preference-switch';sw.checked=recipeViewPrefs.phoneTimer===true;sw.onchange=()=>{recipeViewPrefs.phoneTimer=sw.checked;saveRecipeViewPrefs()};phone.append(sw,document.createTextNode('Also set a phone timer'));settings.append(phone);if(typeof decoratePreferenceSwitches==='function')decoratePreferenceSwitches(phone)}
  const notify=document.createElement('button');notify.type='button';notify.className='recipe-timer-icon recipe-timer-notifications';setRecipeToolbarIcon(notify,'bell','Enable timer notifications');notify.hidden=true;notify.onclick=async()=>{try{await Notification.requestPermission()}catch(e){}syncCookingTimer()};settings.append(notify);
 }
 
@@ -851,14 +850,7 @@ async function startRecipeCookingTimer(meal,item,durations,stepNumber){
   if(recipeViewer!==view)return;
   syncCookingTimer();if(cookingTimers.length>=COOKING_TIMER_LIMIT){await showAppMessage('Up to '+COOKING_TIMER_LIMIT+' timers can run at once. Delete one to start another.');return}
   const timer={version:1,id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),recipeId:String(meal.id),recipeName:meal.name||'Recipe',stepToken:item.token,stepText:item.text,stepNumber,context:view.context?{...view.context}:null,status:'running',deadline:Date.now()+duration.ms,remaining:duration.ms};cookingTimers=[...cookingTimers,timer];saveCookingTimer();syncCookingTimer();
-  if(recipeViewPrefs.phoneTimer)handOffPhoneTimer(duration.ms,(meal.name||'Recipe')+(stepNumber?' · '+stepNumber:''));
  }finally{cookingTimerStarting=false}
-}
-// Experimental: ask Android's Clock app to run the same timer, so it rings even when this app is closed.
-function handOffPhoneTimer(ms,label){
- if(!/Android/i.test(navigator.userAgent||''))return false;
- const seconds=Math.max(1,Math.round(ms/1000));
- try{location.href='intent:#Intent;action=android.intent.action.SET_TIMER;i.android.intent.extra.alarm.LENGTH='+seconds+';S.android.intent.extra.alarm.MESSAGE='+encodeURIComponent(label)+';B.android.intent.extra.alarm.SKIP_UI=true;end';return true}catch(e){return false}
 }
 // The timer dropdown closes on any tap outside it (or its chip) and on any scroll.
 function watchTimerDropdown(view){
