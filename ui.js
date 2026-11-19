@@ -222,9 +222,32 @@ function carryDatedGroceryChecks(before,retained){
 // through the existing plan backup/history, without changing the current week.
 function sequenceGroup(id){const identities=readGroupIdentities();return cats.find(cat=>(identities[cat]||cat)===id)}
 function sequenceProblem(plan){for(const choice of Object.values(plan.pendingNextWeekV1?.choices||{})){if(choice.provenance!=='automatic'&&(choice.groupId!=='@day'&&!sequenceGroup(choice.groupId)||!meals.some(m=>String(m.id)===choice.mealId)))return 'A saved next-week meal or group needs a replacement.'}for(const seq of Object.values(plan.alternatingGroupsV1||{}))for(const id of seq.groups){const cat=sequenceGroup(id);if(!cat||!groupUsesRotation(cat)||!automaticRecipeCandidates(cat).length)return 'Alternating group '+(cat||'deleted group')+' needs a replacement with eligible recipes.'}return ''}
+// Balanced day groups (2026-11-19): each of a day's groups gets turns in proportion to its
+// distinct Regulars (a recipe shared by two of the day's groups counts once, split between them),
+// with every group getting at least 1 in 4 of that day's meals. Smooth weighted round-robin keeps
+// turns spread out; credits live on the day's sequence record (seq.credits) so Undo/backups carry them.
+function sequenceGroupShares(plan,seq){
+ const groups=seq.groups.map(id=>({id,cat:sequenceGroup(id)})).filter(g=>g.cat&&groupUsesRotation(g.cat));
+ const pools=groups.map(g=>automaticRecipeCandidates(g.cat,[],meals,plan)),owners=new Map();
+ pools.forEach((pool,i)=>{for(const m of pool){const key=sharedRecipeIdentity(m);if(!owners.has(key))owners.set(key,new Set());owners.get(key).add(i)}});
+ const weight=groups.map(()=>0);for(const set of owners.values())for(const i of set)weight[i]+=1/set.size;
+ const live=groups.map((g,i)=>({...g,w:weight[i]})).filter(g=>g.w>0);if(!live.length)return [];
+ const min=Math.min(.25,1/live.length),fixed=new Set();let shares;
+ for(;;){const free=live.filter(g=>!fixed.has(g.id)),rest=1-fixed.size*min,total=free.reduce((t,g)=>t+g.w,0);
+  shares=new Map(live.map(g=>[g.id,fixed.has(g.id)?min:rest*g.w/total]));const low=free.filter(g=>shares.get(g.id)<min-1e-9);if(!low.length||low.length===free.length)break;for(const g of low)fixed.add(g.id)}
+ return live.map(g=>({id:g.id,cat:g.cat,share:shares.get(g.id)}));
+}
+function nextSequenceTurn(plan,seq){
+ const shares=sequenceGroupShares(plan,seq);if(!shares.length)return null;
+ const prior=seq.credits&&typeof seq.credits==='object'?seq.credits:{},credits={};for(const g of shares)credits[g.id]=(Number.isFinite(prior[g.id])?prior[g.id]:0)+g.share;
+ const current=seq.groups[seq.position%seq.groups.length];let pick=null;
+ for(const g of shares){if(!pick||credits[g.id]>credits[pick.id]+1e-9||Math.abs(credits[g.id]-credits[pick.id])<=1e-9&&pick.id===current&&g.id!==current)pick=g}
+ credits[pick.id]-=1;for(const id of Object.keys(credits))credits[id]=Math.round(credits[id]*1e6)/1e6;
+ return {index:seq.groups.indexOf(pick.id),credits};
+}
 function advanceGroupSequences(plan,retained=new Set()){
  for(const seq of Object.values(plan.alternatingGroupsV1||{})){
-  const old=sequenceGroup(seq.groups[seq.position%seq.groups.length]);seq.position=(seq.position+1)%seq.groups.length;const cat=sequenceGroup(seq.groups[seq.position]);if(!cat||!groupUsesRotation(cat)||!automaticRecipeCandidates(cat).length)continue;
+  const old=sequenceGroup(seq.groups[seq.position%seq.groups.length]),turn=nextSequenceTurn(plan,seq);if(!turn)continue;seq.position=turn.index;seq.credits=turn.credits;const cat=sequenceGroup(seq.groups[seq.position]);if(!cat||!groupUsesRotation(cat)||!automaticRecipeCandidates(cat).length)continue;
   const groups=plan.weekdayCategories[seq.day]||[];plan.weekdayCategories[seq.day]=groups.map(group=>group===old?cat:group);if(!groups.includes(old))continue;
   for(const field of ['weekdayMealOverrides','cycleSlotChoices','cycleRetainedSlots']){const prior=plan[field]?.[weekdaySlotKey(seq.day,old)];delete plan[field]?.[weekdaySlotKey(seq.day,old)];delete plan[field]?.[weekdaySlotKey(seq.day,cat)];if(prior!==undefined&&retained.has(JSON.stringify([plan.id,seq.day,old]))){plan[field]??={};plan[field][weekdaySlotKey(seq.day,cat)]=field==='cycleSlotChoices'?{...prior,retain:true,substitution:true,carried:true}:prior}}
  }
@@ -261,7 +284,7 @@ function replaceFutureDuplicates(plan,meal,replaceProtected=false){
 }
 function pendingCarryConflicts(plans,retained,allTabs=false){
  const conflicts=[];for(const plan of plans)for(const choice of Object.values(plan.pendingNextWeekV1?.choices||{})){
-  if(choice.provenance==='automatic')continue;let cat=sequenceGroup(choice.groupId);const seq=Object.values(plan.alternatingGroupsV1||{}).find(seq=>seq.day===choice.day&&seq.groups[(seq.position+1)%seq.groups.length]===choice.groupId);if(seq)cat=sequenceGroup(seq.groups[seq.position%seq.groups.length]);
+  if(choice.provenance==='automatic')continue;let cat=sequenceGroup(choice.groupId);const seq=Object.values(plan.alternatingGroupsV1||{}).find(seq=>seq.day===choice.day&&seq.groups[nextSequenceTurn(plan,seq)?.index??((seq.position+1)%seq.groups.length)]===choice.groupId);if(seq)cat=sequenceGroup(seq.groups[seq.position%seq.groups.length]);
   if(!retained.has((allTabs?plan.id+'||':'')+weekdaySlotKey(choice.day,cat)))continue;
   const outgoing=getDisplayedWeekdayMealsForPlan(plan).find(e=>e.day===choice.day&&e.cat===cat);if(outgoing&&String(outgoing.meal.id)!==choice.mealId)conflicts.push({plan,choice,outgoing});
  }return conflicts;
@@ -2616,6 +2639,9 @@ function bindGroupMealPress(name,meal){
 function openSavedMealRecipe(meal,context=null,navigationOrigin=null,initialNavigation=null){openRecipeViewer(meal,context,true,null,navigationOrigin,initialNavigation)}
 
 const ideasRecipeNameCollator=new Intl.Collator(undefined,{sensitivity:'base'});
+// Browse lists in pickers (2026-11-19): only Weekly groups' Regulars; anything in keep (the day's current or
+// pending meal) always stays visible. Search still covers every recipe.
+function pickerBrowseRecipes(category,keep=[]){const ids=new Set(keep.filter(Boolean).map(m=>String(m.id))),weekly=groupUsesRotation(category);return masterRecipeOrder(category).filter(m=>ids.has(String(m.id))||weekly&&recipeStatus(m)==='rotation')}
 function masterRecipeOrder(category,highlights=scheduledRecipeHighlights()){
  const entries=meals.filter(meal=>meal.cat===category);if(category&&!groupUsesRotation(category)){const order=normalizedUpNextOrder();return entries.sort((a,b)=>Number(b.upNextStar===true)-Number(a.upNextStar===true)||upNextRank(a,order)-upNextRank(b,order))};const rotation=entries.filter(meal=>recipeStatus(meal)==='rotation'),order=normalizedUpNextOrder(),ideas=entries.filter(meal=>recipeStatus(meal)==='up-next').sort((a,b)=>upNextRank(a,order)-upNextRank(b,order));
  if(manualRecipeOrdering)return [...rotation,...ideas];
@@ -3347,7 +3373,7 @@ function openWeekdayMealChooser(day,category,currentMeal,occasional=false,option
    for(const meal of matches)list.append(recipeButton(meal,true));
    if(!matches.length){const empty=document.createElement('p');empty.textContent='No matching meals.';empty.style.color='#666';list.append(empty)}
   }else for(const cat of order){
-   const entries=masterRecipeOrder(cat),open=expanded.has(cat);
+   const entries=pickerBrowseRecipes(cat,[currentMeal,pendingMeal]),open=expanded.has(cat);if(!entries.length&&!assigned.includes(cat))continue;
    const card=document.createElement('div');card.className='master-category-card';card.dataset.group=cat;card.style.marginBottom='6px';
    const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',cat+' ('+entries.length+' recipes)');toggle.style.cssText='width:100%;min-height:44px;padding:10px;gap:8px';
    const arrow=document.createElementNS('http://www.w3.org/2000/svg','svg');arrow.setAttribute('viewBox','0 0 24 24');arrow.setAttribute('aria-hidden','true');arrow.innerHTML='<path d="'+(open?'m6 15 6-6 6 6':'m6 9 6 6 6-6')+'"/>';
