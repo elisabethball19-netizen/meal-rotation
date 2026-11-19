@@ -12,7 +12,7 @@ import sides_batch127_browser as sb  # noqa: E402
 
 sb.fixture.HOOK += '''window.batch7={
  setup:()=>{follow126.rules();batch127.times();Object.assign(meals.find(m=>m.id===2),{makeAheadTasks:[...(meals.find(m=>m.id===2).makeAheadTasks||[]).filter(t=>t.id!=='w7'),{id:'w7',description:'Soak the beans',daysBefore:0}]});persist();makeAheadDisplayPrefs.showMakeAheadReminders=true;makeAheadDisplayPrefs.showCompletedToday=false;saveMakeAheadDisplayPrefs();showTop=true;allMealsActive=false;groceryTabActive=false;rotationWeekOffset=0;render()},
- week:()=>{showTop=true;allMealsActive=true;groceryTabActive=false;overviewWeekOffset=0;render()},
+ week:()=>{showMealPlanTabs=true;showTop=true;allMealsActive=true;groceryTabActive=false;overviewWeekOffset=0;render()},
  view:()=>appViewSnapshot().view,
  home:()=>{showTop=true;allMealsActive=false;groceryTabActive=false;rotationWeekOffset=0;render()},
  viewer:()=>!!recipeViewer,
@@ -29,16 +29,8 @@ def run(browser, name):
     # Week page.
     p.evaluate('batch7.week()')
     assert p.locator('.make-ahead-outside').count() == 0
-    days = p.locator('.all-meals-day')
-    for i in range(days.count()):
-        d = days.nth(i)
-        assert d.locator('.overview-task-divider').count() == (1 if d.locator('.make-ahead-reminder').count() else 0)
-    task = p.locator('.all-meals-day .make-ahead-task-link').first
-    assert task.count() == 1
-    if task.count():
-        task.click()
-        p.wait_for_timeout(200)
-        assert p.evaluate('batch7.view()') == 'all' and not p.evaluate('batch7.viewer()'), 'Week task text must not navigate'
+    # Part 2e: the Weekly Overview is read-only; make-ahead tasks live only in To-Do.
+    assert p.locator('.all-meals-day .make-ahead-reminder, .all-meals-day .overview-task-divider').count() == 0
     sizes = p.evaluate("[...document.querySelectorAll('.all-meals-day .overview-dish')].map(e=>{const t=e.querySelector('.mealname')||e;const c=getComputedStyle(t);return c.fontSize+'/'+c.fontWeight})")
     assert len(set(sizes)) == 1 and sizes[0].endswith('/400'), sizes
     normal = p.evaluate('batch7.dish()')

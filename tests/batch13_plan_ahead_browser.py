@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import sides_batch127_browser as sb  # noqa: E402
 
 sb.fixture.HOOK += '''const b13Store=()=>typeof testStorage!=='undefined'?testStorage:localStorage;window.batch13={
- week:()=>{showTop=true;allMealsActive=true;groceryTabActive=false;overviewWeekOffset=0;render()},
+ week:()=>{showMealPlanTabs=true;showTop=true;allMealsActive=true;groceryTabActive=false;overviewWeekOffset=0;render()},
  main:(week,date)=>{const plan=mealPlans.find(p=>p.id===activePlanId),src=week?previewMealPlanAdvance():{plan:{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters},entries:getDisplayedWeekdayMealsForPlan({...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters})};const e=src.entries.find(e=>!e.linkedTo&&!e.servingParentId&&!e.occasional&&cookingLocalDate(scheduledOccurrenceDate({...e,planId:activePlanId},src.plan.rotationCalendar))===date);return e?[e.meal.name,e.cat,(src.entries.filter(x=>x.linkedTo&&String(x.linkedTo)===String(e.meal.id)||x.servingParentId).length)]:null},
  dates:()=>{const plan=mealPlans.find(p=>p.id===activePlanId),cur=getDisplayedWeekdayMealsForPlan({...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}).filter(e=>!e.linkedTo&&!e.servingParentId&&!e.occasional&&e.cat&&e.cat!=='@day').map(e=>cookingLocalDate(scheduledOccurrenceDate({...e,planId:activePlanId},plan.rotationCalendar))),nx=previewMealPlanAdvance();return [cur,nx.entries.filter(e=>!e.linkedTo&&!e.servingParentId&&!e.occasional&&e.cat&&e.cat!=='@day').map(e=>cookingLocalDate(scheduledOccurrenceDate({...e,planId:activePlanId},nx.plan.rotationCalendar)))]},
  rice:()=>meals.filter(m=>m.cat==='Rice').map(m=>m.name),
@@ -42,7 +42,7 @@ def run(browser, name):
     before0, before1 = p.evaluate('([w,d])=>batch13.main(w,d)', [0, d0]), p.evaluate('([w,d])=>batch13.main(w,d)', [1, d1])
     pick0 = next(n for n in rice if n != before0[0])
     pick1 = next(n for n in rice if n != before1[0] and n != pick0)
-    p.evaluate('batch13.week()')
+    p.evaluate('batch13.home()')
     p.get_by_role('button', name='Plan ahead', exact=True).click()
     d = p.get_by_role('dialog', name='Plan ahead', exact=True)
     d.wait_for(state='visible')
@@ -74,7 +74,7 @@ def run(browser, name):
     # A day with no meal group gets the planned meal as its one-time meal.
     empty = p.evaluate('batch13.emptyDates()')
     if empty:
-        p.evaluate('batch13.week()')
+        p.evaluate('batch13.home()')
         p.get_by_role('button', name='Plan ahead', exact=True).click()
         d.wait_for(state='visible')
         pick2 = next(n for n in rice if n not in (pick0, pick1, before1[0]))
@@ -114,7 +114,7 @@ def run_avoid(browser, name):
     auto_next = p.evaluate('([w,d])=>batch13.main(w,d)', [1, nxt[0]])[0]
     from datetime import date, timedelta
     far = (date.fromisoformat(nxt[0]) + timedelta(days=7)).isoformat()
-    p.evaluate('batch13.week()')
+    p.evaluate('batch13.home()')
     p.get_by_role('button', name='Plan ahead', exact=True).click()
     d = p.get_by_role('dialog', name='Plan ahead', exact=True)
     d.wait_for(state='visible')

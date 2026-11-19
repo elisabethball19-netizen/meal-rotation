@@ -373,21 +373,19 @@ function renderAllMealsOverview(list){
  const section=document.createElement('section');section.className='all-meals-overview';section.setAttribute('aria-label','Weekly Overview');const heading=document.createElement('h2');heading.textContent='Weekly Overview';section.append(heading);
  const scope=showMealPlanTabs?mealPlans:mealPlans.filter(p=>p.id===activePlanId),current=scope.map(p=>{const plan=p.id===activePlanId?{...p,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:p;return {plan,entries:getDisplayedWeekdayMealsForPlan(plan)}}),upcoming=scope.map(p=>previewMealPlanAdvance(null,null,p.id)),sources=overviewWeekOffset?upcoming:current;
  const week=weekSelector(overviewWeekOffset,value=>{overviewWeekOffset=value;renderList({readOnly:true})});week.classList.add('overview-week-sticky');section.append(week);
- {const planAhead=document.createElement('button');planAhead.type='button';planAhead.className='iconbtn plan-ahead-open';setIconButton(planAhead,'calendar','Plan ahead');planAhead.onclick=openPlanAheadDialog;heading.after(planAhead);heading.parentElement?.classList.add('has-plan-ahead')}
  const active=sources.find(s=>s.plan.id===activePlanId)||sources[0],start=active?mealPlanWeekStart(active.plan):cookingPlanningWeekStart(),dates=new Set(orderedDays().map(day=>cookingLocalDate(cookingDateInWeek(day,start))));
  for(const source of sources)for(const entry of source.entries)dates.add(cookingLocalDate(scheduledOccurrenceDate({...entry,planId:source.plan.id},source.plan.rotationCalendar)));
- const tasks=makeAheadDisplayPrefs.showMakeAheadReminders?scheduledMakeAheadTasks(true,upcoming).filter(t=>scope.some(p=>p.id===t.plan.id)):[];
  for(const date of [...dates].sort()){
-  const day=weekdays[(parseCookingLocalDate(date).getDay()+6)%7],card=document.createElement('section');card.className='all-meals-day';card.dataset.date=date;card.style.backgroundColor=colorForDay(day);const title=document.createElement('h3');title.textContent=day;appendWeekdayDate(title,parseCookingLocalDate(date));card.append(title);
-  for(const {plan,entries,preview,retainedKeys}of sources){const dishes=entries.filter(e=>cookingLocalDate(scheduledOccurrenceDate({...e,planId:plan.id},plan.rotationCalendar))===date),seen=new Set();if(!dishes.length){if(showMealPlanTabs){const empty=document.createElement('div');empty.className='all-meals-entry';empty.textContent=plan.name+' · No meal planned';card.append(empty)}continue}
-   if(showMealPlanTabs){const label=document.createElement('strong');label.className='overview-slot-label';label.textContent=plan.name;card.append(label)}
+  const day=weekdays[(parseCookingLocalDate(date).getDay()+6)%7],card=document.createElement('section');card.className='all-meals-day overview-calm';card.dataset.date=date;card.style.setProperty('--day-stripe','color-mix(in srgb,'+colorForDay(day)+' 75%,#5a6470)');{const today=cookingLocalDate(new Date());if(date===today)card.classList.add('overview-today');else if(date<today)card.classList.add('overview-past')}const title=document.createElement('h3');title.textContent=day;appendWeekdayDate(title,parseCookingLocalDate(date));card.append(title);
+  const onDate=source=>source.entries.filter(e=>cookingLocalDate(scheduledOccurrenceDate({...e,planId:source.plan.id},source.plan.rotationCalendar))===date),multi=sources.filter(s=>onDate(s).length).length>1;
+  for(const {plan,entries,preview,retainedKeys}of sources){const dishes=onDate({plan,entries}),seen=new Set();if(!dishes.length)continue
+   if(multi){const label=document.createElement('strong');label.className='overview-slot-label';label.textContent=plan.name;card.append(label)}
    for(const entry of dishes){const identity=JSON.stringify([entry.cat,String(entry.meal.id),String(entry.linkedTo||'')]);if(seen.has(identity))continue;seen.add(identity);const row=document.createElement('div');row.className='overview-dish';row.dataset.mealId=String(entry.meal.id);const name=document.createElement('button');name.type='button';name.className='mealname';name.textContent=entry.meal.name;name.onclick=()=>openSavedMealRecipe(entry.meal,preview?pendingContext(plan,entry):cookingContext(plan.id,entry.day,entry.cat,entry.meal,entry.linkedTo));row.append(name);card.append(row);
-    for(const side of simpleSidesForEntry(plan,entry)){const simple=document.createElement('div');simple.className='overview-dish';simple.textContent=side.name;card.append(simple)}
+    for(const side of simpleSidesForEntry(plan,entry)){const simple=document.createElement('div');simple.className='overview-dish overview-side';simple.textContent=side.name;card.append(simple)}
    }
   }
-  // Week: a subtle divider between dishes and tasks only when this day has tasks; task text doesn't navigate.
-  const dayTasks=tasks.filter(t=>t.due===date&&makeAheadTaskVisible(t));if(dayTasks.length&&card.querySelector('.overview-dish,.all-meals-entry')){const rule=document.createElement('hr');rule.className='overview-task-divider';card.append(rule)}
-  for(const task of dayTasks)card.append(makeAheadReminderRow(task,false,{navigate:false}));section.append(card);
+  if(!card.querySelector('.overview-dish')){const none=document.createElement('div');none.className='overview-nothing';none.textContent='Nothing planned';card.append(none)}
+  section.append(card);
  }
  // No separate dated task list below the day cards; tasks stay in their own day cards and Today's To-Do.
  list.append(section);
@@ -3036,6 +3034,7 @@ function renderList(options={}){mealSlotDragCleanup?.();mealSlotDragCleanup=null
   if(old)lowerOpenGroups=new Set([...old.querySelectorAll('details[data-settings-group][open]')].map(d=>d.dataset.settingsGroup));
  }
 
+ if(allMealsActive&&!showMealPlanTabs)allMealsActive=false;// Week overview only exists with meal tabs on.
  document.body.classList.toggle('overview-without-category-pins',showTop&&(allMealsActive||groceryTabActive));if(!options.readOnly)resetGroceriesForNewTopMeals();document.querySelectorAll('.add-meal-floating').forEach(b=>b.remove());if(!options.readOnly)persist();let list=$('list');restorePlanCardScroll();const categoryRow=document.getElementById('categoryButtons');if(categoryRow&&categoryRow.parentNode!==$('tabs'))$('tabs').append(categoryRow);const editorEl=$('editor');if(editorEl&&list.contains(editorEl))document.body.insertBefore(editorEl,list);list.classList.toggle('top-summary',showTop);list.innerHTML='';if(!showTop){groceryTabActive=false;allMealsActive=false;topPanel.classList.add('hidden');addFloatingViewButtons()}if(showTop){if(showTop&&showMealPlanTabs&&!allMealsActive&&!groceryTabActive){
  const tabBar=document.createElement('div');tabBar.className='meal-plan-tabs';tabBar.setAttribute('role','tablist');tabBar.setAttribute('aria-label','Meal plans');
  for(const plan of mealPlans){
@@ -3081,7 +3080,7 @@ function renderList(options={}){mealSlotDragCleanup?.();mealSlotDragCleanup=null
   tabBar.after(menu);
  }
 }
- if(!allMealsActive&&!groceryTabActive){const title=document.createElement('h2');title.className='view-page-title meal-plan-title';title.textContent=rotationWeekOffset?'Next Week’s Meals':'This Week’s Meals';list.prepend(title);const header=document.createElement('div');header.className='rotation-compact-header';header.append(rotationWeekControls());const sticky=document.createElement('div');sticky.className='meal-controls-sticky';const tabs=list.querySelector(':scope>.meal-plan-tabs');if(tabs)sticky.append(tabs);sticky.append(header);list.append(sticky)}
+ if(!allMealsActive&&!groceryTabActive){const title=document.createElement('h2');title.className='view-page-title meal-plan-title';title.textContent=rotationWeekOffset?'Next Week’s Meals':'This Week’s Meals';{const planAhead=document.createElement('button');planAhead.type='button';planAhead.className='iconbtn plan-ahead-open';setIconButton(planAhead,'calendar','Plan ahead');planAhead.onclick=openPlanAheadDialog;title.classList.add('has-plan-ahead');title.append(planAhead)}list.prepend(title);const header=document.createElement('div');header.className='rotation-compact-header';header.append(rotationWeekControls());const sticky=document.createElement('div');sticky.className='meal-controls-sticky';const tabs=list.querySelector(':scope>.meal-plan-tabs');if(tabs)sticky.append(tabs);sticky.append(header);list.append(sticky)}
  if(!allMealsActive&&!groceryTabActive&&rotationWeekOffset){renderRotationWeekPreview(list);addFloatingViewButtons();return;}
  if(groceryTabActive){renderGroceryViewToolbar(list);renderMasterGroceryTab(list);addFloatingViewButtons();return;}
 const topControls=document.createElement('div');topControls.className='top-controls';appendMealPlanSettingsGear(topControls);list.append(topControls);placeViewToolbar(topControls);
