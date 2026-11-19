@@ -28,6 +28,8 @@ sb.fixture.HOOK += '''window.bal={
  open:()=>{const e=getDisplayedWeekdayMeals().find(x=>!x.linkedTo&&!x.servingParentId);openWeekdayMealChooser(e.day,e.cat,e.meal)},
  offIds:ids=>ids.some(id=>meals.find(m=>String(m.id)===id)?.rotation===false),
  fixedSide:()=>{const parent=meals.find(m=>m.id===3),veg=meals.find(m=>m.cat==='Vegetables');parent.serveWithEntriesV1=[{id:'fx',type:'fixed',recipeId:String(veg.id),always:true}];persist()},
+ dayEditor:()=>openRecurringDayEditor('Tuesday'),
+ tuesdayMeal:()=>getDisplayedWeekdayMeals().find(e=>e.day==='Tuesday'&&!e.linkedTo&&!e.servingParentId)?.meal.name,
  cats:()=>[...cats],
  sideGroups:()=>sidePickerGroups(),
  openSide:()=>{const e=getDisplayedWeekdayMeals().find(x=>!x.linkedTo&&!x.servingParentId);openAddSideDialog(e.meal,e.day,[],()=>{})},
@@ -109,6 +111,22 @@ def run(browser, name):
     shown = p.locator('.serving-add-dialog .master-category-card').evaluate_all('els=>els.map(e=>e.dataset.group)')
     assert shown and set(shown) <= set(side_groups), (shown, side_groups)
     p.screenshot(path=str(OUT / (name.split('.')[0] + '-add-side.png')))
+    assert not errors, errors
+    c.close()
+    # Groups pop-up: picks keep their order below the first; adding groups keeps this week's group and meal.
+    c, p, errors, _ = sb.open_page(browser, name)
+    meal = p.evaluate('bal.tuesdayMeal()')
+    p.evaluate('bal.dayEditor()')
+    rows = p.locator('.recurring-group-row input')
+    p.get_by_label('Vegetables', exact=True).check()
+    p.get_by_label('Potatoes', exact=True).check()
+    order = rows.evaluate_all('xs=>xs.filter(x=>x.checked).map(x=>x.getAttribute("aria-label"))')
+    assert order == ['Rice', 'Vegetables', 'Potatoes'], order
+    p.screenshot(path=str(OUT / (name.split('.')[0] + '-day-groups.png')))
+    p.get_by_role('button', name='Save meal groups').click()
+    p.wait_for_timeout(300)
+    assert p.evaluate('bal.tuesday()') == 'Rice' and p.evaluate('bal.tuesdayMeal()') == meal
+    assert p.locator('.plan-card-group').first.text_content() == 'Rice · Vegetables · Potatoes'
     assert not errors, errors
     c.close()
     print('side groups', side_groups, 'shown', shown)
