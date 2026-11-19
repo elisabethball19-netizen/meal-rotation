@@ -35,13 +35,13 @@ fixture.HOOK+='''window.follow126={
 def open_sides(scope):
  scope.locator('.serving-sides-box').first.wait_for()
 def open_add(p,scope):
- if not p.get_by_role('dialog',name='Add side',exact=True).count():scope.get_by_role('button',name='Add side',exact=True).click()
+ if not p.locator('.serving-add-dialog').count():scope.get_by_role('button',name='Add side',exact=True).click()
 def add_simple(p,scope,name):
- open_add(p,scope);d=p.get_by_role('dialog',name='Add side',exact=True);d.get_by_role('searchbox').fill(name);d.get_by_role('button',name='Add selected side',exact=True).click();p.wait_for_timeout(250);open_side(scope.locator('.inline-side-row').last)
+ open_add(p,scope);d=p.locator('.serving-add-dialog');d.get_by_role('searchbox').fill(name);d.get_by_role('button',name='Add selected side',exact=True).click();p.wait_for_timeout(250);open_side(scope.locator('.inline-side-row').last)
 def open_side(row):
  if not row.locator('.inline-side-body').count():row.get_by_role('button',name='Side actions',exact=False).click()
 def add_recipe(p,scope,text,meal_id):
- open_add(p,scope);d=p.get_by_role('dialog',name='Add side',exact=True);d.get_by_role('searchbox').fill(text);d.locator('[data-meal-id="%s"]'%meal_id).click();d.get_by_role('button',name='Add selected side',exact=True).click();p.wait_for_timeout(250);open_side(scope.locator('.inline-side-row').last)
+ open_add(p,scope);d=p.locator('.serving-add-dialog');d.get_by_role('searchbox').fill(text);d.locator('[data-meal-id="%s"]'%meal_id).click();d.get_by_role('button',name='Add selected side',exact=True).click();p.wait_for_timeout(250);open_side(scope.locator('.inline-side-row').last)
 OUT=Path('/workspace/work/follow126/screenshots');OUT.mkdir(parents=True,exist_ok=True)
 def shot(p,name,label):p.screenshot(path=str(OUT/(name+'-'+label+'.png')),full_page=False)
 def run(browser,name):

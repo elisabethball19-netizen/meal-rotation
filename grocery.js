@@ -303,8 +303,8 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
    overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10020;display:flex;align-items:center;justify-content:center;padding:16px';
    const box=document.createElement('div');box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','Choose Meals');
    box.style.cssText='background:#fff;color:#222;border-radius:14px;padding:18px;max-width:520px;width:100%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 8px 30px #0004';
-   const title=document.createElement('h3');title.textContent='Choose Meals';title.style.margin='0 0 6px';box.append(title);
-   const hint=document.createElement('p');hint.textContent='Choose which meals to include in your grocery list. Your meal rotation will not change.';hint.style.cssText='font-size:14px;color:#666;margin:0 0 12px';box.append(hint);
+   const title=document.createElement('h3');title.textContent='Meals to include in your weekly shopping list';title.style.margin='0 0 6px';box.append(title);
+   const hint=document.createElement('p');hint.textContent='';hint.hidden=true;hint.style.cssText='font-size:14px;color:#666;margin:0 0 12px';box.append(hint);
    const body=document.createElement('div');body.style.cssText='overflow-y:auto;min-height:0;flex:1';
    const excludedPlans=new Set(masterGroceryExcludedPlanIds),excludedMeals=new Set(masterGroceryExcludedMealKeys);
    const weeks=document.createElement('fieldset');weeks.className='grocery-filter-weeks';const legend=document.createElement('legend');legend.textContent='Weeks';weeks.append(legend);const weekChecks={};

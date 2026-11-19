@@ -846,8 +846,8 @@ function openRecipeImportSourcePicker(initial='website'){
  function show(next){
   generation++;controller?.abort();method=next;body.replaceChildren();status.textContent='';review.disabled=false;selectedPhoto=null;
   review.textContent=next==='file'?'Read recipe file':next==='trello'?'Read board':'Review recipe';
-  if(next==='website'){fields.url=field('Website link',document.createElement('input'));fields.url.type='url';fields.url.placeholder='https://…';hint('Import supported recipe details, then review before saving.')}
-  if(next==='text'){fields.text=field('Recipe text',document.createElement('textarea'));fields.text.rows=8;fields.text.placeholder='Title: Recipe name\nIngredients\n1 cup rice\nInstructions\nCook the rice.';hint('Include Ingredients and Instructions headings when available.')}
+  if(next==='website'){fields.url=field('Website link',document.createElement('input'));fields.url.type='url';fields.url.placeholder='https://…'}
+  if(next==='text'){fields.text=field('Recipe text',document.createElement('textarea'));fields.text.rows=8;fields.text.placeholder='Title: Recipe name\nIngredients\n1 cup rice\nInstructions\nCook the rice.'}
   if(next==='photo'){
    hint('Choose a clear recipe photo. Recognized text is editable before review.');fields.text=field('Recognized recipe text',document.createElement('textarea'));fields.text.rows=6;
    for(const [label,camera]of [['Choose photo',false],['Use camera',true]]){const input=document.createElement('input');input.type='file';input.accept='image/*';if(camera)input.capture='environment';input.hidden=true;const button=document.createElement('button');button.type='button';button.className='smallbtn';button.textContent=label;button.onclick=()=>input.click();body.append(button,input);input.onchange=()=>{selectedPhoto=input.files?.[0]||null;if(selectedPhoto)readPhoto()}}

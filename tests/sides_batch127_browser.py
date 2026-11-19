@@ -172,7 +172,7 @@ def run(browser, name):
     base.open_sides(main)
     before = state(p)
     main.get_by_role('button', name='Add side', exact=True).click()
-    dialog = p.get_by_role('dialog', name='Add side')
+    dialog = p.locator('.serving-add-dialog')
     search = dialog.get_by_role('searchbox', name='Search recipes or type a side')
     shot(p, name, 'add-side-browse')
     search.fill('creamy MASHED potatoes')
@@ -191,7 +191,7 @@ def run(browser, name):
     # Simple side from typed text.
     main = card(p, 2)
     main.get_by_role('button', name='Add side', exact=True).click()
-    dialog = p.get_by_role('dialog', name='Add side')
+    dialog = p.locator('.serving-add-dialog')
     dialog.get_by_role('searchbox').fill('Garlic green beans')
     shot(p, name, 'add-side-new-name')
     dialog.get_by_role('button', name='Add selected side').click()
@@ -210,7 +210,7 @@ def run(browser, name):
     main = card(p, 2)
     base.open_sides(main)
     main.get_by_role('button', name='Add side', exact=True).click()
-    dialog = p.get_by_role('dialog', name='Add side')
+    dialog = p.locator('.serving-add-dialog')
     dialog.get_by_role('tab', name='Mix it up').click()
     choices = dialog.locator('.serving-group-choice')
     names = lambda: [x.split('\n')[0] for x in choices.all_inner_texts()]
@@ -236,13 +236,13 @@ def run(browser, name):
     assert main.locator('.serving-sides-box .inline-side-row').count() == 0
     assert main.locator('.inline-sides-header button').count() == 1
     main.get_by_role('button', name='Add side', exact=True).click()
-    assert p.get_by_role('dialog', name='Add side').is_visible()
-    p.get_by_role('dialog', name='Add side').get_by_role('button', name='Cancel', exact=True).click()
+    assert p.locator('.serving-add-dialog').is_visible()
+    p.locator('.serving-add-dialog').get_by_role('button', name='Cancel', exact=True).click()
     p.wait_for_timeout(250)
     assert state(p) == before
     assert card(p, 2).locator('.shared-meal-action-grid').first.is_visible()
     card(p, 2).get_by_role('button', name='Add side', exact=True).click()
-    dialog = p.get_by_role('dialog', name='Add side')
+    dialog = p.locator('.serving-add-dialog')
     dialog.get_by_role('searchbox').fill('Creamy mashed potatoes')
     dialog.get_by_role('button', name='Add selected side').click()
     p.wait_for_timeout(250)
@@ -329,7 +329,7 @@ def redesign(browser, name):
     # The header plus adds a plain-text side, collapsed like the rest, with no text box.
     box = card(p, 2).locator('.serving-sides-box')
     box.get_by_role('button', name='Add side', exact=True).click()
-    d = p.get_by_role('dialog', name='Add side', exact=True)
+    d = p.locator('.serving-add-dialog')
     d.get_by_role('searchbox').fill('Garlic green beans')
     d.get_by_role('button', name='Add selected side', exact=True).click()
     p.wait_for_timeout(250)
@@ -359,7 +359,7 @@ def redesign(browser, name):
     card(p, 2).locator('.plan-date').click()
     dlg = p.get_by_role('dialog', name='Choose Tuesday’s meal groups', exact=True)
     text = dlg.inner_text()
-    assert 'Choose the groups Tuesday can select meals from. If you want to leave Tuesday empty, don’t select any groups.' in text, text
+    assert 'If you don’t want to schedule a meal on Tuesday, leave everything unchecked.' in text, text
     assert dlg.get_by_role('button', name='Earlier', exact=False).count() == 0 and dlg.get_by_role('button', name='Later', exact=False).count() == 0
     shot(p, name, 'redesign-groups-dialog')
     dlg.get_by_role('button', name='Cancel meal groups', exact=True).click()
