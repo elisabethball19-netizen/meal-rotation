@@ -25,6 +25,7 @@ sb.fixture.HOOK += '''const b13Store=()=>typeof testStorage!=='undefined'?testSt
  dbg:d=>[JSON.stringify(plannedMealsFor().find(x=>x.date===d)),JSON.stringify(plannedDateSlot(activePlanId,d))],
  seedEarly:(date,from)=>{const list=plannedMealsFor().filter(p=>p.date!==date);list.push({id:'early-'+date,date,mealId:String(meals.find(m=>m.cat==='Rice').id),shopEarly:true,shopFrom:from,applied:null});writePlannedMeals(activePlanId,list);showTop=true;allMealsActive=false;groceryTabActive=true;render()},
  shopFrom:date=>plannedMealsFor().find(p=>p.date===date)?.shopFrom||null,
+ replacedName:d=>{const it=plannedMealsFor().find(x=>x.date===d);return it&&it.replaced?meals.find(m=>String(m.id)===String(it.replaced))?.name||null:null},
  raw:()=>plannedMealsFor().map(p=>[p.date,p.mealId??null,p.name??null]),
  home:()=>{showTop=true;allMealsActive=false;groceryTabActive=false;rotationWeekOffset=0;render()}
 };'''
@@ -155,6 +156,14 @@ def run(browser, name):
         p.wait_for_timeout(400)
         assert [cur[1], None, 'Pizza night'] in p.evaluate('batch13.raw()'), p.evaluate('batch13.raw()')
         assert 'Pizza night' in p.evaluate('d=>batch13.named(d)', cur[1]), p.evaluate('d=>batch13.named(d)', cur[1])
+    # Deleting an applied plan puts the day back to the meal it replaced (recipe and one-time meal).
+    if free:
+        p.evaluate('batch13.home()')
+        p.get_by_role('button', name='Plan ahead', exact=True).click()
+        d = p.get_by_role('dialog', name='Plan ahead', exact=True)
+        d.locator('.plan-ahead-row[data-date="%s"] button[aria-label^="Remove plan"]' % cur[1]).click()
+        d.get_by_role('button', name='Save planned meals', exact=True).click(); p.wait_for_timeout(400)
+        assert 'Pizza night' not in p.evaluate('d=>batch13.named(d)', cur[1]), p.evaluate('d=>batch13.named(d)', cur[1])
     # A real Start next week keeps next week's planned meal in place.
     p.evaluate('batch13.home()')
     p.locator('.start-week-text').first.click()
@@ -163,6 +172,25 @@ def run(browser, name):
     sw.locator('button.smallbtn', has_text='Start next week').click()
     p.wait_for_timeout(600)
     assert p.evaluate('([w,d])=>batch13.main(w,d)', [0, d1])[0] == pick1, p.evaluate('([w,d])=>batch13.main(w,d)', [0, d1])
+    # Removing that applied plan puts the day back to the meal it replaced.
+    p.evaluate('batch13.home()')
+    p.get_by_role('button', name='Plan ahead', exact=True).click()
+    d = p.get_by_role('dialog', name='Plan ahead', exact=True)
+    replaced = p.evaluate('d=>batch13.replacedName(d)', d1)
+    d.locator('.plan-ahead-row[data-date="%s"] button[aria-label^="Remove plan"]' % d1).click()
+    d.get_by_role('button', name='Save planned meals', exact=True).click(); p.wait_for_timeout(400)
+    if replaced:
+        assert p.evaluate('d=>batch13.named(d)', d1)[0] == replaced, (p.evaluate('d=>batch13.named(d)', d1), replaced)
+    # Deterministic check: plan a different recipe on that day, then remove the plan -> the day returns.
+    was = p.evaluate('d=>batch13.named(d)', d1)[0]
+    swap = next(n for n in rice if n != was)
+    plan(p, d1, swap)
+    assert p.evaluate('d=>batch13.named(d)', d1)[0] == swap
+    p.get_by_role('button', name='Plan ahead', exact=True).click()
+    d = p.get_by_role('dialog', name='Plan ahead', exact=True)
+    d.locator('.plan-ahead-row[data-date="%s"] button[aria-label^="Remove plan"]' % d1).click()
+    d.get_by_role('button', name='Save planned meals', exact=True).click(); p.wait_for_timeout(400)
+    assert p.evaluate('d=>batch13.named(d)', d1)[0] == was, (p.evaluate('d=>batch13.named(d)', d1), was)
     assert not errors, errors
     c.close()
     print('PASS', name, 'batch 13: plan ahead dialog, this/next week applied as main, far date waits, one per date, cancel, persist', flush=True)

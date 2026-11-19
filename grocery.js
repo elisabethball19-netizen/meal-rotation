@@ -153,7 +153,7 @@ function getGroceryContributions(allPlans=false,period='rotation'){
     if(!item.shopEarly||item.mealId==null||item.date<today||(item.date>=from&&item.date<=to)||covered.has(item.date))continue;
     const shopFrom=item.shopFrom||cookingLocalDate(new Date(parseCookingLocalDate(item.date).getTime()-7*864e5));if(today<shopFrom)continue;
     const meal=meals.find(m=>String(m.id)===String(item.mealId));if(!meal)continue;
-    const keys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),tokens=cookingItemTokens(meal).ingredients,counts=new Map(),occurrence=JSON.stringify(['planned',String(plan.id),item.date]),when=parseCookingLocalDate(item.date);
+    const keys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),tokens=cookingItemTokens(meal).ingredients,counts=new Map(),occurrence=JSON.stringify(['planned',String(plan.id),item.date,String(meal.id)]),when=parseCookingLocalDate(item.date);
     for(const [ingredientIndex,raw]of (Array.isArray(meal.ingredients)?meal.ingredients:[]).entries()){
      const original=String(raw??'').trim(),oldKey=ingredientKey(original);if(!oldKey||!keys.has(oldKey)||syncIngredientHeading(original)||groceryNonIngredientLine(original))continue;
      const normalized=ingredientKey(compactIngredientFractions(original)),index=counts.get(normalized)||0;counts.set(normalized,index+1);

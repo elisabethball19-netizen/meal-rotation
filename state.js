@@ -632,7 +632,8 @@ function validateGroceryOccurrenceChecks(value){
   let source;try{source=JSON.parse(key)}catch(e){throw Error('Invalid grocery source')}
   if(!Array.isArray(source)||source.length!==3||typeof source[0]!=='string'||typeof source[1]!=='string'||!Number.isSafeInteger(source[2])||source[2]<0||typeof checked!=='boolean')throw Error('Invalid grocery source check');
   let occurrence;try{occurrence=JSON.parse(source[0])}catch(e){throw Error('Invalid grocery occurrence')}
-  if(!Array.isArray(occurrence)||![4,5,6].includes(occurrence.length)||occurrence.some(value=>typeof value!=='string'))throw Error('Invalid grocery occurrence');
+  // Shop-early checks are keyed ['planned',plan,date(,meal)]; the 3-item form came from a short-lived earlier build.
+  if(!Array.isArray(occurrence)||!(occurrence[0]==='planned'?[3,4].includes(occurrence.length):[4,5,6].includes(occurrence.length))||occurrence.some(value=>typeof value!=='string'))throw Error('Invalid grocery occurrence');
  }
 }
 try{const raw=localStorage.getItem(GROCERY_OCCURRENCE_CHECKS_KEY);if(raw){const value=JSON.parse(raw);validateGroceryOccurrenceChecks(value);groceryOccurrenceChecks=value}}catch(e){groceryCheckStorageInvalid=true}

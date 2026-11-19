@@ -4951,15 +4951,25 @@ function plannedDateSlot(planId,date){
  }
  return null;
 }
+// Removing or changing an applied plan puts the day back to the meal it replaced, unless the day was changed since.
+function revertPlannedMeal(planId,item){
+ if(!item||item.applied!==item.date||planId!==activePlanId)return false;const slot=plannedDateSlot(planId,item.date);if(!slot)return false;
+ const savedWeek=rotationWeekOffset;
+ try{
+  if(item.mealId==null){if(slot.week!==0)return false;const cat=slot.occasional?'@day':slot.cat,record=weekSchedule(mealPlans.find(p=>p.id===planId)).slots[temporarySlotKey(slot.day,cat)];if(record?.kind!=='once'||record.meal?.name!==item.name)return false;rotationWeekOffset=0;resumeWeekSlot(slot.day,cat);return true}
+  if(slot.mealId!==String(item.mealId)||!item.replaced||!meals.some(m=>String(m.id)===String(item.replaced)))return false;
+  rotationWeekOffset=slot.week;applyRecipeBulk([String(item.replaced)],{},{mealSelection:{planId,week:slot.week,day:slot.day,category:slot.cat,replaceFuture:[],mealId:String(item.replaced),occasional:!!slot.occasional,sourceKey:null,destinationKey:slot.key},render:false});return true;
+ }catch(e){return false}finally{rotationWeekOffset=savedWeek}
+}
 function applyPlannedMeals(planId=activePlanId){
  const list=plannedMealsFor(planId),today=cookingLocalDate(new Date());let changed=false,applied=0;
  for(const item of list){
   if(item.applied===item.date||item.date<today)continue;
   const slot=plannedDateSlot(planId,item.date);if(!slot)continue;
   // A custom (typed) planned meal goes in as that day's one-time meal.
-  if(item.mealId==null){if(planId!==activePlanId||slot.week!==0)continue;if(slot.mealName!==item.name){const savedWeek=rotationWeekOffset;try{rotationWeekOffset=slot.week;if(saveOneTimeMeal(slot.day,slot.occasional?'@day':slot.cat,item.name)!==false)applied++}catch(e){continue}finally{rotationWeekOffset=savedWeek}}item.applied=item.date;changed=true;continue}
+  if(item.mealId==null){if(planId!==activePlanId||slot.week!==0)continue;if(slot.mealName!==item.name){item.replaced=slot.mealId;writePlannedMeals(planId,list);const savedWeek=rotationWeekOffset;try{rotationWeekOffset=slot.week;if(saveOneTimeMeal(slot.day,slot.occasional?'@day':slot.cat,item.name)!==false)applied++}catch(e){continue}finally{rotationWeekOffset=savedWeek}}item.applied=item.date;changed=true;continue}
   if(slot.mealId!==String(item.mealId)){
-   const savedWeek=rotationWeekOffset;
+   item.replaced=slot.mealId;writePlannedMeals(planId,list);const savedWeek=rotationWeekOffset;
    try{rotationWeekOffset=slot.week;applyRecipeBulk([String(item.mealId)],{},{mealSelection:{planId,week:slot.week,day:slot.day,category:slot.cat,replaceFuture:[],mealId:String(item.mealId),occasional:!!slot.occasional,sourceKey:null,destinationKey:slot.key},render:false});applied++}
    catch(e){continue}finally{rotationWeekOffset=savedWeek}
   }
@@ -5057,7 +5067,10 @@ function openPlanAheadDialog(){
    const record={id:editing?.id||(crypto.randomUUID?.()||'plan-'+Date.now()+'-'+Math.random().toString(36).slice(2)),date:picked,...(chosen.custom?{name:chosen.name}:{mealId:String(chosen.id)}),shopEarly:early,...(early&&shopFrom?{shopFrom}:{}),applied:editing&&editing.date===picked&&(chosen.custom?editing.name===chosen.name:String(editing.mealId)===String(chosen.id))?editing.applied??null:null};
    if(editing)draft[draft.indexOf(editing)]=record;else draft.push(record);
   }
-  try{const before=JSON.parse(captureState());before.plannedMealsUndo=localStorage.getItem(PLANNED_MEALS_KEY);writePlannedMeals(planId,draft);snapshot(JSON.stringify(before));d.close();applyPlannedMeals(planId);renderList({readOnly:true})}catch(e){error.textContent='Could not save: '+e.message}
+  try{const before=JSON.parse(captureState());before.plannedMealsUndo=localStorage.getItem(PLANNED_MEALS_KEY);
+   const original=plannedMealsFor(planId),same=(a,b)=>a.date===b.date&&String(a.mealId??'')===String(b.mealId??'')&&String(a.name??'')===String(b.name??'');
+   for(const old of original){const now=draft.find(p=>p.id===old.id);if(!now||!same(old,now))revertPlannedMeal(planId,old)}
+   writePlannedMeals(planId,draft);snapshot(JSON.stringify(before));d.close();applyPlannedMeals(planId);renderList({readOnly:true})}catch(e){error.textContent='Could not save: '+e.message}
  };
  actions.append(save,cancel);
  const form=document.createElement('div');form.className='plan-ahead-form';form.append(dateRow,search,results,shopBox,summary,error);
