@@ -2058,7 +2058,7 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .unassigned-bulk-actions{display:flex;gap:4px}
 .unassigned-bulk-actions button{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:54px;min-height:48px;padding:4px;background:transparent;border:0;border-radius:8px;color:#2f3b48;font-size:12px}
 .unassigned-bulk-actions button:disabled{opacity:.4}
-.unassigned-row{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px}
+.unassigned-row{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px}.unassigned-row .unassigned-name{flex:1 1 auto;min-width:0;text-align:left}.unassigned-row .unassigned-edit{flex:none;margin-left:auto}
 .unassigned-check{display:flex;align-items:center;justify-content:center;min-width:32px;min-height:44px}
 #recipeBulkToolbar{background:#fff!important;border-top:2px solid #8fa0b3!important;box-shadow:0 -4px 14px #2633423a!important}
 #recipeBulkToolbar button[aria-label="Done"]{font-weight:inherit!important;color:inherit!important}

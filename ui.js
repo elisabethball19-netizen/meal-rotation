@@ -2888,7 +2888,9 @@ function renderUnassignedChecklist(body,list){
  for(const m of list){const row=document.createElement('div');row.className='unassigned-row';row.dataset.mealId=String(m.id);
   const label=document.createElement('label');label.className='unassigned-check';const check=document.createElement('input');check.type='checkbox';check.className='check';check.setAttribute('aria-label','Select '+(m.name||'Untitled meal'));check.checked=unassignedSelection.has(String(m.id));check.onchange=()=>{if(check.checked)unassignedSelection.add(String(m.id));else unassignedSelection.delete(String(m.id));refresh()};label.append(check);
   const name=document.createElement('button');name.type='button';name.className='master-category-meal-name unassigned-name';name.textContent=m.name||'Untitled meal';bindGroupMealPress(name,m);
-  row.append(label,name);rows.append(row)}
+  // Unassigned recipes can be edited in place (2026-11-19), like rows in other groups.
+  const edit=document.createElement('button');edit.type='button';edit.className='iconbtn unassigned-edit';setIconButton(edit,'rename','Edit '+(m.name||'Untitled meal'));edit.onclick=()=>openEditor(m.id,false,captureMealEditorOrigin());
+  row.append(label,name,edit);rows.append(row)}
  body.append(rows);refresh();
 }
 function renderMasterCategories(list){
