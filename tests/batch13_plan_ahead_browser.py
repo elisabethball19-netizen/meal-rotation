@@ -27,6 +27,7 @@ sb.fixture.HOOK += '''const b13Store=()=>typeof testStorage!=='undefined'?testSt
  shopFrom:date=>plannedMealsFor().find(p=>p.date===date)?.shopFrom||null,
  replacedName:d=>{const it=plannedMealsFor().find(x=>x.date===d);return it&&it.replaced?meals.find(m=>String(m.id)===String(it.replaced))?.name||null:null},
  menu:date=>{const plan=mealPlans.find(p=>p.id===activePlanId),cur={...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters},e=getDisplayedWeekdayMealsForPlan(cur).find(e=>!e.linkedTo&&!e.servingParentId&&cookingLocalDate(scheduledOccurrenceDate({...e,planId:activePlanId},cur.rotationCalendar))===date);openTopMealActionMenu(e.day,e.cat,e.meal)},
+ seedCustom:(date,from)=>{const list=plannedMealsFor().filter(p=>p.date!==date);list.push({id:'cust-'+date,date,name:'Fish fry',ingredients:['2 lb cod','1 bag fries'],shopEarly:true,shopFrom:from,applied:null});writePlannedMeals(activePlanId,list);showTop=true;allMealsActive=false;groceryTabActive=true;render()},
  raw:()=>plannedMealsFor().map(p=>[p.date,p.mealId??null,p.name??null]),
  home:()=>{showTop=true;allMealsActive=false;groceryTabActive=false;rotationWeekOffset=0;render()}
 };'''
@@ -53,7 +54,7 @@ def plan(p, date, recipe, shop=False, save=True, popup=False):
         f.dispatch_event('change')
     d.get_by_role('searchbox', name='Search recipes to plan', exact=True).fill(recipe)
     d.locator('.plan-ahead-choice', has_text=recipe).first.click()
-    if shop:
+    if shop and d.locator('.plan-ahead-shop input').is_visible():
         d.locator('.plan-ahead-shop input').check()
     if save:
         d.get_by_role('button', name='Save planned meals', exact=True).click()
@@ -77,7 +78,7 @@ def run(browser, name):
     sb.shot(p, name, 'batch13-groups')
     d.get_by_role('button', name='Cancel', exact=True).click()
     d = plan(p, d0, pick0, save=False)
-    assert 'Plan ' + pick0 in d.locator('.plan-ahead-summary').inner_text()
+    assert d.locator('.plan-ahead-chosen').inner_text().startswith(pick0)
     # Cancel discards.
     d.get_by_role('button', name='Cancel', exact=True).click()
     assert p.evaluate('batch13.plans()') == []
@@ -95,7 +96,7 @@ def run(browser, name):
     assert now0[0] == pick0 and now0[1] == before0[1], (now0, before0)
     assert now1[0] == pick1, (now1, before1)
     plans = p.evaluate('batch13.plans()')
-    assert [x[0] for x in plans] == [d0, d1, '2027-01-15'] and plans[1][2] is True and plans[0][3] == d0 and plans[2][3] is None, plans
+    assert [x[0] for x in plans] == [d0, d1, '2027-01-15'] and plans[1][2] is False and plans[0][3] == d0 and plans[2][3] is None, plans
     sb.shot(p, name, 'batch13-week-after')
     # Reload keeps plans and the applied schedule.
     p.reload()
@@ -120,23 +121,43 @@ def run(browser, name):
     row = p.locator('.master-grocery-item', has=early.first)
     row.locator('input[type=checkbox]').first.check(); p.wait_for_timeout(200)
     assert row.locator('input[type=checkbox]').first.is_checked()
-    # Dialog: Shop early offers plain choices (1 week before is preselected) or Pick a date in the pop-up.
+    # Dialog: after picking, search hides; Shop early (only past next week) shows "Add groceries on", prefilled a week early.
     p.evaluate('batch13.home()')
-    d = plan(p, '2026-12-17', rice[0], shop=True, save=False)
-    moved = p.evaluate("(()=>{const el=document.querySelector('.plan-ahead-dialog');return document.activeElement?.type})()")
-    assert moved != 'search', moved
-    chips = d.locator('.plan-ahead-when-chip')
-    assert chips.all_inner_texts()[:4] == ['Today', '3 days before', '1 week before', '2 weeks before'], chips.all_inner_texts()
-    assert d.locator('.plan-ahead-when-chip[aria-checked=true]').inner_text() == '1 week before'
-    assert 'Groceries go on your list Thu, Dec 10' in d.locator('.plan-ahead-summary').inner_text(), d.locator('.plan-ahead-summary').inner_text()
-    sb.shot(p, name, 'batch13-shop-choices')
-    d.get_by_role('radio', name='Pick a date', exact=True).click()
+    d = plan(p, '2026-12-17', rice[0], save=False)
+    assert d.get_by_role('searchbox', name='Search recipes to plan', exact=True).is_hidden() and d.locator('.plan-ahead-choice').count() == 0
+    assert d.locator('.plan-ahead-chosen').inner_text().startswith(rice[0]) and d.locator('.plan-ahead-summary').count() == 0
+    d.locator('.plan-ahead-shop input').check()
+    sf = d.get_by_role('textbox', name='Add groceries on', exact=True)
+    assert sf.input_value() == 'Thu, Dec 10', sf.input_value()
+    d.get_by_role('button', name='Choose grocery date', exact=True).click()
     pop = p.get_by_role('dialog', name='Add groceries on', exact=True)
-    pop.locator('.plan-ahead-day[data-date="2026-12-12"]').click() if pop.locator('.plan-ahead-day[data-date="2026-12-12"]').count() else (pop.get_by_role('button', name='Next month', exact=True).click(), pop.locator('.plan-ahead-day[data-date="2026-12-12"]').click())
+    pop.locator('.plan-ahead-day[data-date="2026-12-12"]').click()
     pop.get_by_role('button', name='Use this date', exact=True).click()
-    assert d.locator('.plan-ahead-when-chip[aria-checked=true]').inner_text().startswith('Sat, Dec 12')
+    assert sf.input_value() == 'Sat, Dec 12'
+    sb.shot(p, name, 'batch13-shop-choices')
+    # "+ Plan another" queues it; a one-time meal with groceries goes in next.
+    d.get_by_role('button', name='Plan another meal').click()
+    assert d.get_by_role('textbox', name='Meal date', exact=True).input_value() == '' and d.locator('.plan-ahead-row[data-date="2026-12-17"]').count() == 1
+    d.get_by_role('textbox', name='Meal date', exact=True).fill('2026-12-18'); d.get_by_role('textbox', name='Meal date', exact=True).dispatch_event('change')
+    d.get_by_role('searchbox', name='Search recipes to plan', exact=True).fill('Fish fry')
+    d.locator('.plan-ahead-custom').click()
+    d.get_by_role('textbox', name='Groceries for this one-time meal', exact=True).fill('2 lb cod\n1 bag fries')
+    d.locator('.plan-ahead-shop input').check()
+    sb.shot(p, name, 'batch13-custom-groceries')
     d.get_by_role('button', name='Save planned meals', exact=True).click(); p.wait_for_timeout(300)
     assert p.evaluate("batch13.shopFrom('2026-12-17')") == '2026-12-12'
+    assert p.evaluate("batch13.shopFrom('2026-12-18')") == '2026-12-11'
+    p.evaluate("([d,f])=>batch13.seedCustom(d,f)", ['2026-12-18', '2026-11-16'])
+    assert p.locator('.grocery-ingredient-name', has_text='cod').count() == 1, p.locator('#list').inner_text()[:300]
+    p.evaluate('batch13.home()')
+    # Planned rows: chevron opens Edit / Delete.
+    p.get_by_role('button', name='Plan ahead', exact=True).click()
+    d = p.get_by_role('dialog', name='Plan ahead', exact=True)
+    d.locator('.plan-ahead-row[data-date="2026-12-18"] .plan-ahead-chevron').click()
+    assert d.get_by_role('button', name='Edit plan for Fri, Dec 18').is_visible() and d.get_by_role('button', name='Delete plan for Fri, Dec 18').is_visible()
+    d.get_by_role('button', name='Edit plan for Fri, Dec 18').click()
+    assert d.locator('.plan-ahead-chosen').inner_text().startswith('Fish fry') and '2 lb cod' in d.get_by_role('textbox', name='Groceries for this one-time meal', exact=True).input_value()
+    d.get_by_role('button', name='Cancel', exact=True).click(); p.wait_for_timeout(200)
     # Custom meal: typing a name that matches nothing offers "Add ... as a one-time meal".
     taken = {x[0] for x in p.evaluate('batch13.raw()')}
     free = [x for x in p.evaluate('batch13.emptyDates()') if x > '2026-11-16' and x not in taken]
@@ -145,7 +166,6 @@ def run(browser, name):
         p.evaluate('batch13.home()')
         p.get_by_role('button', name='Plan ahead', exact=True).click()
         d = p.get_by_role('dialog', name='Plan ahead', exact=True)
-        assert d.locator('.plan-ahead-summary').inner_text() == ''
         d.get_by_role('textbox', name='Meal date', exact=True).fill(cur[1])
         d.get_by_role('textbox', name='Meal date', exact=True).dispatch_event('change')
         d.get_by_role('searchbox', name='Search recipes to plan', exact=True).fill('Pizza night')
@@ -162,7 +182,7 @@ def run(browser, name):
         p.evaluate('batch13.home()')
         p.get_by_role('button', name='Plan ahead', exact=True).click()
         d = p.get_by_role('dialog', name='Plan ahead', exact=True)
-        d.locator('.plan-ahead-row[data-date="%s"] button[aria-label^="Remove plan"]' % cur[1]).click()
+        d.locator('.plan-ahead-row[data-date="%s"] .plan-ahead-chevron' % cur[1]).click(); d.locator('button[aria-label^="Delete plan"]').first.click()
         d.get_by_role('button', name='Save planned meals', exact=True).click(); p.wait_for_timeout(400)
         assert 'Pizza night' not in p.evaluate('d=>batch13.named(d)', cur[1]), p.evaluate('d=>batch13.named(d)', cur[1])
     # A real Start next week keeps next week's planned meal in place.
@@ -178,7 +198,7 @@ def run(browser, name):
     p.get_by_role('button', name='Plan ahead', exact=True).click()
     d = p.get_by_role('dialog', name='Plan ahead', exact=True)
     replaced = p.evaluate('d=>batch13.replacedName(d)', d1)
-    d.locator('.plan-ahead-row[data-date="%s"] button[aria-label^="Remove plan"]' % d1).click()
+    d.locator('.plan-ahead-row[data-date="%s"] .plan-ahead-chevron' % d1).click(); d.locator('button[aria-label^="Delete plan"]').first.click()
     d.get_by_role('button', name='Save planned meals', exact=True).click(); p.wait_for_timeout(400)
     if replaced:
         assert p.evaluate('d=>batch13.named(d)', d1)[0] == replaced, (p.evaluate('d=>batch13.named(d)', d1), replaced)
@@ -194,7 +214,7 @@ def run(browser, name):
     plan(p, d1, swap)
     p.get_by_role('button', name='Plan ahead', exact=True).click()
     d = p.get_by_role('dialog', name='Plan ahead', exact=True)
-    d.locator('.plan-ahead-row[data-date="%s"] button[aria-label^="Remove plan"]' % d1).click()
+    d.locator('.plan-ahead-row[data-date="%s"] .plan-ahead-chevron' % d1).click(); d.locator('button[aria-label^="Delete plan"]').first.click()
     d.get_by_role('button', name='Save planned meals', exact=True).click(); p.wait_for_timeout(400)
     assert p.evaluate('d=>batch13.named(d)', d1)[0] == was, (p.evaluate('d=>batch13.named(d)', d1), was)
     assert not errors, errors
