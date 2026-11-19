@@ -2208,4 +2208,4 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .plan-meal-card.past-day-collapsed .plan-card-content>:not(.plan-card-recipe){display:none!important}
 .plan-meal-card.past-day-collapsed .plan-card-recipe .mealname{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:calc(15px * var(--meal-text-factor, 1));max-width:100%}
 .plan-meal-card.past-day-collapsed .plan-date{transform:scale(.9)}
-#list.top-summary>.top-recipe-wrap.plan-meal-card.today-card{box-shadow:inset 0 0 0 2px #3d4a5a!important}
+#list.top-summary>.top-recipe-wrap.plan-meal-card.today-card{box-shadow:inset 0 0 0 2px rgba(61,74,90,.3)!important}
