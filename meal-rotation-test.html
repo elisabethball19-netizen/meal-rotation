@@ -2145,6 +2145,36 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 #recipeViewer .recipe-timer-main .recipe-timer-readout{line-height:1.1}
 #recipeViewer .recipe-timer-dropdown .recipe-timer-strip{padding:4px 0}
 #recipeViewer .recipe-viewer-bar>.recipe-timer-strip{padding-bottom:4px}
+/* Plan ahead (rebuilt): When / What / Shop early, then Planned. */
+.plan-ahead-dialog{display:flex;flex-direction:column;gap:6px}
+.plan-ahead-form{display:flex;flex-direction:column;gap:6px;border-top:0;padding-top:0;overflow-y:auto;min-height:0}
+.plan-ahead-section h4{margin:6px 0 4px;font-size:calc(12px * var(--meal-text-factor, 1));font-weight:600;color:#6a7480;text-transform:uppercase;letter-spacing:.4px}
+.plan-ahead-cal-head{display:flex;align-items:center;justify-content:space-between}
+.plan-ahead-cal-head strong{font-size:calc(15px * var(--meal-text-factor, 1))}
+.plan-ahead-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.plan-ahead-cal-dow{font-size:11px;color:#8a939e;padding:2px 0}
+.plan-ahead-day{min-height:36px;border:0;border-radius:999px;background:transparent;color:#242424;font-size:14px;padding:0}
+.plan-ahead-day:disabled{color:#c3c9d0}
+.plan-ahead-day.is-today{box-shadow:inset 0 0 0 1px #9aa8b8}
+.plan-ahead-day.is-planned{text-decoration:underline;text-decoration-color:#7294c2;text-underline-offset:3px}
+.plan-ahead-day[aria-pressed=true]{background:#315ba8;color:#fff;font-weight:600}
+.plan-ahead-search{width:100%}
+.plan-ahead-results{display:flex;flex-direction:column;max-height:none;overflow:visible;margin-top:4px}
+.plan-ahead-choice{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;min-height:40px;border:0;border-bottom:1px solid #eceff2;background:transparent;padding:6px 8px;border-radius:8px;font-size:calc(15px * var(--meal-text-factor, 1))}
+.plan-ahead-choice small{color:#8a939e;flex:none}
+.plan-ahead-choice[aria-pressed=true]{background:#e8f0fa;font-weight:600}
+.plan-ahead-shop{display:flex;align-items:center;gap:8px;min-height:40px}
+.plan-ahead-summary{margin:2px 0 0;font-size:13px;color:#4a5563}
+.plan-ahead-list{display:flex;flex-direction:column}
+.plan-ahead-row{display:flex;align-items:center;gap:4px;border-bottom:1px solid #eceff2}
+.plan-ahead-row.is-editing{background:#f1f5fb;border-radius:8px}
+.plan-ahead-text{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:0;background:transparent;padding:6px 4px}
+.plan-ahead-date{font-size:12px;color:#6a7480}
+.plan-ahead-meal{font-size:calc(15px * var(--meal-text-factor, 1))}
+.plan-ahead-dialog{overflow-y:auto!important;max-height:calc(100dvh - 32px)}
+.plan-ahead-dialog .plan-ahead-form{overflow:visible;flex:none}
+.plan-ahead-dialog>.plan-ahead-section{flex:none}
+.plan-ahead-dialog>.meal-unified-actions{position:sticky;bottom:-18px;background:#fff;padding:6px 0 4px;margin-top:4px;border-top:1px solid #eceff2;z-index:2}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -12279,47 +12309,68 @@ function applyPlannedMeals(planId=activePlanId){
  return applied;
 }
 function openPlanAheadDialog(){
+ // Rebuilt Plan ahead: one form (When · What · Shop early) with an app-styled month calendar and recipe list,
+ // the planned meals listed beneath (tap to edit, trash to remove), and a single Save / Cancel.
  const planId=activePlanId,d=recipeBulkDialog('Plan ahead');d.panel.classList.add('plan-ahead-dialog');
  const today=cookingLocalDate(new Date()),draft=plannedMealsFor(planId).map(p=>({...p}));
- const intro=document.createElement('p');intro.className='muted';intro.textContent='Plan a meal for a future date. When that week comes up, it replaces the rotation meal for that day. Sides stay as they are.';
- const list=document.createElement('div');list.className='plan-ahead-list';
  const dateLabel=date=>parseCookingLocalDate(date).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:date.slice(0,4)===today.slice(0,4)?undefined:'numeric'});
- let editing=null;
- function drawList(){
-  list.replaceChildren();const upcoming=draft.filter(p=>p.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
-  if(!upcoming.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='No planned meals yet.';list.append(empty)}
-  for(const item of upcoming){const row=document.createElement('div');row.className='plan-ahead-row';row.dataset.date=item.date;
-   const when=document.createElement('span');when.className='plan-ahead-date';when.textContent=dateLabel(item.date);
-   const what=document.createElement('span');what.className='plan-ahead-meal';what.textContent=meals.find(m=>String(m.id)===String(item.mealId))?.name||'Recipe';
-   if(item.shopEarly){const tag=document.createElement('small');tag.className='plan-ahead-tag';tag.textContent=' · Shop early';what.append(tag)}
-   const edit=document.createElement('button');edit.type='button';edit.className='iconbtn';setIconButton(edit,'rename','Edit plan for '+dateLabel(item.date));edit.onclick=()=>{editing=item;fillForm(item)};
-   const remove=document.createElement('button');remove.type='button';remove.className='iconbtn';setIconButton(remove,'delete','Remove plan for '+dateLabel(item.date));remove.onclick=()=>{draft.splice(draft.indexOf(item),1);if(editing===item){editing=null;fillForm(null)}drawList()};
-   const text=document.createElement('div');text.className='plan-ahead-text';text.append(when,what);row.append(text,edit,remove);list.append(row)}
+ let editing=null,picked='',chosen=null,month=(()=>{const t=parseCookingLocalDate(today);return new Date(t.getFullYear(),t.getMonth(),1)})();
+ const section=(title)=>{const s=document.createElement('section');s.className='plan-ahead-section';const h=document.createElement('h4');h.textContent=title;s.append(h);return s};
+ // When: month calendar.
+ const when=section('When'),cal=document.createElement('div');cal.className='plan-ahead-calendar';when.append(cal);
+ function drawCalendar(){
+  cal.replaceChildren();const head=document.createElement('div');head.className='plan-ahead-cal-head';
+  const prev=document.createElement('button');prev.type='button';prev.className='iconbtn';setIconButton(prev,'left','Previous month');
+  const thisMonth=parseCookingLocalDate(today);prev.disabled=month.getFullYear()===thisMonth.getFullYear()&&month.getMonth()===thisMonth.getMonth();prev.onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()-1,1);drawCalendar()};
+  const next=document.createElement('button');next.type='button';next.className='iconbtn';setIconButton(next,'right','Next month');next.onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()+1,1);drawCalendar()};
+  const title=document.createElement('strong');title.textContent=month.toLocaleDateString(undefined,{month:'long',year:'numeric'});head.append(prev,title,next);cal.append(head);
+  const grid=document.createElement('div');grid.className='plan-ahead-cal-grid';
+  const first=(month.getDay()+6)%7;for(const name of ['M','T','W','T','F','S','S']){const c=document.createElement('span');c.className='plan-ahead-cal-dow';c.textContent=name;grid.append(c)}
+  for(let i=0;i<first;i++)grid.append(document.createElement('span'));
+  const days=new Date(month.getFullYear(),month.getMonth()+1,0).getDate(),taken=new Set(draft.filter(p=>p!==editing).map(p=>p.date));
+  for(let n=1;n<=days;n++){const date=cookingLocalDate(new Date(month.getFullYear(),month.getMonth(),n)),b=document.createElement('button');b.type='button';b.className='plan-ahead-day';b.textContent=String(n);b.dataset.date=date;
+   b.disabled=date<today;if(date===today)b.classList.add('is-today');if(taken.has(date)){b.classList.add('is-planned');b.title='Already planned: '+(meals.find(m=>String(m.id)===String(draft.find(p=>p.date===date&&p!==editing).mealId))?.name||'')}
+   b.setAttribute('aria-pressed',String(picked===date));b.setAttribute('aria-label',dateLabel(date)+(taken.has(date)?' (already planned)':''));b.onclick=()=>{picked=date;error.textContent='';drawCalendar();updateSummary()};grid.append(b)}
+  cal.append(grid);
  }
- // Form: one date at a time.
- const form=document.createElement('div');form.className='plan-ahead-form';
- const date=document.createElement('input');date.type='date';date.min=today;date.className='manual-grocery-field';date.setAttribute('aria-label','Planned date');
- const search=document.createElement('input');search.type='search';search.className='manual-grocery-field';search.placeholder='Search recipes';search.setAttribute('aria-label','Search recipes to plan');
- const results=document.createElement('div');results.className='plan-ahead-results';let chosen=null;
- const shopLabel=document.createElement('label');shopLabel.className='regular-grocery-switch';const shop=document.createElement('input');shop.type='checkbox';shop.setAttribute('role','switch');shop.className='preference-switch';shop.setAttribute('aria-label','Shop early');shopLabel.append(document.createTextNode('Shop early'),shop);
- const add=document.createElement('button');add.type='button';add.className='smallbtn plan-ahead-add';
- const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
- function drawResults(){results.replaceChildren();const text=search.value.trim().toLowerCase(),pool=meals.filter(m=>!m._scheduledEditorDraft&&!m.temporaryMeal&&m.cat).filter(m=>!text||mealMatchesSearch(m,search.value.trim())).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+ // What: recipe search + list.
+ const what=section('What'),search=document.createElement('input');search.type='search';search.className='manual-grocery-field plan-ahead-search';search.placeholder='Search recipes';search.setAttribute('aria-label','Search recipes to plan');
+ const results=document.createElement('div');results.className='plan-ahead-results';what.append(search,results);
+ function drawResults(){results.replaceChildren();const text=search.value.trim(),pool=meals.filter(m=>!m._scheduledEditorDraft&&!m.temporaryMeal&&m.cat).filter(m=>!text||mealMatchesSearch(m,text)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const shown=chosen&&!pool.slice(0,6).includes(chosen)?[chosen,...pool.slice(0,5)]:pool.slice(0,6);
-  for(const meal of shown){const b=document.createElement('button');b.type='button';b.className='weekday-meal-choice plan-ahead-choice';b.textContent=meal.name;b.setAttribute('aria-pressed',String(chosen===meal));b.onclick=()=>{chosen=meal;drawResults()};results.append(b)}}
- function fillForm(item){date.value=item?.date||'';chosen=item?meals.find(m=>String(m.id)===String(item.mealId))||null:null;shop.checked=!!item?.shopEarly;search.value='';add.textContent=item?'Update plan':'Add plan';error.textContent='';drawResults();decoratePreferenceSwitches(form)}
+  if(!shown.length){const none=document.createElement('p');none.className='muted';none.textContent='No recipes match.';results.append(none)}
+  for(const meal of shown){const b=document.createElement('button');b.type='button';b.className='plan-ahead-choice';b.setAttribute('aria-pressed',String(chosen===meal));const n=document.createElement('span');n.className='plan-ahead-choice-name';n.textContent=meal.name;const g=document.createElement('small');g.textContent=meal.cat;b.append(n,g);b.onclick=()=>{chosen=meal;error.textContent='';drawResults();updateSummary()};results.append(b)}}
  search.oninput=drawResults;
- add.onclick=()=>{
-  if(!date.value||date.value<today){error.textContent='Choose a date from today on.';date.focus();return}
-  if(!chosen){error.textContent='Choose a recipe.';search.focus();return}
-  if(draft.some(p=>p!==editing&&p.date===date.value)){error.textContent='A meal is already planned for that date.';return}
-  const record={id:editing?.id||(crypto.randomUUID?.()||'plan-'+Date.now()+'-'+Math.random().toString(36).slice(2)),date:date.value,mealId:String(chosen.id),shopEarly:shop.checked,applied:editing&&editing.date===date.value&&String(editing.mealId)===String(chosen.id)?editing.applied??null:null};
-  if(editing)draft[draft.indexOf(editing)]=record;else draft.push(record);editing=null;fillForm(null);drawList();
- };
- form.append(date,search,results,shopLabel,add,error);
+ // Shop early.
+ const shopLabel=document.createElement('label');shopLabel.className='settings-display-option plan-ahead-shop';const shop=document.createElement('input');shop.type='checkbox';shop.setAttribute('role','switch');shop.className='preference-switch';shopLabel.append(shop,document.createTextNode('Shop early'));
+ const summary=document.createElement('p');summary.className='plan-ahead-summary';summary.setAttribute('role','status');
+ function updateSummary(){summary.textContent=picked&&chosen?(editing?'Change to ':'Plan ')+chosen.name+' for '+dateLabel(picked)+'.':picked?'Now choose a recipe for '+dateLabel(picked)+'.':chosen?'Now choose a date for '+chosen.name+'.':'Pick a date and a recipe.'}
+ const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
+ // Planned list.
+ const plannedBox=section('Planned'),list=document.createElement('div');list.className='plan-ahead-list';plannedBox.append(list);
+ function drawList(){list.replaceChildren();const upcoming=draft.filter(p=>p.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
+  if(!upcoming.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='Nothing planned yet.';list.append(empty)}
+  for(const item of upcoming){const row=document.createElement('div');row.className='plan-ahead-row'+(editing===item?' is-editing':'');row.dataset.date=item.date;
+   const open=document.createElement('button');open.type='button';open.className='plan-ahead-text';open.setAttribute('aria-label','Edit plan for '+dateLabel(item.date));
+   const when2=document.createElement('span');when2.className='plan-ahead-date';when2.textContent=dateLabel(item.date);const meal=document.createElement('span');meal.className='plan-ahead-meal';meal.textContent=meals.find(m=>String(m.id)===String(item.mealId))?.name||'Recipe';if(item.shopEarly){const tag=document.createElement('small');tag.className='plan-ahead-tag';tag.textContent=' · Shop early';meal.append(tag)}
+   open.append(when2,meal);open.onclick=()=>fillForm(item);
+   const remove=document.createElement('button');remove.type='button';remove.className='iconbtn';setIconButton(remove,'delete','Remove plan for '+dateLabel(item.date));remove.onclick=()=>{draft.splice(draft.indexOf(item),1);if(editing===item)fillForm(null);else{drawList();drawCalendar()}};
+   row.append(open,remove);list.append(row)}}
+ function fillForm(item){editing=item;picked=item?.date||'';chosen=item?meals.find(m=>String(m.id)===String(item.mealId))||null:null;shop.checked=!!item?.shopEarly;search.value='';error.textContent='';if(item){const t=parseCookingLocalDate(item.date);month=new Date(t.getFullYear(),t.getMonth(),1)}drawCalendar();drawResults();drawList();updateSummary()}
+ // Single Save: stores the form entry (if one is filled in) together with any removals.
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save planned meals');setIconButton(cancel,'cancel','Cancel');cancel.onclick=d.close;
- save.onclick=()=>{try{const before=JSON.parse(captureState());before.plannedMealsUndo=testStorage.getItem(PLANNED_MEALS_KEY);writePlannedMeals(planId,draft);snapshot(JSON.stringify(before));d.close();applyPlannedMeals(planId);renderList({readOnly:true})}catch(e){error.textContent='Could not save: '+e.message}};
- actions.append(save,cancel);d.panel.append(intro,list,form,actions);drawList();fillForm(null);fitOneTimeMealViewport(d.overlay,d.panel);
+ save.onclick=()=>{
+  if(picked||chosen){
+   if(!picked){error.textContent='Choose a date.';return}if(!chosen){error.textContent='Choose a recipe.';search.focus();return}
+   if(draft.some(p=>p!==editing&&p.date===picked)){error.textContent='A meal is already planned for '+dateLabel(picked)+'. Remove it first.';return}
+   const record={id:editing?.id||(crypto.randomUUID?.()||'plan-'+Date.now()+'-'+Math.random().toString(36).slice(2)),date:picked,mealId:String(chosen.id),shopEarly:shop.checked,applied:editing&&editing.date===picked&&String(editing.mealId)===String(chosen.id)?editing.applied??null:null};
+   if(editing)draft[draft.indexOf(editing)]=record;else draft.push(record);
+  }
+  try{const before=JSON.parse(captureState());before.plannedMealsUndo=testStorage.getItem(PLANNED_MEALS_KEY);writePlannedMeals(planId,draft);snapshot(JSON.stringify(before));d.close();applyPlannedMeals(planId);renderList({readOnly:true})}catch(e){error.textContent='Could not save: '+e.message}
+ };
+ actions.append(save,cancel);
+ const form=document.createElement('div');form.className='plan-ahead-form';form.append(when,what,shopLabel,summary,error);
+ d.panel.append(form,plannedBox,actions);fillForm(null);decoratePreferenceSwitches(shopLabel);fitOneTimeMealViewport(d.overlay,d.panel);
 }
 
 /* Plan-owned composite servings. Optional fields leave legacy links, simple sides,

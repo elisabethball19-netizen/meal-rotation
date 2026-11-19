@@ -2293,3 +2293,33 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 #recipeViewer .recipe-timer-main .recipe-timer-readout{line-height:1.1}
 #recipeViewer .recipe-timer-dropdown .recipe-timer-strip{padding:4px 0}
 #recipeViewer .recipe-viewer-bar>.recipe-timer-strip{padding-bottom:4px}
+/* Plan ahead (rebuilt): When / What / Shop early, then Planned. */
+.plan-ahead-dialog{display:flex;flex-direction:column;gap:6px}
+.plan-ahead-form{display:flex;flex-direction:column;gap:6px;border-top:0;padding-top:0;overflow-y:auto;min-height:0}
+.plan-ahead-section h4{margin:6px 0 4px;font-size:calc(12px * var(--meal-text-factor, 1));font-weight:600;color:#6a7480;text-transform:uppercase;letter-spacing:.4px}
+.plan-ahead-cal-head{display:flex;align-items:center;justify-content:space-between}
+.plan-ahead-cal-head strong{font-size:calc(15px * var(--meal-text-factor, 1))}
+.plan-ahead-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.plan-ahead-cal-dow{font-size:11px;color:#8a939e;padding:2px 0}
+.plan-ahead-day{min-height:36px;border:0;border-radius:999px;background:transparent;color:#242424;font-size:14px;padding:0}
+.plan-ahead-day:disabled{color:#c3c9d0}
+.plan-ahead-day.is-today{box-shadow:inset 0 0 0 1px #9aa8b8}
+.plan-ahead-day.is-planned{text-decoration:underline;text-decoration-color:#7294c2;text-underline-offset:3px}
+.plan-ahead-day[aria-pressed=true]{background:#315ba8;color:#fff;font-weight:600}
+.plan-ahead-search{width:100%}
+.plan-ahead-results{display:flex;flex-direction:column;max-height:none;overflow:visible;margin-top:4px}
+.plan-ahead-choice{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;min-height:40px;border:0;border-bottom:1px solid #eceff2;background:transparent;padding:6px 8px;border-radius:8px;font-size:calc(15px * var(--meal-text-factor, 1))}
+.plan-ahead-choice small{color:#8a939e;flex:none}
+.plan-ahead-choice[aria-pressed=true]{background:#e8f0fa;font-weight:600}
+.plan-ahead-shop{display:flex;align-items:center;gap:8px;min-height:40px}
+.plan-ahead-summary{margin:2px 0 0;font-size:13px;color:#4a5563}
+.plan-ahead-list{display:flex;flex-direction:column}
+.plan-ahead-row{display:flex;align-items:center;gap:4px;border-bottom:1px solid #eceff2}
+.plan-ahead-row.is-editing{background:#f1f5fb;border-radius:8px}
+.plan-ahead-text{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:0;background:transparent;padding:6px 4px}
+.plan-ahead-date{font-size:12px;color:#6a7480}
+.plan-ahead-meal{font-size:calc(15px * var(--meal-text-factor, 1))}
+.plan-ahead-dialog{overflow-y:auto!important;max-height:calc(100dvh - 32px)}
+.plan-ahead-dialog .plan-ahead-form{overflow:visible;flex:none}
+.plan-ahead-dialog>.plan-ahead-section{flex:none}
+.plan-ahead-dialog>.meal-unified-actions{position:sticky;bottom:-18px;background:#fff;padding:6px 0 4px;margin-top:4px;border-top:1px solid #eceff2;z-index:2}

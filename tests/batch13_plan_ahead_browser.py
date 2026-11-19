@@ -25,13 +25,25 @@ sb.fixture.HOOK += '''const b13Store=()=>typeof testStorage!=='undefined'?testSt
 };'''
 
 
-def plan(d, date, recipe, shop=False):
-    d.get_by_role('textbox', name='Planned date').fill(date) if d.get_by_role('textbox', name='Planned date').count() else d.locator('input[type=date]').fill(date)
+def plan(p, date, recipe, shop=False, save=True):
+    """Rebuilt dialog: open, pick the date on the calendar, pick the recipe, optional Shop early, one Save."""
+    if not p.get_by_role('dialog', name='Plan ahead', exact=True).count():
+        p.get_by_role('button', name='Plan ahead', exact=True).click()
+    d = p.get_by_role('dialog', name='Plan ahead', exact=True)
+    d.wait_for(state='visible')
+    for _ in range(24):
+        if d.locator('.plan-ahead-day[data-date="%s"]' % date).count():
+            break
+        d.get_by_role('button', name='Next month', exact=True).click()
+    d.locator('.plan-ahead-day[data-date="%s"]' % date).click()
     d.get_by_role('searchbox', name='Search recipes to plan', exact=True).fill(recipe)
     d.locator('.plan-ahead-choice', has_text=recipe).first.click()
     if shop:
-        d.get_by_role('switch', name='Shop early', exact=True).check()
-    d.locator('.plan-ahead-add').click()
+        d.locator('.plan-ahead-shop input').check()
+    if save:
+        d.get_by_role('button', name='Save planned meals', exact=True).click()
+        p.wait_for_timeout(300)
+    return d
 
 
 def run(browser, name):
@@ -43,23 +55,20 @@ def run(browser, name):
     pick0 = next(n for n in rice if n != before0[0])
     pick1 = next(n for n in rice if n != before1[0] and n != pick0)
     p.evaluate('batch13.home()')
-    p.get_by_role('button', name='Plan ahead', exact=True).click()
-    d = p.get_by_role('dialog', name='Plan ahead', exact=True)
-    d.wait_for(state='visible')
-    plan(d, d0, pick0)
+    d = plan(p, d0, pick0, save=False)
+    assert 'Plan ' + pick0 in d.locator('.plan-ahead-summary').inner_text()
     # Cancel discards.
     d.get_by_role('button', name='Cancel', exact=True).click()
     assert p.evaluate('batch13.plans()') == []
-    p.get_by_role('button', name='Plan ahead', exact=True).click()
-    d.wait_for(state='visible')
-    plan(d, d0, pick0)
-    plan(d, d1, pick1, shop=True)
-    plan(d, '2027-01-15', pick0)
-    plan(d, d0, pick1)  # same date twice is refused
+    plan(p, d0, pick0)
+    plan(p, d1, pick1, shop=True)
+    d = plan(p, '2027-01-15', pick0, save=False)
+    sb.shot(p, name, 'batch13-plan-ahead')
+    d.get_by_role('button', name='Save planned meals', exact=True).click(); p.wait_for_timeout(300)
+    d = plan(p, d0, pick1)  # same date twice is refused
     assert 'already planned' in d.locator('.recipe-bulk-error').text_content()
     assert d.locator('.plan-ahead-row').count() == 3
-    sb.shot(p, name, 'batch13-plan-ahead')
-    d.get_by_role('button', name='Save planned meals', exact=True).click()
+    d.get_by_role('button', name='Cancel', exact=True).click()
     p.wait_for_timeout(400)
     now0, now1 = p.evaluate('([w,d])=>batch13.main(w,d)', [0, d0]), p.evaluate('([w,d])=>batch13.main(w,d)', [1, d1])
     assert now0[0] == pick0 and now0[1] == before0[1], (now0, before0)
@@ -75,12 +84,9 @@ def run(browser, name):
     empty = p.evaluate('batch13.emptyDates()')
     if empty:
         p.evaluate('batch13.home()')
-        p.get_by_role('button', name='Plan ahead', exact=True).click()
-        d.wait_for(state='visible')
         pick2 = next(n for n in rice if n not in (pick0, pick1, before1[0]))
-        plan(d, empty[0], pick2)
-        d.get_by_role('button', name='Save planned meals', exact=True).click()
-        p.wait_for_timeout(400)
+        plan(p, empty[0], pick2)
+        p.wait_for_timeout(200)
         assert p.evaluate('d=>batch13.dayMeal(d)', empty[0]) == [pick2, True], p.evaluate('d=>batch13.dayMeal(d)', empty[0])
     # Shop early: a reminder in Today's To-Do within a week of the date (not earlier); checking dismisses only.
     p.evaluate("batch13.seedShop('2026-11-27')")
@@ -115,12 +121,8 @@ def run_avoid(browser, name):
     from datetime import date, timedelta
     far = (date.fromisoformat(nxt[0]) + timedelta(days=7)).isoformat()
     p.evaluate('batch13.home()')
-    p.get_by_role('button', name='Plan ahead', exact=True).click()
-    d = p.get_by_role('dialog', name='Plan ahead', exact=True)
-    d.wait_for(state='visible')
-    plan(d, far, auto_next)
-    d.get_by_role('button', name='Save planned meals', exact=True).click()
-    p.wait_for_timeout(400)
+    plan(p, far, auto_next)
+    p.wait_for_timeout(200)
     now_next = p.evaluate('([w,d])=>batch13.main(w,d)', [1, nxt[0]])[0]
     assert now_next != auto_next, (now_next, auto_next)
     assert not errors, errors
