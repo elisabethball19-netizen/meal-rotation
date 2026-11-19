@@ -487,6 +487,8 @@ body{padding-bottom:calc(310px + env(safe-area-inset-bottom, 0px));}
 /* Unified confirmation actions throughout the app. */
 .meal-unified-actions{display:flex!important;align-items:center!important;justify-content:space-evenly!important;gap:16px!important;}
 .meal-unified-actions>button{border:0!important;background:transparent!important;box-shadow:none!important;border-radius:0!important;min-width:44px!important;min-height:44px!important;padding:6px!important;display:grid!important;place-items:center!important;color:inherit!important;}
+.meal-unified-actions>button.recipe-review-action{border:1px solid #aac0df!important;background:#e8eefb!important;border-radius:12px!important;padding:10px 22px!important;font-weight:600!important}
+.recipe-import-methods>legend{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* Compact group navigation replaces the retired shortcut row. */
 .clickable-group-heading{display:block;width:max-content;max-width:100%;border:0;background:transparent;padding:0 3px 0 0;margin:0 0 3px;color:#666;font:inherit;font-size:12px;letter-spacing:.04em;text-transform:uppercase;text-align:left;cursor:pointer;touch-action:manipulation}

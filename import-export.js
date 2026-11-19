@@ -835,7 +835,7 @@ function openRecipeImportTrelloLink(){openRecipeImportSourcePicker('trello')}
 function openRecipeImportSourcePicker(initial='website'){
  const d=recipeImportDialog('Import recipes'),methods=document.createElement('fieldset'),legend=document.createElement('legend');legend.textContent='Import from';methods.className='recipe-import-methods';methods.append(legend);
  const body=document.createElement('div');body.className='recipe-import-method-body';const status=document.createElement('p');status.className='muted';status.setAttribute('role','status');
- const actions=document.createElement('div');actions.className='meal-unified-actions';const review=document.createElement('button');review.type='button';review.className='smallbtn';review.textContent='Review recipe';actions.append(review);
+ const actions=document.createElement('div');actions.className='meal-unified-actions';const review=document.createElement('button');review.type='button';review.className='smallbtn recipe-review-action';review.textContent='Review recipe';actions.append(review);
  let method=initial,controller=null,generation=0,selectedPhoto=null;
  const originalClose=d.close;d.close=(...args)=>{generation++;controller?.abort();originalClose(...args)};
  // The shell's Back/X/Escape can remove it directly; invalidate all pending work too.
@@ -953,7 +953,7 @@ function openAskAiDialog(){
  const sent=document.createElement('p');sent.className='muted ask-ai-status';sent.setAttribute('role','status');
  const answerLabel=document.createElement('label');answerLabel.className='recipe-import-field ask-ai-answer';const answerText=document.createElement('span');answerText.textContent='Paste the answer';const answer=document.createElement('textarea');answer.rows=5;answer.placeholder='Paste the full recipe from Claude here';answer.setAttribute('aria-label','Paste the answer');answerLabel.append(answerText,answer);
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
- const actions=document.createElement('div');actions.className='meal-unified-actions';const review=document.createElement('button');review.type='button';review.className='smallbtn';review.textContent='Review recipe';actions.append(review);
+ const actions=document.createElement('div');actions.className='meal-unified-actions';const review=document.createElement('button');review.type='button';review.className='smallbtn recipe-review-action';review.textContent='Review recipe';actions.append(review);
  function draw(){modes.replaceChildren();for(const [value,label]of [['fridge','What’s in my fridge'],['write','Write a recipe']]){const tab=document.createElement('button');tab.type='button';tab.setAttribute('role','tab');tab.setAttribute('aria-selected',String(mode===value));tab.textContent=label;tab.onclick=()=>{mode=value;draw()};modes.append(tab)}
   input.placeholder=mode==='fridge'?'What do you have? e.g. chicken thighs, bok choy, rice, limes':'What would you like? e.g. crispy pork, quick weeknight';input.setAttribute('aria-label',mode==='fridge'?'What’s in my fridge':'Describe the recipe');
   missing.textContent=familyTastes.likes.trim()||familyTastes.restrictions.trim()?'':'Tip: add your family’s tastes and restrictions in Settings → Family tastes.';missing.hidden=!missing.textContent}
