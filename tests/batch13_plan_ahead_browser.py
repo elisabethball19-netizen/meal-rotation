@@ -114,6 +114,8 @@ def run(browser, name):
     # Dialog: Shop early shows a "Groceries from" date that opens the calendar to pick it.
     p.evaluate('batch13.home()')
     d = plan(p, '2026-12-17', rice[0], shop=True, save=False)
+    moved = p.evaluate("(()=>{const el=document.querySelector('.plan-ahead-dialog');el.scrollTop=0;const a=el.scrollTop;el.scrollTop=200;return [el.scrollHeight>el.clientHeight,el.scrollTop>a,document.activeElement?.type]})()")
+    assert moved[1] and moved[2] != 'search', moved
     pickbtn = d.locator('.plan-ahead-shop-pick')
     assert pickbtn.is_visible() and 'Dec 10' in pickbtn.inner_text(), pickbtn.inner_text()
     pickbtn.click()
