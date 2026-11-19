@@ -3508,18 +3508,24 @@ function openTopIngredientChooser(meal){
     meal.ingredients=(Array.isArray(meal.ingredients)?meal.ingredients:[]).map(x=>String(x).trim()).filter(Boolean);
     const orderedIngredients=meal.ingredients.map((line,index)=>({line,index})).filter(({line})=>!groceryNonIngredientLine(line));
     orderedIngredients.sort((a,b)=>Number(selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(b.line)))-Number(selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(a.line))));
+    // Lines split across steps ("2 tsp curry" + "1 tsp curry, remaining") show as one row, like the grocery list.
+    const splitGroups=new Map(),byKey=new Map();for(const {line} of orderedIngredients){const k=groceryQuantityParts(line)?.key;if(!k)continue;if(!byKey.has(k))byKey.set(k,[]);byKey.get(k).push(line)}
+    for(const group of byKey.values())if(group.length>1&&group.some(l=>/,\s*remaining\s*$/i.test(l)))for(const l of group)splitGroups.set(l,group);
+    const shownFor=group=>{const qs=group.map(groceryQuantityParts),base=group[0].replace(/,\s*remaining\s*$/i,'');return qs.every(q=>q&&q.unit===qs[0].unit&&q.lo===q.hi)?scaleRecipeIngredient(base,qs.reduce((a,q)=>a+q.lo,0)/qs[0].lo):base};
+    const shownGroups=new Set();
     orderedIngredients.forEach(({line,index})=>{
+      const group=splitGroups.get(line);if(group){if(shownGroups.has(group))return;shownGroups.add(group)}const groupLines=group||[line],shown=group?shownFor(group):line;
       const label=document.createElement('label');
       label.className='grocery-include-row';label.style.cssText='display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #eee;touch-action:pan-y';
       label.title='';
       // Batch 2: inclusion is an on/off toggle (purchased state stays a checkbox on the grocery list).
-      const cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('role','switch');cb.className='preference-switch grocery-include-switch';cb.setAttribute('aria-label','Include '+line);cb.checked=selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(line));cb.style.cssText='flex:0 0 auto';cb.onchange=()=>{if(cb.checked)manualReselections.add(ingredientKey(line));rememberCheckedIngredients();const scroll=list.scrollTop;renderIngredientRows();list.scrollTop=scroll};
-      const text=document.createElement('span');text.textContent=line;text.style.cssText='flex:1;min-width:0';
+      const cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('role','switch');cb.className='preference-switch grocery-include-switch';cb.setAttribute('aria-label','Include '+shown);cb.checked=groupLines.some(l=>selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(l)));cb.style.cssText='flex:0 0 auto';cb.onchange=()=>{if(cb.checked)groupLines.forEach(l=>manualReselections.add(ingredientKey(l)));rememberCheckedIngredients();const scroll=list.scrollTop;renderIngredientRows();list.scrollTop=scroll};
+      const text=document.createElement('span');text.textContent=shown;text.style.cssText='flex:1;min-width:0';
       if(shoppingRenames.has(line)){const note=document.createElement('small');note.className='grocery-include-rename';note.textContent='Shopping list: '+shoppingRenames.get(line);text.append(note)}
-      const pencil=document.createElement('button');pencil.type='button';pencil.className='iconbtn grocery-include-edit';setIconButton(pencil,'rename','Edit shopping name for '+line);
+      const pencil=document.createElement('button');pencil.type='button';pencil.className='iconbtn grocery-include-edit';setIconButton(pencil,'rename','Edit shopping name for '+shown);
       pencil.onclick=async e=>{e.preventDefault();e.stopPropagation();const sources=shoppingSources(line),current=shoppingRenames.get(line)||(sources[0]?groceryContributionText(sources[0]):groceryShoppingText(line));const choice=await editGroceryIngredientDialog(current);if(!overlay.isConnected||choice.action==='cancel')return;
        if(choice.action==='delete'){cb.checked=false;rememberCheckedIngredients();const scroll=list.scrollTop;renderIngredientRows();list.scrollTop=scroll;return}
-       const value=String(choice.value).trim();if(!value)return;if(value===(sources[0]?groceryContributionText(sources[0]):groceryShoppingText(line)))shoppingRenames.delete(line);else shoppingRenames.set(line,value);const scroll=list.scrollTop;renderIngredientRows();list.scrollTop=scroll};
+       const value=String(choice.value).trim();if(!value)return;for(const l of groupLines){if(value===(sources[0]?groceryContributionText(sources[0]):groceryShoppingText(line)))shoppingRenames.delete(l);else shoppingRenames.set(l,value)}const scroll=list.scrollTop;renderIngredientRows();list.scrollTop=scroll};
       label.append(text,pencil,cb);
       let sx=0,sy=0,tracking=false,held=false,holdTimer=null;
       const cancelHold=()=>{clearTimeout(holdTimer);holdTimer=null};
@@ -3558,7 +3564,7 @@ function openTopIngredientChooser(meal){
       label.addEventListener('contextmenu',e=>{
         e.preventDefault();cancelHold();tracking=false;
       });
-      list.append(label);checks.push({line,cb});decoratePreferenceSwitches(label);
+      list.append(label);for(const l of groupLines)checks.push({line:l,cb});decoratePreferenceSwitches(label);
     });
   }
   renderIngredientRows();

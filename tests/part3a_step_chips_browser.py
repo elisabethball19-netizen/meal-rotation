@@ -18,7 +18,7 @@ STEPS = ['Toss the chicken with 1 1/2 tbsp olive oil and 2 tsp curry powder; set
          'Stir in the remaining curry powder and simmer.']
 
 
-sb.fixture.HOOK += '''window.p3a={groceries:()=>{const plan=mealPlans.find(p=>p.id===activePlanId),m=meals.find(m=>m.id===2);showTop=true;allMealsActive=false;groceryTabActive=true;render()}};'''
+sb.fixture.HOOK += '''window.sync6.chooserOpen=()=>openTopIngredientChooser(meals.find(m=>m.id===2));window.p3a={groceries:()=>{const plan=mealPlans.find(p=>p.id===activePlanId),m=meals.find(m=>m.id===2);showTop=true;allMealsActive=false;groceryTabActive=true;render()}};'''
 
 
 def chip(p, text):
@@ -55,13 +55,14 @@ def run(browser, name):
     assert vals == ['2 tsp', '1 tsp'], vals
     amounts.nth(0).fill('2½ tsp')
     assert 'Adds up to' in pick.locator('.step-chip-note').inner_text()
-    amounts.nth(0).fill('2 tsp')
+    amounts.nth(0).fill('1.5 tsp')
+    amounts.nth(1).fill('1.5')
     sb.shot(p, name, 'part3a-picker')
     pick.get_by_role('button', name='Save steps').click()
     p.wait_for_timeout(200)
     lines = p.evaluate("document.querySelector('#ingredients').value").split('\n')
-    assert '2 tsp curry powder' in lines and '1 tsp curry powder, remaining' in lines and '3 tsp curry powder, divided' not in lines, lines
-    assert chip(p, '2 tsp curry powder').inner_text() == 'Step 1' and chip(p, 'curry powder, remaining').inner_text() == 'Step 3'
+    assert '1½ tsp curry powder' in lines and '1½ tsp curry powder, remaining' in lines and '3 tsp curry powder, divided' not in lines, lines
+    assert chip(p, '1½ tsp curry powder').first.inner_text() == 'Step 1' and chip(p, 'curry powder, remaining').inner_text() == 'Step 3'
     # Give cilantro a step, then reset it to automatic.
     chip(p, 'Cilantro').click()
     p.locator('.step-chip-picker input[type=checkbox]').nth(2).check()
@@ -80,11 +81,11 @@ def run(browser, name):
     p.locator('#editor').get_by_role('button', name='Save', exact=True).click()
     p.wait_for_timeout(300)
     rec = p.evaluate('sync6.record()')
-    assert '2 tsp curry powder' in rec['ingredients'] and '1 tsp curry powder, remaining' in rec['ingredients'], rec['ingredients']
+    assert '1½ tsp curry powder' in rec['ingredients'] and '1½ tsp curry powder, remaining' in rec['ingredients'], rec['ingredients']
     m = p.evaluate('sync6.matches()')
-    assert '2 tsp curry powder' in m[0] and not any('curry' in x for x in m[1]) and '1 tsp curry powder, remaining' in m[2], m
+    assert '1½ tsp curry powder' in m[0] and not any('curry' in x for x in m[1]) and '1½ tsp curry powder, remaining' in m[2], m
     picks = p.evaluate('sync6.picks()')
-    assert '2 tsp curry powder' in picks and '1 tsp curry powder, remaining' in picks, picks
+    assert '1½ tsp curry powder' in picks and '1½ tsp curry powder, remaining' in picks, picks
     if p.evaluate("typeof getMasterGroceryItems==='function'"):
         curry = p.evaluate("[...getMasterGroceryItems(getGroceryContributions(true,'rotation')).values()].filter(i=>/curry/.test(i.line)).map(i=>i.line)")
         assert len(curry) == 1 and curry[0].startswith('3'), curry
@@ -94,6 +95,10 @@ def run(browser, name):
     assert '(' not in rows.first.inner_text(), rows.first.inner_text()
     assert rows.first.locator('xpath=ancestor::*[1]').locator('.grocery-recipe-link').count() == 1
     sb.shot(p, name, 'part3a-grocery')
+    p.evaluate('sync6.chooserOpen()'); p.wait_for_timeout(300)
+    inc = p.locator('.grocery-include-row', has_text='curry')
+    assert inc.count() == 1 and inc.first.inner_text().strip().startswith('3 tsp curry powder'), inc.all_inner_texts()
+    sb.shot(p, name, 'part3a-include')
     assert not errors, errors
     c.close()
     print('PASS', name, 'part 3a: step chips, picker, split amounts, reset, text toggle, save, one grocery item', flush=True)

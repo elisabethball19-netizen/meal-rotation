@@ -223,7 +223,7 @@ function ingredientUnitWord(line){const q=parseRecipeQuantity(line);if(!q)return
 function ingredientNameOnly(line){const q=parseRecipeQuantity(line);if(!q)return String(line).trim();const unit=ingredientUnitWord(line);return (unit?q.rest.slice(q.rest.indexOf(unit)+unit.length).replace(/^\.?\s+/,''):q.rest).replace(/,\s*remaining\s*$/i,'').replace(/\s*\(\s*divided\s*\)/i,'').replace(/,\s*divided\b/i,'').trim()}
 function ingredientAmountText(line){const q=parseRecipeQuantity(line);if(!q)return '';const unit=ingredientUnitWord(line);return formatRecipeQuantity(q.lo)+(q.hi!==q.lo?'–'+formatRecipeQuantity(q.hi):'')+(unit?' '+unit:'')}
 function typedAmountLine(amount,base,later){
- const typed=String(amount||'').trim();if(!typed)return null;const name=ingredientNameOnly(base),unit=ingredientUnitWord(base),parts=typed.split(/\s+/),hasUnit=parts.length>1&&groceryQuantityUnits[parts[1].replace(/\.$/,'').toLowerCase()];
+ let typed=String(amount||'').trim();if(!typed)return null;{const q=parseRecipeQuantity(typed+' qty');if(q){const rest=q.rest.replace(/\s*qty$/,'').trim();typed=formatRecipeQuantity(q.lo)+(q.hi!==q.lo?'–'+formatRecipeQuantity(q.hi):'')+(rest?' '+rest:'')}}const name=ingredientNameOnly(base),unit=ingredientUnitWord(base),parts=typed.split(/\s+/),hasUnit=parts.length>1&&groceryQuantityUnits[parts[1].replace(/\.$/,'').toLowerCase()];
  return typed+(hasUnit||!unit?'':' '+unit)+' '+name+(later?', remaining':'');
 }
 function installRecipeIngredientLinkEditor(meal){
