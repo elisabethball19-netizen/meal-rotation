@@ -15,6 +15,8 @@ sb.fixture.HOOK += '''window.p2a={
  picker:()=>{showTop=true;allMealsActive=false;render();openRecurringDayEditor('Monday')},
  unassign:()=>{meals.slice(0,3).forEach(m=>{m.cat=''});persist();for(const k of ['weekly','other','unassigned'])setGroupPageSectionOpen(k,k==='unassigned');showTop=false;allMealsActive=true;render();return meals.filter(m=>m.cat==='').length},
  weeklyOpen:()=>{for(const k of ['weekly','other','unassigned'])setGroupPageSectionOpen(k,k==='weekly');showTop=false;allMealsActive=true;render()},
+ meals2d:()=>{showTop=true;allMealsActive=false;groceryTabActive=false;render()},
+ info2d:()=>{const t=cookingLocalDate(new Date()),cards=[...document.querySelectorAll('.plan-meal-card[data-date]')];return {past:cards.filter(c=>c.dataset.date<t).length,collapsed:cards.filter(c=>c.classList.contains('past-day-collapsed')).length,today:cards.filter(c=>c.dataset.date===t&&c.classList.contains('today-card')).length,future:cards.filter(c=>c.dataset.date>t&&c.classList.contains('past-day-collapsed')).length}},
  edit:cat=>openMasterCategoryEditMenu(cat),
  names:key=>[...document.querySelectorAll('.master-group-section[data-group-section="'+key+'"] .master-category-heading,.master-group-section[data-group-section="'+key+'"] h3')].map(x=>x.textContent)
 };'''
@@ -67,6 +69,24 @@ def run(browser, name):
     assert bar.locator('.unassigned-bulk-count').inner_text() == '0 selected'
     assert p.locator('.unassigned-check input:checked').count() == 0
     sb.shot(p, name, 'part2b-unassigned-bar')
+    # Part 2d: past days fold into slim rows; today is outlined; the chevron opens a past day in place.
+    from datetime import datetime, timezone
+    p.clock.set_fixed_time(datetime(2026, 11, 19, 20, tzinfo=timezone.utc))  # Thursday: Tue/Wed are past, Thu is today
+    p.evaluate('p2a.meals2d()')
+    p.wait_for_timeout(500)
+    p.wait_for_selector('.plan-meal-card[data-date]', timeout=5000)
+    info = p.evaluate('p2a.info2d()')
+    assert info['past'] == 2 and info['collapsed'] == 2 and info['future'] == 0, info
+    assert info['today'] == 1, info
+    sb.shot(p, name, 'part2d-meals-before')
+    if info['collapsed']:
+        card = p.locator('.plan-meal-card[data-date="2026-11-17"]')
+        h = card.bounding_box()['height']
+        assert h < 60, h
+        card.locator('.meal-actions-toggle').first.click()
+        p.wait_for_timeout(300)
+        assert 'past-day-collapsed' not in (card.get_attribute('class') or ''), 'chevron should open the past day'
+    sb.shot(p, name, 'part2d-meals')
     assert not errors, errors
     c.close()
     print('PASS', name, 'part 2a: sections by weekly toggle, accordion, no expand-all, weekday picker', flush=True)
