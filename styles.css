@@ -2204,8 +2204,8 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .master-categories .master-category-meal:not(.featured-top-meal){padding-left:13px}
 .master-categories .master-category-meal:not(.featured-top-meal)>.master-meal-info{padding-left:0}
 /* Part 2d: past days are slim one-line rows; today has a darker outline. */
-#list.top-summary>.top-recipe-wrap.plan-meal-card.past-day-collapsed{min-height:0!important;padding:2px 9px 2px 0!important;margin:0 0 4px!important;align-items:center;opacity:.78}
-.plan-meal-card.past-day-collapsed .plan-card-content>:not(.plan-card-recipe){display:none!important}
-.plan-meal-card.past-day-collapsed .plan-card-recipe .mealname{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:calc(15px * var(--meal-text-factor, 1));max-width:100%}
-.plan-meal-card.past-day-collapsed .plan-date{transform:scale(.9)}
+#list.top-summary>.top-recipe-wrap.plan-meal-card.past-day-collapsed:not(.plan-card-expanded){min-height:0!important;padding:2px 9px 2px 0!important;margin:0 0 4px!important;align-items:center;opacity:.78}
+.plan-meal-card.past-day-collapsed:not(.plan-card-expanded) .plan-card-content>:not(.plan-card-recipe){display:none!important}
+.plan-meal-card.past-day-collapsed:not(.plan-card-expanded) .plan-card-recipe .mealname{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:calc(15px * var(--meal-text-factor, 1));max-width:100%}
+.plan-meal-card.past-day-collapsed:not(.plan-card-expanded) .plan-date{transform:scale(.9)}
 #list.top-summary>.top-recipe-wrap.plan-meal-card.today-card{box-shadow:inset 0 0 0 2px rgba(61,74,90,.3)!important}

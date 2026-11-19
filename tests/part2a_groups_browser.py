@@ -85,7 +85,13 @@ def run(browser, name):
         assert h < 60, h
         card.locator('.meal-actions-toggle').first.click()
         p.wait_for_timeout(300)
-        assert 'past-day-collapsed' not in (card.get_attribute('class') or ''), 'chevron should open the past day'
+        assert 'plan-card-expanded' in card.get_attribute('class'), 'one tap opens the edit view'
+        assert card.locator('.expanded-meal-actions').is_visible()
+        assert card.bounding_box()['height'] > 80
+        card.locator('.meal-actions-toggle').first.click()
+        p.wait_for_timeout(300)
+        assert 'plan-card-expanded' not in card.get_attribute('class')
+        assert card.bounding_box()['height'] < 60, 'closing returns to the slim row'
     sb.shot(p, name, 'part2d-meals')
     assert not errors, errors
     c.close()

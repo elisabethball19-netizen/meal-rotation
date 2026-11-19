@@ -324,15 +324,11 @@ function keepPlanCardScroll(){planCardReturnScroll={planId:activePlanId,week:rot
 function restorePlanCardScroll(){if(!planCardReturnScroll)return;const position=planCardReturnScroll;requestAnimationFrame(()=>{if(position.planId===activePlanId&&position.week===rotationWeekOffset&&showTop&&!groceryTabActive&&!allMealsActive&&editId===null){scrollTo({top:position.y,behavior:'instant'});if(planCardReturnScroll===position)planCardReturnScroll=null}})}
 function watchPlanCardReturn(){const modal=[...document.querySelectorAll('[role=dialog]')].at(-1);if(!modal){restorePlanCardScroll();return}const observer=new MutationObserver(()=>{if(!modal.isConnected){observer.disconnect();restorePlanCardScroll()}});observer.observe(document.body,{childList:true,subtree:true})}
 function finishPlanCardAction(key,before){if(before!==JSON.stringify(recipePlanEntries(activePlanId).map(e=>[e.day,e.cat,e.meal.id,e.linkedTo||'']))){expandedPlanCards.delete(key);const card=[...document.querySelectorAll('.plan-meal-card')].find(card=>card.dataset.cardIdentity===key);if(card)setPlanCardExpanded(card,false)}}
-// Part 2d: past days fold into a slim row (tap the chevron to open the full card in place); today gets a darker outline.
-const expandedPastDays=new Set();
+// Part 2d: past days show as a slim row until their chevron opens the edit view; closing returns to the slim row. Today gets a soft outline.
 function decoratePastAndTodayCard(card){
  const date=card.dataset.date,today=cookingLocalDate(new Date());
  if(date===today)card.classList.add('today-card');
- if(date&&date<today&&!expandedPastDays.has(card.dataset.cardIdentity)){
-  card.classList.add('past-day-collapsed');
-  card.addEventListener('click',event=>{const toggle=event.target.closest?.('.meal-actions-toggle');if(!toggle||!card.classList.contains('past-day-collapsed'))return;event.preventDefault();event.stopImmediatePropagation();card.classList.remove('past-day-collapsed');expandedPastDays.add(card.dataset.cardIdentity)},true);
- }
+ if(date&&date<today)card.classList.add('past-day-collapsed');
  return card;
 }
 function renderPlanMealCard(plan,entry,{preview=false,linked=[],tasks=null}={}){
