@@ -286,7 +286,7 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
     }
     const expandedKey=groceryTextKey(line);source.hidden=!expanded.has(expandedKey);
     const chevron=document.createElement('button');chevron.type='button';chevron.className='iconbtn grocery-expand';chevron.setAttribute('aria-label','Show contributions for '+line.line);
-    function disclosure(){name.setAttribute('aria-expanded',String(!source.hidden));chevron.setAttribute('aria-expanded',String(!source.hidden));chevron.innerHTML='<svg viewBox="0 0 24 24"><path d="'+(source.hidden?'m9 6 6 6-6 6':'m6 9 6 6 6-6')+'"/></svg>'}
+    function disclosure(){name.setAttribute('aria-expanded',String(!source.hidden));chevron.setAttribute('aria-expanded',String(!source.hidden));chevron.innerHTML='<svg viewBox="0 0 24 24"><path d="'+(source.hidden?'m6 9 6 6 6-6':'m6 15 6-6 6 6')+'"/></svg>'}
     name.onclick=chevron.onclick=()=>{source.hidden=!source.hidden;if(source.hidden)expanded.delete(expandedKey);else expanded.add(expandedKey);disclosure()};disclosure();
     if(occurrences.length>1){const count=document.createElement('span');count.className='muted grocery-source-count';count.textContent=' ('+occurrences.length+')';name.append(count)}
     details.append(name,source);

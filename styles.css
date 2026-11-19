@@ -2396,3 +2396,5 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 .grocery-filter-weeks legend{padding:0!important;margin:4px 0!important;font-weight:700!important;font-size:1em!important}
 .grocery-filter-weeks label{font-size:inherit!important;min-height:36px!important}
 .grocery-meal-dialog-overlay h4{font-size:1em}
+/* Toggles on the right use the down chevron (flips up when open); left-side toggles use the small right arrow. */
+.right-chevron[aria-expanded=true] svg{transform:rotate(180deg)}
