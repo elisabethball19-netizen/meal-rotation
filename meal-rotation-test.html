@@ -2073,6 +2073,13 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .overview-nothing{color:#8a939e;font-size:calc(14px * var(--meal-text-factor, 1));padding:2px 0}
 .meal-plan-title.has-plan-ahead{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .meal-plan-title>.plan-ahead-open{flex:none;margin:-8px -6px -8px 0}
+.meal-title-tools{display:flex;align-items:center;gap:2px;flex:none;margin:-8px -6px -8px 0}
+.ask-ai-dialog .ask-ai-input,.ask-ai-dialog .ask-ai-answer textarea,.family-tastes-field textarea{width:100%;box-sizing:border-box;border:1px solid #ccc;border-radius:10px;padding:9px;font:inherit;font-size:16px;background:#fff}
+.ask-ai-send{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.ask-ai-send .smallbtn{min-height:44px;margin:0}
+.ask-ai-status{margin:6px 0 0;font-size:13px}.ask-ai-status:empty,.ask-ai-tastes-note[hidden]{display:none}.ask-ai-tastes-note{margin:6px 0 0;font-size:13px}
+.ask-ai-answer{display:block;margin-top:14px;border-top:1px solid #e5e7eb;padding-top:12px}.ask-ai-answer>span{display:block;font-weight:600;margin-bottom:6px}
+.family-tastes-field{display:block;margin:8px 0}.family-tastes-field>span{display:block;font-weight:600;margin-bottom:4px}
+.import-restriction-flags{background:#fff4e5;border:1px solid #f0c27b;border-radius:10px;padding:10px 12px;margin:0 0 10px;color:#5b3b00}.import-restriction-flags ul{margin:6px 0 0;padding-left:20px}
 /* Turning meal tabs off: pick which meal stays. */
 .keep-meal-choices{display:flex;flex-direction:column;gap:2px;margin:4px 0 8px}
 .keep-meal-choice{display:flex;align-items:center;gap:12px;min-height:44px;font-size:calc(16px * var(--meal-text-factor, 1))}
@@ -6388,7 +6395,7 @@ function fitPrompt(){if(!shade.isConnected)return;cancelAnimationFrame(promptFra
 if(kind==='prompt'){window.visualViewport?.addEventListener('resize',fitPrompt);window.visualViewport?.addEventListener('scroll',fitPrompt);fitPrompt();}
 if(field){field.focus({preventScroll:true});field.select();setTimeout(fitPrompt,120);field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();actions.firstChild.click()}}}})}
 const weekCalendarArtwork='<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h3M14 14h3M8 18h3M14 18h3"/>';
-const appIconSvg={repeat:'<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',calendar:weekCalendarArtwork,up:'<path d="m6 15 6-6 6 6"/>',down:'<path d="m6 9 6 6 6-6"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',grocery:'<path d="M3 3h2l3 12h11l3-9H6M9 20h1M18 20h1"/>',settings:'<path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/>','chevrons-down':'<path d="m6 4 6 6 6-6M6 12l6 6 6-6"/>','chevrons-up':'<path d="m6 20 6-6 6 6M6 12l6-6 6 6"/>',left:'<path d="M15 18l-6-6 6-6"/>',right:'<path d="m9 18 6-6-6-6"/>',save:'<path d="M5 12l5 5L20 7"/>',cancel:'<path d="M5 5l14 14M19 5L5 19"/>',delete:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',rename:'<path d="M4 20h16M6 16l10-10 3 3-10 10-4 1z"/>',add:'<path d="M12 5v14M5 12h14"/>',move:'<path d="M5 12h14m-6-6 6 6-6 6"/>'};function setIconButton(b,type,label){b.textContent='';b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+appIconSvg[type]+'</svg>';b.title=label;b.setAttribute('aria-label',label);b.style.cssText='border:0;background:transparent;color:#444;display:grid;place-items:center;min-width:42px;min-height:42px;padding:6px'}
+const appIconSvg={repeat:'<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',calendar:weekCalendarArtwork,sparkle:'<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7z"/>',up:'<path d="m6 15 6-6 6 6"/>',down:'<path d="m6 9 6 6 6-6"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',grocery:'<path d="M3 3h2l3 12h11l3-9H6M9 20h1M18 20h1"/>',settings:'<path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/>','chevrons-down':'<path d="m6 4 6 6 6-6M6 12l6 6 6-6"/>','chevrons-up':'<path d="m6 20 6-6 6 6M6 12l6-6 6 6"/>',left:'<path d="M15 18l-6-6 6-6"/>',right:'<path d="m9 18 6-6-6-6"/>',save:'<path d="M5 12l5 5L20 7"/>',cancel:'<path d="M5 5l14 14M19 5L5 19"/>',delete:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',rename:'<path d="M4 20h16M6 16l10-10 3 3-10 10-4 1z"/>',add:'<path d="M12 5v14M5 12h14"/>',move:'<path d="M5 12h14m-6-6 6 6-6 6"/>'};function setIconButton(b,type,label){b.textContent='';b.innerHTML='<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+appIconSvg[type]+'</svg>';b.title=label;b.setAttribute('aria-label',label);b.style.cssText='border:0;background:transparent;color:#444;display:grid;place-items:center;min-width:42px;min-height:42px;padding:6px'}
   function normalizeSearchText(value){
     return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim().replace(/\s+/g,' ');
   }
@@ -7016,6 +7023,92 @@ function openRecipeImportSourcePicker(initial='website'){
  d.panel.append(methods,body,status,actions);show(initial);
 }
 
+// Ask AI (2026-11-19, copy-and-paste version): builds a request from Family tastes, favorites and Regulars,
+// opens Claude or copies it, then reads the pasted answer through the normal import review (Off menu).
+const FAMILY_TASTES_KEY='mealRotationFamilyTastesV1';
+let familyTastes=(()=>{try{const v=JSON.parse(localStorage.getItem(FAMILY_TASTES_KEY)||'null');return {likes:typeof v?.likes==='string'?v.likes:'',restrictions:typeof v?.restrictions==='string'?v.restrictions:''}}catch(e){return {likes:'',restrictions:''}}})();
+function saveFamilyTastes(next=familyTastes){familyTastes={likes:String(next.likes||''),restrictions:String(next.restrictions||'')};try{if(familyTastes.likes.trim()||familyTastes.restrictions.trim())localStorage.setItem(FAMILY_TASTES_KEY,JSON.stringify(familyTastes));else localStorage.removeItem(FAMILY_TASTES_KEY)}catch(e){}}
+const AI_RESTRICTION_WORDS={
+ dairy:{words:['milk','butter','cream','cheese','yogurt','yoghurt','ghee','whey','casein','buttermilk','parmesan','mozzarella','cheddar','ricotta','feta','half-and-half','creme fraiche','crème fraîche','lactose'],ok:['coconut milk','coconut cream','oat milk','almond milk','soy milk','rice milk','cashew milk','peanut butter','almond butter','cashew butter','sunflower butter','nut butter','apple butter','vegan butter','dairy-free','dairy free','non-dairy','cream of tartar','butternut','butter lettuce','butter beans','coconut yogurt']},
+ soy:{words:['soy','soya','tamari','miso','hoisin','oyster sauce','edamame','tofu','tempeh','shoyu','teriyaki','ponzu','black bean sauce','doubanjiang','gochujang','kecap manis','natto'],ok:['soy-free','soy free','coconut aminos']},
+ gluten:{words:['flour','wheat','bread','breadcrumbs','panko','pasta','spaghetti','barley','rye','couscous','seitan','beer','soy sauce','hoisin','udon','ramen','orzo','croutons','tortilla'],ok:['gluten-free','gluten free','rice flour','almond flour','coconut flour','tapioca flour','cassava flour','corn tortilla','rice noodles','rice paper','cornstarch','corn starch','buckwheat']},
+ nuts:{words:['peanut','peanuts','almond','almonds','cashew','cashews','walnut','walnuts','pecan','pecans','pistachio','pistachios','hazelnut','hazelnuts','macadamia','pine nut','pine nuts','nut butter'],ok:['nut-free','nut free','coconut','nutmeg','water chestnut','butternut']},
+ eggs:{words:['egg','eggs','yolk','yolks','mayonnaise','mayo','meringue'],ok:['eggplant','egg-free','egg free','vegan mayo']},
+ shellfish:{words:['shrimp','prawn','prawns','crab','lobster','scallop','scallops','clam','clams','mussel','mussels','oyster','oysters','crawfish','crayfish','oyster sauce'],ok:[]},
+ pork:{words:['pork','bacon','ham','prosciutto','pancetta','lard','chorizo','salami','pepperoni','guanciale'],ok:['hamburger']}
+};
+function familyRestrictionRules(text=familyTastes.restrictions){
+ const rules=[],seen=new Set();
+ for(let part of String(text||'').toLowerCase().split(/[,;\n]|\band\b|\bor\b/)){part=part.replace(/\b(?:no|without|avoid|free|allergic|allergy|to|of|any)\b/g,' ').replace(/-free\b/g,' ').replace(/[.!]/g,' ').replace(/\s+/g,' ').trim();if(!part)continue;
+  const key=/dairy|lactose|milk/.test(part)?'dairy':/\bsoy/.test(part)?'soy':/gluten|wheat|celiac/.test(part)?'gluten':/\bnut|peanut/.test(part)?'nuts':/\beggs?\b/.test(part)?'eggs':/shellfish|shrimp/.test(part)?'shellfish':/\bpork\b/.test(part)?'pork':null;
+  const id=key||part;if(seen.has(id))continue;seen.add(id);rules.push(key?{label:key==='nuts'?'nuts':key,...AI_RESTRICTION_WORDS[key]}:{label:part,words:[part],ok:[]});
+ }return rules;
+}
+function restrictionConflicts(lines,rules=familyRestrictionRules()){
+ const found=[];const escape=w=>w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+ for(const raw of lines||[]){const line=String(typeof raw==='string'?raw:raw?.text||'');let text=' '+line.toLowerCase()+' ';
+  for(const rule of rules){let t=text;for(const ok of rule.ok)t=t.split(ok).join(' ');if(rule.words.some(w=>new RegExp('(^|[^a-z])'+escape(w)+'(?:e?s)?(?![a-z])').test(t))){found.push({line:line.trim(),label:rule.label});break}}
+ }return found;
+}
+function recipeMainIngredients(meal,limit=8){
+ const lines=(meal.ingredients||[]).map(i=>String(typeof i==='string'?i:i?.text||'')).filter(l=>l.trim()&&!/^[A-Z\s&]+:?$/.test(l.trim()));
+ return lines.slice(0,limit).map(l=>l.replace(/\([^)]*\)/g,'').replace(/^[\d\s\/½⅓⅔¼¾⅛.,-]+/,'').replace(/^(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|lbs?|pounds?|oz|ounces?|g|grams?|kg|ml|cloves?|cans?|large|medium|small|bunch)\b\.?\s*/i,'').replace(/^of\s+/i,'').split(',')[0].trim()).filter(Boolean);
+}
+function buildAskAiRequest(mode,input){
+ const seen=new Set(),unique=list=>list.filter(m=>{const k=String(m.name||'').trim().toLowerCase();if(!k||seen.has(k))return false;seen.add(k);return true});
+ const usable=meals.filter(m=>!m._scheduledEditorDraft&&!m.temporaryMeal&&m.name);
+ const favorites=unique(usable.filter(m=>m.favorite===true)).slice(0,20),regulars=unique(usable.filter(m=>recipeStatus(m)==='rotation')).slice(0,60);
+ const out=[];
+ if(mode==='fridge')out.push('Help me plan a dinner for my family using what I have.','','What I have: '+input.trim());else out.push('Write a recipe for my family: '+input.trim());
+ out.push('');
+ if(familyTastes.likes.trim())out.push('Our tastes: '+familyTastes.likes.trim());
+ if(familyTastes.restrictions.trim())out.push('Strict restrictions (never include, and watch for hidden sources in sauces, broths and seasonings): '+familyTastes.restrictions.trim());
+ if(favorites.length){out.push('','Our family favorites, the meals we love most (main ingredients in parentheses):');for(const m of favorites){const main=recipeMainIngredients(m);out.push('- '+m.name+(main.length?' ('+main.join(', ')+')':''))}}
+ if(regulars.length)out.push('','Other meals we already cook (for style only; please don\'t suggest these): '+regulars.map(m=>m.name).join('; '));
+ const format=['Title: Recipe name','Prep time: 15 minutes','Cook time: 30 minutes','Servings: 4','Ingredients','1 lb chicken thighs','...','Instructions','1. First step.','...','Notes','Any tips (optional).'];
+ out.push('');
+ if(mode==='fridge')out.push('Suggest 3 different meals that mainly use what I have (pantry staples are fine). For each, give the name and one line on why it fits us. I will reply with a number. Then write that full recipe in exactly this format, with nothing before or after it:');
+ else out.push('Reply with the recipe in exactly this format, with nothing before or after it:');
+ out.push('',...format);
+ return out.join('\n');
+}
+function askAiDurationMinutes(text){const t=String(text||'').toLowerCase();let total=0,found=false;const h=t.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/),m=t.match(/(\d+)\s*(?:m|min|mins|minute|minutes)\b/);if(h){total+=Math.round(parseFloat(h[1])*60);found=true}if(m){total+=parseInt(m[1],10);found=true}if(!found){const n=t.match(/^\s*(\d+)\s*$/);if(n){total=parseInt(n[1],10);found=true}}return found&&total>0?total:null}
+function askAiItemFromAnswer(answer){
+ let text=String(answer||'').replace(/\r/g,'').replace(/^```[a-z]*\n?|```$/gm,'').trim();const start=text.search(/^\s*(?:\*\*)?Title:/im);if(start>0)text=text.slice(start);
+ if(!text)throw Error('Paste the AI\'s answer first.');
+ const details=extractCompleteRecipe(text)||recipeTextSections(text);if(!details.ingredients?.length&&!details.instructions?.some(step=>step.type==='step'))details.notes=details.notes||text;
+ const field=name=>(text.match(new RegExp('^\\s*(?:\\*\\*)?'+name+'(?:\\*\\*)?\\s*:\\s*(?:\\*\\*)?\\s*(.+)$','im'))||[])[1]||'';
+ // The requested format has an "Ingredients" heading; read that block directly (generic extraction can take steps).
+ const block=[],lines=text.split('\n');let inside=false;for(const line of lines){const head=line.trim().replace(/^#{1,6}\s*/,'').replace(/\*\*/g,'').replace(/:$/,'').trim();if(/^ingredients$/i.test(head)){inside=true;continue}if(inside&&/^(?:instructions|directions|method|steps|notes)$/i.test(head))break;if(inside&&line.trim())block.push(line.trim().replace(/^(?:[-*•]|\d+[.)])\s+/,''))}
+ const item={...details,name:(details.name||field('Title')||text.split('\n')[0]).replace(/\*\*/g,'').trim()||'AI recipe',ingredients:block.length?block:details.ingredients?.length?details.ingredients:extractRecipeIngredients(text)};
+ const prep=askAiDurationMinutes(field('Prep time')),cook=askAiDurationMinutes(field('Cook time'));if(prep&&!item.prep)item.prep=prep;if(cook&&!item.cook)item.cook=cook;
+ if(!item.ingredients?.length)throw Error('No ingredients were found. Paste the full recipe (Title, Ingredients, Instructions).');
+ return item;
+}
+async function copyAskAiText(text){try{await navigator.clipboard.writeText(text);return true}catch(e){const area=document.createElement('textarea');area.value=text;area.style.cssText='position:fixed;opacity:0;top:0;left:0';document.body.append(area);area.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}area.remove();return ok}}
+function openAskAiDialog(){
+ const d=recipeImportDialog('Ask AI');d.panel.classList.add('ask-ai-dialog');let mode='fridge';
+ const modes=document.createElement('div');modes.className='serving-add-modes ask-ai-modes';modes.setAttribute('role','tablist');
+ const input=document.createElement('textarea');input.className='ask-ai-input';input.rows=4;
+ const missing=document.createElement('p');missing.className='muted ask-ai-tastes-note';
+ const sendRow=document.createElement('div');sendRow.className='ask-ai-send';const open=document.createElement('button'),copy=document.createElement('button');open.type=copy.type='button';open.className=copy.className='smallbtn';open.textContent='Open in Claude';copy.textContent='Copy request';sendRow.append(open,copy);
+ const sent=document.createElement('p');sent.className='muted ask-ai-status';sent.setAttribute('role','status');
+ const answerLabel=document.createElement('label');answerLabel.className='recipe-import-field ask-ai-answer';const answerText=document.createElement('span');answerText.textContent='Paste the answer';const answer=document.createElement('textarea');answer.rows=5;answer.placeholder='Paste the full recipe from Claude here';answer.setAttribute('aria-label','Paste the answer');answerLabel.append(answerText,answer);
+ const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
+ const actions=document.createElement('div');actions.className='meal-unified-actions';const review=document.createElement('button');review.type='button';review.className='smallbtn';review.textContent='Review recipe';actions.append(review);
+ function draw(){modes.replaceChildren();for(const [value,label]of [['fridge','What’s in my fridge'],['write','Write a recipe']]){const tab=document.createElement('button');tab.type='button';tab.setAttribute('role','tab');tab.setAttribute('aria-selected',String(mode===value));tab.textContent=label;tab.onclick=()=>{mode=value;draw()};modes.append(tab)}
+  input.placeholder=mode==='fridge'?'What do you have? e.g. chicken thighs, bok choy, rice, limes':'What would you like? e.g. crispy pork, quick weeknight';input.setAttribute('aria-label',mode==='fridge'?'What’s in my fridge':'Describe the recipe');
+  missing.textContent=familyTastes.likes.trim()||familyTastes.restrictions.trim()?'':'Tip: add your family’s tastes and restrictions in Settings → Family tastes.';missing.hidden=!missing.textContent}
+ const request=()=>{if(!input.value.trim())throw Error(mode==='fridge'?'List what you have first.':'Describe the recipe first.');return buildAskAiRequest(mode,input.value)};
+ open.onclick=async()=>{error.textContent='';try{const text=request();await copyAskAiText(text);window.open('https://claude.ai/new?q='+encodeURIComponent(text),'_blank','noopener');sent.textContent='Opened Claude (the request is also copied). If it opens empty, paste it there.'}catch(e){error.textContent=e.message}};
+ copy.onclick=async()=>{error.textContent='';try{const ok=await copyAskAiText(request());sent.textContent=ok?'Request copied. Paste it into Claude.':'Could not copy. Try Open in Claude.'}catch(e){error.textContent=e.message}};
+ review.onclick=async()=>{error.textContent='';let item;try{item=askAiItemFromAnswer(answer.value)}catch(e){error.textContent=e.message;return}
+  d.navigate=true;d.close();await groupHistorySettled;await editorHistorySettled;await reviewRecipeImportItems([item],'Ask AI');
+  {const flags=restrictionConflicts(item.ingredients);if(flags.length){const note=document.createElement('div');note.className='import-restriction-flags';note.setAttribute('role','note');const title=document.createElement('strong');title.textContent='Check for your restrictions';const list=document.createElement('ul');for(const f of flags){const li=document.createElement('li');li.textContent=f.line+' ('+f.label+')';list.append(li)}note.append(title,list);const place=()=>{const fields=document.querySelector('#editor .meal-editor-fields');if(fields&&!fields.contains(note))fields.prepend(note)};place();requestAnimationFrame(()=>requestAnimationFrame(place));setTimeout(()=>{place();note.scrollIntoView({block:'nearest',behavior:'instant'})},300)}}
+ };
+ draw();d.panel.append(modes,input,missing,sendRow,sent,answerLabel,error,actions);setTimeout(()=>input.focus({preventScroll:true}),50);
+}
+
 // Settings edits remain reversible until Save is selected.
 let settingsBaseline=null;
 let activeSettingsPanel=null; // 'upper' or 'lower'
@@ -7024,11 +7117,11 @@ let lowerOpenGroups=new Set();
 let activeTabMenuId=null;
 function captureSettingsDraft(){
  saveActiveMealPlan();
- return JSON.stringify({weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,weekdayColors,pinnedCats,expandedCats,autoPinTopCategories,applyPinsToAllTabs,timeDisplayPrefs,mealTextSize,showLastCooked,showMakeAheadReminders:makeAheadDisplayPrefs.showMakeAheadReminders,automaticMarinating:makeAheadDisplayPrefs.automaticMarinating,automaticDefrost:makeAheadDisplayPrefs.automaticDefrost,manualRecipeOrdering,showMealPlanTabs,mealPlans,activePlanId,startWeekday,masterOpenMode,masterPinsOverride});
+ return JSON.stringify({weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,weekdayColors,pinnedCats,expandedCats,autoPinTopCategories,applyPinsToAllTabs,timeDisplayPrefs,mealTextSize,showLastCooked,showMakeAheadReminders:makeAheadDisplayPrefs.showMakeAheadReminders,automaticMarinating:makeAheadDisplayPrefs.automaticMarinating,automaticDefrost:makeAheadDisplayPrefs.automaticDefrost,manualRecipeOrdering,showMealPlanTabs,mealPlans,activePlanId,startWeekday,masterOpenMode,masterPinsOverride,familyTastes});
 }
 function restoreSettingsDraft(json){
  if(!json)return;
- const state=JSON.parse(json);
+ const state=JSON.parse(json);if(state.familyTastes)saveFamilyTastes(state.familyTastes);
  makeAheadDisplayPrefs.showMakeAheadReminders=state.showMakeAheadReminders!==false;for(const key of ['automaticMarinating','automaticDefrost'])if(typeof state[key]==='boolean')makeAheadDisplayPrefs[key]=state[key];saveMakeAheadDisplayPrefs();
  if(['normal','large','extra'].includes(state.mealTextSize)){mealTextSize=state.mealTextSize;testStorage.setItem(mealTextSizeKey,mealTextSize);applyMealTextSize()}
  weekdayCategories=JSON.parse(JSON.stringify(state.weekdayCategories));weekdayMealOverrides={...state.weekdayMealOverrides};weekdayRecipeFilters=JSON.parse(JSON.stringify(state.weekdayRecipeFilters||{}));
@@ -7981,6 +8074,9 @@ let closeSettings=document.createElement('button');closeSettings.textContent='Cl
  planCopy.append(planLabel,planHint);planOption.append(planCheck,planCopy);planGroup.content.append(planOption);
  const recipeGroup=makeSettingsGroup('recipes','Recipes'),recipeRow=document.createElement('div');recipeRow.className='settings-backup-controls';
  recipeRow.append(importBtn,exportRecipesBtn);const recipeHint=document.createElement('p');recipeHint.className='muted';recipeHint.textContent='Import or share recipes without replacing your collection.';recipeGroup.content.append(recipeHint,recipeRow);panel.append(recipeGroup.details);
+ {const tastesGroup=makeSettingsGroup('tastes','Family tastes'),hint=document.createElement('p');hint.className='muted';hint.textContent='Used by Ask AI on the Meals page.';tastesGroup.content.append(hint);
+  for(const [key,label,placeholder]of [['likes','What we like','e.g. Asian flavors, very savory, not too sweet, weeknight-friendly'],['restrictions','Restrictions','e.g. no dairy, no soy']]){const wrap=document.createElement('label');wrap.className='recipe-import-field family-tastes-field';const text=document.createElement('span');text.textContent=label;const area=document.createElement('textarea');area.rows=key==='likes'?3:2;area.placeholder=placeholder;area.value=familyTastes[key];area.setAttribute('aria-label',label);area.oninput=()=>saveFamilyTastes({...familyTastes,[key]:area.value});wrap.append(text,area);tastesGroup.content.append(wrap)}
+  panel.append(tastesGroup.details)}
  const backupGroup=makeSettingsGroup('backups','Backups'),backupRow=document.createElement('div');backupRow.className='settings-backup-controls';backupRow.append(exportBtn,restoreBtn);const diagnostic=document.createElement('button');diagnostic.type='button';diagnostic.textContent='Export meal-date diagnostic';diagnostic.title='Read-only dates and assignment details for the selected meal plan; no recipe names or contents.';diagnostic.onclick=()=>exportRecipeBackup(occurrenceDateDiagnostic(),'meal-date-diagnostic.json');backupRow.append(diagnostic);const backupHint=document.createElement('p');backupHint.className='muted';backupHint.textContent='Save or restore your full collection, meal plans, progress and settings.';backupGroup.content.append(backupHint,backupRow);panel.append(backupGroup.details);
  panel.append(makeSettingsFooter());decoratePreferenceSwitches(panel);
  const help=document.createElement('button');help.id='help';help.className='iconbtn';help.title='Help and gestures';help.setAttribute('aria-label','Help and gestures');help.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01" stroke-linecap="round"/></svg>';help.onclick=()=>openHelpModal();actions.append(help);settings.onclick=async()=>{
@@ -10522,7 +10618,7 @@ function renderList(options={}){mealSlotDragCleanup?.();mealSlotDragCleanup=null
   tabBar.after(menu);
  }
 }
- if(!allMealsActive&&!groceryTabActive){const title=document.createElement('h2');title.className='view-page-title meal-plan-title';title.textContent=rotationWeekOffset?'Next Week’s Meals':'This Week’s Meals';{const planAhead=document.createElement('button');planAhead.type='button';planAhead.className='iconbtn plan-ahead-open';setIconButton(planAhead,'calendar','Plan ahead');planAhead.onclick=openPlanAheadDialog;title.classList.add('has-plan-ahead');title.append(planAhead)}list.prepend(title);const header=document.createElement('div');header.className='rotation-compact-header';header.append(rotationWeekControls());const sticky=document.createElement('div');sticky.className='meal-controls-sticky';const tabs=list.querySelector(':scope>.meal-plan-tabs');if(tabs)sticky.append(tabs);sticky.append(header);list.append(sticky)}
+ if(!allMealsActive&&!groceryTabActive){const title=document.createElement('h2');title.className='view-page-title meal-plan-title';title.textContent=rotationWeekOffset?'Next Week’s Meals':'This Week’s Meals';{const planAhead=document.createElement('button');planAhead.type='button';planAhead.className='iconbtn plan-ahead-open';setIconButton(planAhead,'calendar','Plan ahead');planAhead.onclick=openPlanAheadDialog;const askAi=document.createElement('button');askAi.type='button';askAi.className='iconbtn plan-ahead-open ask-ai-open';setIconButton(askAi,'sparkle','Ask AI');askAi.onclick=openAskAiDialog;const tools=document.createElement('span');tools.className='meal-title-tools';tools.append(askAi,planAhead);title.classList.add('has-plan-ahead');title.append(tools)}list.prepend(title);const header=document.createElement('div');header.className='rotation-compact-header';header.append(rotationWeekControls());const sticky=document.createElement('div');sticky.className='meal-controls-sticky';const tabs=list.querySelector(':scope>.meal-plan-tabs');if(tabs)sticky.append(tabs);sticky.append(header);list.append(sticky)}
  if(!allMealsActive&&!groceryTabActive&&rotationWeekOffset){renderRotationWeekPreview(list);addFloatingViewButtons();return;}
  if(groceryTabActive){renderGroceryViewToolbar(list);renderMasterGroceryTab(list);addFloatingViewButtons();return;}
 const topControls=document.createElement('div');topControls.className='top-controls';appendMealPlanSettingsGear(topControls);list.append(topControls);placeViewToolbar(topControls);
@@ -11947,7 +12043,7 @@ function mealEditorRow(){
  const meal=meals.find(item=>String(item.id)===String(editId));
  if(!meal)return null;
  const card=[...document.querySelectorAll('#list .master-category-card')].find(el=>el.dataset.category===meal.cat);
- return [...(card||$('list')).querySelectorAll('[data-meal-id]')].find(el=>el.dataset.mealId===String(meal.id))||null;
+ return [...(card||$('list')).querySelectorAll('[data-meal-id]')].find(el=>el.dataset.mealId===String(meal.id)&&el.querySelector('.master-meal-info'))||null;
 }
 function positionMealEditor(focusNewMeal=false){
  stopMealEditorPositioning();

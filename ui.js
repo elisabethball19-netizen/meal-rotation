@@ -5,11 +5,11 @@ let lowerOpenGroups=new Set();
 let activeTabMenuId=null;
 function captureSettingsDraft(){
  saveActiveMealPlan();
- return JSON.stringify({weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,weekdayColors,pinnedCats,expandedCats,autoPinTopCategories,applyPinsToAllTabs,timeDisplayPrefs,mealTextSize,showLastCooked,showMakeAheadReminders:makeAheadDisplayPrefs.showMakeAheadReminders,automaticMarinating:makeAheadDisplayPrefs.automaticMarinating,automaticDefrost:makeAheadDisplayPrefs.automaticDefrost,manualRecipeOrdering,showMealPlanTabs,mealPlans,activePlanId,startWeekday,masterOpenMode,masterPinsOverride});
+ return JSON.stringify({weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,weekdayColors,pinnedCats,expandedCats,autoPinTopCategories,applyPinsToAllTabs,timeDisplayPrefs,mealTextSize,showLastCooked,showMakeAheadReminders:makeAheadDisplayPrefs.showMakeAheadReminders,automaticMarinating:makeAheadDisplayPrefs.automaticMarinating,automaticDefrost:makeAheadDisplayPrefs.automaticDefrost,manualRecipeOrdering,showMealPlanTabs,mealPlans,activePlanId,startWeekday,masterOpenMode,masterPinsOverride,familyTastes});
 }
 function restoreSettingsDraft(json){
  if(!json)return;
- const state=JSON.parse(json);
+ const state=JSON.parse(json);if(state.familyTastes)saveFamilyTastes(state.familyTastes);
  makeAheadDisplayPrefs.showMakeAheadReminders=state.showMakeAheadReminders!==false;for(const key of ['automaticMarinating','automaticDefrost'])if(typeof state[key]==='boolean')makeAheadDisplayPrefs[key]=state[key];saveMakeAheadDisplayPrefs();
  if(['normal','large','extra'].includes(state.mealTextSize)){mealTextSize=state.mealTextSize;localStorage.setItem(mealTextSizeKey,mealTextSize);applyMealTextSize()}
  weekdayCategories=JSON.parse(JSON.stringify(state.weekdayCategories));weekdayMealOverrides={...state.weekdayMealOverrides};weekdayRecipeFilters=JSON.parse(JSON.stringify(state.weekdayRecipeFilters||{}));
@@ -609,6 +609,9 @@ let closeSettings=document.createElement('button');closeSettings.textContent='Cl
  planCopy.append(planLabel,planHint);planOption.append(planCheck,planCopy);planGroup.content.append(planOption);
  const recipeGroup=makeSettingsGroup('recipes','Recipes'),recipeRow=document.createElement('div');recipeRow.className='settings-backup-controls';
  recipeRow.append(importBtn,exportRecipesBtn);const recipeHint=document.createElement('p');recipeHint.className='muted';recipeHint.textContent='Import or share recipes without replacing your collection.';recipeGroup.content.append(recipeHint,recipeRow);panel.append(recipeGroup.details);
+ {const tastesGroup=makeSettingsGroup('tastes','Family tastes'),hint=document.createElement('p');hint.className='muted';hint.textContent='Used by Ask AI on the Meals page.';tastesGroup.content.append(hint);
+  for(const [key,label,placeholder]of [['likes','What we like','e.g. Asian flavors, very savory, not too sweet, weeknight-friendly'],['restrictions','Restrictions','e.g. no dairy, no soy']]){const wrap=document.createElement('label');wrap.className='recipe-import-field family-tastes-field';const text=document.createElement('span');text.textContent=label;const area=document.createElement('textarea');area.rows=key==='likes'?3:2;area.placeholder=placeholder;area.value=familyTastes[key];area.setAttribute('aria-label',label);area.oninput=()=>saveFamilyTastes({...familyTastes,[key]:area.value});wrap.append(text,area);tastesGroup.content.append(wrap)}
+  panel.append(tastesGroup.details)}
  const backupGroup=makeSettingsGroup('backups','Backups'),backupRow=document.createElement('div');backupRow.className='settings-backup-controls';backupRow.append(exportBtn,restoreBtn);const diagnostic=document.createElement('button');diagnostic.type='button';diagnostic.textContent='Export meal-date diagnostic';diagnostic.title='Read-only dates and assignment details for the selected meal plan; no recipe names or contents.';diagnostic.onclick=()=>exportRecipeBackup(occurrenceDateDiagnostic(),'meal-date-diagnostic.json');backupRow.append(diagnostic);const backupHint=document.createElement('p');backupHint.className='muted';backupHint.textContent='Save or restore your full collection, meal plans, progress and settings.';backupGroup.content.append(backupHint,backupRow);panel.append(backupGroup.details);
  panel.append(makeSettingsFooter());decoratePreferenceSwitches(panel);
  const help=document.createElement('button');help.id='help';help.className='iconbtn';help.title='Help and gestures';help.setAttribute('aria-label','Help and gestures');help.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01" stroke-linecap="round"/></svg>';help.onclick=()=>openHelpModal();actions.append(help);settings.onclick=async()=>{
@@ -3127,7 +3130,7 @@ function renderList(options={}){mealSlotDragCleanup?.();mealSlotDragCleanup=null
   tabBar.after(menu);
  }
 }
- if(!allMealsActive&&!groceryTabActive){const title=document.createElement('h2');title.className='view-page-title meal-plan-title';title.textContent=rotationWeekOffset?'Next Week’s Meals':'This Week’s Meals';{const planAhead=document.createElement('button');planAhead.type='button';planAhead.className='iconbtn plan-ahead-open';setIconButton(planAhead,'calendar','Plan ahead');planAhead.onclick=openPlanAheadDialog;title.classList.add('has-plan-ahead');title.append(planAhead)}list.prepend(title);const header=document.createElement('div');header.className='rotation-compact-header';header.append(rotationWeekControls());const sticky=document.createElement('div');sticky.className='meal-controls-sticky';const tabs=list.querySelector(':scope>.meal-plan-tabs');if(tabs)sticky.append(tabs);sticky.append(header);list.append(sticky)}
+ if(!allMealsActive&&!groceryTabActive){const title=document.createElement('h2');title.className='view-page-title meal-plan-title';title.textContent=rotationWeekOffset?'Next Week’s Meals':'This Week’s Meals';{const planAhead=document.createElement('button');planAhead.type='button';planAhead.className='iconbtn plan-ahead-open';setIconButton(planAhead,'calendar','Plan ahead');planAhead.onclick=openPlanAheadDialog;const askAi=document.createElement('button');askAi.type='button';askAi.className='iconbtn plan-ahead-open ask-ai-open';setIconButton(askAi,'sparkle','Ask AI');askAi.onclick=openAskAiDialog;const tools=document.createElement('span');tools.className='meal-title-tools';tools.append(askAi,planAhead);title.classList.add('has-plan-ahead');title.append(tools)}list.prepend(title);const header=document.createElement('div');header.className='rotation-compact-header';header.append(rotationWeekControls());const sticky=document.createElement('div');sticky.className='meal-controls-sticky';const tabs=list.querySelector(':scope>.meal-plan-tabs');if(tabs)sticky.append(tabs);sticky.append(header);list.append(sticky)}
  if(!allMealsActive&&!groceryTabActive&&rotationWeekOffset){renderRotationWeekPreview(list);addFloatingViewButtons();return;}
  if(groceryTabActive){renderGroceryViewToolbar(list);renderMasterGroceryTab(list);addFloatingViewButtons();return;}
 const topControls=document.createElement('div');topControls.className='top-controls';appendMealPlanSettingsGear(topControls);list.append(topControls);placeViewToolbar(topControls);
@@ -4483,7 +4486,7 @@ function mealEditorRow(){
  const meal=meals.find(item=>String(item.id)===String(editId));
  if(!meal)return null;
  const card=[...document.querySelectorAll('#list .master-category-card')].find(el=>el.dataset.category===meal.cat);
- return [...(card||$('list')).querySelectorAll('[data-meal-id]')].find(el=>el.dataset.mealId===String(meal.id))||null;
+ return [...(card||$('list')).querySelectorAll('[data-meal-id]')].find(el=>el.dataset.mealId===String(meal.id)&&el.querySelector('.master-meal-info'))||null;
 }
 function positionMealEditor(focusNewMeal=false){
  stopMealEditorPositioning();

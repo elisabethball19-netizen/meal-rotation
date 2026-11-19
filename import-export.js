@@ -870,4 +870,90 @@ function openRecipeImportSourcePicker(initial='website'){
  d.panel.append(methods,body,status,actions);show(initial);
 }
 
+// Ask AI (2026-11-19, copy-and-paste version): builds a request from Family tastes, favorites and Regulars,
+// opens Claude or copies it, then reads the pasted answer through the normal import review (Off menu).
+const FAMILY_TASTES_KEY='mealRotationFamilyTastesV1';
+let familyTastes=(()=>{try{const v=JSON.parse(localStorage.getItem(FAMILY_TASTES_KEY)||'null');return {likes:typeof v?.likes==='string'?v.likes:'',restrictions:typeof v?.restrictions==='string'?v.restrictions:''}}catch(e){return {likes:'',restrictions:''}}})();
+function saveFamilyTastes(next=familyTastes){familyTastes={likes:String(next.likes||''),restrictions:String(next.restrictions||'')};try{if(familyTastes.likes.trim()||familyTastes.restrictions.trim())localStorage.setItem(FAMILY_TASTES_KEY,JSON.stringify(familyTastes));else localStorage.removeItem(FAMILY_TASTES_KEY)}catch(e){}}
+const AI_RESTRICTION_WORDS={
+ dairy:{words:['milk','butter','cream','cheese','yogurt','yoghurt','ghee','whey','casein','buttermilk','parmesan','mozzarella','cheddar','ricotta','feta','half-and-half','creme fraiche','crème fraîche','lactose'],ok:['coconut milk','coconut cream','oat milk','almond milk','soy milk','rice milk','cashew milk','peanut butter','almond butter','cashew butter','sunflower butter','nut butter','apple butter','vegan butter','dairy-free','dairy free','non-dairy','cream of tartar','butternut','butter lettuce','butter beans','coconut yogurt']},
+ soy:{words:['soy','soya','tamari','miso','hoisin','oyster sauce','edamame','tofu','tempeh','shoyu','teriyaki','ponzu','black bean sauce','doubanjiang','gochujang','kecap manis','natto'],ok:['soy-free','soy free','coconut aminos']},
+ gluten:{words:['flour','wheat','bread','breadcrumbs','panko','pasta','spaghetti','barley','rye','couscous','seitan','beer','soy sauce','hoisin','udon','ramen','orzo','croutons','tortilla'],ok:['gluten-free','gluten free','rice flour','almond flour','coconut flour','tapioca flour','cassava flour','corn tortilla','rice noodles','rice paper','cornstarch','corn starch','buckwheat']},
+ nuts:{words:['peanut','peanuts','almond','almonds','cashew','cashews','walnut','walnuts','pecan','pecans','pistachio','pistachios','hazelnut','hazelnuts','macadamia','pine nut','pine nuts','nut butter'],ok:['nut-free','nut free','coconut','nutmeg','water chestnut','butternut']},
+ eggs:{words:['egg','eggs','yolk','yolks','mayonnaise','mayo','meringue'],ok:['eggplant','egg-free','egg free','vegan mayo']},
+ shellfish:{words:['shrimp','prawn','prawns','crab','lobster','scallop','scallops','clam','clams','mussel','mussels','oyster','oysters','crawfish','crayfish','oyster sauce'],ok:[]},
+ pork:{words:['pork','bacon','ham','prosciutto','pancetta','lard','chorizo','salami','pepperoni','guanciale'],ok:['hamburger']}
+};
+function familyRestrictionRules(text=familyTastes.restrictions){
+ const rules=[],seen=new Set();
+ for(let part of String(text||'').toLowerCase().split(/[,;\n]|\band\b|\bor\b/)){part=part.replace(/\b(?:no|without|avoid|free|allergic|allergy|to|of|any)\b/g,' ').replace(/-free\b/g,' ').replace(/[.!]/g,' ').replace(/\s+/g,' ').trim();if(!part)continue;
+  const key=/dairy|lactose|milk/.test(part)?'dairy':/\bsoy/.test(part)?'soy':/gluten|wheat|celiac/.test(part)?'gluten':/\bnut|peanut/.test(part)?'nuts':/\beggs?\b/.test(part)?'eggs':/shellfish|shrimp/.test(part)?'shellfish':/\bpork\b/.test(part)?'pork':null;
+  const id=key||part;if(seen.has(id))continue;seen.add(id);rules.push(key?{label:key==='nuts'?'nuts':key,...AI_RESTRICTION_WORDS[key]}:{label:part,words:[part],ok:[]});
+ }return rules;
+}
+function restrictionConflicts(lines,rules=familyRestrictionRules()){
+ const found=[];const escape=w=>w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+ for(const raw of lines||[]){const line=String(typeof raw==='string'?raw:raw?.text||'');let text=' '+line.toLowerCase()+' ';
+  for(const rule of rules){let t=text;for(const ok of rule.ok)t=t.split(ok).join(' ');if(rule.words.some(w=>new RegExp('(^|[^a-z])'+escape(w)+'(?:e?s)?(?![a-z])').test(t))){found.push({line:line.trim(),label:rule.label});break}}
+ }return found;
+}
+function recipeMainIngredients(meal,limit=8){
+ const lines=(meal.ingredients||[]).map(i=>String(typeof i==='string'?i:i?.text||'')).filter(l=>l.trim()&&!/^[A-Z\s&]+:?$/.test(l.trim()));
+ return lines.slice(0,limit).map(l=>l.replace(/\([^)]*\)/g,'').replace(/^[\d\s\/½⅓⅔¼¾⅛.,-]+/,'').replace(/^(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|lbs?|pounds?|oz|ounces?|g|grams?|kg|ml|cloves?|cans?|large|medium|small|bunch)\b\.?\s*/i,'').replace(/^of\s+/i,'').split(',')[0].trim()).filter(Boolean);
+}
+function buildAskAiRequest(mode,input){
+ const seen=new Set(),unique=list=>list.filter(m=>{const k=String(m.name||'').trim().toLowerCase();if(!k||seen.has(k))return false;seen.add(k);return true});
+ const usable=meals.filter(m=>!m._scheduledEditorDraft&&!m.temporaryMeal&&m.name);
+ const favorites=unique(usable.filter(m=>m.favorite===true)).slice(0,20),regulars=unique(usable.filter(m=>recipeStatus(m)==='rotation')).slice(0,60);
+ const out=[];
+ if(mode==='fridge')out.push('Help me plan a dinner for my family using what I have.','','What I have: '+input.trim());else out.push('Write a recipe for my family: '+input.trim());
+ out.push('');
+ if(familyTastes.likes.trim())out.push('Our tastes: '+familyTastes.likes.trim());
+ if(familyTastes.restrictions.trim())out.push('Strict restrictions (never include, and watch for hidden sources in sauces, broths and seasonings): '+familyTastes.restrictions.trim());
+ if(favorites.length){out.push('','Our family favorites, the meals we love most (main ingredients in parentheses):');for(const m of favorites){const main=recipeMainIngredients(m);out.push('- '+m.name+(main.length?' ('+main.join(', ')+')':''))}}
+ if(regulars.length)out.push('','Other meals we already cook (for style only; please don\'t suggest these): '+regulars.map(m=>m.name).join('; '));
+ const format=['Title: Recipe name','Prep time: 15 minutes','Cook time: 30 minutes','Servings: 4','Ingredients','1 lb chicken thighs','...','Instructions','1. First step.','...','Notes','Any tips (optional).'];
+ out.push('');
+ if(mode==='fridge')out.push('Suggest 3 different meals that mainly use what I have (pantry staples are fine). For each, give the name and one line on why it fits us. I will reply with a number. Then write that full recipe in exactly this format, with nothing before or after it:');
+ else out.push('Reply with the recipe in exactly this format, with nothing before or after it:');
+ out.push('',...format);
+ return out.join('\n');
+}
+function askAiDurationMinutes(text){const t=String(text||'').toLowerCase();let total=0,found=false;const h=t.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/),m=t.match(/(\d+)\s*(?:m|min|mins|minute|minutes)\b/);if(h){total+=Math.round(parseFloat(h[1])*60);found=true}if(m){total+=parseInt(m[1],10);found=true}if(!found){const n=t.match(/^\s*(\d+)\s*$/);if(n){total=parseInt(n[1],10);found=true}}return found&&total>0?total:null}
+function askAiItemFromAnswer(answer){
+ let text=String(answer||'').replace(/\r/g,'').replace(/^```[a-z]*\n?|```$/gm,'').trim();const start=text.search(/^\s*(?:\*\*)?Title:/im);if(start>0)text=text.slice(start);
+ if(!text)throw Error('Paste the AI\'s answer first.');
+ const details=extractCompleteRecipe(text)||recipeTextSections(text);if(!details.ingredients?.length&&!details.instructions?.some(step=>step.type==='step'))details.notes=details.notes||text;
+ const field=name=>(text.match(new RegExp('^\\s*(?:\\*\\*)?'+name+'(?:\\*\\*)?\\s*:\\s*(?:\\*\\*)?\\s*(.+)$','im'))||[])[1]||'';
+ // The requested format has an "Ingredients" heading; read that block directly (generic extraction can take steps).
+ const block=[],lines=text.split('\n');let inside=false;for(const line of lines){const head=line.trim().replace(/^#{1,6}\s*/,'').replace(/\*\*/g,'').replace(/:$/,'').trim();if(/^ingredients$/i.test(head)){inside=true;continue}if(inside&&/^(?:instructions|directions|method|steps|notes)$/i.test(head))break;if(inside&&line.trim())block.push(line.trim().replace(/^(?:[-*•]|\d+[.)])\s+/,''))}
+ const item={...details,name:(details.name||field('Title')||text.split('\n')[0]).replace(/\*\*/g,'').trim()||'AI recipe',ingredients:block.length?block:details.ingredients?.length?details.ingredients:extractRecipeIngredients(text)};
+ const prep=askAiDurationMinutes(field('Prep time')),cook=askAiDurationMinutes(field('Cook time'));if(prep&&!item.prep)item.prep=prep;if(cook&&!item.cook)item.cook=cook;
+ if(!item.ingredients?.length)throw Error('No ingredients were found. Paste the full recipe (Title, Ingredients, Instructions).');
+ return item;
+}
+async function copyAskAiText(text){try{await navigator.clipboard.writeText(text);return true}catch(e){const area=document.createElement('textarea');area.value=text;area.style.cssText='position:fixed;opacity:0;top:0;left:0';document.body.append(area);area.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}area.remove();return ok}}
+function openAskAiDialog(){
+ const d=recipeImportDialog('Ask AI');d.panel.classList.add('ask-ai-dialog');let mode='fridge';
+ const modes=document.createElement('div');modes.className='serving-add-modes ask-ai-modes';modes.setAttribute('role','tablist');
+ const input=document.createElement('textarea');input.className='ask-ai-input';input.rows=4;
+ const missing=document.createElement('p');missing.className='muted ask-ai-tastes-note';
+ const sendRow=document.createElement('div');sendRow.className='ask-ai-send';const open=document.createElement('button'),copy=document.createElement('button');open.type=copy.type='button';open.className=copy.className='smallbtn';open.textContent='Open in Claude';copy.textContent='Copy request';sendRow.append(open,copy);
+ const sent=document.createElement('p');sent.className='muted ask-ai-status';sent.setAttribute('role','status');
+ const answerLabel=document.createElement('label');answerLabel.className='recipe-import-field ask-ai-answer';const answerText=document.createElement('span');answerText.textContent='Paste the answer';const answer=document.createElement('textarea');answer.rows=5;answer.placeholder='Paste the full recipe from Claude here';answer.setAttribute('aria-label','Paste the answer');answerLabel.append(answerText,answer);
+ const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
+ const actions=document.createElement('div');actions.className='meal-unified-actions';const review=document.createElement('button');review.type='button';review.className='smallbtn';review.textContent='Review recipe';actions.append(review);
+ function draw(){modes.replaceChildren();for(const [value,label]of [['fridge','What’s in my fridge'],['write','Write a recipe']]){const tab=document.createElement('button');tab.type='button';tab.setAttribute('role','tab');tab.setAttribute('aria-selected',String(mode===value));tab.textContent=label;tab.onclick=()=>{mode=value;draw()};modes.append(tab)}
+  input.placeholder=mode==='fridge'?'What do you have? e.g. chicken thighs, bok choy, rice, limes':'What would you like? e.g. crispy pork, quick weeknight';input.setAttribute('aria-label',mode==='fridge'?'What’s in my fridge':'Describe the recipe');
+  missing.textContent=familyTastes.likes.trim()||familyTastes.restrictions.trim()?'':'Tip: add your family’s tastes and restrictions in Settings → Family tastes.';missing.hidden=!missing.textContent}
+ const request=()=>{if(!input.value.trim())throw Error(mode==='fridge'?'List what you have first.':'Describe the recipe first.');return buildAskAiRequest(mode,input.value)};
+ open.onclick=async()=>{error.textContent='';try{const text=request();await copyAskAiText(text);window.open('https://claude.ai/new?q='+encodeURIComponent(text),'_blank','noopener');sent.textContent='Opened Claude (the request is also copied). If it opens empty, paste it there.'}catch(e){error.textContent=e.message}};
+ copy.onclick=async()=>{error.textContent='';try{const ok=await copyAskAiText(request());sent.textContent=ok?'Request copied. Paste it into Claude.':'Could not copy. Try Open in Claude.'}catch(e){error.textContent=e.message}};
+ review.onclick=async()=>{error.textContent='';let item;try{item=askAiItemFromAnswer(answer.value)}catch(e){error.textContent=e.message;return}
+  d.navigate=true;d.close();await groupHistorySettled;await editorHistorySettled;await reviewRecipeImportItems([item],'Ask AI');
+  {const flags=restrictionConflicts(item.ingredients);if(flags.length){const note=document.createElement('div');note.className='import-restriction-flags';note.setAttribute('role','note');const title=document.createElement('strong');title.textContent='Check for your restrictions';const list=document.createElement('ul');for(const f of flags){const li=document.createElement('li');li.textContent=f.line+' ('+f.label+')';list.append(li)}note.append(title,list);const place=()=>{const fields=document.querySelector('#editor .meal-editor-fields');if(fields&&!fields.contains(note))fields.prepend(note)};place();requestAnimationFrame(()=>requestAnimationFrame(place));setTimeout(()=>{place();note.scrollIntoView({block:'nearest',behavior:'instant'})},300)}}
+ };
+ draw();d.panel.append(modes,input,missing,sendRow,sent,answerLabel,error,actions);setTimeout(()=>input.focus({preventScroll:true}),50);
+}
+
 // Settings edits remain reversible until Save is selected.
