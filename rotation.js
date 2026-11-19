@@ -358,7 +358,7 @@ if(!['all','current','across','none'].includes(masterOpenMode))masterOpenMode='a
 let masterPinsOverride=localStorage.getItem('mealRotationMasterPinsOverrideV1')!=='false';
 function saveMasterOpeningPrefs(){localStorage.setItem('mealRotationMasterOpenModeV1',masterOpenMode);localStorage.setItem('mealRotationMasterPinsOverrideV1',String(masterPinsOverride))}
 
-let groceryTabOpen=false,groceryTabActive=false,allMealsActive=false;
+let groceryTabOpen=false,groceryTabActive=false,aiTabActive=false,allMealsActive=false;
 const masterGroceryPlanExclusionsKey='mealRotationMasterGroceryExcludedPlansV1';
 let masterGroceryExcludedPlanIds=new Set();
 try{const stored=JSON.parse(localStorage.getItem(masterGroceryPlanExclusionsKey)||'[]');if(Array.isArray(stored))masterGroceryExcludedPlanIds=new Set(stored.map(String))}catch(e){}
@@ -499,7 +499,7 @@ function loadMealPlan(planId,renderView=true){
  weekdayCategories=JSON.parse(JSON.stringify(plan.weekdayCategories||{}));
  weekdayMealOverrides={...(plan.weekdayMealOverrides||{})};weekdayRecipeFilters=JSON.parse(JSON.stringify(plan.weekdayRecipeFilters||{}));try{localStorage.setItem(weekdayRecipeFiltersKey,JSON.stringify(weekdayRecipeFilters))}catch(e){}
  autoPinTopCategories=true;pinnedCats=[...(plan.pinnedCats||[])];
- groceryTabActive=false;allMealsActive=false;saveActiveMealPlan();
+ groceryTabActive=false,aiTabActive=false;allMealsActive=false;saveActiveMealPlan();
  try{localStorage.setItem('mealRotationWeekdayCategoriesV1',JSON.stringify(weekdayCategories));localStorage.setItem('mealRotationWeekdayMealOverridesV1',JSON.stringify(weekdayMealOverrides))}catch(e){}
  topIngredientExpanded.clear();topIngredientManualHiddenOverride.clear();
  showTop=true;editId=null;menuCat=null;if(renderView)render();
@@ -887,7 +887,7 @@ function showSharedRecipeGroups(meal){
  shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.append(panel);document.body.append(shade);close.focus();
 }
 function openMasterCategories(focusCategory){
- setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;
+ setMasterCategoriesView(true);showTop=false;groceryTabActive=false,aiTabActive=false;allMealsActive=false;
  if(focusCategory)initializeMasterCategoryExpansion(focusCategory);
  else initializeMasterCategoryExpansion();
  editId=null;menuCat=null;render();
@@ -917,7 +917,7 @@ const lastViewKey='mealRotationLastViewV1';
 function appLocalDay(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function savedLastView(){try{const v=JSON.parse(localStorage.getItem(lastViewKey)||'null');return v&&typeof v.view==='string'&&typeof v.day==='string'?v:null}catch(e){return null}}
 function applyStartView(view){
-  showTop=view!=='category';allMealsActive=view==='all';groceryTabActive=view==='grocery';
+  showTop=view!=='category';allMealsActive=view==='all';groceryTabActive=view==='grocery',aiTabActive=false;
 }
 // Start on My Meal Plan when there are no recipes, including after a test reset.
 if(meals.length){
@@ -1143,7 +1143,7 @@ function showTutorialHint(){
  if(tutorialStage==='2'){left=Math.max(8,Math.min(window.innerWidth-w-8,r.left-w-10));top=Math.max(8,Math.min(window.innerHeight-h-8,r.top-18))}
  hint.style.left=left+'px';hint.style.top=top+'px';
 }
-function startMealTutorial(){setTutorialStage('1');showTop=true;groceryTabActive=false;allMealsActive=false;render();window.scrollTo(0,0)}
+function startMealTutorial(){setTutorialStage('1');showTop=true;groceryTabActive=false,aiTabActive=false;allMealsActive=false;render();window.scrollTo(0,0)}
 function openHelpModal(){
  const top=showTop;
  const overlay=document.createElement('div');overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10020;display:flex;align-items:center;justify-content:center;padding:16px';
@@ -1229,7 +1229,7 @@ function mealMatchesSearch(m,query){
 // scroll it to the middle of the screen and flash it. Shared copies go to the first one in a Weekly group.
 function locateRecipeInGroups(meal){
  const copies=meal.linkGroup?meals.filter(m=>m.linkGroup===meal.linkGroup):[meal],target=copies.find(m=>m.cat&&groupUsesRotation(m.cat))||copies[0]||meal,cat=target.cat&&cats.includes(target.cat)?target.cat:'';
- setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;editId=null;menuCat=null;expandedGroupRecipe=null;masterExpansionInitialized=true;
+ setMasterCategoriesView(true);showTop=false;groceryTabActive=false,aiTabActive=false;allMealsActive=false;editId=null;menuCat=null;expandedGroupRecipe=null;masterExpansionInitialized=true;
  if(cat){const assigned=new Set([weekdayCategories,...mealPlans.map(p=>p.weekdayCategories)].flatMap(map=>Object.values(map||{}).flatMap(v=>Array.isArray(v)?v:[v])));setGroupPageSectionOpen(groupUsesRotation(cat)||assigned.has(cat)?'weekly':'other',true);masterExpandedCategories.add(cat);if(groupUsesRotation(cat))setMasterRecipeSectionOpen(cat,recipeStatus(target)==='rotation'?'rotation':'up-next',true)}
  else{setGroupPageSectionOpen('unassigned',true);masterExpandedCategories.add('')}
  render();
@@ -1286,7 +1286,7 @@ function openMealSearch(saved=null){
   results.style.cssText='overflow-y:auto;min-height:100px;flex:1;overscroll-behavior:contain';
   const selectedRecipes=new Set(recipeBulkMode?[...recipeBulkIds]:[]);let selectedSourceGroup=recipeBulkMode?recipeBulkSourceGroup:null,selectedSubgroup=recipeBulkMode?recipeBulkSubgroup:null;const bulk=document.createElement('button');bulk.type='button';bulk.className='smallbtn';bulk.hidden=true;bulk.setAttribute('aria-label','Bulk actions for selected recipes');
   const updateSelection=()=>{bulk.hidden=!selectedRecipes.size;bulk.textContent='Bulk actions ('+selectedRecipes.size+')'};updateSelection();
-  bulk.onclick=async()=>{if(!selectedRecipes.size)return;closeSearch();await groupHistorySettled;setMasterCategoriesView(true);showTop=false;groceryTabActive=false;allMealsActive=false;recipeBulkMode=true;recipeBulkIds=new Set(selectedRecipes);recipeBulkSubgroup=selectedSubgroup;beginGroupSelectionHistory();recipeBulkSourceGroup=selectedSourceGroup;recipeBulkFilter={query:input.value,groups:[...selectedGroups]};render()};
+  bulk.onclick=async()=>{if(!selectedRecipes.size)return;closeSearch();await groupHistorySettled;setMasterCategoriesView(true);showTop=false;groceryTabActive=false,aiTabActive=false;allMealsActive=false;recipeBulkMode=true;recipeBulkIds=new Set(selectedRecipes);recipeBulkSubgroup=selectedSubgroup;beginGroupSelectionHistory();recipeBulkSourceGroup=selectedSourceGroup;recipeBulkFilter={query:input.value,groups:[...selectedGroups]};render()};
   function fitSearch(){
     const vv=window.visualViewport;
     if(!vv)return;

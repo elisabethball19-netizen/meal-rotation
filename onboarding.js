@@ -89,7 +89,7 @@ function quickStartSampleWeek(){
   cats=backup.cats;active=backup.active;meals=backup.meals;id=meals.length+1;
   mealPlans=backup.mealPlans.plans;weekdayCategories=backup.weekdayCategories;
   weekdayMealOverrides={};weekdayRecipeFilters={};
-  showTop=true;allMealsActive=false;groceryTabActive=false;editId=null;menuCat=null;
+  showTop=true;allMealsActive=false;groceryTabActive=false,aiTabActive=false;editId=null;menuCat=null;
   render();
   const heading=document.querySelector('#list .view-page-title');if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true})}
   return true;

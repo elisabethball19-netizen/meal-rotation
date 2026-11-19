@@ -222,20 +222,21 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
   button.setAttribute('aria-pressed',String(allMealsActive));
   // A calendar-grid icon visually distinct from the shopping cart.
   button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h3M14 14h3M8 18h3M14 18h3"/></svg>';
-  button.onclick=()=>navigateAfterSettings(()=>{if(!showTop){showTop=true;setMasterCategoriesView(false)}allMealsActive=!allMealsActive;if(allMealsActive)groceryTabActive=false;editId=null;renderList()});
+  button.onclick=()=>navigateAfterSettings(()=>{if(!showTop){showTop=true;setMasterCategoriesView(false)}allMealsActive=!allMealsActive;if(allMealsActive)groceryTabActive=false,aiTabActive=false;editId=null;renderList()});
   document.body.append(button);
  }
  function addFloatingViewButtons(){
   // Show all four destinations, highlighting the active view.
-  const current=!showTop?'groups':groceryTabActive?'grocery':allMealsActive?'all':'top';
+  const current=!showTop?'groups':groceryTabActive?'grocery':allMealsActive?'all':aiTabActive?'ai':'top';
   const destinations=[
-   ['top','Meals','<path d="M3 10.2 12 3l9 7.2V21h-6.5v-7h-5v7H3z"/>',()=>{showTop=true;groceryTabActive=false;allMealsActive=false;render()}],
+   ['top','Meals','<path d="M3 10.2 12 3l9 7.2V21h-6.5v-7h-5v7H3z"/>',()=>{showTop=true;groceryTabActive=false,aiTabActive=false;allMealsActive=false;render()}],
    ['groups','Meal Groups','<path d="M4 6h16M4 12h16M4 18h16"/>',()=>openMasterCategories()],
-   ['all','Week',weekCalendarArtwork,()=>{showTop=true;groceryTabActive=false;allMealsActive=true;render()}],
-   ['grocery','Groceries','<circle cx="9" cy="20" r="1"/><circle cx="19" cy="20" r="1"/><path d="M2 3h2l2.5 12h12L22 7H5"/>',()=>{showTop=true;allMealsActive=false;groceryTabActive=true;render()}]
+   ['all','Week',weekCalendarArtwork,()=>{showTop=true;groceryTabActive=false,aiTabActive=false;allMealsActive=true;render()}],
+   ['grocery','Groceries','<circle cx="9" cy="20" r="1"/><circle cx="19" cy="20" r="1"/><path d="M2 3h2l2.5 12h12L22 7H5"/>',()=>{showTop=true;allMealsActive=false;groceryTabActive=true,aiTabActive=false;render()}],
+   ['ai','Ask AI',appIconSvg.sparkle,()=>{showTop=true;allMealsActive=false;groceryTabActive=false;aiTabActive=true;editId=null;render()}]
   ];
   document.getElementById('mealBottomNav')?.remove();const nav=document.createElement('nav');nav.id='mealBottomNav';nav.setAttribute('aria-label','Main navigation');document.body.append(nav);
-  const order=['top','all','groups','grocery'];const visibleDestinations=destinations.filter(d=>d[0]!=='all'||showMealPlanTabs).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
+  const order=['top','all','groups','grocery','ai'];const visibleDestinations=destinations.filter(d=>d[0]!=='all'||showMealPlanTabs).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
   visibleDestinations.forEach(([key,title,art,action])=>{
    const b=document.createElement('button');b.type='button';b.className='smallbtn unified-nav-fab';
    b.title=title;b.setAttribute('aria-label',title);b.dataset.destination=key;
@@ -343,7 +344,7 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
  }
  function toggleMasterGroceryTab(){
   if(!showTop){showTop=true;setMasterCategoriesView(false);}
-  groceryTabActive=!groceryTabActive;groceryTabOpen=groceryTabActive;if(groceryTabActive)allMealsActive=false;
+  groceryTabActive=!groceryTabActive,aiTabActive=false;groceryTabOpen=groceryTabActive;if(groceryTabActive)allMealsActive=false;
   editId=null;renderList();
  }
 function updateMealNavigationKeyboard(){

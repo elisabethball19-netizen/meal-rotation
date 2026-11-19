@@ -1,9 +1,6 @@
-"""Ask AI (copy-and-paste) + Family tastes (2026-11-19).
-
-- Settings > Family tastes saves likes/restrictions (kept on reload; Cancel reverts).
-- Meals page Ask AI: request includes tastes, restrictions, favorites with main ingredients, Regulars, reply format.
-- Open in Claude opens claude.ai/new?q=<request>.
-- Pasted answer opens the normal import review (Off menu) with prep/cook times and restriction flags.
+"""Ask AI page (2026-11-19): bottom-bar tab, five jobs, Family tastes + Claude link on the page,
+recipe-page Ask AI, waiting-answer card, single/multi paste, Update original vs Save as new, restriction flags,
+step tags -> links. Replaces the earlier pop-up test.
 
 Run: python3 tests/ask_ai_browser.py   (screenshots in /tmp/askai)
 """
@@ -17,18 +14,20 @@ OUT = Path('/tmp/askai')
 OUT.mkdir(parents=True, exist_ok=True)
 
 sb.fixture.HOOK += '''window.ai={
- save:()=>finishSettings('save'),cancel:()=>finishSettings('cancel'),tastes:()=>({...familyTastes}),
+ tastes:()=>({...familyTastes}),
  fav:()=>{const m=meals.find(m=>m.id===2);m.favorite=true;m.ingredients=['1 1/2 lb flank steak','2 tbsp fish sauce (or to taste)','1 lime, juiced'];persist();return m.name},
- request:(mode,text)=>buildAskAiRequest(mode,text),
- stubOpen:()=>{window.__opened=[];window.open=(u)=>{window.__opened.push(u);return null}},opened:()=>window.__opened,
- item:a=>{const i=askAiItemFromAnswer(a);return {ing:i.ingredients,prep:i.prep,cook:i.cook,steps:(i.instructions||[]).filter(s=>s.type==='step').length}},
- links:()=>{const m=meals.find(x=>x.id===editId),items=recipeAssociationItems(m),name=t=>items.ingredients.find(i=>i.token===t)?.text;return validRecipeIngredientLinks(m).map(l=>l.ingredients.map(name))},
- savedLinks:name=>{const m=meals.find(x=>x.name===name),items=recipeAssociationItems(m),n=t=>items.ingredients.find(i=>i.token===t)?.text;return [validRecipeIngredientLinks(m).map(l=>l.ingredients.map(n)),m.rotation===true]},
+ request:(job,data)=>buildAiJobRequest(job,data),
+ stubOpen:()=>{window.__opened=[];window.open=(u)=>{window.__opened.push(u);return null};window.__copied=null;copyAskAiText=async t=>{window.__copied=t;return true}},
+ opened:()=>window.__opened,copied:()=>window.__copied,
  editorOpen:()=>editId!==null,
- conflicts:(lines,r)=>restrictionConflicts(lines,familyRestrictionRules(r)).map(f=>f.line)
+ meal:name=>{const m=meals.find(x=>x.name===name&&!x._scheduledEditorDraft);return m&&{id:m.id,cat:m.cat,rotation:m.rotation,ingredients:m.ingredients,links:(m.ingredientStepLinks||[]).length}},
+ count:()=>meals.filter(m=>!m._scheduledEditorDraft).length,
+ pending:()=>aiPending(),
+ viewer:name=>openSavedMealRecipe(meals.find(m=>m.name===name),null,null),
+ closeViewer:()=>closeRecipeViewer()
 };'''
 
-ANSWER = """Here you go!
+ONE = """Here you go!
 
 **Title:** Garlic Chicken Stir-Fry
 Prep time: 15 minutes
@@ -39,94 +38,173 @@ Ingredients
 - 2 tbsp soy sauce [1]
 - 1 tbsp butter [steps 1, 2]
 - 1 cup coconut milk [2]
-- 1 tbsp peanut butter
 Instructions
 1. Slice the chicken and toss with the sauce.
 2. Stir-fry until cooked through, then add the coconut milk.
-Notes
-Serve with rice."""
+"""
+TWO = """Title: Lemongrass Pork Bowls
+Prep time: 20 minutes
+Cook time: 15 minutes
+Ingredients
+1 lb ground pork [1]
+2 stalks lemongrass [1]
+Instructions
+1. Brown the pork with lemongrass.
+
+Title: Thai Basil Chicken
+Prep time: 10 minutes
+Cook time: 10 minutes
+Ingredients
+1 lb ground chicken [1]
+1 cup basil [2]
+2 tbsp butter [1]
+Instructions
+1. Cook the chicken.
+2. Stir in basil.
+"""
+
+
+def shot(p, tag, name):
+    p.screenshot(path=str(OUT / ('%s-%s.png' % (tag, name))))
+
+
+def go_ai(p):
+    p.locator('#mealBottomNav button[data-destination=ai]').click()
+    p.wait_for_timeout(250)
+
+
+def close_dialog(p):
+    p.locator('.recipe-bulk-dialog button[aria-label^="Close"]').last.click()
+    p.wait_for_timeout(200)
+
+
+def page_paste(p, text):
+    if not p.locator('.ai-paste-card textarea').count():
+        p.get_by_role('button', name='Paste an answer').click()
+    p.locator('.ai-paste-card textarea').fill(text)
+    btn = p.locator('.ai-paste-card').get_by_role('button', name='Review recipe')
+    btn.evaluate('b=>b.scrollIntoView({block:"center"})')
+    btn.click()
+    p.wait_for_timeout(600)
 
 
 def run(browser, name):
     tag = name.split('.')[0]
     c, p, errors, _ = sb.open_page(browser, name)
-    # Family tastes in Settings, Cancel reverts, Save keeps (and survives reload).
-    p.locator('#settings').click()
-    p.evaluate('document.querySelector("details[data-settings-group=tastes]").open=true')
-    p.get_by_label('What we like', exact=True).fill('Asian flavors, very savory, not too sweet')
-    p.get_by_label('Restrictions', exact=True).fill('no dairy, no soy')
-    p.screenshot(path=str(OUT / (tag + '-settings.png')))
-    p.evaluate('ai.cancel()')
-    assert p.evaluate('ai.tastes()') == {'likes': '', 'restrictions': ''}, p.evaluate('ai.tastes()')
-    p.locator('#settings').click()
-    p.evaluate('document.querySelector("details[data-settings-group=tastes]").open=true')
-    p.get_by_label('What we like', exact=True).fill('Asian flavors, very savory, not too sweet')
-    p.get_by_label('Restrictions', exact=True).fill('no dairy, no soy')
-    p.evaluate('ai.save()')
-    p.reload()
-    p.wait_for_timeout(500)
-    assert p.evaluate('ai.tastes()')['restrictions'] == 'no dairy, no soy'
-    fav = p.evaluate('ai.fav()')
-
-    # Request contents.
-    req = p.evaluate('([m,t])=>ai.request(m,t)', ['fridge', 'chicken thighs, bok choy'])
-    for part in ['What I have: chicken thighs, bok choy', 'Our tastes: Asian flavors', 'Our usual restrictions: no dairy, no soy', 'first ask me whether to keep it', 'no dairy, no soy',
-                 fav + ' (flank steak, fish sauce, lime)', 'Other meals we already cook', 'Suggest 3 different meals', 'Title: Recipe name', 'Prep time:']:
-        assert part in req, (part, req)
-    assert 'Write a recipe for my family: crispy pork' in p.evaluate('([m,t])=>ai.request(m,t)', ['write', 'crispy pork'])
-
-    # Restriction matching rules.
-    hits = p.evaluate('([l,r])=>ai.conflicts(l,r)', [['2 tbsp soy sauce', '1 cup coconut milk', '1 tbsp butter', '1 tbsp peanut butter', '1 eggplant', '2 tbsp hoisin sauce'], 'no dairy, no soy'])
-    assert hits == ['2 tbsp soy sauce', '1 tbsp butter', '2 tbsp hoisin sauce'], hits
-
-    # Ask AI dialog from the Meals page.
     p.evaluate('ai.stubOpen()')
-    p.get_by_role('button', name='Ask AI').click()
+    fav = p.evaluate('ai.fav()')
+    assert not p.locator('.ask-ai-open').count(), 'Meals page keeps only the calendar'
+    go_ai(p)
+    assert p.locator('.ask-ai-page h2').text_content() == 'Ask AI'
+    jobs = p.locator('.ai-job').all_text_contents()
+    assert jobs == ['What’s in my fridge', 'Write a recipe', 'Convert a recipe', 'Would my family like it?', 'Out of an ingredient'], jobs
+    assert p.locator('#mealBottomNav button[data-destination=ai]').get_attribute('aria-current') == 'page'
+    shot(p, tag, 'page')
+
+    # Family tastes on the page (collapsed by default); kept on reload.
+    p.locator('.ai-tastes-toggle').click()
+    p.get_by_label('What we like', exact=True).fill('Asian flavors, very savory, not too sweet')
+    p.get_by_label('Restrictions', exact=True).fill('no dairy, no soy')
+    shot(p, tag, 'tastes')
+    p.reload(); p.wait_for_timeout(500); p.evaluate('ai.stubOpen()')
+    assert p.evaluate('ai.tastes()')['restrictions'] == 'no dairy, no soy'
+    go_ai(p)
+
+    # Fridge job: validation, prefilled new chat, waiting card.
+    p.locator('.ai-job[data-ai-job=fridge]').click()
     dialog = p.locator('.ask-ai-dialog')
-    assert dialog.get_by_role('tab', name='What’s in my fridge').get_attribute('aria-selected') == 'true'
     dialog.get_by_role('button', name='Open in Claude').click()
     assert 'List what you have first.' in dialog.locator('.recipe-bulk-error').text_content()
-    dialog.locator('.ask-ai-input').fill('chicken thighs, bok choy, rice')
+    dialog.locator('textarea').fill('chicken thighs, bok choy')
+    shot(p, tag, 'fridge')
     dialog.get_by_role('button', name='Open in Claude').click()
-    p.wait_for_timeout(200)
+    p.wait_for_timeout(250)
     opened = p.evaluate('ai.opened()')
-    assert len(opened) == 1 and opened[0].startswith('https://claude.ai/new?q=') and 'bok%20choy' in opened[0], opened
-    dialog.get_by_role('tab', name='Write a recipe').click()
-    p.screenshot(path=str(OUT / (tag + '-dialog.png')))
-    dialog.get_by_label('Paste the answer').fill('just chatting, no recipe')
-    dialog.get_by_role('button', name='Review recipe').click()
-    assert 'No ingredients were found' in dialog.locator('.recipe-bulk-error').text_content()
-    dialog.get_by_label('Paste the answer').fill(ANSWER)
-    dialog.get_by_role('button', name='Review recipe').click()
-    p.wait_for_timeout(600)
-    assert p.evaluate('ai.editorOpen()'), 'import review should open'
+    assert opened and opened[-1].startswith('https://claude.ai/new?q=') and 'bok%20choy' in opened[-1], opened
+    req = p.evaluate('([j,d])=>ai.request(j,d)', ['fridge', {'input': 'x'}])
+    for part in ['Our tastes: Asian flavors', 'no dairy, no soy', fav + ' (flank steak, fish sauce, lime)', 'Other meals we already cook', 'or "all"', '[3, 5]']:
+        assert part in req, (part, req)
+    close_dialog(p)
+    assert p.evaluate('ai.pending()')['job'] == 'fridge'
+    assert 'What’s in my fridge' in p.locator('.ai-paste-card').text_content()
+    shot(p, tag, 'waiting')
+
+    # Claude project link: copy + open that link instead of a new chat.
+    p.locator('.ai-tastes-toggle').click()
+    p.get_by_label('Claude project link', exact=True).fill('https://claude.ai/project/abc')
+    p.locator('.ai-job[data-ai-job=write]').click()
+    p.locator('.ask-ai-dialog textarea').fill('crispy pork')
+    p.locator('.ask-ai-dialog').get_by_role('button', name='Open in Claude').click(); p.wait_for_timeout(250)
+    assert p.evaluate('ai.opened()')[-1] == 'https://claude.ai/project/abc'
+    assert 'Write a recipe for my family: crispy pork' in p.evaluate('ai.copied()')
+    assert 'Paste it into Claude' in p.locator('.ask-ai-dialog .ask-ai-status').text_content()
+    close_dialog(p)
+
+    # Single answer -> review editor with restriction box; saving keeps step links, Off menu.
+    page_paste(p, ONE)
+    assert p.evaluate('ai.editorOpen()')
     flags = p.locator('.import-restriction-flags li').all_text_contents()
     assert flags == ['2 tbsp soy sauce (soy)', '1 tbsp butter (dairy)'], flags
-    item = p.evaluate('a=>ai.item(a)', ANSWER)
-    assert item['ing'] == ['1 lb chicken thighs', '2 tbsp soy sauce', '1 tbsp butter', '1 cup coconut milk', '1 tbsp peanut butter'], item
-    links = p.evaluate('ai.links()')
-    assert links == [['1 lb chicken thighs', '2 tbsp soy sauce', '1 tbsp butter'], ['1 tbsp butter', '1 cup coconut milk']], links
-    assert 'Title: Recipe name' in req and '[3, 5]' in req
-    assert item['prep'] == 15 and item['cook'] == 70 and item['steps'] >= 1, item
-    p.screenshot(path=str(OUT / (tag + '-review.png')))
-    p.locator('.import-restriction-flags').scroll_into_view_if_needed()
-    p.screenshot(path=str(OUT / (tag + '-flags.png')))
-    rec = p.evaluate('()=>{const n=document.querySelector("#editor input[aria-label*=name i], #editor input[type=text]");return n&&n.value}')
-    assert rec == 'Garlic Chicken Stir-Fry', rec
-    p.locator('#save').click()
-    p.wait_for_timeout(500)
-    saved = p.evaluate('n=>ai.savedLinks(n)', 'Garlic Chicken Stir-Fry')
-    assert saved == [links, False], saved
-    # Pasting the same answer again still opens the single-recipe review (not the bulk importer).
-    p.evaluate('follow126.home()')
-    p.get_by_role('button', name='Ask AI').click()
-    p.locator('.ask-ai-dialog').get_by_label('Paste the answer').fill(ANSWER)
-    p.locator('.ask-ai-dialog').get_by_role('button', name='Review recipe').click()
-    p.wait_for_timeout(600)
-    assert p.evaluate('ai.editorOpen()'), 'repeat paste should open the review editor'
+    p.locator('#save').click(); p.wait_for_timeout(500)
+    saved = p.evaluate('n=>ai.meal(n)', 'Garlic Chicken Stir-Fry')
+    assert saved and saved['rotation'] is False and saved['links'] == 2 and saved['ingredients'][0] == '1 lb chicken thighs', saved
+    assert p.evaluate('ai.pending()') is None
+
+    # Several recipes in one paste -> checklist -> Off menu.
+    go_ai(p)
+    before = p.evaluate('ai.count()')
+    page_paste(p, TWO)
+    multi = p.locator('.ai-multi-review')
+    assert multi.locator('.ai-multi-row').count() == 2
+    assert 'butter' in multi.locator('.ai-multi-row').nth(1).text_content()
+    shot(p, tag, 'multi')
+    multi.get_by_role('button', name='Add 2 recipes to Off menu').click(); p.wait_for_timeout(400)
+    assert p.evaluate('ai.count()') == before + 2
+    assert p.evaluate('n=>ai.meal(n)', 'Thai Basil Chicken')['links'] == 2
+
+    # Recipe page -> Ask AI -> Convert -> Update original (one Undo restores it).
+    target = 'Garlic Chicken Stir-Fry'
+    p.evaluate('n=>ai.viewer(n)', target); p.wait_for_timeout(400)
+    p.get_by_role('button', name='Ask AI about this recipe').click(); p.wait_for_timeout(200)
+    shot(p, tag, 'recipe-menu')
+    p.locator('.ai-recipe-menu').get_by_role('button', name='Convert this recipe').click(); p.wait_for_timeout(500)
+    conv = p.locator('.ask-ai-dialog')
+    assert target in conv.text_content()
+    shot(p, tag, 'convert')
+    conv.get_by_role('button', name='Copy request').click(); p.wait_for_timeout(200)
+    assert 'Convert this recipe' in p.evaluate('ai.copied()') and '2 tbsp soy sauce' in p.evaluate('ai.copied()')
+    pend = p.evaluate('ai.pending()')
+    assert pend['job'] == 'convert' and pend['recipeName'] == target, pend
+    close_dialog(p)
+    p.evaluate('ai.closeViewer()'); p.wait_for_timeout(300)
+    go_ai(p)
+    count = p.evaluate('ai.count()')
+    page_paste(p, ONE.replace('2 tbsp soy sauce [1]', '2 tbsp coconut aminos [1]').replace('1 tbsp butter [steps 1, 2]', '1 tbsp olive oil [1]'))
+    choice = p.locator('.ai-save-mode')
+    assert choice.get_by_role('button', name='Update ' + target).count() == 1
+    shot(p, tag, 'save-mode')
+    choice.get_by_role('button', name='Update ' + target).click(); p.wait_for_timeout(600)
+    assert 'Saving updates ' + target in p.locator('.ai-replace-note').text_content()
+    shot(p, tag, 'update-review')
+    p.locator('#save').click(); p.wait_for_timeout(500)
+    upd = p.evaluate('n=>ai.meal(n)', target)
+    assert '2 tbsp coconut aminos' in upd['ingredients'] and upd['id'] == saved['id'], upd
+    assert p.evaluate('ai.count()') == count, 'update must not add a recipe'
+
+    # Out of an ingredient: pick a recipe, tap an ingredient chip; nothing to paste back.
+    go_ai(p)
+    p.locator('.ai-job[data-ai-job=out]').click()
+    out = p.locator('.ask-ai-dialog')
+    out.get_by_label('Search your recipes').fill('Garlic Chicken')
+    out.locator('.ai-recipe-result').first.click()
+    out.locator('.ai-ingredient-chip').first.click()
+    shot(p, tag, 'out')
+    out.get_by_role('button', name='Copy request').click(); p.wait_for_timeout(200)
+    assert "I'm out of 1 lb chicken thighs" in p.evaluate('ai.copied()')
+    assert p.evaluate('ai.pending()') is None
     assert not errors, errors
     c.close()
-    print('PASS', name, 'Ask AI: family tastes, request, Open in Claude, paste -> review with restriction flags', flush=True)
+    print('PASS', name, 'Ask AI page: tab, jobs, tastes+link, waiting card, single/multi paste, update original, recipe-page menu, out of ingredient', flush=True)
 
 
 if __name__ == '__main__':
