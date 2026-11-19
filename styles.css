@@ -2221,3 +2221,7 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .overview-nothing{color:#8a939e;font-size:calc(14px * var(--meal-text-factor, 1));padding:2px 0}
 .meal-plan-title.has-plan-ahead{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .meal-plan-title>.plan-ahead-open{flex:none;margin:-8px -6px -8px 0}
+/* Turning meal tabs off: pick which meal stays. */
+.keep-meal-choices{display:flex;flex-direction:column;gap:2px;margin:4px 0 8px}
+.keep-meal-choice{display:flex;align-items:center;gap:12px;min-height:44px;font-size:calc(16px * var(--meal-text-factor, 1))}
+.keep-meal-choice input{width:20px;height:20px;margin:0}

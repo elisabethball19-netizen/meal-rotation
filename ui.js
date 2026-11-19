@@ -563,7 +563,7 @@ restoreBtn.onclick=()=>{
 let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=async()=>{await finishSettings('ask');render()};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipes from a link, photo, text or file';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=displayGroup;
  const planOption=document.createElement('label');planOption.className='settings-display-option settings-display-option-with-help';
  const planCheck=document.createElement('input');planCheck.type='checkbox';planCheck.setAttribute('role','switch');planCheck.className='preference-switch';planCheck.checked=showMealPlanTabs;
- planCheck.onchange=()=>{showMealPlanTabs=planCheck.checked;localStorage.setItem('mealRotationShowPlanTabsV1',String(showMealPlanTabs));renderList()};
+ planCheck.onchange=()=>{const apply=on=>{showMealPlanTabs=on;planCheck.checked=on;localStorage.setItem('mealRotationShowPlanTabsV1',String(on));renderList()};if(planCheck.checked||mealPlans.length<2){apply(planCheck.checked);return}planCheck.checked=true;chooseMealToKeep(id=>{if(id!==activePlanId)loadMealPlan(id,false);allMealsActive=false;groceryTabActive=false;apply(false)})};
  const planCopy=document.createElement('span');planCopy.className='settings-display-option-copy';
  const planLabel=document.createElement('span');planLabel.id='mealPlanTabsLabel';planLabel.textContent='Use multiple meal tabs';
  const planHint=document.createElement('small');planHint.id='mealPlanTabsHint';planHint.className='settings-display-option-help';planHint.textContent='Plan breakfast, lunch, dinner, or your own meals separately.';
@@ -2195,6 +2195,12 @@ function openRecipeBulkGroups(){
 function organizeDragHandle(label,move){
  const button=document.createElement('button');button.type='button';button.className='organize-drag-handle';button.setAttribute('aria-label',label);button.title=label+'; Alt+Up/Down to reorder';button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h.01M16 5h.01M8 12h.01M16 12h.01M8 19h.01M16 19h.01"/></svg>';
  button.onclick=e=>{e.preventDefault();e.stopPropagation()};button.onkeydown=e=>{if(e.altKey&&['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();e.stopPropagation();move(e.key==='ArrowUp'?-1:1)}};return button;
+}
+// Turning meal tabs off: the person picks which meal stays on the Meals page (current one first). Cancel keeps tabs on.
+function chooseMealToKeep(done){
+ const d=recipeBulkDialog('Which meal should stay?');d.panel.classList.add('keep-meal-dialog');let chosen=activePlanId;const list=document.createElement('div');list.className='keep-meal-choices';list.setAttribute('role','radiogroup');list.setAttribute('aria-label','Meal to keep');
+ for(const plan of [...mealPlans.filter(p=>p.id===activePlanId),...mealPlans.filter(p=>p.id!==activePlanId)]){const label=document.createElement('label');label.className='keep-meal-choice';const radio=document.createElement('input');radio.type='radio';radio.name='keep-meal';radio.value=plan.id;radio.checked=plan.id===chosen;radio.onchange=()=>{chosen=plan.id};label.append(radio,document.createTextNode(plan.name));list.append(label)}
+ const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Keep this meal');setIconButton(cancel,'cancel','Cancel');save.onclick=()=>{d.close();done(chosen)};cancel.onclick=()=>d.close();actions.append(save,cancel);d.panel.append(list,actions);
 }
 function recipeBulkDialog(title,returnFocus=null,historyScope=false){
  const overlay=document.createElement('div');overlay.className='recipe-timer-dialog recipe-bulk-dialog';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label',title);overlay.dataset.recipeEditDraft='';const panel=document.createElement('div'),heading=document.createElement('strong');heading.textContent=title;panel.append(heading);
