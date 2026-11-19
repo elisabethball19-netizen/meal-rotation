@@ -2336,7 +2336,7 @@ function applyRecipeScheduleSelection(change,transaction){
    if(change.sourceKey&&!source)throw Error('The original meal changed. Reopen the picker.');
    const selected=meals.find(meal=>String(meal.id)===change.mealId);if(!selected)throw Error('This recipe no longer exists.');
    applyManualWeekdayMeal(change.day,change.category,selected,source?.occasional?null:source,change.occasional,{quiet:true,transactional:true,independentOccasional:change.occasional,destinationKey:change.destinationKey,...(change.automatic?{automatic:true,schedulingOnly:true}:{})});
-   if(source?.occasional){const entries=getDisplayedWeekdayMealsForPlan(plan),excluded=new Set([change.mealId,...Object.values(plan.cycleSlotChoices||{}).flatMap(choice=>choice.deferredMealIds||[]).map(String)]),possible=automaticSlotCandidates(plan,source.day,source.cat,meals,entries).filter(meal=>!excluded.has(String(meal.id))),used=new Set(entries.map(entry=>String(entry.meal.id))),next=possible.find(meal=>!used.has(String(meal.id)))||possible[0];if(!next)throw Error('No different eligible meal is available for '+source.day+'. No meals were changed.');applyManualWeekdayMeal(source.day,source.cat,next,null,true,{quiet:true,transactional:true,independentOccasional:true,destinationKey:change.sourceKey})}
+   if(source?.occasional){const entries=getDisplayedWeekdayMealsForPlan(plan),excluded=new Set([change.mealId,...activeSlotChoices(plan).flatMap(choice=>choice.deferredMealIds||[]).map(String)]),possible=automaticSlotCandidates(plan,source.day,source.cat,meals,entries).filter(meal=>!excluded.has(String(meal.id))),used=new Set(entries.map(entry=>String(entry.meal.id))),next=possible.find(meal=>!used.has(String(meal.id)))||possible[0];if(!next)throw Error('No different eligible meal is available for '+source.day+'. No meals were changed.');applyManualWeekdayMeal(source.day,source.cat,next,null,true,{quiet:true,transactional:true,independentOccasional:true,destinationKey:change.sourceKey})}
    const shown=getDisplayedWeekdayMealsForPlan(plan),destination=shown.find(entry=>entry.day===change.day&&(change.occasional?entry.occasional:entry.cat===change.category)&&String(entry.meal.id)===change.mealId);
    if(!destination)throw Error('The destination could not be filled. No meals were changed.');
    if(source){const replacement=shown.find(entry=>entry.day===source.day&&entry.cat===source.cat&&!entry.linkedTo&&!!entry.occasional===!!source.occasional);if(!replacement||String(replacement.meal.id)===change.mealId)throw Error('No different eligible meal is available for '+source.day+'. No meals were changed.');transaction.allowedDays.push({planId:plan.id,day:source.day})}
@@ -3144,6 +3144,8 @@ function restoreSkippedCookingState(saved){
 }
 
 // A local schedule substitution: no queue movement, cooking event or week advance.
+// Only slots whose group is still assigned to that day count; a day whose group was removed keeps no hold on recipes.
+function activeSlotChoices(plan){return Object.entries(plan?.cycleSlotChoices||{}).filter(([key])=>{const i=key.indexOf('::');if(i<0)return true;const day=key.slice(0,i),cat=key.slice(i+2),raw=plan.weekdayCategories?.[day],groups=Array.isArray(raw)?raw:[raw];return groups.includes(cat)}).map(([,choice])=>choice)}
 async function skipScheduledMeal(day,category,meal){
  if(groceryCheckStorageInvalid){await showAppMessage('Saved grocery selections could not be read. No meal was changed.');return false}
  saveActiveMealPlan();const plan=mealPlans.find(p=>p.id===activePlanId),schedules=new Map(mealPlans.map(p=>[p.id,getDisplayedWeekdayMealsForPlan(p)])),prior=schedules.get(plan.id)||[];
@@ -3151,7 +3153,7 @@ async function skipScheduledMeal(day,category,meal){
  if(!current||!rotationGroupScheduled(plan,day,category)||current.occasional){await showAppMessage('This meal has no independent assigned group. Change the one-time meal or skip its parent meal instead.');return false}
  const key=weekdaySlotKey(day,category),excluded=new Set([String(meal.id)]);
  // A replacement must not consume another meal displaced earlier this week.
- for(const choice of Object.values(plan.cycleSlotChoices||{}))for(const id of choice.deferredMealIds||[])excluded.add(String(id));
+ for(const choice of activeSlotChoices(plan))for(const id of choice.deferredMealIds||[])excluded.add(String(id));
  const possible=automaticSlotCandidates(plan,day,category,meals,prior).filter(m=>!excluded.has(String(m.id)));
  if(!possible.length){await showAppMessage('No alternative eligible recipe is available. This meal has been kept.');return false}
  const grocery=captureGroceryCheckStates(),used=new Set([...schedules.values()].flat().filter(item=>item!==current).map(item=>String(item.meal.id)));
@@ -3202,6 +3204,7 @@ function openTopMealActionMenu(day,category,meal,fromLinkedGroup=false,cookingOv
   const dialog=compactMealDialog(meal.name,'One-time meal options');dialog.box.classList.add('meal-options-compact');const row=(label,action)=>compactMealButton(dialog,label,action).classList.add('meal-option-row');
   row('Change meal',select);row('Edit recipe',()=>openOneTimeMealEditor(day,category,meal));row('Edit groceries',()=>openTopIngredientChooser(meal));
   if(underlyingSlotMeal(plan,day,category))compactMealButton(dialog,'Resume planned meal',()=>resumeWeekSlot(day,category));
+  {const planned=plannedMealOnDay(plan,day,meal);if(planned)compactMealButton(dialog,'Back to original',()=>backToOriginalMeal(plan.id,planned))}
   for(const item of hiddenLinkedSides(plan,day,category,meal))compactMealButton(dialog,'Restore '+item.side.name,()=>restoreHiddenLinkedSide(day,category,meal,item.side.id));
   return;
  }
@@ -3224,6 +3227,16 @@ function openTopMealActionMenu(day,category,meal,fromLinkedGroup=false,cookingOv
  if(!day){row('Open recipe',()=>openSavedMealRecipe(meal,null,navigationOrigin));row('Schedule meal',()=>openScheduleMealDialog(meal))}
  if(day&&underlyingSlotMeal(plan,day,category)&&weekSchedule(plan).slots[temporarySlotKey(day,category)])row('Resume planned meal',()=>resumeWeekSlot(day,category));
  for(const item of hiddenLinkedSides(plan,day,category,meal))row('Restore '+item.side.name,()=>restoreHiddenLinkedSide(day,category,meal,item.side.id));
+ {const planned=day&&plannedMealOnDay(plan,day,meal);if(planned)row('Back to original',()=>backToOriginalMeal(plan.id,planned))}
+}
+// "Back to original": a day filled by Plan ahead returns to the meal that plan replaced, and the plan is removed.
+function plannedMealOnDay(plan,day,meal){
+ if(!plan||rotationWeekOffset!==0||typeof plannedMealsFor!=='function')return null;const date=cookingLocalDate(cookingDateInWeek(day,mealPlanWeekStart(plan)));
+ return plannedMealsFor(plan.id).find(p=>p.date===date&&p.applied===p.date&&(p.mealId==null||p.replaced)&&(p.mealId!=null?String(p.mealId)===String(meal.id):p.name===meal.name))||null;
+}
+function backToOriginalMeal(planId,item){
+ if(!revertPlannedMeal(planId,item)){showAppMessage('This day was changed after it was planned, so there is no original to go back to.');return}
+ writePlannedMeals(planId,plannedMealsFor(planId).filter(p=>p.id!==item.id));renderList({readOnly:true});
 }
 function confirmDuplicateMealChoice(meal,occurrences,target=null){return new Promise(resolve=>{
  const source=occurrences[0],d=recipeBulkDialog((meal.name||'Meal')+' is already planned for '+source.day+(source.weekLabel?' '+source.weekLabel:' this week')+'.'),panel=d.panel;let settled=false,choice=null;

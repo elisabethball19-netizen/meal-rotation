@@ -26,6 +26,7 @@ sb.fixture.HOOK += '''const b13Store=()=>typeof testStorage!=='undefined'?testSt
  seedEarly:(date,from)=>{const list=plannedMealsFor().filter(p=>p.date!==date);list.push({id:'early-'+date,date,mealId:String(meals.find(m=>m.cat==='Rice').id),shopEarly:true,shopFrom:from,applied:null});writePlannedMeals(activePlanId,list);showTop=true;allMealsActive=false;groceryTabActive=true;render()},
  shopFrom:date=>plannedMealsFor().find(p=>p.date===date)?.shopFrom||null,
  replacedName:d=>{const it=plannedMealsFor().find(x=>x.date===d);return it&&it.replaced?meals.find(m=>String(m.id)===String(it.replaced))?.name||null:null},
+ menu:date=>{const plan=mealPlans.find(p=>p.id===activePlanId),cur={...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters},e=getDisplayedWeekdayMealsForPlan(cur).find(e=>!e.linkedTo&&!e.servingParentId&&cookingLocalDate(scheduledOccurrenceDate({...e,planId:activePlanId},cur.rotationCalendar))===date);openTopMealActionMenu(e.day,e.cat,e.meal)},
  raw:()=>plannedMealsFor().map(p=>[p.date,p.mealId??null,p.name??null]),
  home:()=>{showTop=true;allMealsActive=false;groceryTabActive=false;rotationWeekOffset=0;render()}
 };'''
@@ -186,6 +187,11 @@ def run(browser, name):
     swap = next(n for n in rice if n != was)
     plan(p, d1, swap)
     assert p.evaluate('d=>batch13.named(d)', d1)[0] == swap
+    # "Back to original" in the meal options does the same from the card, and removes the plan.
+    p.evaluate('d=>batch13.menu(d)', d1)
+    p.get_by_role('button', name='Back to original', exact=True).click(); p.wait_for_timeout(400)
+    assert p.evaluate('d=>batch13.named(d)', d1)[0] == was and d1 not in [x[0] for x in p.evaluate('batch13.raw()')]
+    plan(p, d1, swap)
     p.get_by_role('button', name='Plan ahead', exact=True).click()
     d = p.get_by_role('dialog', name='Plan ahead', exact=True)
     d.locator('.plan-ahead-row[data-date="%s"] button[aria-label^="Remove plan"]' % d1).click()
