@@ -14,6 +14,9 @@ import sides_batch127_browser as sb  # noqa: E402
 T0 = datetime(2026, 11, 16, 20, tzinfo=timezone.utc)
 sb.fixture.HOOK += '''const b12Store=()=>typeof testStorage!=='undefined'?testStorage:localStorage;window.batch12={
  setup:()=>{const m=meals.find(m=>m.id===2);m.instructions=[{type:'step',text:'Simmer the sauce for 10 minutes.'},{type:'step',text:'Rest the rice for 1 minute.'},{type:'step',text:'Bake for 20 minutes.'}];persist();recipeViewPrefs.mode='full';saveRecipeViewPrefs();openSavedMealRecipe(m)},
+ tab1:()=>switchRecipeTab(recipeViewer.tabs[0]),
+ tab2:()=>{openLinkedRecipeTab(meals.find(m=>m.id===3),recipeViewer.activeTab,true);return document.querySelectorAll('#recipeViewer .recipe-tab-strip [role=tab]').length},
+ ontop:()=>[...document.querySelectorAll('#recipeViewer .recipe-timer-dropdown .recipe-timer-strip')].map(s=>{const r=s.getBoundingClientRect(),e=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !!e&&s.contains(e)}),
  rname:()=>meals.find(m=>m.id===2).name,
  timers:()=>cookingTimers.map(t=>[t.stepNumber,t.status]),
  stored:()=>JSON.parse(b12Store().getItem('mealRotationCookingTimersV1')||'null')?.timers?.length||0,
@@ -42,14 +45,17 @@ def run(browser, name):
     # Part 3b: one row (soonest first: the 1-minute Step 2), the other behind a "+1 timer" chip.
     rname = p.evaluate('batch12.rname()')
     assert strips.count() == 1, strips.count()
-    assert p.locator('#recipeViewer .recipe-timer-label').all_text_contents() == [rname + ' · 2']
+    assert [x.replace('\xa0', ' ') for x in p.locator('#recipeViewer .recipe-timer-label').all_text_contents()] == [rname + ' · 2']
     more = p.locator('#recipeViewer .recipe-timer-more')
     assert more.inner_text() == '+1' and more.get_attribute('aria-label') == '+1 timer'
+    assert p.evaluate('batch12.tab2()') == 2; p.wait_for_timeout(300)
     more.click()
     drop = p.locator('#recipeViewer .recipe-timer-dropdown')
-    assert drop.is_visible() and drop.locator('.recipe-timer-label').all_text_contents() == [rname + ' · 1']
+    assert drop.is_visible() and [x.replace('\xa0', ' ') for x in drop.locator('.recipe-timer-label').all_text_contents()] == [rname + ' · 1']
     assert p.get_by_role('button', name='Hide timer controls').count() == 0
     sb.shot(p, name, 'part3b-dropdown')
+    assert all(p.evaluate('batch12.ontop()')), p.evaluate('batch12.ontop()')
+    p.evaluate('batch12.tab1()'); p.wait_for_timeout(300)
     assert p.evaluate('batch12.stored()') == 2 and p.evaluate('batch12.legacy()')
     sb.shot(p, name, 'batch12-two-timers')
     # Pause Step 1 only.
@@ -63,7 +69,7 @@ def run(browser, name):
     p.evaluate('batch12.sync()')
     done = p.get_by_role('alertdialog')
     done.wait_for(state='visible')
-    assert rname + ' · 2' in done.inner_text(), done.inner_text()
+    assert rname + ' · 2' in done.inner_text().replace('\xa0', ' '), done.inner_text()
     sb.shot(p, name, 'batch12-finished')
     done.get_by_role('button', name='Acknowledge completed timer', exact=True).click()
     assert p.evaluate('batch12.timers()') == [[1, 'paused']]

@@ -2285,3 +2285,5 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 #recipeViewer .recipe-timer-strip>.recipe-timer-more{min-width:34px;padding:0 6px;font-weight:600}
 #recipeViewer .recipe-timer-strip .recipe-timer-readout{flex:none}
 #recipeViewer .recipe-timer-strip .recipe-timer-controls{flex:none;display:flex;margin-left:auto}
+#recipeViewer .recipe-viewer-bar.recipe-timer-drop-open{z-index:60!important}
+#recipeViewer .recipe-timer-dropdown{z-index:61}
