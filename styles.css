@@ -2228,6 +2228,11 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .ask-ai-answer{display:block;margin-top:14px;border-top:1px solid #e5e7eb;padding-top:12px}.ask-ai-answer>span{display:block;font-weight:600;margin-bottom:6px}
 .family-tastes-field{display:block;margin:8px 0}.family-tastes-field>span{display:block;font-weight:600;margin-bottom:4px}
 .import-restriction-flags{background:#fff4e5;border:1px solid #f0c27b;border-radius:10px;padding:10px 12px;margin:10px 0;color:#5b3b00}.import-restriction-flags ul{margin:6px 0 0;padding-left:20px}
+.recipe-search-locate{flex:none;width:44px;height:44px;min-width:44px;color:#4a5568}
+@keyframes searchLocateFlash{0%,35%{box-shadow:0 0 0 3px #f0c27b inset;background-color:#fff4e5}100%{box-shadow:0 0 0 3px transparent inset}}
+.search-locate-flash{animation:searchLocateFlash 1.5s ease-out}
+@media (prefers-reduced-motion:reduce){.search-locate-flash{animation:none;box-shadow:0 0 0 3px #f0c27b inset}}
+
 /* Turning meal tabs off: pick which meal stays. */
 .keep-meal-choices{display:flex;flex-direction:column;gap:2px;margin:4px 0 8px}
 .keep-meal-choice{display:flex;align-items:center;gap:12px;min-height:44px;font-size:calc(16px * var(--meal-text-factor, 1))}
