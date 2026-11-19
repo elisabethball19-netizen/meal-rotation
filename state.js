@@ -593,6 +593,8 @@ function scaleRecipeIngredient(line,multiplier){
  const quantity=parseRecipeQuantity(line);if(!quantity||!Number.isFinite(quantity.lo*multiplier)||!Number.isFinite(quantity.hi*multiplier))return String(line);
  return quantity.leading+formatRecipeQuantity(quantity.lo*multiplier)+(quantity.hi!==quantity.lo?'–'+formatRecipeQuantity(quantity.hi*multiplier):'')+' '+quantity.rest;
 }
+// Display only: decimal amounts read as fractions ("1.5 tsp" -> "1½ tsp"); saved recipe text is never changed.
+function ingredientDisplayText(line,multiplier=1){if(multiplier!==1)return scaleRecipeIngredient(line,multiplier);if(!/^\s*\d*\.\d/.test(String(line))||syncIngredientHeading(line))return String(line);const q=parseRecipeQuantity(line);if(!q)return String(line);return q.leading+formatRecipeQuantity(q.lo)+(q.hi!==q.lo?'–'+formatRecipeQuantity(q.hi):'')+' '+q.rest}
 const groceryQuantityUnits={cup:'cup',cups:'cup',tbsp:'tbsp',tablespoon:'tbsp',tablespoons:'tbsp',tsp:'tsp',teaspoon:'tsp',teaspoons:'tsp',g:'g',gram:'g',grams:'g',kg:'kg',oz:'oz',ounce:'oz',ounces:'oz',lb:'lb',lbs:'lb',pound:'lb',pounds:'lb',ml:'ml',l:'l',liter:'l',litre:'l',clove:'clove',cloves:'clove',piece:'piece',pieces:'piece',sprig:'sprig',sprigs:'sprig'};
 // Batch 2: shopping-list wording only (recipes are never changed; user-edited grocery names win).
 // Drops parentheticals and non-shopping phrases; keeps prep words such as minced, frozen, shredded.

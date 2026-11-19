@@ -18,7 +18,7 @@ STEPS = ['Toss the chicken with 1 1/2 tbsp olive oil and 2 tsp curry powder; set
          'Stir in the remaining curry powder and simmer.']
 
 
-sb.fixture.HOOK += '''window.sync6.chooserOpen=()=>openTopIngredientChooser(meals.find(m=>m.id===2));window.p3a={groceries:()=>{const plan=mealPlans.find(p=>p.id===activePlanId),m=meals.find(m=>m.id===2);showTop=true;allMealsActive=false;groceryTabActive=true;render()}};'''
+sb.fixture.HOOK += '''window.sync6.disp=l=>ingredientDisplayText(l);window.sync6.chooserOpen=()=>openTopIngredientChooser(meals.find(m=>m.id===2));window.p3a={groceries:()=>{const plan=mealPlans.find(p=>p.id===activePlanId),m=meals.find(m=>m.id===2);showTop=true;allMealsActive=false;groceryTabActive=true;render()}};'''
 
 
 def chip(p, text):
@@ -99,6 +99,7 @@ def run(browser, name):
     inc = p.locator('.grocery-include-row', has_text='curry')
     assert inc.count() == 1 and inc.first.inner_text().strip().startswith('3 tsp curry powder'), inc.all_inner_texts()
     sb.shot(p, name, 'part3a-include')
+    assert p.evaluate("sync6.disp('1.5 tsp curry powder')") == '1½ tsp curry powder' and p.evaluate("sync6.disp('0.25 cup milk')") == '¼ cup milk' and p.evaluate("sync6.disp('2 cups rice')") == '2 cups rice'
     assert not errors, errors
     c.close()
     print('PASS', name, 'part 3a: step chips, picker, split amounts, reset, text toggle, save, one grocery item', flush=True)

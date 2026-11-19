@@ -304,7 +304,7 @@ function installRecipeIngredientLinkEditor(meal){
    if(sec.heading!==null){const h=document.createElement('div');h.className='step-chip-heading';h.textContent=sec.heading;view.append(h)}
    let last=null;for(const r of sec.rows.sort((a,b)=>a.first-b.first||a.i-b.i)){
     if(last!==null&&r.first!==last){const hr=document.createElement('hr');hr.className='step-chip-divider';view.append(hr)}last=r.first;
-    const row=document.createElement('div');row.className='step-chip-row';row.dataset.line=String(r.i);const name=document.createElement('span');name.className='step-chip-text';name.textContent=r.text;row.append(name);
+    const row=document.createElement('div');row.className='step-chip-row';row.dataset.line=String(r.i);const name=document.createElement('span');name.className='step-chip-text';name.textContent=ingredientDisplayText(r.text);row.append(name);
     if(r.linkable){const group=groupOf(lines,r.i),all=[...new Set(group.flatMap(i=>stepsFor(matches,items,tok[i]?.token)))].sort((a,b)=>a-b);
      const chip=document.createElement('button');chip.type='button';chip.className='step-chip'+(r.steps.length?'':' step-chip-none');chip.textContent=r.steps.length?(r.steps.length===1?'Step ':'Steps ')+r.steps.map(s=>s+1).join(', '):'+ Step';
      chip.setAttribute('aria-label',(r.steps.length?'Steps for ':'Add a step for ')+r.text);chip.setAttribute('aria-expanded',String(picker?.line===r.i));
@@ -1256,7 +1256,7 @@ function bindRecipeStepLongPress(view,button,token){
 function buildRecipeLinkIngredient(view,item,meal,multiplier,session){
  const label=document.createElement('label');label.className='cooking-item recipe-link-ingredient';label.dataset.cookingToken=item.token;
  label.classList.toggle('cooking-complete',!!session?.ingredients.includes(item.token));
- const text=document.createElement('span');text.textContent=scaleRecipeIngredient(item.text,multiplier);
+ const text=document.createElement('span');text.textContent=ingredientDisplayText(item.text,multiplier);
  if(syncIngredientHeading(item.text)){label.append(text);return label}
  const allowed=view.linkIngredientTokens.has(item.token),input=document.createElement('input');input.type='checkbox';input.checked=view.linkEdit.selected.has(item.token);input.disabled=!allowed;
  input.setAttribute('aria-label',text.textContent);if(!allowed)input.title='Make repeated ingredient lines distinct in Edit Recipe before linking them.';
@@ -1679,7 +1679,7 @@ function renderRecipeViewer(){
  let destination=ingredientsPane;
  const section=(name)=>{const h=document.createElement('h2');h.textContent=name;destination.append(h)};
  const tapItem=(item,kind)=>{
-  const el=document.createElement('button');el.className='cooking-item';el.textContent=kind==='ingredients'?scaleRecipeIngredient(item.text,multiplier):item.text;
+  const el=document.createElement('button');el.className='cooking-item';el.textContent=kind==='ingredients'?ingredientDisplayText(item.text,multiplier):item.text;
   {el.type='button';el.dataset.cookingToken=item.token;const marked=!!session?.[kind].includes(item.token);el.classList.toggle('cooking-complete',marked);el.setAttribute('aria-pressed',String(marked));el.onclick=()=>{if(v.linkEdit){if(kind==='steps')beginRecipeLinkEdit(v,item.token);return}toggleCookingItem(kind,item.token)}}
   if(kind==='steps'){el.classList.toggle('recipe-link-selected',v.linkEdit?.step===item.token||v.activeTab.sourceNavigation?.stepToken===item.token);bindRecipeStepLongPress(v,el,item.token)}
   return el;

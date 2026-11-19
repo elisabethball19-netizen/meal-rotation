@@ -3520,7 +3520,7 @@ function openTopIngredientChooser(meal){
       label.title='';
       // Batch 2: inclusion is an on/off toggle (purchased state stays a checkbox on the grocery list).
       const cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('role','switch');cb.className='preference-switch grocery-include-switch';cb.setAttribute('aria-label','Include '+shown);cb.checked=groupLines.some(l=>selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(l)));cb.style.cssText='flex:0 0 auto';cb.onchange=()=>{if(cb.checked)groupLines.forEach(l=>manualReselections.add(ingredientKey(l)));rememberCheckedIngredients();const scroll=list.scrollTop;renderIngredientRows();list.scrollTop=scroll};
-      const text=document.createElement('span');text.textContent=shown;text.style.cssText='flex:1;min-width:0';
+      const text=document.createElement('span');text.textContent=ingredientDisplayText(shown);text.style.cssText='flex:1;min-width:0';
       if(shoppingRenames.has(line)){const note=document.createElement('small');note.className='grocery-include-rename';note.textContent='Shopping list: '+shoppingRenames.get(line);text.append(note)}
       const pencil=document.createElement('button');pencil.type='button';pencil.className='iconbtn grocery-include-edit';setIconButton(pencil,'rename','Edit shopping name for '+shown);
       pencil.onclick=async e=>{e.preventDefault();e.stopPropagation();const sources=shoppingSources(line),current=shoppingRenames.get(line)||(sources[0]?groceryContributionText(sources[0]):groceryShoppingText(line));const choice=await editGroceryIngredientDialog(current);if(!overlay.isConnected||choice.action==='cancel')return;

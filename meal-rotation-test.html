@@ -2641,6 +2641,8 @@ function scaleRecipeIngredient(line,multiplier){
  const quantity=parseRecipeQuantity(line);if(!quantity||!Number.isFinite(quantity.lo*multiplier)||!Number.isFinite(quantity.hi*multiplier))return String(line);
  return quantity.leading+formatRecipeQuantity(quantity.lo*multiplier)+(quantity.hi!==quantity.lo?'–'+formatRecipeQuantity(quantity.hi*multiplier):'')+' '+quantity.rest;
 }
+// Display only: decimal amounts read as fractions ("1.5 tsp" -> "1½ tsp"); saved recipe text is never changed.
+function ingredientDisplayText(line,multiplier=1){if(multiplier!==1)return scaleRecipeIngredient(line,multiplier);if(!/^\s*\d*\.\d/.test(String(line))||syncIngredientHeading(line))return String(line);const q=parseRecipeQuantity(line);if(!q)return String(line);return q.leading+formatRecipeQuantity(q.lo)+(q.hi!==q.lo?'–'+formatRecipeQuantity(q.hi):'')+' '+q.rest}
 const groceryQuantityUnits={cup:'cup',cups:'cup',tbsp:'tbsp',tablespoon:'tbsp',tablespoons:'tbsp',tsp:'tsp',teaspoon:'tsp',teaspoons:'tsp',g:'g',gram:'g',grams:'g',kg:'kg',oz:'oz',ounce:'oz',ounces:'oz',lb:'lb',lbs:'lb',pound:'lb',pounds:'lb',ml:'ml',l:'l',liter:'l',litre:'l',clove:'clove',cloves:'clove',piece:'piece',pieces:'piece',sprig:'sprig',sprigs:'sprig'};
 // Batch 2: shopping-list wording only (recipes are never changed; user-edited grocery names win).
 // Drops parentheticals and non-shopping phrases; keeps prep words such as minced, frozen, shredded.
@@ -3171,7 +3173,7 @@ function installRecipeIngredientLinkEditor(meal){
    if(sec.heading!==null){const h=document.createElement('div');h.className='step-chip-heading';h.textContent=sec.heading;view.append(h)}
    let last=null;for(const r of sec.rows.sort((a,b)=>a.first-b.first||a.i-b.i)){
     if(last!==null&&r.first!==last){const hr=document.createElement('hr');hr.className='step-chip-divider';view.append(hr)}last=r.first;
-    const row=document.createElement('div');row.className='step-chip-row';row.dataset.line=String(r.i);const name=document.createElement('span');name.className='step-chip-text';name.textContent=r.text;row.append(name);
+    const row=document.createElement('div');row.className='step-chip-row';row.dataset.line=String(r.i);const name=document.createElement('span');name.className='step-chip-text';name.textContent=ingredientDisplayText(r.text);row.append(name);
     if(r.linkable){const group=groupOf(lines,r.i),all=[...new Set(group.flatMap(i=>stepsFor(matches,items,tok[i]?.token)))].sort((a,b)=>a-b);
      const chip=document.createElement('button');chip.type='button';chip.className='step-chip'+(r.steps.length?'':' step-chip-none');chip.textContent=r.steps.length?(r.steps.length===1?'Step ':'Steps ')+r.steps.map(s=>s+1).join(', '):'+ Step';
      chip.setAttribute('aria-label',(r.steps.length?'Steps for ':'Add a step for ')+r.text);chip.setAttribute('aria-expanded',String(picker?.line===r.i));
@@ -4123,7 +4125,7 @@ function bindRecipeStepLongPress(view,button,token){
 function buildRecipeLinkIngredient(view,item,meal,multiplier,session){
  const label=document.createElement('label');label.className='cooking-item recipe-link-ingredient';label.dataset.cookingToken=item.token;
  label.classList.toggle('cooking-complete',!!session?.ingredients.includes(item.token));
- const text=document.createElement('span');text.textContent=scaleRecipeIngredient(item.text,multiplier);
+ const text=document.createElement('span');text.textContent=ingredientDisplayText(item.text,multiplier);
  if(syncIngredientHeading(item.text)){label.append(text);return label}
  const allowed=view.linkIngredientTokens.has(item.token),input=document.createElement('input');input.type='checkbox';input.checked=view.linkEdit.selected.has(item.token);input.disabled=!allowed;
  input.setAttribute('aria-label',text.textContent);if(!allowed)input.title='Make repeated ingredient lines distinct in Edit Recipe before linking them.';
@@ -4546,7 +4548,7 @@ function renderRecipeViewer(){
  let destination=ingredientsPane;
  const section=(name)=>{const h=document.createElement('h2');h.textContent=name;destination.append(h)};
  const tapItem=(item,kind)=>{
-  const el=document.createElement('button');el.className='cooking-item';el.textContent=kind==='ingredients'?scaleRecipeIngredient(item.text,multiplier):item.text;
+  const el=document.createElement('button');el.className='cooking-item';el.textContent=kind==='ingredients'?ingredientDisplayText(item.text,multiplier):item.text;
   {el.type='button';el.dataset.cookingToken=item.token;const marked=!!session?.[kind].includes(item.token);el.classList.toggle('cooking-complete',marked);el.setAttribute('aria-pressed',String(marked));el.onclick=()=>{if(v.linkEdit){if(kind==='steps')beginRecipeLinkEdit(v,item.token);return}toggleCookingItem(kind,item.token)}}
   if(kind==='steps'){el.classList.toggle('recipe-link-selected',v.linkEdit?.step===item.token||v.activeTab.sourceNavigation?.stepToken===item.token);bindRecipeStepLongPress(v,el,item.token)}
   return el;
@@ -10747,7 +10749,7 @@ function openTopIngredientChooser(meal){
       label.title='';
       // Batch 2: inclusion is an on/off toggle (purchased state stays a checkbox on the grocery list).
       const cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('role','switch');cb.className='preference-switch grocery-include-switch';cb.setAttribute('aria-label','Include '+shown);cb.checked=groupLines.some(l=>selectedByMeal[key].some(item=>ingredientKey(item)===ingredientKey(l)));cb.style.cssText='flex:0 0 auto';cb.onchange=()=>{if(cb.checked)groupLines.forEach(l=>manualReselections.add(ingredientKey(l)));rememberCheckedIngredients();const scroll=list.scrollTop;renderIngredientRows();list.scrollTop=scroll};
-      const text=document.createElement('span');text.textContent=shown;text.style.cssText='flex:1;min-width:0';
+      const text=document.createElement('span');text.textContent=ingredientDisplayText(shown);text.style.cssText='flex:1;min-width:0';
       if(shoppingRenames.has(line)){const note=document.createElement('small');note.className='grocery-include-rename';note.textContent='Shopping list: '+shoppingRenames.get(line);text.append(note)}
       const pencil=document.createElement('button');pencil.type='button';pencil.className='iconbtn grocery-include-edit';setIconButton(pencil,'rename','Edit shopping name for '+shown);
       pencil.onclick=async e=>{e.preventDefault();e.stopPropagation();const sources=shoppingSources(line),current=shoppingRenames.get(line)||(sources[0]?groceryContributionText(sources[0]):groceryShoppingText(line));const choice=await editGroceryIngredientDialog(current);if(!overlay.isConnected||choice.action==='cancel')return;
