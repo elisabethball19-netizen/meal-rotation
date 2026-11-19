@@ -5075,11 +5075,33 @@ function openPlanAheadDialog(){
    const w=document.createElement('span');w.className='plan-ahead-date';w.textContent=dateLabel(item.date);const meal=document.createElement('span');meal.className='plan-ahead-meal';meal.textContent=nameOf(item);if(item.shopEarly){const tag=document.createElement('small');tag.className='plan-ahead-tag';tag.textContent=' · groceries '+(item.shopFrom?dateLabel(item.shopFrom):'a week early');meal.append(tag)}text.append(w,meal);
    const chev=document.createElement('button');chev.type='button';chev.className='iconbtn plan-ahead-chevron';setIconButton(chev,open?'up':'down',(open?'Hide':'Show')+' options for '+dateLabel(item.date));
    text.onclick=chev.onclick=()=>{openRow=open?null:item;drawList()};row.append(text,chev);wrap.append(row);
-   if(open){const acts=document.createElement('div');acts.className='plan-ahead-actions';
-    const edit=document.createElement('button');edit.type='button';edit.className='meal-inline-action';setIconButton(edit,'rename','Edit plan for '+dateLabel(item.date));edit.append(document.createTextNode(' Edit'));edit.onclick=()=>{openRow=null;fillForm(item)};
-    const del=document.createElement('button');del.type='button';del.className='meal-inline-action';setIconButton(del,'delete','Delete plan for '+dateLabel(item.date));del.append(document.createTextNode(' Delete'));del.onclick=()=>{draft.splice(draft.indexOf(item),1);openRow=null;drawList()};
-    acts.append(edit,del);wrap.append(acts)}
+   if(open){const acts=document.createElement('div');acts.className='plan-ahead-actions';const icon=(kind,label,action)=>{const b=document.createElement('button');b.type='button';b.className='iconbtn plan-ahead-act';setIconButton(b,kind,label);b.onclick=action;acts.append(b);return b};
+    // One-time meals: rename inline. Both: groceries pop-up, delete.
+    if(item.mealId==null)icon('rename','Rename '+nameOf(item),()=>{const field=document.createElement('input');field.type='text';field.value=item.name;field.className='manual-grocery-field plan-ahead-rename';field.setAttribute('aria-label','Meal name');const ok=document.createElement('button');ok.type='button';ok.className='iconbtn';setIconButton(ok,'save','Save name');const no=document.createElement('button');no.type='button';no.className='iconbtn';setIconButton(no,'cancel','Cancel rename');ok.onclick=()=>{const v=field.value.trim();if(v){item.name=v;item.applied=null}drawList()};no.onclick=()=>drawList();field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();ok.click()}};acts.replaceChildren(field,ok,no);field.focus()});
+    icon('grocery','Groceries for '+nameOf(item),()=>openPlanGroceries(item));
+    icon('delete','Delete plan for '+dateLabel(item.date),()=>{draft.splice(draft.indexOf(item),1);openRow=null;drawList()});
+    wrap.append(acts)}
    list.append(wrap)}}
+ // Groceries pop-up for a planned meal: Shop early (only past next week) + ingredients.
+ function openPlanGroceries(item){
+  const g=recipeBulkDialog('Groceries · '+nameOf(item));g.panel.classList.add('plan-ahead-dialog','plan-groceries-popup');let from=item.shopFrom||'';
+  const eligible=item.date>coveredUntil,first=()=>{const w=shiftDate(item.date,-7);return w<today?today:w};
+  const box=document.createElement('div');box.className='plan-ahead-form';
+  const sl=document.createElement('label');sl.className='settings-display-option plan-ahead-shop';const sw=document.createElement('input');sw.type='checkbox';sw.setAttribute('role','switch');sw.className='preference-switch';sw.checked=!!item.shopEarly;sl.append(sw,document.createTextNode('Shop early'));
+  const row=document.createElement('div');row.className='plan-ahead-date-row plan-ahead-shop-row';const lab=document.createElement('span');lab.className='plan-ahead-shop-label';lab.textContent='Add groceries on';const f=document.createElement('input');f.type='text';f.className='manual-grocery-field plan-ahead-date-field';f.setAttribute('aria-label','Add groceries on');const c=document.createElement('button');c.type='button';c.className='iconbtn plan-ahead-cal-open';setIconButton(c,'calendar','Choose grocery date');row.append(lab,f,c);
+  const err=document.createElement('p');err.className='recipe-bulk-error';err.setAttribute('role','status');
+  const show=()=>{row.hidden=!sw.checked;if(sw.checked){if(!from||from>=item.date)from=first();f.value=dateLabel(from)}};
+  sw.onchange=show;c.onclick=()=>openPlanDatePopup({title:'Add groceries on',value:from||first(),min:today,max:shiftDate(item.date,-1),onPick:date=>{from=date;show()}});
+  f.onchange=()=>{const v=parsePlanDateText(f.value,today);if(!v||v<today||v>=item.date){err.textContent='Choose a grocery date between today and the meal date.';show();return}from=v;err.textContent='';show()};
+  if(eligible)box.append(sl,row);else{const note=document.createElement('p');note.className='muted';note.textContent='These groceries go on your list for that week.';box.append(note)}
+  let lines=null;
+  if(item.mealId==null){lines=document.createElement('textarea');lines.className='plan-ahead-groceries';lines.rows=4;lines.placeholder='Groceries, one per line';lines.setAttribute('aria-label','Groceries for this one-time meal');lines.value=(item.ingredients||[]).join('\n');box.append(lines)}
+  else{const meal=meals.find(m=>String(m.id)===String(item.mealId));if(meal){const pickB=document.createElement('button');pickB.type='button';pickB.className='smallbtn plan-ahead-another';setIconButton(pickB,'grocery','Choose ingredients');pickB.append(document.createTextNode(' Choose ingredients'));pickB.onclick=()=>openTopIngredientChooser(meal);box.append(pickB)}}
+  box.append(err);
+  const acts=document.createElement('div');acts.className='meal-unified-actions';const ok=document.createElement('button'),no=document.createElement('button');ok.type=no.type='button';setIconButton(ok,'save','Done');setIconButton(no,'cancel','Cancel');no.onclick=g.close;
+  ok.onclick=()=>{if(eligible){item.shopEarly=sw.checked;if(sw.checked)item.shopFrom=from||first();else delete item.shopFrom}if(lines){const v=lines.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);if(v.length)item.ingredients=v;else delete item.ingredients}g.close();drawList()};
+  acts.append(ok,no);g.panel.append(box,acts);decoratePreferenceSwitches(sl);show();
+ }
  // Form state.
  function draw(){
   dateField.value=picked?dateLabel(picked):dateField.value;

@@ -2368,3 +2368,5 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 .plan-ahead-actions{display:flex;gap:6px;padding:0 4px 8px}
 .plan-ahead-actions .meal-inline-action{display:inline-flex!important;align-items:center;gap:4px;border:1px solid #d6dbe1;border-radius:999px;background:#fff;padding:4px 12px 4px 6px!important;min-height:36px!important;font-size:14px;color:#2f3b48}
 .plan-ahead-actions .meal-inline-action svg{width:18px;height:18px}
+.plan-ahead-actions{align-items:center}.plan-ahead-act{min-width:44px}.plan-ahead-rename{flex:1;min-width:0}.plan-groceries-popup .plan-ahead-another{margin-top:4px}
+.plan-ahead-shop-row .plan-ahead-date-field{font-size:15px;padding-left:10px;padding-right:6px;min-width:120px}

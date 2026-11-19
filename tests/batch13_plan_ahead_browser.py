@@ -28,6 +28,7 @@ sb.fixture.HOOK += '''const b13Store=()=>typeof testStorage!=='undefined'?testSt
  replacedName:d=>{const it=plannedMealsFor().find(x=>x.date===d);return it&&it.replaced?meals.find(m=>String(m.id)===String(it.replaced))?.name||null:null},
  menu:date=>{const plan=mealPlans.find(p=>p.id===activePlanId),cur={...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters},e=getDisplayedWeekdayMealsForPlan(cur).find(e=>!e.linkedTo&&!e.servingParentId&&cookingLocalDate(scheduledOccurrenceDate({...e,planId:activePlanId},cur.rotationCalendar))===date);openTopMealActionMenu(e.day,e.cat,e.meal)},
  seedCustom:(date,from)=>{const list=plannedMealsFor().filter(p=>p.date!==date);list.push({id:'cust-'+date,date,name:'Fish fry',ingredients:['2 lb cod','1 bag fries'],shopEarly:true,shopFrom:from,applied:null});writePlannedMeals(activePlanId,list);showTop=true;allMealsActive=false;groceryTabActive=true;render()},
+ ingr:d=>plannedMealsFor().find(p=>p.date===d)?.ingredients||null,
  raw:()=>plannedMealsFor().map(p=>[p.date,p.mealId??null,p.name??null]),
  home:()=>{showTop=true;allMealsActive=false;groceryTabActive=false;rotationWeekOffset=0;render()}
 };'''
@@ -150,14 +151,25 @@ def run(browser, name):
     p.evaluate("([d,f])=>batch13.seedCustom(d,f)", ['2026-12-18', '2026-11-16'])
     assert p.locator('.grocery-ingredient-name', has_text='cod').count() == 1, p.locator('#list').inner_text()[:300]
     p.evaluate('batch13.home()')
-    # Planned rows: chevron opens Edit / Delete.
+    # Planned rows: chevron shows Rename (one-time only), Groceries and Delete icons.
     p.get_by_role('button', name='Plan ahead', exact=True).click()
     d = p.get_by_role('dialog', name='Plan ahead', exact=True)
+    d.locator('.plan-ahead-row[data-date="2026-12-17"] .plan-ahead-chevron').click()
+    assert d.locator('.plan-ahead-act').evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label").split(" ")[0])') == ['Groceries', 'Delete']
     d.locator('.plan-ahead-row[data-date="2026-12-18"] .plan-ahead-chevron').click()
-    assert d.get_by_role('button', name='Edit plan for Fri, Dec 18').is_visible() and d.get_by_role('button', name='Delete plan for Fri, Dec 18').is_visible()
-    d.get_by_role('button', name='Edit plan for Fri, Dec 18').click()
-    assert d.locator('.plan-ahead-chosen').inner_text().startswith('Fish fry') and '2 lb cod' in d.get_by_role('textbox', name='Groceries for this one-time meal', exact=True).input_value()
-    d.get_by_role('button', name='Cancel', exact=True).click(); p.wait_for_timeout(200)
+    assert d.locator('.plan-ahead-act').evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label").split(" ")[0])') == ['Rename', 'Groceries', 'Delete']
+    d.get_by_role('button', name='Rename Fish fry').click()
+    d.get_by_role('textbox', name='Meal name', exact=True).fill('Fish and chips')
+    d.get_by_role('button', name='Save name').click()
+    d.get_by_role('button', name='Groceries for Fish and chips').click()
+    g = p.get_by_role('dialog', name='Groceries · Fish and chips', exact=True)
+    assert g.get_by_role('textbox', name='Add groceries on', exact=True).input_value() == 'Mon, Nov 16'
+    g.get_by_role('textbox', name='Groceries for this one-time meal', exact=True).fill('2 lb cod\n1 bag fries\n1 lemon')
+    sb.shot(p, name, 'batch13-plan-groceries')
+    g.get_by_role('button', name='Done', exact=True).click()
+    d.get_by_role('button', name='Save planned meals', exact=True).click(); p.wait_for_timeout(300)
+    assert ['2026-12-18', None, 'Fish and chips'] in p.evaluate('batch13.raw()'), p.evaluate('batch13.raw()')
+    assert p.evaluate("batch13.ingr('2026-12-18')") == ['2 lb cod', '1 bag fries', '1 lemon']
     # Custom meal: typing a name that matches nothing offers "Add ... as a one-time meal".
     taken = {x[0] for x in p.evaluate('batch13.raw()')}
     free = [x for x in p.evaluate('batch13.emptyDates()') if x > '2026-11-16' and x not in taken]
