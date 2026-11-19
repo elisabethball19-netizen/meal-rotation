@@ -22,7 +22,7 @@ sb.fixture.HOOK += '''window.ai={
  editorOpen:()=>editId!==null,
  meal:name=>{const m=meals.find(x=>x.name===name&&!x._scheduledEditorDraft);return m&&{id:m.id,cat:m.cat,rotation:m.rotation,ingredients:m.ingredients,links:(m.ingredientStepLinks||[]).length}},
  count:()=>meals.filter(m=>!m._scheduledEditorDraft).length,
- pending:()=>aiPending(),
+ pending:()=>aiPending(),aiWeekly:()=>groupUsesRotation('AI recipes'),
  viewer:name=>openSavedMealRecipe(meals.find(m=>m.name===name),null,null),
  closeViewer:()=>closeRecipeViewer()
 };'''
@@ -146,7 +146,7 @@ def run(browser, name):
     assert flags == ['2 tbsp soy sauce (soy)', '1 tbsp butter (dairy)'], flags
     p.locator('#save').click(); p.wait_for_timeout(500)
     saved = p.evaluate('n=>ai.meal(n)', 'Garlic Chicken Stir-Fry')
-    assert saved and saved['rotation'] is False and saved['links'] == 2 and saved['ingredients'][0] == '1 lb chicken thighs', saved
+    assert saved and saved['cat'] == 'AI recipes' and saved['rotation'] is False and saved['links'] == 2 and saved['ingredients'][0] == '1 lb chicken thighs', saved
     assert p.evaluate('ai.pending()') is None
 
     # Several recipes in one paste -> checklist -> Off menu.
@@ -157,9 +157,10 @@ def run(browser, name):
     assert multi.locator('.ai-multi-row').count() == 2
     assert 'butter' in multi.locator('.ai-multi-row').nth(1).text_content()
     shot(p, tag, 'multi')
-    multi.get_by_role('button', name='Add 2 recipes to Off menu').click(); p.wait_for_timeout(400)
+    multi.get_by_role('button', name='Save 2 recipes').click(); p.wait_for_timeout(400)
     assert p.evaluate('ai.count()') == before + 2
-    assert p.evaluate('n=>ai.meal(n)', 'Thai Basil Chicken')['links'] == 2
+    assert p.evaluate('n=>ai.meal(n)', 'Thai Basil Chicken')['links'] == 2 and p.evaluate('n=>ai.meal(n)', 'Thai Basil Chicken')['cat'] == 'AI recipes'
+    assert p.evaluate('ai.aiWeekly()') is False
 
     # Recipe page -> Ask AI -> Convert -> Update original (one Undo restores it).
     target = 'Garlic Chicken Stir-Fry'
