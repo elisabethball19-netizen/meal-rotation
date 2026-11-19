@@ -5029,7 +5029,7 @@ function openPlanAheadDialog(){
  const dateLabel=date=>parseCookingLocalDate(date).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:date.slice(0,4)===today.slice(0,4)?undefined:'numeric'});
  const shiftDate=(date,days)=>{const t=parseCookingLocalDate(date);t.setDate(t.getDate()+days);return cookingLocalDate(t)};
  const coveredUntil=shiftDate(cookingLocalDate(mealPlanWeekStart(plan)),13);
- let editing=null,picked='',chosen=null,shopFrom='',openRow=null;
+ let editing=null,picked='',chosen=null,shopFrom='',openRow=null;const form=document.createElement('div');form.className='plan-ahead-form';
  const taken=()=>new Set(draft.filter(p=>p!==editing).map(p=>p.date));
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
  // Date.
@@ -5065,7 +5065,8 @@ function openPlanAheadDialog(){
  shopField.onchange=()=>{const v=parsePlanDateText(shopField.value,today);if(!v||v<today||v>=picked){error.textContent='Choose a grocery date between today and the meal date.';shopField.value=dateLabel(shopFrom||defaultShop());return}shopFrom=v;error.textContent='';draw()};
  shopRow.append(shopText,shopField,shopCal);shopBox.append(shopLabel,shopRow);shop.addEventListener('change',()=>{if(shop.checked&&!shopFrom)shopFrom=defaultShop();draw()});
  // Plan another.
- const another=document.createElement('button');another.type='button';another.className='smallbtn plan-ahead-another';setIconButton(another,'add','Plan another meal');another.append(document.createTextNode(' Plan another'));
+ const another=document.createElement('button');another.type='button';another.className='smallbtn plan-ahead-another plan-ahead-add';setIconButton(another,'add','Add to planned meals');another.append(document.createTextNode(' Add'));
+ const planNext=document.createElement('button');planNext.type='button';planNext.className='smallbtn plan-ahead-another plan-ahead-next';setIconButton(planNext,'add','Plan another meal');planNext.append(document.createTextNode(' Plan another'));let formOpen=true;
  // Planned list.
  const plannedBox=document.createElement('section');plannedBox.className='plan-ahead-section';const ph=document.createElement('h4');ph.textContent='Planned';const list=document.createElement('div');list.className='plan-ahead-list';plannedBox.append(ph,list);
  const nameOf=item=>item.mealId==null?item.name:meals.find(m=>String(m.id)===String(item.mealId))?.name||'Recipe';
@@ -5077,7 +5078,7 @@ function openPlanAheadDialog(){
    text.onclick=chev.onclick=()=>{openRow=open?null:item;drawList()};row.append(text,chev);wrap.append(row);
    if(open){const acts=document.createElement('div');acts.className='plan-ahead-actions';const icon=(kind,label,action)=>{const b=document.createElement('button');b.type='button';b.className='iconbtn plan-ahead-act';setIconButton(b,kind,label);b.onclick=action;acts.append(b);return b};
     // One-time meals: rename inline. Both: groceries pop-up, delete.
-    if(item.mealId==null)icon('rename','Rename '+nameOf(item),()=>{const field=document.createElement('input');field.type='text';field.value=item.name;field.className='manual-grocery-field plan-ahead-rename';field.setAttribute('aria-label','Meal name');const ok=document.createElement('button');ok.type='button';ok.className='iconbtn';setIconButton(ok,'save','Save name');const no=document.createElement('button');no.type='button';no.className='iconbtn';setIconButton(no,'cancel','Cancel rename');ok.onclick=()=>{const v=field.value.trim();if(v){item.name=v;item.applied=null}drawList()};no.onclick=()=>drawList();field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();ok.click()}};acts.replaceChildren(field,ok,no);field.focus()});
+    if(item.mealId==null)icon('rename','Rename '+nameOf(item),()=>{const field=document.createElement('input');field.type='text';field.value=item.name;field.className='manual-grocery-field plan-ahead-rename';field.setAttribute('aria-label','Meal name');const ok=document.createElement('button');ok.type='button';ok.className='iconbtn';setIconButton(ok,'save','Save name');const no=document.createElement('button');no.type='button';no.className='iconbtn';setIconButton(no,'cancel','Cancel rename');ok.onclick=()=>{const v=field.value.trim();if(v){item.name=v;item.applied=null}drawList()};no.onclick=()=>drawList();field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();ok.click()}};acts.replaceChildren(field,ok,no);field.focus();const reveal=()=>field.isConnected&&field.scrollIntoView({block:'nearest',behavior:'smooth'});setTimeout(reveal,150);setTimeout(reveal,500)});
     icon('grocery','Groceries for '+nameOf(item),()=>openPlanGroceries(item));
     icon('delete','Delete plan for '+dateLabel(item.date),()=>{draft.splice(draft.indexOf(item),1);openRow=null;drawList()});
     wrap.append(acts)}
@@ -5093,13 +5094,37 @@ function openPlanAheadDialog(){
   const show=()=>{row.hidden=!sw.checked;if(sw.checked){if(!from||from>=item.date)from=first();f.value=dateLabel(from)}};
   sw.onchange=show;c.onclick=()=>openPlanDatePopup({title:'Add groceries on',value:from||first(),min:today,max:shiftDate(item.date,-1),onPick:date=>{from=date;show()}});
   f.onchange=()=>{const v=parsePlanDateText(f.value,today);if(!v||v<today||v>=item.date){err.textContent='Choose a grocery date between today and the meal date.';show();return}from=v;err.textContent='';show()};
-  if(eligible)box.append(sl,row);else{const note=document.createElement('p');note.className='muted';note.textContent='These groceries go on your list for that week.';box.append(note)}
-  let lines=null;
-  if(item.mealId==null){lines=document.createElement('textarea');lines.className='plan-ahead-groceries';lines.rows=4;lines.placeholder='Groceries, one per line';lines.setAttribute('aria-label','Groceries for this one-time meal');lines.value=(item.ingredients||[]).join('\n');box.append(lines)}
-  else{const meal=meals.find(m=>String(m.id)===String(item.mealId));if(meal){const pickB=document.createElement('button');pickB.type='button';pickB.className='smallbtn plan-ahead-another';setIconButton(pickB,'grocery','Choose ingredients');pickB.append(document.createTextNode(' Choose ingredients'));pickB.onclick=()=>{openTopIngredientChooser(meal);const sheets=[...document.querySelectorAll('[role=dialog][aria-label="Edit groceries"]')];const top=sheets.at(-1);if(top)top.style.zIndex='36100'};box.append(pickB)}}
+  if(eligible)box.append(sl,row);
+  // Ingredients: collapsible (small arrow), open when there is no Shop early option.
+  const ingWrap=document.createElement('section');ingWrap.className='plan-groceries-ingredients';
+  const ingHead=document.createElement('button');ingHead.type='button';ingHead.className='plan-groceries-toggle';const arrow=document.createElementNS('http://www.w3.org/2000/svg','svg');arrow.setAttribute('viewBox','0 0 24 24');arrow.setAttribute('aria-hidden','true');arrow.innerHTML=appIconSvg.right;const ingTitle=document.createElement('span');ingTitle.textContent='Ingredients';ingHead.append(arrow,ingTitle);
+  const ingBody=document.createElement('div');ingBody.className='plan-groceries-body';ingBody.id='planGroceriesBody'+Date.now();ingHead.setAttribute('aria-controls',ingBody.id);
+  const setOpen=open=>{ingHead.setAttribute('aria-expanded',String(open));ingBody.hidden=!open};setOpen(!eligible);ingHead.onclick=()=>setOpen(ingBody.hidden);
+  ingWrap.append(ingHead,ingBody);box.append(ingWrap);
+  let lines=null,meal=null,switches=[],originalPicked=[];const groceryBefore=captureGroceryCheckStates();
+  const readPicked=()=>{let saved={};try{saved=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}return grocerySelectionsForMeal(meal,saved)};
+  function drawIngredients(){ingBody.replaceChildren();switches=[];originalPicked=readPicked();const on=new Set(originalPicked.map(ingredientKey));
+   const rows=document.createElement('div');rows.className='plan-groceries-rows';
+   for(const line of (meal.ingredients||[]).map(x=>String(x).trim()).filter(Boolean)){const label=document.createElement('label');label.className='settings-display-option plan-groceries-row';const sw=document.createElement('input');sw.type='checkbox';sw.setAttribute('role','switch');sw.className='preference-switch';sw.checked=on.has(ingredientKey(line));const t=document.createElement('span');t.className='plan-groceries-name';t.textContent=ingredientDisplayText(line);label.append(sw,t);rows.append(label);switches.push({sw,line})}
+   if(!switches.length){const none=document.createElement('p');none.className='muted';none.textContent='No ingredients yet.';rows.append(none)}
+   const more=document.createElement('button');more.type='button';more.className='plan-groceries-more';more.textContent='More options';
+   more.onclick=()=>{openTopIngredientChooser(meal);const top=[...document.querySelectorAll('[role=dialog][aria-label="Edit groceries"]')].at(-1);if(!top)return;top.style.zIndex='36100';
+    // Refresh the switches once the full list closes (it saves on its own).
+    const watch=new MutationObserver(()=>{if(top.isConnected)return;watch.disconnect();meal=meals.find(m=>String(m.id)===String(item.mealId))||meal;if(g.panel.isConnected)drawIngredients()});watch.observe(document.body,{childList:true})};
+   ingBody.append(rows,more);decoratePreferenceSwitches(rows)}
+  if(item.mealId==null){lines=document.createElement('textarea');lines.className='plan-ahead-groceries';lines.rows=4;lines.placeholder='Groceries, one per line';lines.setAttribute('aria-label','Groceries for this one-time meal');lines.value=(item.ingredients||[]).join('\n');ingBody.append(lines)}
+  else{meal=meals.find(m=>String(m.id)===String(item.mealId))||null;if(meal)drawIngredients();else ingWrap.hidden=true}
+  // Saves include switches (per recipe, same as Ingredients to include).
+  function saveIngredientSwitches(){if(!meal||!switches.length)return;const picked=switches.filter(x=>x.sw.checked).map(x=>x.line),before=new Set(originalPicked.map(ingredientKey));
+   if(picked.length===before.size&&picked.every(l=>before.has(ingredientKey(l))))return;
+   const undo=JSON.parse(captureState());let saved={};try{saved=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')}catch(e){}
+   undo.bulkRecipeUndoSelections=Object.fromEntries([meal,...mealLinkedCopies(meal)].filter(m=>Object.hasOwn(saved,String(m.id))).map(m=>[String(m.id),saved[String(m.id)]]));snapshot(JSON.stringify(undo));
+   preserveGroceryCheckStates(groceryBefore);const added=picked.filter(l=>!before.has(ingredientKey(l)));added.forEach(l=>checkedIngredients.delete(ingredientKey(l)));
+   saved[String(meal.id)]=picked;for(const sibling of mealLinkedCopies(meal))saved[String(sibling.id)]=[...picked];
+   localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(saved));localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));uncheckGrocerySourceLines(meal,added);saveGroceryOccurrenceChecks();persist();renderList({readOnly:true})}
   box.append(err);
   const acts=document.createElement('div');acts.className='meal-unified-actions';const ok=document.createElement('button'),no=document.createElement('button');ok.type=no.type='button';setIconButton(ok,'save','Done');setIconButton(no,'cancel','Cancel');no.onclick=g.close;
-  ok.onclick=()=>{if(eligible){item.shopEarly=sw.checked;if(sw.checked)item.shopFrom=from||first();else delete item.shopFrom}if(lines){const v=lines.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);if(v.length)item.ingredients=v;else delete item.ingredients}g.close();drawList()};
+  ok.onclick=()=>{if(eligible){item.shopEarly=sw.checked;if(sw.checked)item.shopFrom=from||first();else delete item.shopFrom}if(lines){const v=lines.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);if(v.length)item.ingredients=v;else delete item.ingredients}try{saveIngredientSwitches()}catch(e){err.textContent='Could not save ingredients: '+e.message;return}g.close();drawList()};
   acts.append(ok,no);g.panel.append(box,acts);decoratePreferenceSwitches(sl);show();
  }
  // Form state.
@@ -5110,7 +5135,7 @@ function openPlanAheadDialog(){
   groceries.hidden=!chosen?.custom;
   const canShop=!!picked&&!!chosen&&picked>coveredUntil;shopBox.hidden=!canShop;if(!canShop)shop.checked=false;
   shopRow.hidden=!shop.checked;if(shop.checked){if(!shopFrom||shopFrom>=picked)shopFrom=defaultShop();shopField.value=dateLabel(shopFrom)}
-  another.hidden=!(picked&&chosen);drawList();
+  another.hidden=!(picked&&chosen);form.hidden=!formOpen;planNext.hidden=formOpen;drawList();
  }
  function fillForm(item){editing=item;chosen=item?(item.mealId==null?{custom:true,name:item.name}:meals.find(m=>String(m.id)===String(item.mealId))||null):null;groceries.value=item?.mealId==null&&Array.isArray(item?.ingredients)?item.ingredients.join('\n'):'';shop.checked=!!item?.shopEarly;shopFrom=item?.shopFrom||'';search.value='';dateField.value='';error.textContent='';setPicked(item?.date||'')}
  // Puts the form into the draft; returns false (with a message) when it is incomplete.
@@ -5124,7 +5149,9 @@ function openPlanAheadDialog(){
   const record={id:editing?.id||(crypto.randomUUID?.()||'plan-'+Date.now()+'-'+Math.random().toString(36).slice(2)),date:picked,...(chosen.custom?{name:chosen.name,...(items.length?{ingredients:items}:{})}:{mealId:String(chosen.id)}),shopEarly:early,...(early?{shopFrom:shopFrom||defaultShop()}:{}),applied:same?editing.applied??null:null,...(same&&editing.replaced!=null?{replaced:editing.replaced}:{})};
   if(editing)draft[draft.indexOf(editing)]=record;else draft.push(record);return true;
  }
- another.onclick=()=>{if(commitForm())fillForm(null)};
+ // Add: the meal joins the Planned list and the form folds away until "Plan another".
+ another.onclick=()=>{if(!commitForm())return;formOpen=false;fillForm(null)};
+ planNext.onclick=()=>{formOpen=true;fillForm(null);dateField.focus()};
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save planned meals');setIconButton(cancel,'cancel','Cancel');cancel.onclick=d.close;
  save.onclick=()=>{
   if(!commitForm())return;
@@ -5134,6 +5161,6 @@ function openPlanAheadDialog(){
    writePlannedMeals(planId,draft);snapshot(JSON.stringify(before));d.close();applyPlannedMeals(planId);renderList({readOnly:true})}catch(e){error.textContent='Could not save: '+e.message}
  };
  actions.append(save,cancel);
- const form=document.createElement('div');form.className='plan-ahead-form';form.append(dateRow,search,results,chosenRow,groceries,shopBox,another,error);
- d.panel.append(form,plannedBox,actions);decoratePreferenceSwitches(shopLabel);fillForm(null);fitOneTimeMealViewport(d.overlay,d.panel);
+ form.append(dateRow,search,results,chosenRow,groceries,shopBox,another,error);
+ d.panel.append(form,planNext,plannedBox,actions);decoratePreferenceSwitches(shopLabel);fillForm(null);fitOneTimeMealViewport(d.overlay,d.panel);
 }

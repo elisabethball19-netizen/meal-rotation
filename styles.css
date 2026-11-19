@@ -2370,3 +2370,19 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 .plan-ahead-actions .meal-inline-action svg{width:18px;height:18px}
 .plan-ahead-actions{align-items:center}.plan-ahead-act{min-width:44px}.plan-ahead-rename{flex:1;min-width:0}.plan-groceries-popup .plan-ahead-another{margin-top:4px}
 .plan-ahead-shop-row .plan-ahead-date-field{font-size:15px;padding-left:10px;padding-right:6px;min-width:120px}
+/* Plan ahead v5: collapsible groceries ingredients, Add/Plan another, rename stays visible. */
+.plan-groceries-ingredients{border-top:1px solid #eceff2;padding-top:4px}
+.plan-groceries-toggle{display:flex;align-items:center;gap:6px;width:100%;min-height:44px;border:0;background:transparent;padding:4px 2px;font:inherit;font-weight:600;color:#2f3b48;text-align:left}
+.plan-groceries-toggle svg{width:16px;height:16px;flex:0 0 16px;fill:none;stroke:currentColor;stroke-width:2.2;transition:transform .15s}
+.plan-groceries-toggle[aria-expanded=true] svg{transform:rotate(90deg)}
+.plan-groceries-body{display:flex;flex-direction:column;gap:2px;padding:0 0 4px 22px}
+.plan-groceries-rows{display:flex;flex-direction:column}
+.plan-groceries-row{display:flex;align-items:center;gap:10px;min-height:40px;font-size:calc(15px * var(--meal-text-factor, 1))}
+.plan-groceries-row .plan-groceries-name{flex:1;min-width:0;overflow-wrap:anywhere}
+.plan-groceries-more{align-self:flex-start;border:0;background:transparent;padding:8px 0;min-height:40px;color:#1f3f7a;text-decoration:underline;font:inherit;font-size:14px}
+.plan-ahead-dialog .plan-ahead-list{max-height:none;overflow:visible}
+.plan-ahead-dialog>.plan-ahead-section{padding-bottom:16px}
+.plan-ahead-rename{scroll-margin-bottom:96px;scroll-margin-top:12px}
+.plan-ahead-dialog>.plan-ahead-next{margin:4px 0 8px}
+/* Meals page: sides start with a dash, like the Weekly Overview. */
+.plan-linked-names>span::before,.plan-linked-names .plan-side-heading>button:first-child::before{content:"– ";color:#8a939e}

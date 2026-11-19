@@ -137,8 +137,13 @@ def run(browser, name):
     pop.get_by_role('button', name='Use this date', exact=True).click()
     assert sf.input_value() == 'Sat, Dec 12'
     sb.shot(p, name, 'batch13-shop-choices')
-    # "+ Plan another" queues it; a one-time meal with groceries goes in next.
+    # "Add" queues it and folds the form; "+ Plan another" opens a fresh one.
+    assert d.get_by_role('button', name='Plan another meal').is_hidden()
+    d.get_by_role('button', name='Add to planned meals').click()
+    assert d.locator('.plan-ahead-form').first.is_hidden() and d.get_by_role('button', name='Plan another meal').is_visible()
+    sb.shot(p, name, 'batch13-added')
     d.get_by_role('button', name='Plan another meal').click()
+    assert d.get_by_role('button', name='Add to planned meals').is_hidden()
     assert d.get_by_role('textbox', name='Meal date', exact=True).input_value() == '' and d.locator('.plan-ahead-row[data-date="2026-12-17"]').count() == 1
     d.get_by_role('textbox', name='Meal date', exact=True).fill('2026-12-18'); d.get_by_role('textbox', name='Meal date', exact=True).dispatch_event('change')
     d.get_by_role('searchbox', name='Search recipes to plan', exact=True).fill('Fish fry')
@@ -158,7 +163,23 @@ def run(browser, name):
     d.locator('.plan-ahead-row[data-date="2026-12-17"] .plan-ahead-chevron').click()
     d.locator('.plan-ahead-row[data-date="2026-12-17"]').locator('xpath=..').get_by_role('button', name=re.compile('^Groceries for')).click()
     gp = p.locator('.plan-groceries-popup')
-    gp.get_by_role('button', name='Choose ingredients').click(); p.wait_for_timeout(300)
+    # Ingredients: collapsed when Shop early is offered; switches save with Done.
+    toggle = gp.locator('.plan-groceries-toggle')
+    assert toggle.get_attribute('aria-expanded') == 'false' and gp.locator('.plan-groceries-row').first.is_hidden()
+    assert gp.get_by_text('These groceries go on your list').count() == 0
+    toggle.click(); p.wait_for_timeout(250)
+    assert toggle.locator('svg').evaluate('e=>getComputedStyle(e).transform') != 'none', 'arrow turns when open'
+    sw = gp.locator('.plan-groceries-row input').first
+    was = sw.is_checked()
+    sb.shot(p, name, 'batch13-ingredient-switches')
+    gp.locator('.plan-groceries-row').first.click()
+    assert sw.is_checked() != was
+    gp.get_by_role('button', name='Done', exact=True).click(); p.wait_for_timeout(200)
+    d.locator('.plan-ahead-row[data-date="2026-12-17"]').locator('xpath=..').get_by_role('button', name=re.compile('^Groceries for')).click()
+    gp = p.locator('.plan-groceries-popup')
+    gp.locator('.plan-groceries-toggle').click()
+    assert gp.locator('.plan-groceries-row input').first.is_checked() != was, 'switch change saved'
+    gp.get_by_role('button', name='More options').click(); p.wait_for_timeout(300)
     sheet = p.get_by_role('dialog', name='Edit groceries', exact=True).last
     box = sheet.bounding_box(); top = p.evaluate("([x,y])=>document.elementFromPoint(x,y)?.closest('[aria-label=\"Edit groceries\"]')!==null", [box['x'] + box['width'] / 2, box['y'] + 40])
     assert top, 'Ingredients to include must open on top'
@@ -168,12 +189,15 @@ def run(browser, name):
     assert d.locator('.plan-ahead-act').evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label").split(" ")[0])') == ['Groceries', 'Delete']
     d.locator('.plan-ahead-row[data-date="2026-12-18"] .plan-ahead-chevron').click()
     assert d.locator('.plan-ahead-act').evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label").split(" ")[0])') == ['Rename', 'Groceries', 'Delete']
-    d.get_by_role('button', name='Rename Fish fry').click()
+    d.get_by_role('button', name='Rename Fish fry').click(); p.wait_for_timeout(700)
+    rb, ab = d.get_by_role('textbox', name='Meal name', exact=True).bounding_box(), d.locator('.plan-ahead-dialog > .meal-unified-actions').first.bounding_box()
+    assert rb['y'] + rb['height'] <= ab['y'] + 1, ('rename field hidden under the bar', rb, ab)
     d.get_by_role('textbox', name='Meal name', exact=True).fill('Fish and chips')
     d.get_by_role('button', name='Save name').click()
     d.get_by_role('button', name='Groceries for Fish and chips').click()
     g = p.get_by_role('dialog', name='Groceries · Fish and chips', exact=True)
     assert g.get_by_role('textbox', name='Add groceries on', exact=True).input_value() == 'Mon, Nov 16'
+    g.locator('.plan-groceries-toggle').click()
     g.get_by_role('textbox', name='Groceries for this one-time meal', exact=True).fill('2 lb cod\n1 bag fries\n1 lemon')
     sb.shot(p, name, 'batch13-plan-groceries')
     g.get_by_role('button', name='Done', exact=True).click()
