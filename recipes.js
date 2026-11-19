@@ -1325,7 +1325,7 @@ function populateMakeAheadSetting(parent){
  const add=(key,text,container)=>{const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=makeAheadDisplayPrefs[key];check.onchange=()=>{makeAheadDisplayPrefs[key]=check.checked;saveMakeAheadDisplayPrefs();children.hidden=!makeAheadDisplayPrefs.showMakeAheadReminders;renderList()};label.append(check,document.createTextNode(text));container.append(label)};
  const children=document.createElement('div');children.className='automatic-prep-settings';children.hidden=!makeAheadDisplayPrefs.showMakeAheadReminders;
  add('showMakeAheadReminders','Show Make Ahead Reminders',parent);add('automaticMarinating','Automatic marinating reminders',children);add('automaticDefrost','Automatic defrost reminders',children);
- const hint=document.createElement('p');hint.className='muted';hint.textContent='Defrost reminders suggest the previous evening in the fridge, earlier when needed before marinating. Check that food is fully thawed before cooking.';children.append(hint);parent.append(children);
+ const hint=document.createElement('p');hint.className='muted';hint.textContent='Defrost reminders default to the night before.';children.append(hint);parent.append(children);
 }
 function setMakeAheadComplete(item,checked){
  const plan=mealPlans.find(plan=>plan.id===item.plan.id);if(!plan)return;

@@ -2225,3 +2225,18 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .keep-meal-choices{display:flex;flex-direction:column;gap:2px;margin:4px 0 8px}
 .keep-meal-choice{display:flex;align-items:center;gap:12px;min-height:44px;font-size:calc(16px * var(--meal-text-factor, 1))}
 .keep-meal-choice input{width:20px;height:20px;margin:0}
+/* Settings: every switch row in Display has the same compact spacing. */
+#settingsPanel .settings-display-option{min-height:40px!important;padding:6px 0!important;margin:0!important}
+#settingsPanel .settings-group-content>*:not(.settings-display-option){margin-top:4px;margin-bottom:4px}
+#settingsPanel .settings-group-content p.muted{margin:0 0 4px!important;font-size:13px;line-height:1.35}
+/* Settings: Save / Close stay in view above the bottom navigation. */
+.settings-footer{bottom:calc(58px + env(safe-area-inset-bottom,0px));padding-bottom:6px;border-top:1px solid #e3e5e8;z-index:20}
+body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bottom:0}
+/* Meal tabs: a folder-style selected tab whose outline meets a baseline that runs under the other tabs. */
+#list .meal-plan-tabs{border-bottom:0!important;background:linear-gradient(#b9c0c8,#b9c0c8) left bottom/100% 1px no-repeat;padding-bottom:0!important}
+#list .meal-plan-tab{border-bottom:0!important;margin-bottom:1px!important}
+#list .meal-plan-tab.selected{margin-bottom:0!important;border:1px solid #b9c0c8!important;border-bottom:0!important;background:#fff!important;box-shadow:none!important}
+#settingsPanel .settings-group-content>.collapsed-card-options{margin:4px 0 0!important;padding:0!important}
+#settingsPanel .collapsed-card-options .settings-display-option:last-child{margin-bottom:0!important}
+#settingsPanel .settings-group-content>.automatic-prep-settings{margin:0!important}
+#settingsPanel .automatic-prep-settings .settings-display-option{padding:6px 0!important}
