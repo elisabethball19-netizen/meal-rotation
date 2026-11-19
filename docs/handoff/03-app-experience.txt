@@ -213,3 +213,16 @@ Settings Backups -> Start fresh: "Erase this collection and start fresh?" Warnin
 Offer Save full backup (organization/settings included) and Export recipes (recipes only), leaving confirmation open; then Cancel or separate destructive Erase and start fresh. Export success/failure/cancel never erases automatically.
 Reset only app-owned collection/state, not browser site data/unrelated/test keys; initialize required built-ins normally, prevent Undo resurrection and reseeding. Test reset on isolated fixtures, not live user data.
 Backups validate/restore full data/preferences safely; installed Android PWA persists data; test app isolated; original app/rebuild separate.
+
+2026-11-18 ACCEPTED (phone-tested) - MEAL GROUPS / WEEK / SETTINGS
+Meal Groups sections: Weekly groups = groups with "Use for weekly meals" on (renamed from "Use for meal rotation"); Other groups = off (drinks, household etc.). Weekday group picker lists only weekly-meal groups. Weekly/Other/Unassigned headers are an accordion (opening one closes the others); expand-all/collapse-all icons removed.
+Favorites in group lists: faint filled grey-blue heart (~20% opacity) behind the first letters of the name, not tappable; unfavorite from the recipe drop-down. All recipe rows indented the same as the highlighted row.
+Group colors: only groups active this week are colored, using the same weekday colors as the Meals cards (stripe + header; split stripe across days); others neutral. Assigned days shown after meal count ("16 meals · Sat · Sun"). Meal Groups page redesign is parked for later.
+Unassigned: always-visible checkboxes; slim sticky edit bar with select-all / deselect-all icons, Move, Delete.
+Recipe editor "Serve with": label + plus at right only; sides listed tight beneath with small left arrows (rotate down when open), no divider lines; heart/actions pulled in from the right edge. Small right arrows are the pattern for nested sub-items; down chevrons for major sections.
+Meals page: past days are slim one-line rows; one tap on the chevron opens the full edit view, closing returns the slim row. Today has a soft outline.
+Weekly Overview (Week tab): calm and read-only - white cards with a thin day-color stripe, no to-do items or checkboxes, no empty-slot rows, meal-slot labels only on days with more than one slot, sides same size indented with a dash, today outlined, past muted. Week tab only exists when meal tabs are on. Plan ahead button lives on the Meals page title.
+Turning meal tabs off asks "Which meal should stay?" (current first); Cancel keeps tabs on.
+Settings: switch rows evenly/compactly spaced, ~6px switch-to-label gap; defrost note "Defrost reminders default to the night before."; Save/Close stay pinned above the bottom bar. Groceries: "Repeat weekly" switch in the add/edit grocery dialog replaces the Regular items editor. Edit groceries Cancel prompts when anything changed (incl. shopping names).
+Meal tabs: folder-style selected tab (outline on top/sides, open at bottom), baseline under the other tabs.
+To-Do wording: "for today" / "for tomorrow" / weekday.
