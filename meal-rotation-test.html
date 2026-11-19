@@ -3755,6 +3755,15 @@ function handOffPhoneTimer(ms,label){
  const seconds=Math.max(1,Math.round(ms/1000));
  try{location.href='intent:#Intent;action=android.intent.action.SET_TIMER;i.android.intent.extra.alarm.LENGTH='+seconds+';S.android.intent.extra.alarm.MESSAGE='+encodeURIComponent(label)+';B.android.intent.extra.alarm.SKIP_UI=true;end';return true}catch(e){return false}
 }
+// The timer dropdown closes on any tap outside it (or its chip) and on any scroll.
+function watchTimerDropdown(view){
+ view.timerDropdownWatch?.abort();const watch=new AbortController();view.timerDropdownWatch=watch;
+ const close=()=>{watch.abort();if(view.timerDropdownOpen){view.timerDropdownOpen=false;renderCookingTimer()}};
+ setTimeout(()=>{if(watch.signal.aborted)return;
+  document.addEventListener('pointerdown',e=>{if(!e.target.closest?.('.recipe-timer-dropdown,.recipe-timer-more'))close()},{capture:true,signal:watch.signal});
+  document.addEventListener('scroll',e=>{if(!e.target.closest?.('.recipe-timer-dropdown'))close()},{capture:true,passive:true,signal:watch.signal});
+ },0);
+}
 function addRecipeCookingTimer(li,meal,item,stepNumber){
  const durations=recipeCookingDurations(item.text);if(!durations.length)return;
  li.classList.add('recipe-timed-step');const b=document.createElement('button');b.type='button';b.className='recipe-timer-icon recipe-step-timer';setRecipeToolbarIcon(b,'timer',durations.length===1?'Start timer: '+durations[0].label:'Choose timer duration');
@@ -3834,7 +3843,7 @@ function renderCookingTimer(){
   renderCookingTimerSurface(bar,()=>{},shown,view.mealId);
   let more=bar.querySelector('.recipe-timer-more'),drop=bar.querySelector(':scope>.recipe-timer-dropdown');
   if(rest.length){
-   if(!more){more=document.createElement('button');more.type='button';more.className='recipe-timer-more';more.onclick=()=>{view.timerDropdownOpen=!view.timerDropdownOpen;renderCookingTimer()};}
+   if(!more){more=document.createElement('button');more.type='button';more.className='recipe-timer-more';more.onclick=()=>{view.timerDropdownOpen=!view.timerDropdownOpen;renderCookingTimer();if(view.timerDropdownOpen)watchTimerDropdown(view)};}
    more.textContent='+'+rest.length;more.setAttribute('aria-label','+'+rest.length+' timer'+(rest.length===1?'':'s'));more.setAttribute('aria-expanded',String(!!view.timerDropdownOpen));(bar.querySelector(':scope>.recipe-timer-strip')||bar).append(more);
    bar.classList.toggle('recipe-timer-drop-open',!!view.timerDropdownOpen);if(view.timerDropdownOpen){if(!drop){drop=document.createElement('div');drop.className='recipe-timer-dropdown'}bar.append(drop);renderCookingTimerSurface(drop,()=>{},rest,view.mealId)}else drop?.remove();
   }else{more?.remove();drop?.remove();view.timerDropdownOpen=false;bar.classList.remove('recipe-timer-drop-open')}

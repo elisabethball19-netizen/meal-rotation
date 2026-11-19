@@ -56,6 +56,16 @@ def run(browser, name):
     sb.shot(p, name, 'part3b-dropdown')
     assert all(p.evaluate('batch12.ontop()')), p.evaluate('batch12.ontop()')
     p.evaluate('batch12.tab1()'); p.wait_for_timeout(300)
+    # Tapping elsewhere closes the dropdown; so does scrolling.
+    if not drop.count():
+        more.click(); p.wait_for_timeout(100)
+    p.mouse.click(180, 600); p.wait_for_timeout(200)
+    assert drop.count() == 0, 'tap outside closes the timer dropdown'
+    more.click(); p.wait_for_timeout(100)
+    assert drop.count() == 1
+    p.evaluate("document.querySelector('#recipeViewer .recipe-viewer-steps').dispatchEvent(new Event('scroll'))"); p.wait_for_timeout(300)
+    assert drop.count() == 0, 'scroll closes the timer dropdown'
+    more.click(); p.wait_for_timeout(100)
     assert p.evaluate('batch12.stored()') == 2 and p.evaluate('batch12.legacy()')
     sb.shot(p, name, 'batch12-two-timers')
     # Pause Step 1 only.
