@@ -70,7 +70,7 @@ def run(browser, name):
 
     # Request contents.
     req = p.evaluate('([m,t])=>ai.request(m,t)', ['fridge', 'chicken thighs, bok choy'])
-    for part in ['What I have: chicken thighs, bok choy', 'Our tastes: Asian flavors', 'Strict restrictions', 'no dairy, no soy',
+    for part in ['What I have: chicken thighs, bok choy', 'Our tastes: Asian flavors', 'Our usual restrictions: no dairy, no soy', 'first ask me whether to keep it', 'no dairy, no soy',
                  fav + ' (flank steak, fish sauce, lime)', 'Other meals we already cook', 'Suggest 3 different meals', 'Title: Recipe name', 'Prep time:']:
         assert part in req, (part, req)
     assert 'Write a recipe for my family: crispy pork' in p.evaluate('([m,t])=>ai.request(m,t)', ['write', 'crispy pork'])

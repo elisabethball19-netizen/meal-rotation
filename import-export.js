@@ -910,7 +910,7 @@ function buildAskAiRequest(mode,input){
  if(mode==='fridge')out.push('Help me plan a dinner for my family using what I have.','','What I have: '+input.trim());else out.push('Write a recipe for my family: '+input.trim());
  out.push('');
  if(familyTastes.likes.trim())out.push('Our tastes: '+familyTastes.likes.trim());
- if(familyTastes.restrictions.trim())out.push('Strict restrictions (never include, and watch for hidden sources in sauces, broths and seasonings): '+familyTastes.restrictions.trim());
+ if(familyTastes.restrictions.trim())out.push('Our usual restrictions: '+familyTastes.restrictions.trim()+'. Follow them, including hidden sources in sauces, broths and seasonings. But if my request asks for something that conflicts with them, don\'t assume: first ask me whether to keep it as asked (I may be cooking for someone else) or use substitutes.');
  if(favorites.length){out.push('','Our family favorites, the meals we love most (main ingredients in parentheses):');for(const m of favorites){const main=recipeMainIngredients(m);out.push('- '+m.name+(main.length?' ('+main.join(', ')+')':''))}}
  if(regulars.length)out.push('','Other meals we already cook (for style only; please don\'t suggest these): '+regulars.map(m=>m.name).join('; '));
  const format=['Title: Recipe name','Prep time: 15 minutes','Cook time: 30 minutes','Servings: 4','Ingredients','1 lb chicken thighs [2]','3 cloves garlic, minced [3, 5]','...','Instructions','1. First step.','...','Notes','Any tips (optional).'];
