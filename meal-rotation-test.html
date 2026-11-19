@@ -7066,10 +7066,11 @@ function buildAskAiRequest(mode,input){
  if(familyTastes.restrictions.trim())out.push('Strict restrictions (never include, and watch for hidden sources in sauces, broths and seasonings): '+familyTastes.restrictions.trim());
  if(favorites.length){out.push('','Our family favorites, the meals we love most (main ingredients in parentheses):');for(const m of favorites){const main=recipeMainIngredients(m);out.push('- '+m.name+(main.length?' ('+main.join(', ')+')':''))}}
  if(regulars.length)out.push('','Other meals we already cook (for style only; please don\'t suggest these): '+regulars.map(m=>m.name).join('; '));
- const format=['Title: Recipe name','Prep time: 15 minutes','Cook time: 30 minutes','Servings: 4','Ingredients','1 lb chicken thighs [2]','3 cloves garlic, minced [3, 5]','...','Instructions','1. First step.','...','Notes','Any tips (optional).','','After each ingredient, put the number(s) of the instruction steps that use it in square brackets, like [2] or [3, 5].'];
+ const format=['Title: Recipe name','Prep time: 15 minutes','Cook time: 30 minutes','Servings: 4','Ingredients','1 lb chicken thighs [2]','3 cloves garlic, minced [3, 5]','...','Instructions','1. First step.','...','Notes','Any tips (optional).'];
+ const tagRule='Important: end EVERY ingredient line with the number(s) of the instruction steps that use it, in square brackets, like [2] or [3, 5]. Section labels (like "For the sauce:") get no brackets.';
  out.push('');
- if(mode==='fridge')out.push('Suggest 3 different meals that mainly use what I have (pantry staples are fine). For each, give the name and one line on why it fits us. I will reply with a number. Then write that full recipe in exactly this format, with nothing before or after it:');
- else out.push('Reply with the recipe in exactly this format, with nothing before or after it:');
+ if(mode==='fridge')out.push('Suggest 3 different meals that mainly use what I have (pantry staples are fine). For each, give the name and one line on why it fits us. I will reply with a number. Then write that full recipe in exactly this format, with nothing before or after it. '+tagRule);
+ else out.push('Reply with the recipe in exactly this format, with nothing before or after it. '+tagRule);
  out.push('',...format);
  return out.join('\n');
 }
