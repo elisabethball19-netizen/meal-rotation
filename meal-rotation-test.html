@@ -10503,17 +10503,20 @@ async function skipScheduledMeal(day,category,meal){
  // A replacement must not consume another meal displaced earlier this week.
  for(const choice of activeSlotChoices(plan))for(const id of choice.deferredMealIds||[])excluded.add(String(id));
  const possible=automaticSlotCandidates(plan,day,category,meals,prior).filter(m=>!excluded.has(String(m.id)));
- if(!possible.length){await showAppMessage('No alternative eligible recipe is available. This meal has been kept.');return false}
+ // A day whose original meal was pushed out gets that original back first; next week then chooses fresh.
+ const usedNow=new Set([...schedules.values()].flat().filter(item=>item!==current).map(item=>String(item.meal.id))),own=(plan.cycleSlotChoices?.[key]?.deferredMealIds||[]).map(String);
+ const original=own.map(id=>meals.find(m=>String(m.id)===id)).find(m=>m&&String(m.id)!==String(meal.id)&&m.cat===category&&recipeStatus(m)==='rotation'&&!usedNow.has(String(m.id)))||null;
+ if(!possible.length&&!original){await showAppMessage('No alternative eligible recipe is available. This meal has been kept.');return false}
  const grocery=captureGroceryCheckStates(),used=new Set([...schedules.values()].flat().filter(item=>item!==current).map(item=>String(item.meal.id)));
  const skipUndo={...JSON.parse(captureState()),skippedCookingState:captureSkippedCookingState(plan,current)};snapshot(JSON.stringify(skipUndo));
  // Skipping is a schedule edit, not a consumed weighted rotation turn.
- const ranked=possible,next=ranked.find(m=>!used.has(String(m.id)))||ranked[0];
+ const ranked=possible,next=original||ranked.find(m=>!used.has(String(m.id)))||ranked[0];
  preserveOtherMealPlanChoices(null,null,schedules);
  // Fix unrelated days/tabs even when the only alternative is already scheduled.
  for(const other of mealPlans)for(const entry of schedules.get(other.id)||[]){if(other.id===plan.id&&entry.day===day)continue;const slot=weekdaySlotKey(entry.day,entry.cat),choice=other.cycleSlotChoices?.[slot];if(choice)choice.retain=true}
  const blocked=prior.filter(item=>item.day===day&&item!==current&&(item.meal.linkedMealIds||[]).some(id=>String(id)===String(meal.id))).map(item=>String(item.meal.id));
  plan.weekdayMealOverrides={...plan.weekdayMealOverrides,[key]:String(next.id)};plan.cycleRetainedSlots={...plan.cycleRetainedSlots,[key]:String(next.id)};
- plan.cycleSlotChoices={...plan.cycleSlotChoices,[key]:{mealId:String(next.id),parentId:'',...(isBuiltinSides(category)?{sideSelection:'automatic'}:{}),skipReplacement:true,deferredMealIds:[...new Set([...(plan.cycleSlotChoices?.[key]?.deferredMealIds||[]),String(meal.id)])],avoidMealId:String(meal.id),excludedMealIds:[...excluded],blockedParents:blocked}};
+ plan.cycleSlotChoices={...plan.cycleSlotChoices,[key]:{mealId:String(next.id),parentId:'',...(isBuiltinSides(category)?{sideSelection:'automatic'}:{}),...(original?{deferredMealIds:own.filter(id=>id!==String(original.id)&&id!==String(meal.id)),blockedParents:blocked}:{skipReplacement:true,deferredMealIds:[...new Set([...own,String(meal.id)])],avoidMealId:String(meal.id),excludedMealIds:[...excluded],blockedParents:blocked})}};
  weekdayMealOverrides={...plan.weekdayMealOverrides};
  const affected=cycleAffectedEntries(prior,[current],plan),retained=prior.filter(item=>!affected.includes(item));if(ranked.some(m=>!used.has(String(m.id))))resolveRotatedMealSlots(plan,[current],retained);weekdayMealOverrides={...plan.weekdayMealOverrides};
  saveWeekdayMealOverrides();reconcileActiveLinkedMeals();reconcileRotatedGroceryChecks(grocery,affected.map(item=>({...item,planId:plan.id})));

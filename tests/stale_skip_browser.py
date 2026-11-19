@@ -13,6 +13,7 @@ sb.fixture.HOOK += '''window.stale={
   const free=automaticSlotCandidates(plan,e.day,e.cat,meals,prior).filter(m=>String(m.id)!==String(e.meal.id));const target=free[0];
   const ghost=orderedDays().find(d=>!(weekdayCategories[d]||[]).includes(e.cat));plan.cycleSlotChoices={...plan.cycleSlotChoices,[ghost+'::'+e.cat]:{mealId:'x',deferredMealIds:[String(target.id)]}};
   return {day:e.day,cat:e.cat,meal:e.meal.id,target:target.name}},
+ swap:()=>{const plan=mealPlans.find(p=>p.id===activePlanId);const prior=getDisplayedWeekdayMealsForPlan({...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters});const e=prior.find(x=>!x.linkedTo&&!x.servingParentId&&!x.occasional&&x.cat);const other=automaticSlotCandidates(plan,e.day,e.cat,meals,prior).find(m=>String(m.id)!==String(e.meal.id));applyRecipeBulk([String(other.id)],{},{mealSelection:{planId:activePlanId,week:0,day:e.day,category:e.cat,replaceFuture:[],mealId:String(other.id),sourceKey:null}});return {day:e.day,cat:e.cat,original:e.meal.name,now:other.id}},
  skip:async(day,cat,id)=>{await skipScheduledMeal(day,cat,meals.find(m=>String(m.id)===String(id)));const plan=mealPlans.find(p=>p.id===activePlanId);return getDisplayedWeekdayMealsForPlan({...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}).find(x=>x.day===day&&x.cat===cat&&!x.linkedTo)?.meal.name}
 };'''
 
@@ -22,6 +23,12 @@ def run(browser, name):
     info = p.evaluate('stale.run()')
     got = p.evaluate('([d,c,m])=>stale.skip(d,c,m)', [info['day'], info['cat'], info['meal']])
     assert got == info['target'], (got, info)
+    # Replacing a day's meal and then "Use next recipe" brings the original back.
+    c.close()
+    c, p, errors, prefix = sb.open_page(browser, name)
+    s = p.evaluate('stale.swap()')
+    got = p.evaluate('([d,c,m])=>stale.skip(d,c,m)', [s['day'], s['cat'], s['now']])
+    assert got == s['original'], (got, s)
     assert not errors, errors
     c.close()
     print('PASS', name, 'stale skip records from a removed group do not hold recipes back', flush=True)
