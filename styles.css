@@ -2386,3 +2386,13 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 .plan-ahead-dialog>.plan-ahead-next{margin:4px 0 8px}
 /* Meals page: sides start with a dash, like the Weekly Overview. */
 .plan-linked-names>span::before,.plan-linked-names .plan-side-heading>button:first-child::before{content:"– ";color:#8a939e}
+/* Nested lists: a small right arrow that turns down when open (major sections keep the down chevron). */
+.nested-arrow svg{width:18px;height:18px;transition:transform .15s}
+.nested-arrow[aria-expanded=true] svg{transform:rotate(90deg)}
+.inline-side-heading>.side-arrow-toggle{flex:0 0 36px;width:36px;min-width:36px!important;min-height:36px;padding:0!important}
+/* Meals page sides: dash sits close to the main dish's left edge. */
+.plan-meal-card .plan-linked-names .plan-side-line,.plan-meal-card .plan-linked-names>span{padding-left:0!important}
+/* Choose Meals: Weeks matches Meals (heading, text size, left edge). */
+.grocery-filter-weeks legend{padding:0!important;margin:4px 0!important;font-weight:700!important;font-size:1em!important}
+.grocery-filter-weeks label{font-size:inherit!important;min-height:36px!important}
+.grocery-meal-dialog-overlay h4{font-size:1em}
