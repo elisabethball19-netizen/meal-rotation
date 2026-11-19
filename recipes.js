@@ -1615,7 +1615,7 @@ function makeAheadReminderRow(item,today=false,options={}){
 }
 // Plan ahead: "Shop early for X?" appears a week before a planned meal with Shop early on. Checking it only
 // dismisses the reminder; nothing is added to groceries.
-function shopEarlyReminders(){if(typeof plannedMealsFor!=='function')return [];const today=cookingLocalDate(new Date());return plannedMealsFor().filter(p=>{if(!p.shopEarly||p.shopDismissed||p.date<=today)return false;const start=parseCookingLocalDate(p.date);start.setDate(start.getDate()-7);return cookingLocalDate(start)<=today}).sort((a,b)=>a.date.localeCompare(b.date))}
+function shopEarlyReminders(){return [];/* Shop early now adds the meal's groceries from a chosen date (see getGroceryContributions). */if(typeof plannedMealsFor!=='function')return [];const today=cookingLocalDate(new Date());return plannedMealsFor().filter(p=>{if(!p.shopEarly||p.shopDismissed||p.date<=today)return false;const start=parseCookingLocalDate(p.date);start.setDate(start.getDate()-7);return cookingLocalDate(start)<=today}).sort((a,b)=>a.date.localeCompare(b.date))}
 function shopEarlyReminderRow(item){
  const row=document.createElement('div');row.className='make-ahead-reminder shop-early-reminder';row.dataset.plannedId=item.id;
  const check=document.createElement('input');check.type='checkbox';check.className='check';

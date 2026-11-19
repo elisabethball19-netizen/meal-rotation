@@ -145,6 +145,24 @@ function getGroceryContributions(allPlans=false,period='rotation'){
    }
   }
  }
+ // Plan ahead "Shop early": from its chosen date, a planned meal's groceries join the list until its week is covered.
+ if(typeof plannedMealsFor==='function'){const today=cookingLocalDate(new Date()),covered=new Set(result.map(s=>s.scheduledDate));
+  const seenPlans=new Set();for(const {plan:shown}of groceryPeriodSchedules(period)){const plan=mealPlans.find(p=>p.id===shown.id)||shown;if(seenPlans.has(plan.id))continue;seenPlans.add(plan.id);if(!allPlans&&!(showMealPlanTabs&&mealPlans.length>1)&&plan.id!==activePlanId)continue;
+   const start=mealPlanWeekStart(plan),weeks=period==='rotation'?1:period==='next'?2:2,from=cookingLocalDate(period==='next'?new Date(start.getFullYear(),start.getMonth(),start.getDate()+7):start),to=cookingLocalDate(new Date(start.getFullYear(),start.getMonth(),start.getDate()+7*weeks-1));
+   for(const item of plannedMealsFor(plan.id)){
+    if(!item.shopEarly||item.mealId==null||item.date<today||(item.date>=from&&item.date<=to)||covered.has(item.date))continue;
+    const shopFrom=item.shopFrom||cookingLocalDate(new Date(parseCookingLocalDate(item.date).getTime()-7*864e5));if(today<shopFrom)continue;
+    const meal=meals.find(m=>String(m.id)===String(item.mealId));if(!meal)continue;
+    const keys=new Set(grocerySelectionsForMeal(meal,selected).map(ingredientKey)),tokens=cookingItemTokens(meal).ingredients,counts=new Map(),occurrence=JSON.stringify(['planned',String(plan.id),item.date]),when=parseCookingLocalDate(item.date);
+    for(const [ingredientIndex,raw]of (Array.isArray(meal.ingredients)?meal.ingredients:[]).entries()){
+     const original=String(raw??'').trim(),oldKey=ingredientKey(original);if(!oldKey||!keys.has(oldKey)||syncIngredientHeading(original)||groceryNonIngredientLine(original))continue;
+     const normalized=ingredientKey(compactIngredientFractions(original)),index=counts.get(normalized)||0;counts.set(normalized,index+1);
+     const quantity=groceryQuantityParts(original);
+     result.push({id:JSON.stringify([occurrence,normalized,index]),occurrence,scheduledDate:item.date,preview:true,plannedEarly:true,legacyOwner:false,legacyIds:[],parentId:null,planId:plan.id,day:weekdays[(when.getDay()+6)%7],cat:'',mealId:meal.id,mealName:meal.name+' · '+when.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}),original,ingredientToken:tokens[ingredientIndex]?.token,multiplier:1,line:original,quantity,baseKey:quantity?.key||'unmeasured:'+oldKey,checkKeys:[...new Set([oldKey,original.toLowerCase().replace(/\s+/g,' ').trim()])]});
+    }
+   }
+  }
+ }
  return result;
 }
 function openGroceryRecipeSource(source){

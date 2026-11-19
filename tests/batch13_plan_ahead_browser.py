@@ -23,6 +23,8 @@ sb.fixture.HOOK += '''const b13Store=()=>typeof testStorage!=='undefined'?testSt
  emptyDates:()=>{const plan=mealPlans.find(p=>p.id===activePlanId),start=mealPlanWeekStart(plan);return orderedDays().filter(d=>!(weekdayCategories[d]||[]).filter(g=>cats.includes(g)).length).map(d=>cookingLocalDate(cookingDateInWeek(d,start)))},
  named:date=>{const plan=mealPlans.find(p=>p.id===activePlanId),cur={...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters},nx=previewMealPlanAdvance();return [[cur,getDisplayedWeekdayMealsForPlan(cur)],[nx.plan,nx.entries]].flatMap(([pl,es])=>es.filter(e=>!e.linkedTo&&!e.servingParentId&&cookingLocalDate(scheduledOccurrenceDate({...e,planId:activePlanId},pl.rotationCalendar))===date).map(e=>e.meal.name))},
  dbg:d=>[JSON.stringify(plannedMealsFor().find(x=>x.date===d)),JSON.stringify(plannedDateSlot(activePlanId,d))],
+ seedEarly:(date,from)=>{const list=plannedMealsFor().filter(p=>p.date!==date);list.push({id:'early-'+date,date,mealId:String(meals.find(m=>m.cat==='Rice').id),shopEarly:true,shopFrom:from,applied:null});writePlannedMeals(activePlanId,list);showTop=true;allMealsActive=false;groceryTabActive=true;render()},
+ shopFrom:date=>plannedMealsFor().find(p=>p.date===date)?.shopFrom||null,
  raw:()=>plannedMealsFor().map(p=>[p.date,p.mealId??null,p.name??null]),
  home:()=>{showTop=true;allMealsActive=false;groceryTabActive=false;rotationWeekOffset=0;render()}
 };'''
@@ -98,17 +100,27 @@ def run(browser, name):
         plan(p, empty[0], pick2)
         p.wait_for_timeout(200)
         assert p.evaluate('d=>batch13.dayMeal(d)', empty[0]) == [pick2, True], p.evaluate('d=>batch13.dayMeal(d)', empty[0])
-    # Shop early: a reminder in Today's To-Do within a week of the date (not earlier); checking dismisses only.
-    p.evaluate("batch13.seedShop('2026-11-27')")
-    assert p.locator('.shop-early-reminder').count() == 0, 'more than a week away'
-    p.evaluate("batch13.seedShop('2026-11-21')")
-    rem = p.locator('.shop-early-reminder')
-    assert rem.count() == 1 and 'Shop early for' in rem.inner_text(), p.locator('#list').inner_text()[:300]
+    # Shop early: from its "Groceries from" date, the planned meal's groceries join the list (no to-do reminder).
+    p.evaluate("([d,f])=>batch13.seedEarly(d,f)", ['2026-12-10', '2026-11-30'])
+    assert p.locator('.grocery-recipe-link', has_text='Thu, Dec 10').count() == 0, 'not yet: groceries-from date is later'
+    p.evaluate("([d,f])=>batch13.seedEarly(d,f)", ['2026-12-10', '2026-11-16'])
+    early = p.locator('.grocery-recipe-link', has_text='Thu, Dec 10')
+    assert early.count() >= 1, p.locator('#list').inner_text()[:400]
+    assert p.locator('.shop-early-reminder').count() == 0
     sb.shot(p, name, 'batch13-shop-early')
-    rem.locator('input').check()
-    p.wait_for_timeout(2500)
-    assert p.locator('.shop-early-reminder').count() == 0, (p.evaluate('batch13.dismissed()'), errors, p.locator('#todaysTodo').inner_text())
-    assert [x for x in p.evaluate('batch13.plans()') if x[0] == '2026-11-21']
+    row = p.locator('.master-grocery-item', has=early.first)
+    row.locator('input[type=checkbox]').first.check(); p.wait_for_timeout(200)
+    assert row.locator('input[type=checkbox]').first.is_checked()
+    # Dialog: Shop early shows a "Groceries from" date that opens the calendar to pick it.
+    p.evaluate('batch13.home()')
+    d = plan(p, '2026-12-17', rice[0], shop=True, save=False)
+    pickbtn = d.locator('.plan-ahead-shop-pick')
+    assert pickbtn.is_visible() and 'Dec 10' in pickbtn.inner_text(), pickbtn.inner_text()
+    pickbtn.click()
+    d.locator('.plan-ahead-day[data-date="2026-12-14"]').click()
+    assert 'Dec 14' in pickbtn.inner_text()
+    d.get_by_role('button', name='Save planned meals', exact=True).click(); p.wait_for_timeout(300)
+    assert p.evaluate("batch13.shopFrom('2026-12-17')") == '2026-12-14'
     # Custom meal: typing a name that matches nothing offers "Add ... as a one-time meal".
     taken = {x[0] for x in p.evaluate('batch13.raw()')}
     free = [x for x in p.evaluate('batch13.emptyDates()') if x > '2026-11-16' and x not in taken]
