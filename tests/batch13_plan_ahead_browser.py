@@ -4,6 +4,7 @@ plans wait; one meal per date; Cancel discards; Save is undoable; plans persist 
 
 Run: python3 tests/batch13_plan_ahead_browser.py
 """
+import re
 import sys
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -155,6 +156,15 @@ def run(browser, name):
     p.get_by_role('button', name='Plan ahead', exact=True).click()
     d = p.get_by_role('dialog', name='Plan ahead', exact=True)
     d.locator('.plan-ahead-row[data-date="2026-12-17"] .plan-ahead-chevron').click()
+    d.locator('.plan-ahead-row[data-date="2026-12-17"]').locator('xpath=..').get_by_role('button', name=re.compile('^Groceries for')).click()
+    gp = p.locator('.plan-groceries-popup')
+    gp.get_by_role('button', name='Choose ingredients').click(); p.wait_for_timeout(300)
+    sheet = p.get_by_role('dialog', name='Edit groceries', exact=True).last
+    box = sheet.bounding_box(); top = p.evaluate("([x,y])=>document.elementFromPoint(x,y)?.closest('[aria-label=\"Edit groceries\"]')!==null", [box['x'] + box['width'] / 2, box['y'] + 40])
+    assert top, 'Ingredients to include must open on top'
+    sheet.locator('button[aria-label^="Cancel"], button[title^="Cancel"]').last.click() if sheet.locator('button[aria-label^="Cancel"], button[title^="Cancel"]').count() else p.keyboard.press('Escape')
+    p.wait_for_timeout(300)
+    gp.get_by_role('button', name='Cancel', exact=True).click()
     assert d.locator('.plan-ahead-act').evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label").split(" ")[0])') == ['Groceries', 'Delete']
     d.locator('.plan-ahead-row[data-date="2026-12-18"] .plan-ahead-chevron').click()
     assert d.locator('.plan-ahead-act').evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label").split(" ")[0])') == ['Rename', 'Groceries', 'Delete']
