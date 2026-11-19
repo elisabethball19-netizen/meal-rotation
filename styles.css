@@ -2287,3 +2287,9 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 #recipeViewer .recipe-timer-strip .recipe-timer-controls{flex:none;display:flex;margin-left:auto}
 #recipeViewer .recipe-viewer-bar.recipe-timer-drop-open{z-index:60!important}
 #recipeViewer .recipe-timer-dropdown{z-index:61}
+/* Timer rows: clock on top-left, "Recipe · step" beneath it. */
+.recipe-timer-main{display:flex;flex-direction:column;align-items:flex-start;min-width:0;flex:1 1 auto}
+#recipeViewer .recipe-timer-main .recipe-timer-label,#cookingTimerControlsDialog .recipe-timer-main .recipe-timer-label{max-width:100%;font-size:calc(12px * var(--meal-text-factor, 1));line-height:1.2;color:#5a6470;margin-top:-2px}
+#recipeViewer .recipe-timer-main .recipe-timer-readout{line-height:1.1}
+#recipeViewer .recipe-timer-dropdown .recipe-timer-strip{padding:4px 0}
+#recipeViewer .recipe-viewer-bar>.recipe-timer-strip{padding-bottom:4px}

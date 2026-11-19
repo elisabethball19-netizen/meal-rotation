@@ -916,7 +916,8 @@ function renderCookingTimerSurface(bar,hide,timers=cookingTimers,viewMealId=null
   if(!strip){
    strip=document.createElement('div');strip.className='recipe-timer-strip';strip.dataset.timerState=key;strip.dataset.timerId=timer.id;
    if(labelled){strip.classList.add('recipe-timer-labelled');const label=document.createElement('span');label.className='recipe-timer-label';const nm=document.createElement('span');nm.className='recipe-timer-label-name';nm.textContent=meals.find(m=>String(m.id)===String(timer.recipeId))?.name||timer.recipeName;label.append(nm);if(timer.stepNumber){const st=document.createElement('span');st.className='recipe-timer-label-step';st.textContent='\u00a0· '+timer.stepNumber;label.append(st)}strip.append(label)}
-   const readout=document.createElement('div');readout.className='recipe-timer-readout';readout.setAttribute('role','timer');readout.setAttribute('aria-live','off');strip.append(readout);
+   // Time first so every clock lines up on the left; the recipe · step label sits beneath it.
+   const main=document.createElement('div');main.className='recipe-timer-main';const readout=document.createElement('div');readout.className='recipe-timer-readout';readout.setAttribute('role','timer');readout.setAttribute('aria-live','off');main.append(readout);if(labelled)main.append(strip.querySelector(':scope>.recipe-timer-label'));strip.append(main);
    const controls=document.createElement('div');controls.className='recipe-timer-controls';
    const control=(kind,label,action,disabled=false)=>{const b=document.createElement('button');b.type='button';b.className='recipe-timer-icon';setRecipeToolbarIcon(b,kind,label);b.disabled=disabled;b.onclick=action;controls.append(b)};
    const complete=timer.status==='complete',paused=timer.status==='paused',suffix=labelled?' ('+cookingTimerLabel(timer,viewMealId)+')':'';

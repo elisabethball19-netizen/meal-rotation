@@ -2139,6 +2139,12 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 #recipeViewer .recipe-timer-strip .recipe-timer-controls{flex:none;display:flex;margin-left:auto}
 #recipeViewer .recipe-viewer-bar.recipe-timer-drop-open{z-index:60!important}
 #recipeViewer .recipe-timer-dropdown{z-index:61}
+/* Timer rows: clock on top-left, "Recipe · step" beneath it. */
+.recipe-timer-main{display:flex;flex-direction:column;align-items:flex-start;min-width:0;flex:1 1 auto}
+#recipeViewer .recipe-timer-main .recipe-timer-label,#cookingTimerControlsDialog .recipe-timer-main .recipe-timer-label{max-width:100%;font-size:calc(12px * var(--meal-text-factor, 1));line-height:1.2;color:#5a6470;margin-top:-2px}
+#recipeViewer .recipe-timer-main .recipe-timer-readout{line-height:1.1}
+#recipeViewer .recipe-timer-dropdown .recipe-timer-strip{padding:4px 0}
+#recipeViewer .recipe-viewer-bar>.recipe-timer-strip{padding-bottom:4px}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -3805,7 +3811,8 @@ function renderCookingTimerSurface(bar,hide,timers=cookingTimers,viewMealId=null
   if(!strip){
    strip=document.createElement('div');strip.className='recipe-timer-strip';strip.dataset.timerState=key;strip.dataset.timerId=timer.id;
    if(labelled){strip.classList.add('recipe-timer-labelled');const label=document.createElement('span');label.className='recipe-timer-label';const nm=document.createElement('span');nm.className='recipe-timer-label-name';nm.textContent=meals.find(m=>String(m.id)===String(timer.recipeId))?.name||timer.recipeName;label.append(nm);if(timer.stepNumber){const st=document.createElement('span');st.className='recipe-timer-label-step';st.textContent='\u00a0· '+timer.stepNumber;label.append(st)}strip.append(label)}
-   const readout=document.createElement('div');readout.className='recipe-timer-readout';readout.setAttribute('role','timer');readout.setAttribute('aria-live','off');strip.append(readout);
+   // Time first so every clock lines up on the left; the recipe · step label sits beneath it.
+   const main=document.createElement('div');main.className='recipe-timer-main';const readout=document.createElement('div');readout.className='recipe-timer-readout';readout.setAttribute('role','timer');readout.setAttribute('aria-live','off');main.append(readout);if(labelled)main.append(strip.querySelector(':scope>.recipe-timer-label'));strip.append(main);
    const controls=document.createElement('div');controls.className='recipe-timer-controls';
    const control=(kind,label,action,disabled=false)=>{const b=document.createElement('button');b.type='button';b.className='recipe-timer-icon';setRecipeToolbarIcon(b,kind,label);b.disabled=disabled;b.onclick=action;controls.append(b)};
    const complete=timer.status==='complete',paused=timer.status==='paused',suffix=labelled?' ('+cookingTimerLabel(timer,viewMealId)+')':'';
