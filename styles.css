@@ -2240,3 +2240,30 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 #settingsPanel .collapsed-card-options .settings-display-option:last-child{margin-bottom:0!important}
 #settingsPanel .settings-group-content>.automatic-prep-settings{margin:0!important}
 #settingsPanel .automatic-prep-settings .settings-display-option{padding:6px 0!important}
+/* Part 3a: step chips in the recipe editor's Ingredients section. */
+#recipeIngredientLinks.hidden,#recipeIngredientLinks[hidden]{display:none!important}
+.ingredient-chip-mode #ingredients{display:none!important}
+.ingredient-step-view{display:flex;flex-direction:column;padding:2px 0 6px}
+.step-chip-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px;padding:2px 0}
+.step-chip-text{flex:1;min-width:0;font-size:calc(15px * var(--meal-text-factor, 1));line-height:1.3;overflow-wrap:anywhere}
+.step-chip{flex:none;font-size:calc(12px * var(--meal-text-factor, 1));border:1px solid #c3cad2;border-radius:999px;padding:3px 10px;min-height:28px;color:#3d4a5a;background:#fff;white-space:nowrap}
+.step-chip-none{color:#8a939e;border-style:dashed;background:transparent}
+.step-chip[aria-expanded=true]{border-color:#5b6f8a;background:#eef2f7}
+.step-chip-divider{border:0;border-top:1px solid #dfe3e8;margin:4px 0;width:100%}
+.step-chip-heading{font-size:calc(12px * var(--meal-text-factor, 1));font-weight:600;color:#6a7480;text-transform:uppercase;letter-spacing:.4px;margin:8px 0 2px}
+.step-chip-picker{background:#fff;border:1px solid #c3cad2;border-radius:10px;padding:8px 10px;margin:2px 0 8px;box-shadow:0 3px 10px #0001}
+.step-chip-picker-title{margin:0 0 4px;font-weight:600;font-size:calc(14px * var(--meal-text-factor, 1))}
+.step-chip-option{display:flex;align-items:flex-start;gap:2px;padding:2px 0}
+.step-chip-option>label{flex:1;min-width:0;display:flex;gap:8px;align-items:flex-start;font-size:calc(13px * var(--meal-text-factor, 1));line-height:1.35;padding-top:6px}
+.step-chip-option input[type=checkbox]{flex:0 0 18px;width:18px;height:18px;margin:0}
+.step-chip-option-text{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.step-chip-option-text.expanded{display:block;-webkit-line-clamp:unset}
+.step-chip-more{flex:0 0 30px;min-width:30px!important;width:30px;min-height:30px!important;padding:0!important}
+.step-chip-more svg{width:16px;height:16px;transition:transform .15s}
+.step-chip-more[data-open=true] svg{transform:rotate(90deg)}
+.step-chip-amount{flex:0 0 84px;width:84px;margin-top:2px;padding:5px 7px;border:1px solid #b7bdc4;border-radius:8px;font-size:14px}
+.step-chip-note{margin:4px 0 0;font-size:12px;color:#8a5a12;min-height:0}
+.step-chip-note:empty{display:none}
+.step-chip-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:4px}
+.step-chip-reset{margin-right:auto;font-size:13px}
+.ingredient-step-view[hidden]{display:none!important}

@@ -57,19 +57,8 @@ def run(browser, name):
     p.wait_for_timeout(200)
     p.evaluate('batch3.editor(2)')
     assert p.locator('#editor .recipe-source-site').text_content() == 'seriouseats.com'
-    # Step picker: no native select; list opens, choosing step 2 updates the picker and the checklist.
-    links = p.locator('#recipeIngredientLinks')
-    assert links.locator('select').count() == 0
-    picker = links.get_by_role('button', name='Instruction step for ingredient links', exact=True)
-    assert picker.inner_text().startswith('1.')
-    picker.click()
-    options = links.get_by_role('option')
-    assert options.count() == 3
-    sb.shot(p, name, 'batch3-step-picker')
-    options.nth(1).click()
-    assert links.get_by_role('option').count() == 0 and picker.inner_text().startswith('2.')
-    checked = links.locator('.recipe-link-choices input:checked').evaluate_all('(es)=>es.map(e=>e.parentElement.textContent)')
-    assert checked == ['2 cups rice'], checked
+    # The Link Steps step picker was replaced by step chips on each ingredient (see part3a_step_chips_browser.py).
+    assert p.locator('#recipeIngredientLinks').is_hidden()
     assert not errors, errors
     c.close()
     print('PASS', name, 'batch 3: source row both editors, viewer edit collapsed, step picker', flush=True)

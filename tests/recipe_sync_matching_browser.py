@@ -57,36 +57,7 @@ def run(browser, name):
     lines = p.evaluate('sync6.plan()')
     assert lines[:5] == ['1½ tbsp olive oil', '1 lb boneless skinless chicken thighs', '1½ tsp curry powder', '¾ tsp garlic powder', '1½ tbsp olive oil, remaining'], lines
     assert '1½ tsp curry powder, remaining' in lines and '¾ tsp garlic powder, remaining' in lines and lines[-2:] == ['1 tsp salt', '2 cups cooked rice'], lines
-    # Through the editor: preview, Apply, Save, grocery picks follow, grocery list still one olive-oil item, Undo.
-    p.evaluate('sync6.pick()')
-    before = p.evaluate('sync6.record()')
-    p.evaluate('sync6.editor()')
-    p.get_by_role('button', name='Sort by steps', exact=True).click()
-    assert p.locator('.recipe-link-sort-preview').is_visible() and p.locator('.recipe-link-step-number').count() >= 3
-    assert p.evaluate("document.querySelector('#ingredients').value") == '\n'.join(ING), 'preview must not change the draft'
-    sb.shot(p, name, 'batch6-sort-preview')
-    p.locator('.recipe-link-apply-sort').click()
-    assert p.evaluate("document.querySelector('#ingredients').value").split('\n') == lines
-    sb.shot(p, name, 'batch6-sorted-links')
-    last = p.locator('.recipe-link-choices label').last
-    assert last.is_visible() and p.evaluate("(()=>{const l=document.querySelector('.recipe-link-choices');return l.scrollHeight<=l.clientHeight+1})()"), 'whole list visible'
-    p.locator('#editor').get_by_role('button', name='Save', exact=True).click()
-    p.wait_for_timeout(300)
-    rec = p.evaluate('sync6.record()')
-    assert rec['ingredients'] == lines, rec['ingredients']
-    picks = p.evaluate('sync6.picks()')
-    assert '1½ tbsp olive oil' in picks and '1½ tbsp olive oil, remaining' in picks and '3 tbsp olive oil, divided' not in picks, picks
-    if p.evaluate("typeof getMasterGroceryItems==='function'"):
-        oil = p.evaluate("[...getMasterGroceryItems(getGroceryContributions(true,'rotation')).values()].filter(i=>/olive oil/.test(i.line)).map(i=>[i.line,i.contributions.filter(c=>c.mealId===2).length])")
-        assert len(oil) == 1 and oil[0][1] == 2, oil
-    else:  # test copy keeps grocery code private; the combine key is the shared contract
-        assert "name.replace(/,\\s*remaining\\s*$/i,'')" in (Path(__file__).parent.parent / name).read_text()
-    after = p.evaluate('sync6.matches()')
-    assert '1½ tbsp olive oil' in after[0] and '1½ tbsp olive oil, remaining' not in after[0], after[0]
-    assert '1½ tbsp olive oil, remaining' in after[1] and '1½ tbsp olive oil' not in after[1], after[1]
-    p.evaluate('sync6.undo()')
-    p.wait_for_timeout(200)
-    assert p.evaluate('sync6.record()')['ingredients'] == before['ingredients'] and '3 tbsp olive oil, divided' in p.evaluate('sync6.picks()')
+    # The editor's Sort by steps panel was replaced by step chips (tests/part3a_step_chips_browser.py covers the editor flow).
     # Manual links always win.
     p.evaluate('sync6.manual()')
     manual = p.evaluate('sync6.matches()')[1]

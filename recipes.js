@@ -215,64 +215,108 @@ function configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane){
  if(!v.syncWasEnabled||v.syncRequested){state.suspended=false;state.lastStep=null;v.syncGeometryHold=false;schedule()}else if(matchesChanged)schedule();
  v.syncWasEnabled=true;v.syncRequested=false;
 }
+// Part 3: step chips. Ingredients are listed in step order with a chip showing which steps use them (automatic
+// matches first). Tapping a chip opens a step picker under the row; an ingredient used in several steps can be
+// split into per-step amounts, which become separate lines (the grocery list adds them back into one item).
+// The hidden #recipeIngredientLinks element keeps its save/recovery hooks; links stay in meal.ingredientStepLinks.
+function ingredientUnitWord(line){const q=parseRecipeQuantity(line);if(!q)return '';const w=q.rest.match(/^([a-z]+)\.?\s/i);return w&&groceryQuantityUnits[w[1].toLowerCase()]?w[1]:''}
+function ingredientNameOnly(line){const q=parseRecipeQuantity(line);if(!q)return String(line).trim();const unit=ingredientUnitWord(line);return (unit?q.rest.slice(q.rest.indexOf(unit)+unit.length).replace(/^\.?\s+/,''):q.rest).replace(/,\s*remaining\s*$/i,'').replace(/\s*\(\s*divided\s*\)/i,'').replace(/,\s*divided\b/i,'').trim()}
+function ingredientAmountText(line){const q=parseRecipeQuantity(line);if(!q)return '';const unit=ingredientUnitWord(line);return formatRecipeQuantity(q.lo)+(q.hi!==q.lo?'–'+formatRecipeQuantity(q.hi):'')+(unit?' '+unit:'')}
+function typedAmountLine(amount,base,later){
+ const typed=String(amount||'').trim();if(!typed)return null;const name=ingredientNameOnly(base),unit=ingredientUnitWord(base),parts=typed.split(/\s+/),hasUnit=parts.length>1&&groceryQuantityUnits[parts[1].replace(/\.$/,'').toLowerCase()];
+ return typed+(hasUnit||!unit?'':' '+unit)+' '+name+(later?', remaining':'');
+}
 function installRecipeIngredientLinkEditor(meal){
- const root=$('recipeIngredientLinks');if(!root)return;const body=root.querySelector('.settings-group-content');
- let draft=validRecipeIngredientLinks(meal),selected='',preview=null,pickerOpen=false;const ingredientsField=$('ingredients');root.ingredientRemap=null;
- const draftMeal=()=>({...meal,ingredients:$('ingredients').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),instructions:$('recipeInstructions').value===instructionEditorText(meal.instructions)?meal.instructions:$('recipeInstructions').value});
- root.captureRecoveryDraft=()=>({links:JSON.parse(JSON.stringify(draft)),selectedStep:selected});root.getLinks=next=>validRecipeIngredientLinks(next||draftMeal(),draft);root.hasChanges=()=>JSON.stringify(root.getLinks())!==JSON.stringify(validRecipeIngredientLinks(meal));
- const stepNumber=text=>{const n=document.createElement('div');n.className='recipe-link-step-number';n.setAttribute('aria-label','Step '+text);n.textContent=text;return n};
- const applySort=plan=>{
-  const current=draftMeal(),oldMatches=recipeIngredientMatches({...current,ingredientStepLinks:draft}),oldToken=new Map(cookingItemTokens(current).ingredients.map(i=>[i.text,i.token]));
-  const splitRows=plan.sections.flatMap(section=>section.rows).filter(r=>r.split),fromTokens=new Set(splitRows.map(r=>oldToken.get(r.from)));
-  const next={...current,ingredients:plan.lines},newToken=new Map(cookingItemTokens(next).ingredients.map(i=>[i.text,i.token]));
-  // Steps that use a split line get links to their own part, so each part only highlights in its step.
-  const affected=new Set(splitRows.map(r=>r.stepToken));draft=draft.filter(l=>!affected.has(l.step)).map(l=>({step:l.step,ingredients:l.ingredients.filter(t=>!fromTokens.has(t))}));
-  for(const step of affected)draft.push({step,ingredients:[...new Set((oldMatches.get(step)||[]).flatMap(t=>{if(!fromTokens.has(t))return [t];const row=splitRows.find(r=>r.stepToken===step&&oldToken.get(r.from)===t);return row?[newToken.get(row.text)]:[]}).filter(Boolean))]});
-  root.ingredientRemap||={};for(const row of splitRows)(root.ingredientRemap[row.from]||=[]).push(row.text);
-  ingredientsField.value=plan.lines.join('\n');ingredientsField.dispatchEvent(new Event('input',{bubbles:true}));ingredientsField.dispatchEvent(new Event('change',{bubbles:true}));
-  preview=null;render();root.dispatchEvent(new Event('change',{bubbles:true}));
- };
- const renderPreview=()=>{
-  const title=document.createElement('p');title.className='recipe-link-preview-title';title.textContent='Preview: ingredients in step order';
-  const note=document.createElement('p');note.className='muted';note.textContent='Nothing changes until you tap Apply, then Save.';
-  const list=document.createElement('div');list.className='recipe-link-sort-preview';
-  for(const section of preview.sections){if(section.heading!==null){const h=document.createElement('div');h.className='recipe-link-preview-heading';h.textContent=section.heading;list.append(h)}let last=null;
-   for(const row of section.rows){if(row.step!==last&&Number.isFinite(row.step))list.append(stepNumber(String(row.step)));else if(row.step!==last)list.append(stepNumber(''));last=row.step;
-    const line=document.createElement('div');line.className='recipe-link-preview-line';line.textContent=row.text;
-    if(row.split){const tag=document.createElement('span');tag.className='recipe-link-preview-tag';tag.textContent=' split';line.append(tag)}
-    if(row.check){line.classList.add('recipe-link-preview-check');const tag=document.createElement('span');tag.className='recipe-link-preview-tag';tag.textContent=' check amount: used in steps '+row.check.join(' and ');line.append(tag)}
-    list.append(line)}}
-  const actions=document.createElement('div');actions.className='recipe-link-preview-actions';
-  const cancel=document.createElement('button');cancel.type='button';cancel.className='meal-editor-text-action';cancel.textContent='Cancel';cancel.onclick=()=>{preview=null;render()};
-  const apply=document.createElement('button');apply.type='button';apply.className='meal-editor-text-action recipe-link-apply-sort';apply.textContent='Apply';apply.onclick=()=>applySort(preview);
-  actions.append(cancel,apply);body.append(title,note,list,actions);
- };
- const render=()=>{
-  const current=draftMeal(),items=recipeAssociationItems(current);draft=validRecipeIngredientLinks(current,draft);body.replaceChildren();
-  if(preview){renderPreview();return}
-  const help=document.createElement('p');help.className='muted';help.textContent='Select a step to review or change its ingredients.';body.append(help);
-  if(items.steps.length&&items.ingredients.length){const sort=document.createElement('button');sort.type='button';sort.className='meal-editor-text-action recipe-link-sort';sort.textContent='Sort by steps';sort.onclick=()=>{const plan=recipeStepSortPlan({...draftMeal(),ingredientStepLinks:draft});if(!plan.changed){sort.textContent='Already in step order';return}preview=plan;render()};body.append(sort)}
-  // Batch 3: app picker instead of the native dropdown.
-  if(!items.steps.some(i=>i.token===selected))selected=items.steps[0]?.token||'';
-  const label=document.createElement('div');label.className='recipe-step-picker-label';label.textContent='Instruction step';
-  const picker=document.createElement('div');picker.className='recipe-step-picker';
-  const stepText=(n,item)=>(n+1)+'. '+cleanInstructionBlock(item).text,currentStep=items.steps.findIndex(i=>i.token===selected);
-  const button=document.createElement('button');button.type='button';button.className='recipe-step-picker-button';button.setAttribute('aria-label','Instruction step for ingredient links');button.setAttribute('aria-haspopup','listbox');button.setAttribute('aria-expanded',String(pickerOpen));
-  const shown=document.createElement('span');shown.className='recipe-step-picker-text';shown.textContent=currentStep>=0?stepText(currentStep,items.steps[currentStep]):'';
-  button.append(shown);button.insertAdjacentHTML('beforeend','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(pickerOpen?'m6 15 6-6 6 6':'m6 9 6 6 6-6')+'"/></svg>');
-  button.onclick=()=>{pickerOpen=!pickerOpen;render();body.querySelector('.recipe-step-picker-button')?.focus({preventScroll:true})};picker.append(button);
-  if(pickerOpen){const options=document.createElement('div');options.className='recipe-step-picker-list';options.setAttribute('role','listbox');options.setAttribute('aria-label','Instruction steps');
-   for(const [n,item]of items.steps.entries()){const option=document.createElement('button');option.type='button';option.className='recipe-step-picker-option';option.setAttribute('role','option');option.setAttribute('aria-selected',String(item.token===selected));option.textContent=stepText(n,item);option.onclick=()=>{selected=item.token;pickerOpen=false;render();body.querySelector('.recipe-step-picker-button')?.focus({preventScroll:true})};options.append(option)}
-   picker.append(options)}
-  body.append(label,picker);
-  if(!items.steps.length){const message=document.createElement('p');message.className='muted';message.textContent='Add distinct instruction steps and ingredients to create links.';body.append(message);return}
-  const automatic=recipeIngredientMatches({...current,ingredientStepLinks:[]}).get(selected)||[],entry=draft.find(link=>link.step===selected),chosen=new Set(entry?entry.ingredients:automatic);
-  const reset=document.createElement('button');reset.type='button';reset.className='meal-editor-text-action';reset.textContent='Reset to automatic';reset.hidden=!entry;reset.onclick=()=>{draft=draft.filter(link=>link.step!==selected);render();root.dispatchEvent(new Event('change',{bubbles:true}))};
-  const list=document.createElement('div');list.className='recipe-link-choices';
-  const firstStep=recipeIngredientStepUse({...current,ingredientStepLinks:draft}).all;let lastStep=null;
-  for(const ingredient of items.ingredients){const at=firstStep.get(ingredient.token)?.[0];if(at!==lastStep){list.append(stepNumber(at==null?'':String(at+1)));lastStep=at}const row=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=chosen.has(ingredient.token);input.onchange=()=>{if(input.checked)chosen.add(ingredient.token);else chosen.delete(ingredient.token);draft=draft.filter(link=>link.step!==selected);draft.push({step:selected,ingredients:[...chosen]});reset.hidden=false;root.dispatchEvent(new Event('change',{bubbles:true}))};row.append(input,document.createTextNode(ingredient.text));list.append(row)}body.append(list,reset);
- };
- root.ontoggle=()=>{if(root.open)render()};for(const id of ['ingredients','recipeInstructions'])$(id).addEventListener('change',()=>{if(root.open)render()});
+ const root=$('recipeIngredientLinks');if(!root)return;root.hidden=true;root.classList.add('hidden');
+ const section=$('editorIngredientsSection'),content=section?.querySelector('.settings-group-content'),field=$('ingredients');if(!content||!field)return;
+ let draft=validRecipeIngredientLinks(meal),picker=null,textMode=false;root.ingredientRemap=null;
+ const draftMeal=()=>({...meal,ingredients:field.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),instructions:$('recipeInstructions').value===instructionEditorText(meal.instructions)?meal.instructions:$('recipeInstructions').value});
+ root.captureRecoveryDraft=()=>({links:JSON.parse(JSON.stringify(draft)),selectedStep:''});root.getLinks=next=>validRecipeIngredientLinks(next||draftMeal(),draft);root.hasChanges=()=>JSON.stringify(root.getLinks())!==JSON.stringify(validRecipeIngredientLinks(meal));
+ const view=document.createElement('div');view.id='ingredientStepView';view.className='ingredient-step-view';content.prepend(view);
+ const toggle=document.createElement('button');toggle.type='button';toggle.className='iconbtn ingredient-text-toggle';
+ const row=section.querySelector('summary .ingredient-toolrow')||section.querySelector('summary');row.prepend(toggle);
+ toggle.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();textMode=!textMode;if(!section.open)section.open=true;render()});
+ const changed=()=>root.dispatchEvent(new Event('change',{bubbles:true}));
+ const setLines=lines=>{field.value=lines.join('\n');field.dispatchEvent(new Event('input',{bubbles:true}));field.dispatchEvent(new Event('change',{bubbles:true}))};
+ const stepsFor=(matches,items,token)=>items.steps.map((s,i)=>(matches.get(s.token)||[]).includes(token)?i:-1).filter(i=>i>=0);
+ const groupOf=(lines,i)=>{const key=groceryQuantityParts(lines[i])?.key;if(!key)return [i];const out=lines.map((l,j)=>groceryQuantityParts(l)?.key===key&&!syncIngredientHeading(l)?j:-1).filter(j=>j>=0);return out.length>1&&out.length<=8?out:[i]};
+ function apply(group,chosen,amounts){
+  const current=draftMeal(),lines=current.ingredients,items=recipeAssociationItems(current),oldTok=cookingItemTokens(current).ingredients,matches=recipeIngredientMatches({...current,ingredientStepLinks:draft});
+  const groupTokens=new Set(group.map(i=>oldTok[i]?.token)),base=lines[group[0]].replace(/,\s*remaining\s*$/i,'');
+  let replacement;const steps=[...chosen].sort((a,b)=>a-b);
+  if(steps.length>1&&parseRecipeQuantity(base)){
+   replacement=steps.map((s,k)=>typedAmountLine(amounts.get(s),base,k>0));
+   if(replacement.some(x=>!x)||new Set(replacement.map(ingredientKey)).size!==replacement.length)return 'Enter an amount for each step.';
+  }else if(group.length>1){
+   const qs=group.map(i=>groceryQuantityParts(lines[i])),first=qs[0];
+   replacement=[qs.every(q=>q&&q.unit===first.unit&&q.lo===q.hi)?scaleRecipeIngredient(base,qs.reduce((a,q)=>a+q.lo,0)/first.lo):base];
+  }else replacement=[lines[group[0]]];
+  const next=[...lines];const at=group[0];for(const i of [...group].sort((a,b)=>b-a))next.splice(i,1);next.splice(at,0,...replacement);
+  const nextMeal={...current,ingredients:next},newTok=cookingItemTokens(nextMeal).ingredients,tokenOf=text=>newTok[next.indexOf(text)]?.token;
+  const partFor=s=>replacement.length>1?tokenOf(replacement[steps.indexOf(s)]):tokenOf(replacement[0]);
+  const nextDraft=[];for(const [i,step] of items.steps.entries()){
+   const before=matches.get(step.token)||[],had=before.some(t=>groupTokens.has(t)),wants=chosen.has(i);
+   const list=[...before.filter(t=>!groupTokens.has(t))];if(wants){const t=partFor(i);if(t)list.push(t)}
+   const existing=draft.find(l=>l.step===step.token);
+   if(existing||had!==wants||replacement.length>1||group.length>1)nextDraft.push({step:step.token,ingredients:[...new Set(list)]});
+  }
+  if(replacement.length>1||group.length>1){root.ingredientRemap||={};for(const i of group)(root.ingredientRemap[lines[i]]||=[]).push(...replacement)}
+  draft=nextDraft;picker=null;setLines(next);render();changed();return null;
+ }
+ function resetAuto(group){
+  const current=draftMeal(),items=recipeAssociationItems(current),tok=cookingItemTokens(current).ingredients,tokens=new Set(group.map(i=>tok[i]?.token)),auto=recipeIngredientMatches({...current,ingredientStepLinks:[]});
+  draft=draft.map(l=>{const a=auto.get(l.step)||[],list=[...l.ingredients.filter(t=>!tokens.has(t)),...a.filter(t=>tokens.has(t))];return {step:l.step,ingredients:[...new Set(list)]}}).filter(l=>JSON.stringify([...l.ingredients].sort())!==JSON.stringify([...(auto.get(l.step)||[])].sort()));
+  picker=null;render();changed();
+ }
+ function renderPicker(host,group,lines,items,matches,tok){
+  const base=lines[group[0]],steps=new Set(group.flatMap(i=>stepsFor(matches,items,tok[i]?.token))),quantity=!!parseRecipeQuantity(base);
+  if(!picker.chosen){picker.chosen=new Set(steps);picker.amounts=new Map();picker.expanded=new Set();for(const i of group){const s=stepsFor(matches,items,tok[i]?.token);if(group.length>1&&s.length===1)picker.amounts.set(s[0],ingredientAmountText(lines[i]))}}
+  const box=document.createElement('div');box.className='step-chip-picker';box.setAttribute('role','group');box.setAttribute('aria-label','Steps for '+ingredientNameOnly(base));
+  const title=document.createElement('p');title.className='step-chip-picker-title';title.textContent=ingredientNameOnly(base).replace(/^./,c=>c.toUpperCase())+' is used in:';box.append(title);
+  const prefill=()=>{const chosen=[...picker.chosen].sort((a,b)=>a-b);if(chosen.length<2||!quantity)return;const auto=splitIngredientForSteps(base,chosen.map(i=>cleanInstructionBlock(items.steps[i]).text));chosen.forEach((s,k)=>{if(!picker.amounts.get(s))picker.amounts.set(s,auto?ingredientAmountText(auto[k]):k===0?ingredientAmountText(base):'')})};
+  prefill();
+  for(const [i,step] of items.steps.entries()){
+   const line=document.createElement('div');line.className='step-chip-option';const label=document.createElement('label');const check=document.createElement('input');check.type='checkbox';check.checked=picker.chosen.has(i);
+   check.onchange=()=>{if(check.checked)picker.chosen.add(i);else{picker.chosen.delete(i);picker.amounts.delete(i)}render()};
+   const text=document.createElement('span');text.className='step-chip-option-text'+(picker.expanded.has(i)?' expanded':'');text.textContent=(i+1)+'. '+cleanInstructionBlock(step).text;label.append(check,text);
+   const more=document.createElement('button');more.type='button';more.className='iconbtn step-chip-more';setIconButton(more,'right',(picker.expanded.has(i)?'Hide':'Show')+' full step '+(i+1));more.dataset.open=String(picker.expanded.has(i));more.onclick=()=>{if(picker.expanded.has(i))picker.expanded.delete(i);else picker.expanded.add(i);render()};
+   line.append(more,label);
+   if(quantity&&picker.chosen.size>1&&picker.chosen.has(i)){const amount=document.createElement('input');amount.type='text';amount.className='step-chip-amount';amount.value=picker.amounts.get(i)||'';amount.setAttribute('aria-label','Amount for step '+(i+1));amount.oninput=()=>{picker.amounts.set(i,amount.value);sum()};line.append(amount)}
+   box.append(line);
+  }
+  const note=document.createElement('p');note.className='step-chip-note';note.setAttribute('role','status');box.append(note);
+  const sum=()=>{note.textContent='';const total=groceryQuantityParts(lines[group[0]]);if(!total||picker.chosen.size<2)return;const all=group.map(i=>groceryQuantityParts(lines[i])).filter(Boolean);const whole=all.every(q=>q.unit===total.unit)?all.reduce((a,q)=>a+q.lo,0):total.lo;let added=0;for(const s of picker.chosen){const q=parseRecipeQuantity(String(picker.amounts.get(s)||'')+' x');if(!q)return;added+=q.lo}if(Math.abs(added-whole)>whole*.02)note.textContent='Adds up to '+formatRecipeQuantity(added)+(total.unit?' '+total.unit:'')+' of '+formatRecipeQuantity(whole)+(total.unit?' '+total.unit:'')+'.'};sum();
+  const actions=document.createElement('div');actions.className='step-chip-actions';
+  const reset=document.createElement('button');reset.type='button';reset.className='meal-editor-text-action step-chip-reset';reset.textContent='Reset to automatic';reset.onclick=()=>resetAuto(group);
+  const ok=document.createElement('button');ok.type='button';ok.className='iconbtn';setIconButton(ok,'save','Save steps');ok.onclick=()=>{const problem=apply(group,picker.chosen,picker.amounts);if(problem)note.textContent=problem};
+  const cancel=document.createElement('button');cancel.type='button';cancel.className='iconbtn';setIconButton(cancel,'cancel','Cancel');cancel.onclick=()=>{picker=null;render()};
+  actions.append(reset,ok,cancel);box.append(actions);host.append(box);
+ }
+ function render(){
+  const current=draftMeal(),lines=current.ingredients,items=recipeAssociationItems(current);draft=validRecipeIngredientLinks(current,draft);
+  const chips=!textMode&&items.steps.length>0&&lines.length>0;field.style.display=chips?'none':'';view.hidden=!chips;
+  setIconButton(toggle,'rename',chips?'Edit ingredients as text':'Show ingredients by step');if(!chips)toggle.querySelector('svg').innerHTML='<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>';toggle.hidden=!items.steps.length||!lines.length;
+  view.replaceChildren();if(!chips)return;
+  const matches=recipeIngredientMatches({...current,ingredientStepLinks:draft}),tok=cookingItemTokens(current).ingredients,allowed=new Set(items.ingredients.map(i=>i.token));
+  const sections=[];let cur={heading:null,rows:[]};sections.push(cur);
+  lines.forEach((text,i)=>{if(syncIngredientHeading(text)){cur={heading:text,rows:[]};sections.push(cur);return}const s=allowed.has(tok[i]?.token)?stepsFor(matches,items,tok[i].token):[];cur.rows.push({i,text,steps:s,first:s.length?s[0]:Infinity,linkable:allowed.has(tok[i]?.token)})});
+  for(const sec of sections){
+   if(sec.heading!==null){const h=document.createElement('div');h.className='step-chip-heading';h.textContent=sec.heading;view.append(h)}
+   let last=null;for(const r of sec.rows.sort((a,b)=>a.first-b.first||a.i-b.i)){
+    if(last!==null&&r.first!==last){const hr=document.createElement('hr');hr.className='step-chip-divider';view.append(hr)}last=r.first;
+    const row=document.createElement('div');row.className='step-chip-row';row.dataset.line=String(r.i);const name=document.createElement('span');name.className='step-chip-text';name.textContent=r.text;row.append(name);
+    if(r.linkable){const group=groupOf(lines,r.i),all=[...new Set(group.flatMap(i=>stepsFor(matches,items,tok[i]?.token)))].sort((a,b)=>a-b);
+     const chip=document.createElement('button');chip.type='button';chip.className='step-chip'+(r.steps.length?'':' step-chip-none');chip.textContent=r.steps.length?(r.steps.length===1?'Step ':'Steps ')+r.steps.map(s=>s+1).join(', '):'+ Step';
+     chip.setAttribute('aria-label',(r.steps.length?'Steps for ':'Add a step for ')+r.text);chip.setAttribute('aria-expanded',String(picker?.line===r.i));
+     chip.onclick=()=>{picker=picker?.line===r.i?null:{line:r.i};render()};row.append(chip);view.append(row);
+     if(picker?.line===r.i)renderPicker(view,group,lines,items,matches,tok);
+     if(group.length>1&&all.length>1)row.title='Split across steps '+all.map(s=>s+1).join(', ');
+    }else view.append(row);
+   }
+  }
+ }
+ for(const id of ['ingredients','recipeInstructions'])$(id).addEventListener('change',()=>{if(!picker)render()});
+ render();
 }
 
 function configureRecipeSplit(v,divider,panes){
