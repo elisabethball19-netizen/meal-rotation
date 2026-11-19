@@ -1619,7 +1619,7 @@ function shopEarlyReminders(){if(typeof plannedMealsFor!=='function')return [];c
 function shopEarlyReminderRow(item){
  const row=document.createElement('div');row.className='make-ahead-reminder shop-early-reminder';row.dataset.plannedId=item.id;
  const check=document.createElement('input');check.type='checkbox';check.className='check';
- const text=document.createElement('span');text.className='make-ahead-task-link make-ahead-task-plain';text.textContent='Shop early for '+(meals.find(m=>String(m.id)===String(item.mealId))?.name||'your planned meal')+' ('+parseCookingLocalDate(item.date).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+')?';check.setAttribute('aria-label',text.textContent);
+ const text=document.createElement('span');text.className='make-ahead-task-link make-ahead-task-plain';text.textContent='Shop early for '+(item.mealId==null?item.name:meals.find(m=>String(m.id)===String(item.mealId))?.name||'your planned meal')+' ('+parseCookingLocalDate(item.date).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+')?';check.setAttribute('aria-label',text.textContent);
  check.onchange=()=>{if(!check.checked)return;const before=JSON.parse(captureState());before.plannedMealsUndo=localStorage.getItem(PLANNED_MEALS_KEY);const list=plannedMealsFor();const target=list.find(p=>p.id===item.id);if(!target)return;target.shopDismissed=true;writePlannedMeals(activePlanId,list);snapshot(JSON.stringify(before));setTimeout(()=>renderTodayTodo(scheduledMakeAheadTasks(true)),450)};
  row.append(check,text);return row;
 }

@@ -21,6 +21,9 @@ sb.fixture.HOOK += '''const b13Store=()=>typeof testStorage!=='undefined'?testSt
  seedShop:date=>{const list=plannedMealsFor();list.push({id:'shop-'+date,date,mealId:String(meals.find(m=>m.cat==='Rice').id),shopEarly:true,applied:null});writePlannedMeals(activePlanId,list);makeAheadDisplayPrefs.showMakeAheadReminders=true;saveMakeAheadDisplayPrefs();batch13.home()},
  dayMeal:date=>{const plan=mealPlans.find(p=>p.id===activePlanId),cur={...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters},e=getDisplayedWeekdayMealsForPlan(cur).find(e=>!e.linkedTo&&!e.servingParentId&&cookingLocalDate(scheduledOccurrenceDate({...e,planId:activePlanId},cur.rotationCalendar))===date);return e?[e.meal.name,!!e.occasional]:null},
  emptyDates:()=>{const plan=mealPlans.find(p=>p.id===activePlanId),start=mealPlanWeekStart(plan);return orderedDays().filter(d=>!(weekdayCategories[d]||[]).filter(g=>cats.includes(g)).length).map(d=>cookingLocalDate(cookingDateInWeek(d,start)))},
+ named:date=>{const plan=mealPlans.find(p=>p.id===activePlanId),cur={...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters},nx=previewMealPlanAdvance();return [[cur,getDisplayedWeekdayMealsForPlan(cur)],[nx.plan,nx.entries]].flatMap(([pl,es])=>es.filter(e=>!e.linkedTo&&!e.servingParentId&&cookingLocalDate(scheduledOccurrenceDate({...e,planId:activePlanId},pl.rotationCalendar))===date).map(e=>e.meal.name))},
+ dbg:d=>[JSON.stringify(plannedMealsFor().find(x=>x.date===d)),JSON.stringify(plannedDateSlot(activePlanId,d))],
+ raw:()=>plannedMealsFor().map(p=>[p.date,p.mealId??null,p.name??null]),
  home:()=>{showTop=true;allMealsActive=false;groceryTabActive=false;rotationWeekOffset=0;render()}
 };'''
 
@@ -106,6 +109,29 @@ def run(browser, name):
     p.wait_for_timeout(2500)
     assert p.locator('.shop-early-reminder').count() == 0, (p.evaluate('batch13.dismissed()'), errors, p.locator('#todaysTodo').inner_text())
     assert [x for x in p.evaluate('batch13.plans()') if x[0] == '2026-11-21']
+    # Custom meal: typing a name that matches nothing offers "Add ... as a one-time meal".
+    taken = {x[0] for x in p.evaluate('batch13.raw()')}
+    free = [x for x in p.evaluate('batch13.emptyDates()') if x > '2026-11-16' and x not in taken]
+    if free:
+        cur = [cur[0], free[0]]
+        p.evaluate('batch13.home()')
+        p.get_by_role('button', name='Plan ahead', exact=True).click()
+        d = p.get_by_role('dialog', name='Plan ahead', exact=True)
+        assert d.locator('.plan-ahead-summary').inner_text() == ''
+        for _ in range(3):
+            if d.locator('.plan-ahead-day[data-date="%s"]' % cur[1]).count():
+                break
+            d.get_by_role('button', name='Next month', exact=True).click()
+        d.locator('.plan-ahead-day[data-date="%s"]' % cur[1]).click()
+        d.get_by_role('searchbox', name='Search recipes to plan', exact=True).fill('Pizza night')
+        custom = d.locator('.plan-ahead-custom')
+        assert custom.count() == 1 and 'one-time meal' in custom.inner_text()
+        custom.click()
+        sb.shot(p, name, 'batch13-custom')
+        d.get_by_role('button', name='Save planned meals', exact=True).click()
+        p.wait_for_timeout(400)
+        assert [cur[1], None, 'Pizza night'] in p.evaluate('batch13.raw()'), p.evaluate('batch13.raw()')
+        assert 'Pizza night' in p.evaluate('d=>batch13.named(d)', cur[1]), p.evaluate('d=>batch13.named(d)', cur[1])
     # A real Start next week keeps next week's planned meal in place.
     p.evaluate('batch13.home()')
     p.locator('.start-week-text').first.click()

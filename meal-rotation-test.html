@@ -2186,6 +2186,8 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 .plan-ahead-dialog .plan-ahead-search{scroll-margin-top:8px}
 .plan-ahead-dialog>.meal-unified-actions{padding-bottom:18px!important;margin-bottom:-18px!important}
 .plan-ahead-dialog>.meal-unified-actions{bottom:-18px!important;box-shadow:0 20px 0 20px #fff}
+.plan-ahead-dialog .serving-add-simple{justify-content:flex-start!important}.plan-ahead-dialog .serving-add-simple>span{display:flex;flex-direction:column;gap:1px}.plan-ahead-dialog .serving-add-simple svg{width:20px;height:20px;flex:0 0 20px;stroke:#315ba8;stroke-width:2.2;fill:none}
+.plan-ahead-summary:empty{display:none}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -4555,7 +4557,7 @@ function shopEarlyReminders(){if(typeof plannedMealsFor!=='function')return [];c
 function shopEarlyReminderRow(item){
  const row=document.createElement('div');row.className='make-ahead-reminder shop-early-reminder';row.dataset.plannedId=item.id;
  const check=document.createElement('input');check.type='checkbox';check.className='check';
- const text=document.createElement('span');text.className='make-ahead-task-link make-ahead-task-plain';text.textContent='Shop early for '+(meals.find(m=>String(m.id)===String(item.mealId))?.name||'your planned meal')+' ('+parseCookingLocalDate(item.date).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+')?';check.setAttribute('aria-label',text.textContent);
+ const text=document.createElement('span');text.className='make-ahead-task-link make-ahead-task-plain';text.textContent='Shop early for '+(item.mealId==null?item.name:meals.find(m=>String(m.id)===String(item.mealId))?.name||'your planned meal')+' ('+parseCookingLocalDate(item.date).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+')?';check.setAttribute('aria-label',text.textContent);
  check.onchange=()=>{if(!check.checked)return;const before=JSON.parse(captureState());before.plannedMealsUndo=testStorage.getItem(PLANNED_MEALS_KEY);const list=plannedMealsFor();const target=list.find(p=>p.id===item.id);if(!target)return;target.shopDismissed=true;writePlannedMeals(activePlanId,list);snapshot(JSON.stringify(before));setTimeout(()=>renderTodayTodo(scheduledMakeAheadTasks(true)),450)};
  row.append(check,text);return row;
 }
@@ -12279,7 +12281,7 @@ function groupRotationAssignments(category){
 // day's main meal; sides unchanged), once. Nothing is added to groceries automatically.
 const PLANNED_MEALS_KEY='mealRotationPlannedMealsV1';
 function readPlannedMeals(){try{const v=JSON.parse(testStorage.getItem(PLANNED_MEALS_KEY)||'null');if(v&&v.version===1&&v.plans&&typeof v.plans==='object')return v}catch(e){}return {version:1,plans:{}}}
-function plannedMealsFor(planId=activePlanId){const list=readPlannedMeals().plans[String(planId)];return Array.isArray(list)?list.filter(p=>p&&typeof p.id==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(p.date)&&meals.some(m=>String(m.id)===String(p.mealId))):[]}
+function plannedMealsFor(planId=activePlanId){const list=readPlannedMeals().plans[String(planId)];return Array.isArray(list)?list.filter(p=>p&&typeof p.id==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(p.date)&&(p.mealId!=null?meals.some(m=>String(m.id)===String(p.mealId)):typeof p.name==='string'&&!!p.name.trim())):[]}
 function writePlannedMeals(planId,list){const all=readPlannedMeals();if(list.length)all.plans[String(planId)]=list;else delete all.plans[String(planId)];if(Object.keys(all.plans).length)testStorage.setItem(PLANNED_MEALS_KEY,JSON.stringify(all));else testStorage.removeItem(PLANNED_MEALS_KEY)}
 // The main meal slot shown on that date in this week (0) or next week (1), if any.
 function plannedDateSlot(planId,date){
@@ -12289,7 +12291,7 @@ function plannedDateSlot(planId,date){
  for(const source of [current,next].filter(Boolean))for(const entry of source.entries){
   if(entry.linkedTo||entry.servingParentId||entry.occasional||!entry.cat||entry.cat==='@day')continue;
   if(cookingLocalDate(scheduledOccurrenceDate({...entry,planId},source.plan.rotationCalendar))!==date)continue;
-  return {week:source.week,day:entry.day,cat:entry.cat,mealId:String(entry.meal.id),key:simpleSideOccurrenceKey(source.plan,entry)};
+  return {week:source.week,day:entry.day,cat:entry.cat,mealId:String(entry.meal.id),mealName:entry.meal.name,key:simpleSideOccurrenceKey(source.plan,entry)};
  }
  // A day with no meal group: the planned meal goes in as that day's one-time meal (same as Choose meal there).
  const start=mealPlanWeekStart(plan);
@@ -12299,7 +12301,7 @@ function plannedDateSlot(planId,date){
   const groups=(source.plan.weekdayCategories?.[day]||[]),assigned=(Array.isArray(groups)?groups:[groups]).filter(g=>g&&cats.includes(g));
   if(assigned.length)return null;
   const existing=source.entries.find(e=>e.day===day&&e.occasional&&!e.linkedTo&&!e.servingParentId);
-  return {week,day,cat:null,occasional:true,mealId:existing?String(existing.meal.id):null,key:existing?simpleSideOccurrenceKey(source.plan,existing):null};
+  return {week,day,cat:null,occasional:true,mealId:existing?String(existing.meal.id):null,mealName:existing?.meal?.name||null,key:existing?simpleSideOccurrenceKey(source.plan,existing):null};
  }
  return null;
 }
@@ -12308,6 +12310,8 @@ function applyPlannedMeals(planId=activePlanId){
  for(const item of list){
   if(item.applied===item.date||item.date<today)continue;
   const slot=plannedDateSlot(planId,item.date);if(!slot)continue;
+  // A custom (typed) planned meal goes in as that day's one-time meal.
+  if(item.mealId==null){if(planId!==activePlanId||slot.week!==0)continue;if(slot.mealName!==item.name){const savedWeek=rotationWeekOffset;try{rotationWeekOffset=slot.week;if(saveOneTimeMeal(slot.day,slot.occasional?'@day':slot.cat,item.name)!==false)applied++}catch(e){continue}finally{rotationWeekOffset=savedWeek}}item.applied=item.date;changed=true;continue}
   if(slot.mealId!==String(item.mealId)){
    const savedWeek=rotationWeekOffset;
    try{rotationWeekOffset=slot.week;applyRecipeBulk([String(item.mealId)],{},{mealSelection:{planId,week:slot.week,day:slot.day,category:slot.cat,replaceFuture:[],mealId:String(item.mealId),occasional:!!slot.occasional,sourceKey:null,destinationKey:slot.key},render:false});applied++}
@@ -12340,7 +12344,7 @@ function openPlanAheadDialog(){
   for(let i=0;i<first;i++)grid.append(document.createElement('span'));
   const days=new Date(month.getFullYear(),month.getMonth()+1,0).getDate(),taken=new Set(draft.filter(p=>p!==editing).map(p=>p.date));
   for(let n=1;n<=days;n++){const date=cookingLocalDate(new Date(month.getFullYear(),month.getMonth(),n)),b=document.createElement('button');b.type='button';b.className='plan-ahead-day';b.textContent=String(n);b.dataset.date=date;
-   b.disabled=date<today;if(date===today)b.classList.add('is-today');if(taken.has(date)){b.classList.add('is-planned');b.title='Already planned: '+(meals.find(m=>String(m.id)===String(draft.find(p=>p.date===date&&p!==editing).mealId))?.name||'')}
+   b.disabled=date<today;if(date===today)b.classList.add('is-today');if(taken.has(date)){b.classList.add('is-planned');b.title='Already planned'}
    b.setAttribute('aria-pressed',String(picked===date));b.setAttribute('aria-label',dateLabel(date)+(taken.has(date)?' (already planned)':''));b.onclick=()=>{picked=date;error.textContent='';drawCalendar();updateSummary()};grid.append(b)}
   cal.append(grid);
  }
@@ -12351,7 +12355,11 @@ function openPlanAheadDialog(){
  const expanded=new Set(),usable=m=>!m._scheduledEditorDraft&&!m.temporaryMeal&&m.cat;
  function recipeRow(meal,label){const b=document.createElement('button');b.type='button';b.className='weekday-meal-choice serving-add-row plan-ahead-choice';b.dataset.mealId=String(meal.id);const n=document.createElement('span');n.className='plan-ahead-choice-name';n.textContent=meal.name;b.append(n);if(label){const g=document.createElement('small');g.className='serving-add-group';g.textContent=meal.cat;b.append(g)}b.setAttribute('aria-pressed',String(chosen===meal));b.onclick=()=>{chosen=meal;error.textContent='';drawResults();updateSummary()};return b}
  function drawResults(){results.replaceChildren();const text=search.value.trim();
-  if(text){const pool=meals.filter(usable).filter(m=>mealMatchesSearch(m,text)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));if(!pool.length){const none=document.createElement('p');none.className='muted';none.textContent='No recipes match.';results.append(none)}for(const meal of pool)results.append(recipeRow(meal,true));return}
+  if(text){const pool=meals.filter(usable).filter(m=>mealMatchesSearch(m,text)).sort((a,b)=>String(a.name).localeCompare(String(b.name))),exact=pool.find(m=>String(m.name||'').trim().toLowerCase()===text.toLowerCase());
+   if(exact)results.append(recipeRow(exact,true));
+   // Like Add side: a typed name can be planned as a one-time meal.
+   if(!exact){const b=document.createElement('button');b.type='button';b.className='weekday-meal-choice serving-add-row serving-add-simple plan-ahead-custom';const plus=document.createElementNS('http://www.w3.org/2000/svg','svg');plus.setAttribute('viewBox','0 0 24 24');plus.setAttribute('aria-hidden','true');plus.innerHTML=appIconSvg.add;const t=document.createElement('span'),title=document.createElement('span'),note=document.createElement('small');title.textContent='Add “'+text+'”';note.textContent='as a one-time meal';t.append(title,note);b.append(plus,t);b.setAttribute('aria-pressed',String(!!chosen?.custom&&chosen.name===text));b.onclick=()=>{chosen={custom:true,name:text};error.textContent='';drawResults();updateSummary()};results.append(b)}
+   for(const meal of pool)if(meal!==exact)results.append(recipeRow(meal,true));return}
   for(const cat of cats){const entries=masterRecipeOrder(cat).filter(usable);if(!entries.length)continue;const open=expanded.has(cat)||entries.includes(chosen),card=document.createElement('div');card.className='master-category-card';card.dataset.group=cat;const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',cat+' ('+entries.length+' recipes)');const arrow=document.createElementNS('http://www.w3.org/2000/svg','svg');arrow.setAttribute('viewBox','0 0 24 24');arrow.setAttribute('aria-hidden','true');arrow.innerHTML='<path d="'+(open?'m6 15 6-6 6 6':'m6 9 6 6 6-6')+'"/>';const name=document.createElement('strong');name.textContent=cat;const count=document.createElement('span');count.className='master-category-count';count.textContent=entries.length+' '+(entries.length===1?'recipe':'recipes');toggle.append(arrow,name,count);toggle.onclick=()=>{if(open){expanded.delete(cat);if(chosen?.cat===cat&&entries.includes(chosen))chosen=null;updateSummary()}else expanded.add(cat);drawResults()};card.append(toggle);if(open){const body=document.createElement('div');body.className='master-category-meals';for(const meal of entries)body.append(recipeRow(meal,false));card.append(body)}results.append(card)}
  }
  // Typing: keep the search box in view above the keyboard.
@@ -12360,26 +12368,26 @@ function openPlanAheadDialog(){
  // Shop early.
  const shopLabel=document.createElement('label');shopLabel.className='settings-display-option plan-ahead-shop';const shop=document.createElement('input');shop.type='checkbox';shop.setAttribute('role','switch');shop.className='preference-switch';shopLabel.append(shop,document.createTextNode('Shop early'));
  const summary=document.createElement('p');summary.className='plan-ahead-summary';summary.setAttribute('role','status');
- function updateSummary(){summary.textContent=picked&&chosen?(editing?'Change to ':'Plan ')+chosen.name+' for '+dateLabel(picked)+'.':picked?'Now choose a recipe for '+dateLabel(picked)+'.':chosen?'Now choose a date for '+chosen.name+'.':'Pick a date and a recipe.'}
+ function updateSummary(){summary.textContent=picked&&chosen?(editing?'Change to ':'Plan ')+chosen.name+' for '+dateLabel(picked)+'.':''}
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
  // Planned list.
  const plannedBox=section('Planned'),list=document.createElement('div');list.className='plan-ahead-list';plannedBox.append(list);
  function drawList(){list.replaceChildren();const upcoming=draft.filter(p=>p.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
-  if(!upcoming.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='Nothing planned yet.';list.append(empty)}
+  plannedBox.hidden=!upcoming.length;
   for(const item of upcoming){const row=document.createElement('div');row.className='plan-ahead-row'+(editing===item?' is-editing':'');row.dataset.date=item.date;
    const open=document.createElement('button');open.type='button';open.className='plan-ahead-text';open.setAttribute('aria-label','Edit plan for '+dateLabel(item.date));
-   const when2=document.createElement('span');when2.className='plan-ahead-date';when2.textContent=dateLabel(item.date);const meal=document.createElement('span');meal.className='plan-ahead-meal';meal.textContent=meals.find(m=>String(m.id)===String(item.mealId))?.name||'Recipe';if(item.shopEarly){const tag=document.createElement('small');tag.className='plan-ahead-tag';tag.textContent=' · Shop early';meal.append(tag)}
+   const when2=document.createElement('span');when2.className='plan-ahead-date';when2.textContent=dateLabel(item.date);const meal=document.createElement('span');meal.className='plan-ahead-meal';meal.textContent=item.mealId==null?item.name:meals.find(m=>String(m.id)===String(item.mealId))?.name||'Recipe';if(item.shopEarly){const tag=document.createElement('small');tag.className='plan-ahead-tag';tag.textContent=' · Shop early';meal.append(tag)}
    open.append(when2,meal);open.onclick=()=>fillForm(item);
    const remove=document.createElement('button');remove.type='button';remove.className='iconbtn';setIconButton(remove,'delete','Remove plan for '+dateLabel(item.date));remove.onclick=()=>{draft.splice(draft.indexOf(item),1);if(editing===item)fillForm(null);else{drawList();drawCalendar()}};
    row.append(open,remove);list.append(row)}}
- function fillForm(item){editing=item;picked=item?.date||'';chosen=item?meals.find(m=>String(m.id)===String(item.mealId))||null:null;shop.checked=!!item?.shopEarly;search.value='';error.textContent='';if(item){const t=parseCookingLocalDate(item.date);month=new Date(t.getFullYear(),t.getMonth(),1)}drawCalendar();drawResults();drawList();updateSummary()}
+ function fillForm(item){editing=item;picked=item?.date||'';chosen=item?(item.mealId==null?{custom:true,name:item.name}:meals.find(m=>String(m.id)===String(item.mealId))||null):null;shop.checked=!!item?.shopEarly;search.value='';error.textContent='';if(item){const t=parseCookingLocalDate(item.date);month=new Date(t.getFullYear(),t.getMonth(),1)}drawCalendar();drawResults();drawList();updateSummary()}
  // Single Save: stores the form entry (if one is filled in) together with any removals.
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save planned meals');setIconButton(cancel,'cancel','Cancel');cancel.onclick=d.close;
  save.onclick=()=>{
   if(picked||chosen){
    if(!picked){error.textContent='Choose a date.';return}if(!chosen){error.textContent='Choose a recipe.';search.focus();return}
    if(draft.some(p=>p!==editing&&p.date===picked)){error.textContent='A meal is already planned for '+dateLabel(picked)+'. Remove it first.';return}
-   const record={id:editing?.id||(crypto.randomUUID?.()||'plan-'+Date.now()+'-'+Math.random().toString(36).slice(2)),date:picked,mealId:String(chosen.id),shopEarly:shop.checked,applied:editing&&editing.date===picked&&String(editing.mealId)===String(chosen.id)?editing.applied??null:null};
+   const record={id:editing?.id||(crypto.randomUUID?.()||'plan-'+Date.now()+'-'+Math.random().toString(36).slice(2)),date:picked,...(chosen.custom?{name:chosen.name}:{mealId:String(chosen.id)}),shopEarly:shop.checked,applied:editing&&editing.date===picked&&(chosen.custom?editing.name===chosen.name:String(editing.mealId)===String(chosen.id))?editing.applied??null:null};
    if(editing)draft[draft.indexOf(editing)]=record;else draft.push(record);
   }
   try{const before=JSON.parse(captureState());before.plannedMealsUndo=testStorage.getItem(PLANNED_MEALS_KEY);writePlannedMeals(planId,draft);snapshot(JSON.stringify(before));d.close();applyPlannedMeals(planId);renderList({readOnly:true})}catch(e){error.textContent='Could not save: '+e.message}

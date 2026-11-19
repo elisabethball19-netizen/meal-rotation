@@ -2334,3 +2334,5 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 .plan-ahead-dialog .plan-ahead-search{scroll-margin-top:8px}
 .plan-ahead-dialog>.meal-unified-actions{padding-bottom:18px!important;margin-bottom:-18px!important}
 .plan-ahead-dialog>.meal-unified-actions{bottom:-18px!important;box-shadow:0 20px 0 20px #fff}
+.plan-ahead-dialog .serving-add-simple{justify-content:flex-start!important}.plan-ahead-dialog .serving-add-simple>span{display:flex;flex-direction:column;gap:1px}.plan-ahead-dialog .serving-add-simple svg{width:20px;height:20px;flex:0 0 20px;stroke:#315ba8;stroke-width:2.2;fill:none}
+.plan-ahead-summary:empty{display:none}
