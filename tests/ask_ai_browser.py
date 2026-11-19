@@ -122,7 +122,7 @@ def run(browser, name):
     opened = p.evaluate('ai.opened()')
     assert opened and opened[-1].startswith('https://claude.ai/new?q=') and 'bok%20choy' in opened[-1], opened
     req = p.evaluate('([j,d])=>ai.request(j,d)', ['fridge', {'input': 'x'}])
-    for part in ['Our tastes: Asian flavors', 'no dairy, no soy', fav + ' (flank steak, fish sauce, lime)', 'Other meals we already cook', 'or "all"', '[3, 5]']:
+    for part in ['Our tastes: Asian flavors', 'no dairy, no soy', fav + ' (flank steak, fish sauce, lime)', 'Other meals we already cook', 'Do NOT write any full recipe yet', 'or "all"', '[3, 5]']:
         assert part in req, (part, req)
     assert not p.locator('.ask-ai-dialog').count(), 'pop-up closes once sent'
     assert p.evaluate('ai.pending()')['job'] == 'fridge'
