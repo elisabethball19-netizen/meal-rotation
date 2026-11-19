@@ -1012,7 +1012,10 @@ function openAiJobDialog(job,recipe=null){
   let ok=true;if(viaLink)await sendAiRequest(text);else ok=await copyAskAiText(text);
   if(!ok){status.textContent='Could not copy the request.';return}
   // Close once sent, so coming back shows the page with its waiting-answer card.
-  d.navigate=true;d.close();if(job!=='out'&&aiTabActive)setTimeout(()=>renderList({readOnly:true}),0);
+  d.navigate=true;d.close();
+  // Started from a recipe page: go to Ask AI so the waiting-answer card is there when you come back.
+  if(job!=='out'&&fromRecipe)setTimeout(()=>{if(recipeViewer)closeRecipeViewer();showTop=true;groceryTabActive=false;allMealsActive=false;aiTabActive=true;editId=null;render();window.scrollTo(0,0)},0);
+  else if(job!=='out'&&aiTabActive)setTimeout(()=>renderList({readOnly:true}),0);
  };
  open.onclick=()=>send(true);copy.onclick=()=>send(false);for(const field of [input,sourceText,extra,missing])field.addEventListener('input',()=>{error.textContent=''});
  draw();d.panel.append(body,error,status,actions);setTimeout(()=>(job==='fridge'||job==='write'?input:fromRecipe?(job==='out'?missing:extra):picker).focus?.({preventScroll:true}),60);

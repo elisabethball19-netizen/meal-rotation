@@ -175,8 +175,8 @@ def run(browser, name):
     assert 'Convert this recipe' in p.evaluate('ai.copied()') and '2 tbsp soy sauce' in p.evaluate('ai.copied()')
     pend = p.evaluate('ai.pending()')
     assert pend['job'] == 'convert' and pend['recipeName'] == target, pend
-    p.evaluate('ai.closeViewer()'); p.wait_for_timeout(300)
-    go_ai(p)
+    p.wait_for_timeout(400)
+    assert p.evaluate('()=>!!document.querySelector(".ask-ai-page .ai-paste-card textarea")'), 'recipe-page request lands on Ask AI with the paste card'
     count = p.evaluate('ai.count()')
     page_paste(p, ONE.replace('2 tbsp soy sauce [1]', '2 tbsp coconut aminos [1]').replace('1 tbsp butter [steps 1, 2]', '1 tbsp olive oil [1]'))
     choice = p.locator('.ai-save-mode')
