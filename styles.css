@@ -2341,3 +2341,14 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 .plan-ahead-shop-pick{border:1px solid #c3cad2;border-radius:999px;background:#fff;padding:5px 12px;min-height:34px;font-size:14px;color:#1f3f7a}
 .plan-ahead-cal-shop .plan-ahead-day[aria-pressed=true]{background:#2f7d5b}
 .plan-ahead-day.is-meal-day{box-shadow:inset 0 0 0 2px #315ba8}
+/* Plan ahead v3: date field + calendar pop-up; search-only recipe picker; Shop early with plain choices. */
+.plan-ahead-date-row{display:flex;align-items:center;gap:6px}
+.plan-ahead-date-field{flex:1;min-width:0}
+.plan-ahead-cal-open{flex:0 0 44px}
+.plan-ahead-shop-box[hidden],.plan-ahead-shop-when[hidden]{display:none}
+.plan-ahead-shop-when{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 4px}
+.plan-ahead-when-chip{border:1px solid #c3cad2;border-radius:999px;background:#fff;padding:5px 12px;min-height:34px;font-size:13px;color:#2f3b48}
+.plan-ahead-when-chip[aria-checked=true]{background:#315ba8;border-color:#315ba8;color:#fff;font-weight:600}
+.plan-ahead-chosen-custom{display:flex;justify-content:space-between;align-items:center;background:#e8eefb;border-radius:10px;padding:10px 12px;font-weight:600}
+.plan-ahead-chosen-custom small{color:#69717a;font-weight:400}
+.plan-date-popup .plan-ahead-calendar{min-width:min(320px,80vw)}

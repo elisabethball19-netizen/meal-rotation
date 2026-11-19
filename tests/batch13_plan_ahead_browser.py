@@ -30,17 +30,25 @@ sb.fixture.HOOK += '''const b13Store=()=>typeof testStorage!=='undefined'?testSt
 };'''
 
 
-def plan(p, date, recipe, shop=False, save=True):
-    """Rebuilt dialog: open, pick the date on the calendar, pick the recipe, optional Shop early, one Save."""
+def plan(p, date, recipe, shop=False, save=True, popup=False):
+    """Plan ahead v3: type the date (or use the calendar pop-up), search and pick, optional Shop early, one Save."""
     if not p.get_by_role('dialog', name='Plan ahead', exact=True).count():
         p.get_by_role('button', name='Plan ahead', exact=True).click()
     d = p.get_by_role('dialog', name='Plan ahead', exact=True)
     d.wait_for(state='visible')
-    for _ in range(24):
-        if d.locator('.plan-ahead-day[data-date="%s"]' % date).count():
-            break
-        d.get_by_role('button', name='Next month', exact=True).click()
-    d.locator('.plan-ahead-day[data-date="%s"]' % date).click()
+    if popup:
+        d.get_by_role('button', name='Open calendar', exact=True).click()
+        pop = p.get_by_role('dialog', name='Choose date', exact=True)
+        for _ in range(24):
+            if pop.locator('.plan-ahead-day[data-date="%s"]' % date).count():
+                break
+            pop.get_by_role('button', name='Next month', exact=True).click()
+        pop.locator('.plan-ahead-day[data-date="%s"]' % date).click()
+        pop.get_by_role('button', name='Use this date', exact=True).click()
+    else:
+        f = d.get_by_role('textbox', name='Meal date', exact=True)
+        f.fill(date)
+        f.dispatch_event('change')
     d.get_by_role('searchbox', name='Search recipes to plan', exact=True).fill(recipe)
     d.locator('.plan-ahead-choice', has_text=recipe).first.click()
     if shop:
@@ -62,9 +70,8 @@ def run(browser, name):
     p.evaluate('batch13.home()')
     p.get_by_role('button', name='Plan ahead', exact=True).click()
     d = p.get_by_role('dialog', name='Plan ahead', exact=True)
-    assert d.locator('.plan-ahead-results .master-category-card').count() >= 1 and d.locator('h4', has_text='When').count() == 0
-    d.locator('.plan-ahead-results .master-category-title').first.click()
-    assert d.locator('.plan-ahead-results .master-category-meals .plan-ahead-choice').count() >= 1
+    assert d.locator('.plan-ahead-results > *').count() == 0 and d.locator('.plan-ahead-calendar').count() == 0, 'search only, no big calendar'
+    assert d.locator('.plan-ahead-shop-box').is_hidden(), 'Shop early waits for a saved recipe'
     sb.shot(p, name, 'batch13-groups')
     d.get_by_role('button', name='Cancel', exact=True).click()
     d = plan(p, d0, pick0, save=False)
@@ -73,7 +80,7 @@ def run(browser, name):
     d.get_by_role('button', name='Cancel', exact=True).click()
     assert p.evaluate('batch13.plans()') == []
     plan(p, d0, pick0)
-    plan(p, d1, pick1, shop=True)
+    plan(p, d1, pick1, shop=True, popup=True)
     d = plan(p, '2027-01-15', pick0, save=False)
     sb.shot(p, name, 'batch13-plan-ahead')
     d.get_by_role('button', name='Save planned meals', exact=True).click(); p.wait_for_timeout(300)
@@ -111,18 +118,23 @@ def run(browser, name):
     row = p.locator('.master-grocery-item', has=early.first)
     row.locator('input[type=checkbox]').first.check(); p.wait_for_timeout(200)
     assert row.locator('input[type=checkbox]').first.is_checked()
-    # Dialog: Shop early shows a "Groceries from" date that opens the calendar to pick it.
+    # Dialog: Shop early offers plain choices (1 week before is preselected) or Pick a date in the pop-up.
     p.evaluate('batch13.home()')
     d = plan(p, '2026-12-17', rice[0], shop=True, save=False)
-    moved = p.evaluate("(()=>{const el=document.querySelector('.plan-ahead-dialog');el.scrollTop=0;const a=el.scrollTop;el.scrollTop=200;return [el.scrollHeight>el.clientHeight,el.scrollTop>a,document.activeElement?.type]})()")
-    assert moved[1] and moved[2] != 'search', moved
-    pickbtn = d.locator('.plan-ahead-shop-pick')
-    assert pickbtn.is_visible() and 'Dec 10' in pickbtn.inner_text(), pickbtn.inner_text()
-    pickbtn.click()
-    d.locator('.plan-ahead-day[data-date="2026-12-14"]').click()
-    assert 'Dec 14' in pickbtn.inner_text()
+    moved = p.evaluate("(()=>{const el=document.querySelector('.plan-ahead-dialog');return document.activeElement?.type})()")
+    assert moved != 'search', moved
+    chips = d.locator('.plan-ahead-when-chip')
+    assert chips.all_inner_texts()[:4] == ['Today', '3 days before', '1 week before', '2 weeks before'], chips.all_inner_texts()
+    assert d.locator('.plan-ahead-when-chip[aria-checked=true]').inner_text() == '1 week before'
+    assert 'Groceries go on your list Thu, Dec 10' in d.locator('.plan-ahead-summary').inner_text(), d.locator('.plan-ahead-summary').inner_text()
+    sb.shot(p, name, 'batch13-shop-choices')
+    d.get_by_role('radio', name='Pick a date', exact=True).click()
+    pop = p.get_by_role('dialog', name='Add groceries on', exact=True)
+    pop.locator('.plan-ahead-day[data-date="2026-12-12"]').click() if pop.locator('.plan-ahead-day[data-date="2026-12-12"]').count() else (pop.get_by_role('button', name='Next month', exact=True).click(), pop.locator('.plan-ahead-day[data-date="2026-12-12"]').click())
+    pop.get_by_role('button', name='Use this date', exact=True).click()
+    assert d.locator('.plan-ahead-when-chip[aria-checked=true]').inner_text().startswith('Sat, Dec 12')
     d.get_by_role('button', name='Save planned meals', exact=True).click(); p.wait_for_timeout(300)
-    assert p.evaluate("batch13.shopFrom('2026-12-17')") == '2026-12-14'
+    assert p.evaluate("batch13.shopFrom('2026-12-17')") == '2026-12-12'
     # Custom meal: typing a name that matches nothing offers "Add ... as a one-time meal".
     taken = {x[0] for x in p.evaluate('batch13.raw()')}
     free = [x for x in p.evaluate('batch13.emptyDates()') if x > '2026-11-16' and x not in taken]
@@ -132,11 +144,8 @@ def run(browser, name):
         p.get_by_role('button', name='Plan ahead', exact=True).click()
         d = p.get_by_role('dialog', name='Plan ahead', exact=True)
         assert d.locator('.plan-ahead-summary').inner_text() == ''
-        for _ in range(3):
-            if d.locator('.plan-ahead-day[data-date="%s"]' % cur[1]).count():
-                break
-            d.get_by_role('button', name='Next month', exact=True).click()
-        d.locator('.plan-ahead-day[data-date="%s"]' % cur[1]).click()
+        d.get_by_role('textbox', name='Meal date', exact=True).fill(cur[1])
+        d.get_by_role('textbox', name='Meal date', exact=True).dispatch_event('change')
         d.get_by_role('searchbox', name='Search recipes to plan', exact=True).fill('Pizza night')
         custom = d.locator('.plan-ahead-custom')
         assert custom.count() == 1 and 'one-time meal' in custom.inner_text()
