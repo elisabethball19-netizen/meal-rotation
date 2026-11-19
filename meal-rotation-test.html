@@ -1872,6 +1872,7 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .serving-mix-hint{margin:0 0 4px;font-size:13px}.serving-group-checklist{overflow:auto;max-height:45dvh}.serving-group-choice{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 4px;border-bottom:1px solid #e6e9ee;font-size:15px}.serving-group-choice:last-child{border-bottom:0}.serving-group-choice span{flex:1;min-width:0;overflow-wrap:anywhere}.serving-group-choice small{color:#69717a;font-size:12px}.serving-group-choice input{width:20px;height:20px;margin:0;flex:0 0 20px;accent-color:#315ba8}
 .serving-dialog-footer{justify-content:space-evenly;border-top:1px solid #e6e9ee;padding-top:6px;margin-top:6px}
 .serving-undo-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:13030;display:flex;align-items:center;gap:14px;background:#2f3439;color:#fff;border-radius:10px;padding:4px 6px 4px 16px;box-shadow:0 4px 14px #0004;font-size:15px;max-width:calc(100vw - 32px);white-space:nowrap}.serving-undo-toast button{border:0;background:transparent;color:#b9cfff;font:inherit;font-weight:650;min-height:44px;padding:0 12px}
+.serving-undo-toast{white-space:normal;width:max-content;box-sizing:border-box}.serving-undo-toast>span{min-width:0;line-height:1.3;padding:8px 0}.serving-undo-toast button{flex:none}
 /* Issue 127 follow-up: icon-only side actions, check closes the editor. */
 .serving-icon-row{display:flex;justify-content:space-around;align-items:center;margin:4px 0 2px}.serving-icon-row .serving-icon-action{width:44px;height:44px;min-width:44px;min-height:44px}.serving-empty-sides{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0}.sides-edit-mode .sides-session-footer{justify-content:space-evenly;border-top:1px solid #b7bdc4;margin-top:6px;padding-top:2px}
 /* Issue 127 follow-up 2: Sides box under the main actions, date centered on the header block, gray side hearts. */
@@ -7223,8 +7224,10 @@ function openAiJobDialog(job,recipe=null){
  };
  const send=async viaLink=>{error.textContent='';let text;try{text=request()}catch(e){error.textContent=e.message;return}
   if(job!=='out')setAiPending({job,recipeId:chosen&&!(sourceMode==='found'&&!fromRecipe)?String(chosen.id):null,recipeName:chosen&&!(sourceMode==='found'&&!fromRecipe)?chosen.name:'',at:Date.now()});
-  if(viaLink){const note=await sendAiRequest(text);if(note)status.textContent=note}else{const ok=await copyAskAiText(text);status.textContent=ok?'Request copied. Paste it into Claude.':'Could not copy the request.'}
-  if(job!=='out'&&typeof renderList==='function'&&aiTabActive)renderList({readOnly:true});
+  let ok=true;if(viaLink)await sendAiRequest(text);else ok=await copyAskAiText(text);
+  if(!ok){status.textContent='Could not copy the request.';return}
+  // Close once sent, so coming back shows the page with its waiting-answer card.
+  d.navigate=true;d.close();if(job!=='out'&&aiTabActive)setTimeout(()=>renderList({readOnly:true}),0);
  };
  open.onclick=()=>send(true);copy.onclick=()=>send(false);for(const field of [input,sourceText,extra,missing])field.addEventListener('input',()=>{error.textContent=''});
  draw();d.panel.append(body,error,status,actions);setTimeout(()=>(job==='fridge'||job==='write'?input:fromRecipe?(job==='out'?missing:extra):picker).focus?.({preventScroll:true}),60);

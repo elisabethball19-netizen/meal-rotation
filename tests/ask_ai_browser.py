@@ -124,7 +124,7 @@ def run(browser, name):
     req = p.evaluate('([j,d])=>ai.request(j,d)', ['fridge', {'input': 'x'}])
     for part in ['Our tastes: Asian flavors', 'no dairy, no soy', fav + ' (flank steak, fish sauce, lime)', 'Other meals we already cook', 'or "all"', '[3, 5]']:
         assert part in req, (part, req)
-    close_dialog(p)
+    assert not p.locator('.ask-ai-dialog').count(), 'pop-up closes once sent'
     assert p.evaluate('ai.pending()')['job'] == 'fridge'
     assert 'What’s in my fridge' in p.locator('.ai-paste-card').text_content()
     shot(p, tag, 'waiting')
@@ -137,8 +137,7 @@ def run(browser, name):
     p.locator('.ask-ai-dialog').get_by_role('button', name='Open in Claude').click(); p.wait_for_timeout(250)
     assert p.evaluate('ai.opened()')[-1] == 'https://claude.ai/project/abc'
     assert 'Write a recipe for my family: crispy pork' in p.evaluate('ai.copied()')
-    assert 'Paste it into Claude' in p.locator('.ask-ai-dialog .ask-ai-status').text_content()
-    close_dialog(p)
+    assert not p.locator('.ask-ai-dialog').count()
 
     # Single answer -> review editor with restriction box; saving keeps step links, Off menu.
     page_paste(p, ONE)
@@ -175,7 +174,6 @@ def run(browser, name):
     assert 'Convert this recipe' in p.evaluate('ai.copied()') and '2 tbsp soy sauce' in p.evaluate('ai.copied()')
     pend = p.evaluate('ai.pending()')
     assert pend['job'] == 'convert' and pend['recipeName'] == target, pend
-    close_dialog(p)
     p.evaluate('ai.closeViewer()'); p.wait_for_timeout(300)
     go_ai(p)
     count = p.evaluate('ai.count()')

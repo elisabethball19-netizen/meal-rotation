@@ -1009,8 +1009,10 @@ function openAiJobDialog(job,recipe=null){
  };
  const send=async viaLink=>{error.textContent='';let text;try{text=request()}catch(e){error.textContent=e.message;return}
   if(job!=='out')setAiPending({job,recipeId:chosen&&!(sourceMode==='found'&&!fromRecipe)?String(chosen.id):null,recipeName:chosen&&!(sourceMode==='found'&&!fromRecipe)?chosen.name:'',at:Date.now()});
-  if(viaLink){const note=await sendAiRequest(text);if(note)status.textContent=note}else{const ok=await copyAskAiText(text);status.textContent=ok?'Request copied. Paste it into Claude.':'Could not copy the request.'}
-  if(job!=='out'&&typeof renderList==='function'&&aiTabActive)renderList({readOnly:true});
+  let ok=true;if(viaLink)await sendAiRequest(text);else ok=await copyAskAiText(text);
+  if(!ok){status.textContent='Could not copy the request.';return}
+  // Close once sent, so coming back shows the page with its waiting-answer card.
+  d.navigate=true;d.close();if(job!=='out'&&aiTabActive)setTimeout(()=>renderList({readOnly:true}),0);
  };
  open.onclick=()=>send(true);copy.onclick=()=>send(false);for(const field of [input,sourceText,extra,missing])field.addEventListener('input',()=>{error.textContent=''});
  draw();d.panel.append(body,error,status,actions);setTimeout(()=>(job==='fridge'||job==='write'?input:fromRecipe?(job==='out'?missing:extra):picker).focus?.({preventScroll:true}),60);
