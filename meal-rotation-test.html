@@ -12573,8 +12573,8 @@ function openPlanAheadDialog(){
   const record={id:editing?.id||(crypto.randomUUID?.()||'plan-'+Date.now()+'-'+Math.random().toString(36).slice(2)),date:picked,...(chosen.custom?{name:chosen.name,...(items.length?{ingredients:items}:{})}:{mealId:String(chosen.id)}),shopEarly:early,...(early?{shopFrom:shopFrom||defaultShop()}:{}),applied:same?editing.applied??null:null,...(same&&editing.replaced!=null?{replaced:editing.replaced}:{})};
   if(editing)draft[draft.indexOf(editing)]=record;else draft.push(record);return true;
  }
- // Add: the meal joins the Planned list and the form folds away until "Plan another".
- another.onclick=()=>{if(!commitForm())return;formOpen=false;fillForm(null)};
+ // Add: the meal joins the Planned list and a fresh, empty form is ready.
+ another.onclick=()=>{if(!commitForm())return;fillForm(null)};
  planNext.onclick=()=>{formOpen=true;fillForm(null);dateField.focus()};
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save planned meals');setIconButton(cancel,'cancel','Cancel');cancel.onclick=d.close;
  save.onclick=()=>{

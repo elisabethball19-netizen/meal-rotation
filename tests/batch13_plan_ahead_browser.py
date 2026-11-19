@@ -137,13 +137,11 @@ def run(browser, name):
     pop.get_by_role('button', name='Use this date', exact=True).click()
     assert sf.input_value() == 'Sat, Dec 12'
     sb.shot(p, name, 'batch13-shop-choices')
-    # "Add" queues it and folds the form; "+ Plan another" opens a fresh one.
-    assert d.get_by_role('button', name='Plan another meal').is_hidden()
+    # "Add" queues it and goes straight to a fresh form (no "Plan another" step).
     d.get_by_role('button', name='Add to planned meals').click()
-    assert d.locator('.plan-ahead-form').first.is_hidden() and d.get_by_role('button', name='Plan another meal').is_visible()
+    assert d.get_by_role('button', name='Plan another meal').is_hidden() and d.get_by_role('button', name='Add to planned meals').is_hidden()
+    assert d.get_by_role('searchbox', name='Search recipes to plan', exact=True).is_visible()
     sb.shot(p, name, 'batch13-added')
-    d.get_by_role('button', name='Plan another meal').click()
-    assert d.get_by_role('button', name='Add to planned meals').is_hidden()
     assert d.get_by_role('textbox', name='Meal date', exact=True).input_value() == '' and d.locator('.plan-ahead-row[data-date="2026-12-17"]').count() == 1
     d.get_by_role('textbox', name='Meal date', exact=True).fill('2026-12-18'); d.get_by_role('textbox', name='Meal date', exact=True).dispatch_event('change')
     d.get_by_role('searchbox', name='Search recipes to plan', exact=True).fill('Fish fry')
