@@ -63,6 +63,8 @@ def run(browser, name):
     # Real Start next week flow, reload validation, Undo.
     c, p, errors, _ = sb.open_page(browser, name)
     p.evaluate('bal.setSeq(["Rice","Potatoes"])')
+    label = p.locator('.plan-card-group').first.text_content()
+    assert 'Rice' in label and 'Potatoes' in label, label
     got = []
     for _ in range(7):
         start_next_week(p)
