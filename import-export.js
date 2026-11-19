@@ -824,6 +824,7 @@ async function reviewRecipeImportItems(items,filename){
  if(items.length!==1||meals.some(m=>m.importSourceId===recipeImportIdentity(items[0]))){showRecipeImportSelection(items,filename);return}
  const raw=items[0],details=completeRecipeFields(raw),sourceId=recipeImportIdentity(raw);
  const record={...details,name:details.name||raw.name||'Imported recipe',labels:recipeImportTags(raw),...recipeImportStatus(raw,false),groceryDefaultAll:true,url:recipeImportUrl(raw),sourceUrl:recipeImportSourceUrl(raw),importSourceId:sourceId,recipeSageId:recipeSageUuidPattern.test(sourceId)?sourceId:'',recipeImportPending:false};
+ if(raw.aiStepTags){const links=askAiStepLinks(record,raw.aiStepTags);if(links)record.ingredientStepLinks=links}
  // Creation, membership changes, Save, Cancel and Undo all use the ordinary editor.
  await navigateAfterSettings(()=>addRecipeToGroup('',record));
  if(editId!==null){const missing=[];if(!record.ingredients?.length)missing.push('ingredients');if(!record.prep&&!record.cook&&!record.total)missing.push('cooking times');if(missing.length){const note=document.createElement('p');note.className='muted import-missing-fields';note.textContent='The source did not provide readable '+missing.join(' or ')+'. Review and add them before saving.';document.querySelector('#editor .meal-editor-fields')?.prepend(note)}}
@@ -912,7 +913,7 @@ function buildAskAiRequest(mode,input){
  if(familyTastes.restrictions.trim())out.push('Strict restrictions (never include, and watch for hidden sources in sauces, broths and seasonings): '+familyTastes.restrictions.trim());
  if(favorites.length){out.push('','Our family favorites, the meals we love most (main ingredients in parentheses):');for(const m of favorites){const main=recipeMainIngredients(m);out.push('- '+m.name+(main.length?' ('+main.join(', ')+')':''))}}
  if(regulars.length)out.push('','Other meals we already cook (for style only; please don\'t suggest these): '+regulars.map(m=>m.name).join('; '));
- const format=['Title: Recipe name','Prep time: 15 minutes','Cook time: 30 minutes','Servings: 4','Ingredients','1 lb chicken thighs','...','Instructions','1. First step.','...','Notes','Any tips (optional).'];
+ const format=['Title: Recipe name','Prep time: 15 minutes','Cook time: 30 minutes','Servings: 4','Ingredients','1 lb chicken thighs [2]','3 cloves garlic, minced [3, 5]','...','Instructions','1. First step.','...','Notes','Any tips (optional).','','After each ingredient, put the number(s) of the instruction steps that use it in square brackets, like [2] or [3, 5].'];
  out.push('');
  if(mode==='fridge')out.push('Suggest 3 different meals that mainly use what I have (pantry staples are fine). For each, give the name and one line on why it fits us. I will reply with a number. Then write that full recipe in exactly this format, with nothing before or after it:');
  else out.push('Reply with the recipe in exactly this format, with nothing before or after it:');
@@ -926,11 +927,18 @@ function askAiItemFromAnswer(answer){
  const details=extractCompleteRecipe(text)||recipeTextSections(text);if(!details.ingredients?.length&&!details.instructions?.some(step=>step.type==='step'))details.notes=details.notes||text;
  const field=name=>(text.match(new RegExp('^\\s*(?:\\*\\*)?'+name+'(?:\\*\\*)?\\s*:\\s*(?:\\*\\*)?\\s*(.+)$','im'))||[])[1]||'';
  // The requested format has an "Ingredients" heading; read that block directly (generic extraction can take steps).
- const block=[],lines=text.split('\n');let inside=false;for(const line of lines){const head=line.trim().replace(/^#{1,6}\s*/,'').replace(/\*\*/g,'').replace(/:$/,'').trim();if(/^ingredients$/i.test(head)){inside=true;continue}if(inside&&/^(?:instructions|directions|method|steps|notes)$/i.test(head))break;if(inside&&line.trim())block.push(line.trim().replace(/^(?:[-*•]|\d+[.)])\s+/,''))}
+ const block=[],stepTags={},lines=text.split('\n');let inside=false;for(const line of lines){const head=line.trim().replace(/^#{1,6}\s*/,'').replace(/\*\*/g,'').replace(/:$/,'').trim();if(/^ingredients$/i.test(head)){inside=true;continue}if(inside&&/^(?:instructions|directions|method|steps|notes)$/i.test(head))break;if(inside&&line.trim()){const clean=line.trim().replace(/^(?:[-*•]|\d+[.)])\s+/,''),tag=clean.match(/\s*\[\s*(?:steps?\s*)?(\d+(?:\s*(?:,|&|and)\s*\d+)*)\s*\]\s*$/i),text=tag?clean.slice(0,tag.index).trim():clean;block.push(text);if(tag)stepTags[ingredientLine(text)]=tag[1].split(/\s*(?:,|&|and)\s*/).map(Number)}}
  const item={...details,name:(details.name||field('Title')||text.split('\n')[0]).replace(/\*\*/g,'').trim()||'AI recipe',ingredients:block.length?block:details.ingredients?.length?details.ingredients:extractRecipeIngredients(text)};
- const prep=askAiDurationMinutes(field('Prep time')),cook=askAiDurationMinutes(field('Cook time'));if(prep&&!item.prep)item.prep=prep;if(cook&&!item.cook)item.cook=cook;
+ const prep=askAiDurationMinutes(field('Prep time')),cook=askAiDurationMinutes(field('Cook time'));if(prep&&!item.prep)item.prep=prep;if(cook&&!item.cook)item.cook=cook;if(Object.keys(stepTags).length)item.aiStepTags=stepTags;
  if(!item.ingredients?.length)throw Error('No ingredients were found. Paste the full recipe (Title, Ingredients, Instructions).');
  return item;
+}
+// Ask AI step tags -> saved step links (same as links set with the step chips). Every step gets an entry so
+// the tags fully decide; untagged recipes keep automatic matching. Called by the import review.
+function askAiStepLinks(record,tags){
+ const items=recipeAssociationItems(record),byLine=new Map(items.ingredients.map(i=>[ingredientLine(i.text),i.token])),steps=items.steps,links=steps.map(s=>({step:s.token,ingredients:[]}));
+ for(const [line,numbers]of Object.entries(tags||{})){const token=byLine.get(line);if(!token)continue;for(const n of numbers)if(links[n-1]&&!links[n-1].ingredients.includes(token))links[n-1].ingredients.push(token)}
+ return links.some(l=>l.ingredients.length)?validRecipeIngredientLinks(record,links):undefined;
 }
 async function copyAskAiText(text){try{await navigator.clipboard.writeText(text);return true}catch(e){const area=document.createElement('textarea');area.value=text;area.style.cssText='position:fixed;opacity:0;top:0;left:0';document.body.append(area);area.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}area.remove();return ok}}
 function openAskAiDialog(){

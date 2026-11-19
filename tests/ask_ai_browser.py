@@ -22,6 +22,8 @@ sb.fixture.HOOK += '''window.ai={
  request:(mode,text)=>buildAskAiRequest(mode,text),
  stubOpen:()=>{window.__opened=[];window.open=(u)=>{window.__opened.push(u);return null}},opened:()=>window.__opened,
  item:a=>{const i=askAiItemFromAnswer(a);return {ing:i.ingredients,prep:i.prep,cook:i.cook,steps:(i.instructions||[]).filter(s=>s.type==='step').length}},
+ links:()=>{const m=meals.find(x=>x.id===editId),items=recipeAssociationItems(m),name=t=>items.ingredients.find(i=>i.token===t)?.text;return validRecipeIngredientLinks(m).map(l=>l.ingredients.map(name))},
+ savedLinks:name=>{const m=meals.find(x=>x.name===name),items=recipeAssociationItems(m),n=t=>items.ingredients.find(i=>i.token===t)?.text;return [validRecipeIngredientLinks(m).map(l=>l.ingredients.map(n)),m.rotation===true]},
  editorOpen:()=>editId!==null,
  conflicts:(lines,r)=>restrictionConflicts(lines,familyRestrictionRules(r)).map(f=>f.line)
 };'''
@@ -33,11 +35,11 @@ Prep time: 15 minutes
 Cook time: 1 hour 10 minutes
 Servings: 4
 Ingredients
-1 lb chicken thighs
-2 tbsp soy sauce
-1 tbsp butter
-1 cup coconut milk
-1 tbsp peanut butter
+- 1 lb chicken thighs [1]
+- 2 tbsp soy sauce [1]
+- 1 tbsp butter [steps 1, 2]
+- 1 cup coconut milk [2]
+- 1 tbsp peanut butter
 Instructions
 1. Slice the chicken and toss with the sauce.
 2. Stir-fry until cooked through, then add the coconut milk.
@@ -102,12 +104,19 @@ def run(browser, name):
     assert flags == ['2 tbsp soy sauce (soy)', '1 tbsp butter (dairy)'], flags
     item = p.evaluate('a=>ai.item(a)', ANSWER)
     assert item['ing'] == ['1 lb chicken thighs', '2 tbsp soy sauce', '1 tbsp butter', '1 cup coconut milk', '1 tbsp peanut butter'], item
+    links = p.evaluate('ai.links()')
+    assert links == [['1 lb chicken thighs', '2 tbsp soy sauce', '1 tbsp butter'], ['1 tbsp butter', '1 cup coconut milk']], links
+    assert 'Title: Recipe name' in req and '[3, 5]' in req
     assert item['prep'] == 15 and item['cook'] == 70 and item['steps'] >= 1, item
     p.screenshot(path=str(OUT / (tag + '-review.png')))
     p.locator('.import-restriction-flags').scroll_into_view_if_needed()
     p.screenshot(path=str(OUT / (tag + '-flags.png')))
     rec = p.evaluate('()=>{const n=document.querySelector("#editor input[aria-label*=name i], #editor input[type=text]");return n&&n.value}')
     assert rec == 'Garlic Chicken Stir-Fry', rec
+    p.locator('#save').click()
+    p.wait_for_timeout(500)
+    saved = p.evaluate('n=>ai.savedLinks(n)', 'Garlic Chicken Stir-Fry')
+    assert saved == [links, False], saved
     assert not errors, errors
     c.close()
     print('PASS', name, 'Ask AI: family tastes, request, Open in Claude, paste -> review with restriction flags', flush=True)
