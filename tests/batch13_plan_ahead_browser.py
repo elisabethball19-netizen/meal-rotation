@@ -55,6 +55,13 @@ def run(browser, name):
     pick0 = next(n for n in rice if n != before0[0])
     pick1 = next(n for n in rice if n != before1[0] and n != pick0)
     p.evaluate('batch13.home()')
+    p.get_by_role('button', name='Plan ahead', exact=True).click()
+    d = p.get_by_role('dialog', name='Plan ahead', exact=True)
+    assert d.locator('.plan-ahead-results .master-category-card').count() >= 1 and d.locator('h4', has_text='When').count() == 0
+    d.locator('.plan-ahead-results .master-category-title').first.click()
+    assert d.locator('.plan-ahead-results .master-category-meals .plan-ahead-choice').count() >= 1
+    sb.shot(p, name, 'batch13-groups')
+    d.get_by_role('button', name='Cancel', exact=True).click()
     d = plan(p, d0, pick0, save=False)
     assert 'Plan ' + pick0 in d.locator('.plan-ahead-summary').inner_text()
     # Cancel discards.

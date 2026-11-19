@@ -2175,6 +2175,17 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 .plan-ahead-dialog .plan-ahead-form{overflow:visible;flex:none}
 .plan-ahead-dialog>.plan-ahead-section{flex:none}
 .plan-ahead-dialog>.meal-unified-actions{position:sticky;bottom:-18px;background:#fff;padding:6px 0 4px;margin-top:4px;border-top:1px solid #eceff2;z-index:2}
+/* Plan ahead recipe picker matches Add side. */
+.plan-ahead-dialog .plan-ahead-results .serving-add-row{display:flex!important;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:10px 12px!important;border-radius:10px;border:0;background:transparent;width:100%;text-align:left;color:#242424}
+.plan-ahead-dialog .plan-ahead-results .serving-add-row small{color:#69717a;font-size:12px}
+.plan-ahead-dialog .plan-ahead-results [aria-pressed=true]{background:#e8eefb;font-weight:600}
+.plan-ahead-dialog .master-category-card{margin-bottom:6px;border:1px solid #dde1e6;border-radius:10px;overflow:hidden}
+.plan-ahead-dialog .master-category-title{display:flex;align-items:center;width:100%;min-height:44px;padding:10px;gap:8px;border:0;border-radius:0;background:#f5f5f5;font:inherit;text-align:left;color:inherit}
+.plan-ahead-dialog .master-category-title svg{width:20px;height:20px;flex:0 0 20px;stroke:currentColor;stroke-width:2;fill:none}
+.plan-ahead-dialog .master-category-title strong{flex:1}
+.plan-ahead-dialog .plan-ahead-search{scroll-margin-top:8px}
+.plan-ahead-dialog>.meal-unified-actions{padding-bottom:18px!important;margin-bottom:-18px!important}
+.plan-ahead-dialog>.meal-unified-actions{bottom:-18px!important;box-shadow:0 20px 0 20px #fff}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -12315,9 +12326,9 @@ function openPlanAheadDialog(){
  const today=cookingLocalDate(new Date()),draft=plannedMealsFor(planId).map(p=>({...p}));
  const dateLabel=date=>parseCookingLocalDate(date).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:date.slice(0,4)===today.slice(0,4)?undefined:'numeric'});
  let editing=null,picked='',chosen=null,month=(()=>{const t=parseCookingLocalDate(today);return new Date(t.getFullYear(),t.getMonth(),1)})();
- const section=(title)=>{const s=document.createElement('section');s.className='plan-ahead-section';const h=document.createElement('h4');h.textContent=title;s.append(h);return s};
+ const section=(title)=>{const s=document.createElement('section');s.className='plan-ahead-section';if(title){const h=document.createElement('h4');h.textContent=title;s.append(h)}return s};
  // When: month calendar.
- const when=section('When'),cal=document.createElement('div');cal.className='plan-ahead-calendar';when.append(cal);
+ const when=section(''),cal=document.createElement('div');cal.className='plan-ahead-calendar';when.append(cal);
  function drawCalendar(){
   cal.replaceChildren();const head=document.createElement('div');head.className='plan-ahead-cal-head';
   const prev=document.createElement('button');prev.type='button';prev.className='iconbtn';setIconButton(prev,'left','Previous month');
@@ -12334,13 +12345,18 @@ function openPlanAheadDialog(){
   cal.append(grid);
  }
  // What: recipe search + list.
- const what=section('What'),search=document.createElement('input');search.type='search';search.className='manual-grocery-field plan-ahead-search';search.placeholder='Search recipes';search.setAttribute('aria-label','Search recipes to plan');
+ const what=section(''),search=document.createElement('input');search.type='search';search.className='manual-grocery-field plan-ahead-search';search.placeholder='Search recipes';search.setAttribute('aria-label','Search recipes to plan');
  const results=document.createElement('div');results.className='plan-ahead-results';what.append(search,results);
- function drawResults(){results.replaceChildren();const text=search.value.trim(),pool=meals.filter(m=>!m._scheduledEditorDraft&&!m.temporaryMeal&&m.cat).filter(m=>!text||mealMatchesSearch(m,text)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
-  const shown=chosen&&!pool.slice(0,6).includes(chosen)?[chosen,...pool.slice(0,5)]:pool.slice(0,6);
-  if(!shown.length){const none=document.createElement('p');none.className='muted';none.textContent='No recipes match.';results.append(none)}
-  for(const meal of shown){const b=document.createElement('button');b.type='button';b.className='plan-ahead-choice';b.setAttribute('aria-pressed',String(chosen===meal));const n=document.createElement('span');n.className='plan-ahead-choice-name';n.textContent=meal.name;const g=document.createElement('small');g.textContent=meal.cat;b.append(n,g);b.onclick=()=>{chosen=meal;error.textContent='';drawResults();updateSummary()};results.append(b)}}
- search.oninput=drawResults;
+ // Same picker as Add side: groups collapse/expand with their recipes; typing shows matching recipes with their group.
+ const expanded=new Set(),usable=m=>!m._scheduledEditorDraft&&!m.temporaryMeal&&m.cat;
+ function recipeRow(meal,label){const b=document.createElement('button');b.type='button';b.className='weekday-meal-choice serving-add-row plan-ahead-choice';b.dataset.mealId=String(meal.id);const n=document.createElement('span');n.className='plan-ahead-choice-name';n.textContent=meal.name;b.append(n);if(label){const g=document.createElement('small');g.className='serving-add-group';g.textContent=meal.cat;b.append(g)}b.setAttribute('aria-pressed',String(chosen===meal));b.onclick=()=>{chosen=meal;error.textContent='';drawResults();updateSummary()};return b}
+ function drawResults(){results.replaceChildren();const text=search.value.trim();
+  if(text){const pool=meals.filter(usable).filter(m=>mealMatchesSearch(m,text)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));if(!pool.length){const none=document.createElement('p');none.className='muted';none.textContent='No recipes match.';results.append(none)}for(const meal of pool)results.append(recipeRow(meal,true));return}
+  for(const cat of cats){const entries=masterRecipeOrder(cat).filter(usable);if(!entries.length)continue;const open=expanded.has(cat)||entries.includes(chosen),card=document.createElement('div');card.className='master-category-card';card.dataset.group=cat;const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',cat+' ('+entries.length+' recipes)');const arrow=document.createElementNS('http://www.w3.org/2000/svg','svg');arrow.setAttribute('viewBox','0 0 24 24');arrow.setAttribute('aria-hidden','true');arrow.innerHTML='<path d="'+(open?'m6 15 6-6 6 6':'m6 9 6 6 6-6')+'"/>';const name=document.createElement('strong');name.textContent=cat;const count=document.createElement('span');count.className='master-category-count';count.textContent=entries.length+' '+(entries.length===1?'recipe':'recipes');toggle.append(arrow,name,count);toggle.onclick=()=>{if(open){expanded.delete(cat);if(chosen?.cat===cat&&entries.includes(chosen))chosen=null;updateSummary()}else expanded.add(cat);drawResults()};card.append(toggle);if(open){const body=document.createElement('div');body.className='master-category-meals';for(const meal of entries)body.append(recipeRow(meal,false));card.append(body)}results.append(card)}
+ }
+ // Typing: keep the search box in view above the keyboard.
+ const keepSearchVisible=()=>setTimeout(()=>search.scrollIntoView({block:'start',behavior:'smooth'}),250);search.addEventListener('focus',keepSearchVisible);window.visualViewport?.addEventListener('resize',()=>{if(document.activeElement===search)keepSearchVisible()});
+ search.oninput=()=>{drawResults();search.scrollIntoView({block:'start'})};
  // Shop early.
  const shopLabel=document.createElement('label');shopLabel.className='settings-display-option plan-ahead-shop';const shop=document.createElement('input');shop.type='checkbox';shop.setAttribute('role','switch');shop.className='preference-switch';shopLabel.append(shop,document.createTextNode('Shop early'));
  const summary=document.createElement('p');summary.className='plan-ahead-summary';summary.setAttribute('role','status');
