@@ -17,7 +17,9 @@ The latest explicit user instruction and approved task take precedence. These do
 - Respect occurrence/plan/week isolation, cancellation, atomic updates, and Undo/Redo.
 - For authorized implementation tasks, commit and push changes cleanly directly to `main` (standing user instruction, 2026-11-17: always push to `main` so the installed PWA updates, including in Claude web/mobile cloud sessions; no pull request unless the user asks for one). Documentation-only updates do not authorize app changes.
 - Use `README` and relevant existing test scripts to establish actual commands; report checks run, commit/PR status, and real deployment status. Do not invent phone verification.
-- After every batch, run the phone test as a simplified checklist, ONE item at a time: send only the next item (short: what to do, what should happen), wait for the user's pass/fail, then send the next. Never send the whole list at once (standing user instruction, 2026-11-17).
+- After every batch, run the phone test as a simplified checklist, ONE item at a time, in plain text (no answer buttons): send only the next item (short: what to do, what should happen), then wait. The user may reply pass/fail or discuss the item freely; resolve any discussion before sending the next item. Never send the whole list at once (standing user instruction, updated 2026-11-19).
+- Opinion or discussion questions get discussion only; build only on an explicit go-ahead. When the user says they have several things, collect them all before building.
+- UI conventions: toggles on the right side use a down chevron (flips up when open); left-side nested toggles use a small right arrow (turns down when open). Switches sit to the left of their label.
 - Read the assigned issue or prompt for scope. Do not implement the whole backlog. Mark code-complete work as awaiting phone testing until confirmed.
 - Update only affected lasting decisions/backlog statuses; do not append conflicting corrections or rewrite every document.
 - 
