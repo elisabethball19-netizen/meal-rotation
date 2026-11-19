@@ -2079,7 +2079,7 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .ask-ai-status{margin:6px 0 0;font-size:13px}.ask-ai-status:empty,.ask-ai-tastes-note[hidden]{display:none}.ask-ai-tastes-note{margin:6px 0 0;font-size:13px}
 .ask-ai-answer{display:block;margin-top:14px;border-top:1px solid #e5e7eb;padding-top:12px}.ask-ai-answer>span{display:block;font-weight:600;margin-bottom:6px}
 .family-tastes-field{display:block;margin:8px 0}.family-tastes-field>span{display:block;font-weight:600;margin-bottom:4px}
-.import-restriction-flags{background:#fff4e5;border:1px solid #f0c27b;border-radius:10px;padding:10px 12px;margin:0 0 10px;color:#5b3b00}.import-restriction-flags ul{margin:6px 0 0;padding-left:20px}
+.import-restriction-flags{background:#fff4e5;border:1px solid #f0c27b;border-radius:10px;padding:10px 12px;margin:10px 0;color:#5b3b00}.import-restriction-flags ul{margin:6px 0 0;padding-left:20px}
 /* Turning meal tabs off: pick which meal stays. */
 .keep-meal-choices{display:flex;flex-direction:column;gap:2px;margin:4px 0 8px}
 .keep-meal-choice{display:flex;align-items:center;gap:12px;min-height:44px;font-size:calc(16px * var(--meal-text-factor, 1))}
@@ -7115,7 +7115,8 @@ function openAskAiDialog(){
  copy.onclick=async()=>{error.textContent='';try{const ok=await copyAskAiText(request());sent.textContent=ok?'Request copied. Paste it into Claude.':'Could not copy. Try Open in Claude.'}catch(e){error.textContent=e.message}};
  review.onclick=async()=>{error.textContent='';let item;try{item=askAiItemFromAnswer(answer.value)}catch(e){error.textContent=e.message;return}
   d.navigate=true;d.close();await groupHistorySettled;await editorHistorySettled;await reviewRecipeImportItems([item],'Ask AI');
-  {const flags=restrictionConflicts(item.ingredients);if(flags.length){const note=document.createElement('div');note.className='import-restriction-flags';note.setAttribute('role','note');const title=document.createElement('strong');title.textContent='Check for your restrictions';const list=document.createElement('ul');for(const f of flags){const li=document.createElement('li');li.textContent=f.line+' ('+f.label+')';list.append(li)}note.append(title,list);const place=()=>{const fields=document.querySelector('#editor .meal-editor-fields');if(fields&&!fields.contains(note))fields.prepend(note)};place();requestAnimationFrame(()=>requestAnimationFrame(place));setTimeout(()=>{place();note.scrollIntoView({block:'nearest',behavior:'instant'})},300)}}
+  {const flags=restrictionConflicts(item.ingredients);if(flags.length){const note=document.createElement('div');note.className='import-restriction-flags';note.setAttribute('role','note');const title=document.createElement('strong');title.textContent='Check for your restrictions';const list=document.createElement('ul');for(const f of flags){const li=document.createElement('li');li.textContent=f.line+' ('+f.label+')';list.append(li)}note.append(title,list);// Right under the name/times/status card, so it shows alongside the name the editor scrolls to.
+   const place=()=>{const card=document.querySelector('#editor .meal-card-edit-mode'),fields=document.querySelector('#editor .meal-editor-fields');if(card){if(card.nextElementSibling!==note)card.after(note)}else if(fields&&!fields.contains(note))fields.prepend(note)};place();requestAnimationFrame(()=>requestAnimationFrame(place));setTimeout(place,300)}}
  };
  draw();d.panel.append(modes,input,missing,sendRow,sent,answerLabel,error,actions);setTimeout(()=>input.focus({preventScroll:true}),50);
 }
