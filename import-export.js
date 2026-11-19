@@ -825,7 +825,7 @@ async function reviewRecipeImportItems(items,filename){
  const raw=items[0],details=completeRecipeFields(raw),sourceId=recipeImportIdentity(raw);
  const record={...details,name:details.name||raw.name||'Imported recipe',labels:recipeImportTags(raw),...recipeImportStatus(raw,false),groceryDefaultAll:true,url:recipeImportUrl(raw),sourceUrl:recipeImportSourceUrl(raw),importSourceId:sourceId,recipeSageId:recipeSageUuidPattern.test(sourceId)?sourceId:'',recipeImportPending:false};
  if(raw.aiStepTags){const links=askAiStepLinks(record,raw.aiStepTags);if(links)record.ingredientStepLinks=links}
- if(raw.aiReplacesRecipeId)record.aiReplacesRecipeId=raw.aiReplacesRecipeId;
+ if(raw.aiReplacesRecipeId){record.aiReplacesRecipeId=raw.aiReplacesRecipeId;record.aiReplaceMode=raw.aiReplaceMode==='replace'?'replace':'update'}if(raw.aiReturnToGroups)record.aiReturnToGroups=true;
  // Creation, membership changes, Save, Cancel and Undo all use the ordinary editor.
  await navigateAfterSettings(()=>addRecipeToGroup(raw.aiTargetGroup&&cats.includes(raw.aiTargetGroup)?raw.aiTargetGroup:'',record));
  if(editId!==null){const missing=[];if(!record.ingredients?.length)missing.push('ingredients');if(!record.prep&&!record.cook&&!record.total)missing.push('cooking times');if(missing.length){const note=document.createElement('p');note.className='muted import-missing-fields';note.textContent='The source did not provide readable '+missing.join(' or ')+'. Review and add them before saving.';document.querySelector('#editor .meal-editor-fields')?.prepend(note)}}
@@ -1047,20 +1047,20 @@ async function reviewAiAnswer(answer){
  const parts=splitAiAnswer(answer),items=[];for(const part of parts)items.push(askAiItemFromAnswer(part));
  const pending=aiPending(),original=items.length===1&&['convert','like'].includes(pending?.job)?aiFindRecipe(pending.recipeId):null;
  if(items.length>1){openAiMultiReview(items);return}
- let replace=false;if(original){const choice=await chooseAiSaveMode(original);if(!choice)return;replace=choice==='update'}
- const item=items[0];if(replace){item.aiReplacesRecipeId=String(original.id);item.name=original.name}else item.aiTargetGroup=ensureAiRecipesGroup();
+ let replace=false,mode='copy';if(original){mode=await chooseAiSaveMode(original);if(!mode)return;replace=mode!=='copy'}
+ const item=items[0];if(replace){item.aiReplacesRecipeId=String(original.id);item.aiReplaceMode=mode;item.name=original.name}else item.aiTargetGroup=ensureAiRecipesGroup();item.aiReturnToGroups=true;
  await groupHistorySettled;await editorHistorySettled;await reviewRecipeImportItems([item],'Ask AI');setAiPending(null);
  const flags=restrictionConflicts(item.ingredients);
  const place=()=>{const card=document.querySelector('#editor .meal-card-edit-mode'),fields=document.querySelector('#editor .meal-editor-fields');if(!card&&!fields)return;
   let anchor=card;
-  if(replace){let note=document.querySelector('#editor .ai-replace-note');if(!note){note=document.createElement('p');note.className='ai-replace-note';note.textContent='Saving updates '+original.name+'. Its groups, status and favorites stay the same.'}if(card){if(card.nextElementSibling!==note)card.after(note);anchor=note}else if(!note.isConnected)fields.prepend(note)}
+  if(replace){let note=document.querySelector('#editor .ai-replace-note');if(!note){note=document.createElement('p');note.className='ai-replace-note';note.textContent=mode==='replace'?'Saving replaces '+original.name+'. The original isn’t kept.':'Saving updates '+original.name+'. The original is kept, and you can switch back from the recipe page.'}if(card){if(card.nextElementSibling!==note)card.after(note);anchor=note}else if(!note.isConnected)fields.prepend(note)}
   if(flags.length){let n=document.querySelector('#editor .import-restriction-flags');if(!n)n=restrictionNote(flags);if(anchor){if(anchor.nextElementSibling!==n)anchor.after(n)}else if(!n.isConnected)fields.prepend(n)}};
  place();requestAnimationFrame(()=>requestAnimationFrame(place));setTimeout(place,300);
 }
 function chooseAiSaveMode(original){return new Promise(resolve=>{
  const d=recipeImportDialog('Save the new version');d.panel.classList.add('ai-save-mode');let done=false;const finish=v=>{if(done)return;done=true;d.close();resolve(v)};
  const list=document.createElement('div');list.className='ai-choice-list';
- for(const [value,label]of [['update','Update '+original.name],['copy','Save as a new recipe']]){const b=document.createElement('button');b.type='button';b.className='ai-choice';b.textContent=label;b.onclick=()=>{d.navigate=true;finish(value)};list.append(b)}
+ for(const [value,label,line]of [['update','Update '+original.name,'Your original is kept. You can switch back any time.'],['replace','Replace '+original.name,'The original isn’t kept.'],['copy','Save as a new recipe','']]){const b=document.createElement('button');b.type='button';b.className='ai-choice';const t=document.createElement('span');t.className='ai-choice-title';t.textContent=label;b.append(t);if(line){const sub=document.createElement('span');sub.className='ai-choice-line';sub.textContent=line;b.append(sub)}b.setAttribute('aria-label',label);b.onclick=()=>{d.navigate=true;finish(value)};list.append(b)}
  d.panel.append(list);const watch=new MutationObserver(()=>{if(!d.panel.isConnected){watch.disconnect();finish(null)}});watch.observe(document.body,{childList:true,subtree:true});
 })}
 function openAiMultiReview(items){
@@ -1075,14 +1075,37 @@ function openAiMultiReview(items){
 }
 // Editor save of an "Update <recipe>" draft: copy the reviewed content into the original (and its shared
 // copies), keep its groups/status/favorites, keep grocery choices for unchanged lines, drop the draft.
+// Recipe versions (2026-11-19): "Update" keeps the replaced content as meal.aiAltVersion (kind 'original'),
+// so the recipe page can switch back or discard it; "Replace" keeps no copy. Content fields only.
+const AI_VERSION_FIELDS=['ingredients','instructions','prep','cook','total','marinate','notes','recipeNotes','ingredientStepLinks','url','sourceUrl'];
+function aiRecipeContent(meal){const out={};for(const key of AI_VERSION_FIELDS)if(Object.hasOwn(meal,key)&&meal[key]!==undefined)out[key]=JSON.parse(JSON.stringify(meal[key]));return out}
+// Saved grocery choices are never rewritten: lines that existed keep their state; only new lines get a suggestion.
+function remapSelectionsAfterContentChange(meal,oldLines=[],dropId=null){
+ try{const key='mealRotationSelectedIngredientsV1',sel=JSON.parse(localStorage.getItem(key)||'{}'),lines=(meal.ingredients||[]).map(l=>String(l)),before=new Set(oldLines.map(String)),suggested=new Set(suggestedGroceryLines(meal));let changed=false;
+  for(const copy of mealLinkedCopies(meal)){const prev=sel[String(copy.id)];if(!Array.isArray(prev))continue;const kept=new Set(prev);sel[String(copy.id)]=lines.filter(l=>before.has(l)?kept.has(l):suggested.has(l));changed=true}
+  if(dropId!=null&&Object.hasOwn(sel,String(dropId))){delete sel[String(dropId)];changed=true}if(changed)localStorage.setItem(key,JSON.stringify(sel))}catch(e){}
+}
 function mergeAiReplacement(saved){
- const original=aiFindRecipe(saved?.aiReplacesRecipeId);if(!saved)return false;delete saved.aiReplacesRecipeId;if(!original){persist();return false}
- const patch={};for(const key of ['ingredients','instructions','prep','cook','total','marinate','notes','recipeNotes','ingredientStepLinks','url','sourceUrl'])patch[key]=Object.hasOwn(saved,key)?saved[key]:undefined;
- assignSharedRecipeFields(original,patch);
- try{const key='mealRotationSelectedIngredientsV1',sel=JSON.parse(localStorage.getItem(key)||'{}'),lines=(original.ingredients||[]).map(l=>String(l));let changed=false;
-  for(const copy of mealLinkedCopies(original)){const prev=sel[String(copy.id)];if(!Array.isArray(prev))continue;const suggested=new Set(suggestedGroceryLines(original)),oldLines=new Set(prev);sel[String(copy.id)]=lines.filter(l=>oldLines.has(l)||(!prev.includes(l)&&suggested.has(l)&&!lines.some(x=>x===l&&oldLines.has(x))));changed=true}
-  delete sel[String(saved.id)];if(changed)localStorage.setItem(key,JSON.stringify(sel))}catch(e){}
- meals=meals.filter(m=>m!==saved);persist();showServingUndoToast('Updated '+original.name);return true;
+ const original=aiFindRecipe(saved?.aiReplacesRecipeId);if(!saved)return false;const mode=saved.aiReplaceMode==='replace'?'replace':'update';delete saved.aiReplacesRecipeId;delete saved.aiReplaceMode;if(!original){persist();return false}
+ const patch={};for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(saved,key)?saved[key]:undefined;
+ // Keep the true original: converting again replaces the converted text, never the saved original.
+ if(mode==='update'&&original.aiAltVersion?.kind!=='original')patch.aiAltVersion={kind:'original',savedAt:new Date().toISOString(),...aiRecipeContent(original)};
+ const oldLines=[...(original.ingredients||[])];assignSharedRecipeFields(original,patch);remapSelectionsAfterContentChange(original,oldLines,saved.id);
+ meals=meals.filter(m=>m!==saved);persist();showServingUndoToast((mode==='replace'?'Replaced ':'Updated ')+original.name);return true;
+}
+function switchRecipeVersion(meal){
+ const alt=meal?.aiAltVersion;if(!alt)return;snapshot();const current={kind:alt.kind==='original'?'converted':'original',savedAt:new Date().toISOString(),...aiRecipeContent(meal)},patch={};
+ for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(alt,key)?alt[key]:undefined;patch.aiAltVersion=current;
+ const oldLines=[...(meal.ingredients||[])];assignSharedRecipeFields(meal,patch);remapSelectionsAfterContentChange(meal,oldLines);persist();
+}
+function discardRecipeVersion(meal){if(!meal?.aiAltVersion)return;snapshot();assignSharedRecipeFields(meal,{aiAltVersion:undefined});persist()}
+function openRecipeVersionDialog(meal,onDone){
+ const showingConverted=meal.aiAltVersion?.kind==='original',d=recipeImportDialog(showingConverted?'Converted recipe':'Original recipe');d.panel.classList.add('ai-version-dialog');
+ const list=document.createElement('div');list.className='ai-choice-list';
+ const add=(label,line,action)=>{const b=document.createElement('button');b.type='button';b.className='ai-choice';const t=document.createElement('span');t.className='ai-choice-title';t.textContent=label;b.append(t);if(line){const sub=document.createElement('span');sub.className='ai-choice-line';sub.textContent=line;b.append(sub)}b.setAttribute('aria-label',label);b.onclick=()=>{d.navigate=true;d.close();action();onDone?.()};list.append(b)};
+ add(showingConverted?'Switch to the original':'Switch to the converted version','The other version is kept.',()=>{switchRecipeVersion(meal);showServingUndoToast(showingConverted?'Showing the original':'Showing the converted version')});
+ add(showingConverted?'Discard the original':'Discard the converted version','',()=>{discardRecipeVersion(meal);showServingUndoToast(showingConverted?'Original discarded':'Converted version discarded')});
+ d.panel.append(list);
 }
 let aiTastesOpen=false,aiPasteOpen=false;
 function renderAskAiPage(list){

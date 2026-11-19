@@ -2266,6 +2266,8 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .ai-multi-row{display:flex;gap:12px;align-items:flex-start;padding:10px 2px;border-bottom:1px solid #eef0f3}
 .ai-multi-row input{width:20px;height:20px;margin-top:2px;flex:none}
 .ai-multi-text{display:flex;flex-direction:column;gap:3px}.ai-multi-flag{color:#8a5a00;font-size:14px}
+.ai-choice{display:flex;flex-direction:column;align-items:flex-start;gap:3px}.ai-choice-title{font-weight:600}.ai-choice-line{font-size:14px;color:#56616d}
+.recipe-version-note{display:block;margin:-4px 0 12px;padding:6px 0;border:0;background:transparent;color:#3d5f94;font:inherit;font-size:15px;font-weight:600;text-align:left;min-height:36px}
 .ai-replace-note{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#eef3fb;color:#2f4f7f}
 .import-restriction-flags{background:#fff4e5;border:1px solid #f0c27b;border-radius:10px;padding:10px 12px;margin:10px 0;color:#5b3b00}.import-restriction-flags ul{margin:6px 0 0;padding-left:20px}
 .recipe-search-locate{flex:none;width:44px;height:44px;min-width:44px;color:#4a5568}

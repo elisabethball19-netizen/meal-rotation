@@ -4797,6 +4797,7 @@ $('save').onclick=async()=>{
   if(!persistenceEditor.isConnected||editId!==m.id||JSON.stringify(captureEditorRecoveryDraft())!==validatedDraftFingerprint){await showAppMessage('Your draft changed. Save again to validate the latest preferences.');return}
   try{applyRecipeBulk([String(m.id)],{}, {render:false,preferredSides,editor:{sourceId:String(m.id),...(()=>{const remap=$('recipeIngredientLinks').ingredientRemap,keys=new Set(nextIngredients.map(ingredientKey)),kept=Object.fromEntries(Object.entries(remap||{}).filter(([from,parts])=>!keys.has(ingredientKey(from))&&parts.every(t=>keys.has(ingredientKey(t)))));return Object.keys(kept).length?{ingredientRemap:kept}:{}})(),...(servingDraft.target&&JSON.stringify(servingDraft.sides)!==initialServeRules?{servingTarget:servingDraft.target,servingSidesDraft:servingDraft.sides}:{}),memberships:editorMembershipDraft.map(draft=>({...draft})),newGroups:pendingEditorGroups.filter(cat=>editorDraftCategories.includes(cat)),fields,rotation:$('rotation').checked,status:$('recipeStatus').hidden?null:$('recipeStatus').dataset.status,preserveStatus:$('recipeStatus').hidden}})}catch(e){await showAppMessage('Recipe could not be saved: '+e.message+' Your draft is still open.');return}
   let saved=meals.find(record=>String(record.id)===String(m.id));
+  const aiReturn=!!saved?.aiReturnToGroups;if(aiReturn){delete saved.aiReturnToGroups;persist()}
   if(saved?.aiReplacesRecipeId){const target=aiFindRecipe(saved.aiReplacesRecipeId);if(mergeAiReplacement(saved))saved=target}
   const chooseFirstGroup=newRecipeDraftId===m.id&&saved?.cat===''&&meals.length===1;
   if(newRecipeDraftId===m.id){
@@ -4807,6 +4808,7 @@ $('save').onclick=async()=>{
    }
   }
   editorCategoryBaseline=null;editorDraftCategories=null;editId=null;if(tutorialStage==='editing')setTutorialStage('3');restoreMealEditorScroll();
+  if(aiReturn&&saved&&!chooseFirstGroup)setTimeout(()=>locateRecipeInGroups(saved),0);
   if(chooseFirstGroup)chooseGroupForFirstMeal(saved);
   else if(saved&&importedRecipeDetailsDraft?.recipeImportReferences?.length)recipeImportNotice('Related recipe references were found. No new links have been selected.',[saved]);
 

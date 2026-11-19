@@ -24,7 +24,10 @@ sb.fixture.HOOK += '''window.ai={
  count:()=>meals.filter(m=>!m._scheduledEditorDraft).length,
  pending:()=>aiPending(),aiWeekly:()=>groupUsesRotation('AI recipes'),
  viewer:name=>openSavedMealRecipe(meals.find(m=>m.name===name),null,null),
- closeViewer:()=>closeRecipeViewer()
+ closeViewer:()=>closeRecipeViewer(),
+ onGroups:()=>!showTop,
+ alt:name=>{const m=meals.find(x=>x.name===name&&!x._scheduledEditorDraft);return m&&m.aiAltVersion?m.aiAltVersion.kind:null},
+ setPending:(job,name)=>{const m=meals.find(x=>x.name===name&&!x._scheduledEditorDraft);setAiPending({job,recipeId:String(m.id),recipeName:m.name,at:Date.now()})}
 };'''
 
 ONE = """Here you go!
@@ -144,7 +147,8 @@ def run(browser, name):
     assert p.evaluate('ai.editorOpen()')
     flags = p.locator('.import-restriction-flags li').all_text_contents()
     assert flags == ['2 tbsp soy sauce (soy)', '1 tbsp butter (dairy)'], flags
-    p.locator('#save').click(); p.wait_for_timeout(500)
+    p.locator('#save').click(); p.wait_for_timeout(700)
+    assert p.evaluate('ai.onGroups()'), 'after saving an AI recipe the app stays on Meal Groups'
     saved = p.evaluate('n=>ai.meal(n)', 'Garlic Chicken Stir-Fry')
     assert saved and saved['cat'] == 'AI recipes' and saved['rotation'] is False and saved['links'] == 2 and saved['ingredients'][0] == '1 lb chicken thighs', saved
     assert p.evaluate('ai.pending()') is None
@@ -189,6 +193,29 @@ def run(browser, name):
     upd = p.evaluate('n=>ai.meal(n)', target)
     assert '2 tbsp coconut aminos' in upd['ingredients'] and upd['id'] == saved['id'], upd
     assert p.evaluate('ai.count()') == count, 'update must not add a recipe'
+    assert p.evaluate('n=>ai.alt(n)', target) == 'original'
+    # Recipe page: switch to the original and back, then discard the other version.
+    p.evaluate('n=>ai.viewer(n)', target); p.wait_for_timeout(400)
+    p.get_by_role('button', name='Converted · Show original').click(); p.wait_for_timeout(200)
+    shot(p, tag, 'versions')
+    p.get_by_role('button', name='Switch to the original').click(); p.wait_for_timeout(300)
+    assert '2 tbsp soy sauce' in p.evaluate('n=>ai.meal(n)', target)['ingredients']
+    assert p.get_by_role('button', name='Original · Show converted').count() == 1
+    p.get_by_role('button', name='Original · Show converted').click(); p.wait_for_timeout(200)
+    p.get_by_role('button', name='Switch to the converted version').click(); p.wait_for_timeout(300)
+    assert '2 tbsp coconut aminos' in p.evaluate('n=>ai.meal(n)', target)['ingredients']
+    p.get_by_role('button', name='Converted · Show original').click(); p.wait_for_timeout(200)
+    p.get_by_role('button', name='Discard the original').click(); p.wait_for_timeout(300)
+    assert p.evaluate('n=>ai.alt(n)', target) is None and p.get_by_role('button', name='Converted · Show original').count() == 0
+    p.evaluate('ai.closeViewer()'); p.wait_for_timeout(300)
+    # Replace keeps no other version.
+    p.evaluate('n=>ai.setPending("like",n)', target)
+    go_ai(p)
+    page_paste(p, ONE.replace('1 cup coconut milk [2]', '1/2 cup coconut milk [2]'))
+    p.locator('.ai-save-mode').get_by_role('button', name='Replace ' + target).click(); p.wait_for_timeout(600)
+    assert 'Saving replaces ' + target in p.locator('.ai-replace-note').text_content()
+    p.locator('#save').click(); p.wait_for_timeout(500)
+    assert '½ cup coconut milk' in p.evaluate('n=>ai.meal(n)', target)['ingredients'] and p.evaluate('n=>ai.alt(n)', target) is None
 
     # Out of an ingredient: pick a recipe, tap an ingredient chip; nothing to paste back.
     go_ai(p)
