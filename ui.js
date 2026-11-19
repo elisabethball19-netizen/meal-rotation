@@ -2128,9 +2128,8 @@ function saveMealGroupSettings(category,name,use){
 function masterDisplayPlan(){return mealPlans.find(p=>p.id===activePlanId)}
 function masterDisplayCategories(day){const plan=masterDisplayPlan();const raw=plan?.id===activePlanId?weekdayCategories[day]:plan?.weekdayCategories?.[day];return [...new Set((Array.isArray(raw)?raw:[raw]).filter(c=>typeof c==='string'&&cats.includes(c)))];}
 function masterDisplayOrder(){const assigned=[];for(const day of orderedDays())for(const c of masterDisplayCategories(day))if(!assigned.includes(c))assigned.push(c);return [...assigned,...cats.filter(c=>!assigned.includes(c))];}
-// Part 2c: every group gets one steady soft color derived from its saved group id (no new storage; survives renames/exports).
-const GROUP_PALETTE=['#d96c5f','#e09a3e','#c9b23a','#6fae5d','#3fa59a','#4f93c7','#7a83d6','#a678c9','#d575a3','#8a9099'];
-function groupColor(category){const key=groupIdentity(category)||String(category||'');let h=0;for(const ch of key)h=(h*31+ch.charCodeAt(0))>>>0;return GROUP_PALETTE[h%GROUP_PALETTE.length]}
+// Part 2c: an active group wears the same weekday colors as its cards on the Meals page (split stripe when it spans days).
+function groupDayColors(category){return [...new Set(orderedDays().filter(d=>masterDisplayCategories(d).includes(category)).map(colorForDay))]}
 function groupDayAbbreviations(category){return orderedDays().filter(d=>masterDisplayCategories(d).includes(category)).map(d=>String(d).slice(0,3))}
 function masterDisplayColor(category){const colors=[...new Set(orderedDays().filter(d=>masterDisplayCategories(d).includes(category)).map(colorForDay))];if(!colors.length)return '#ffffff';if(colors.length===1)return colors[0];return 'linear-gradient(90deg, '+colors.flatMap((color,i)=>[`${color} ${100*i/colors.length}%`,`${color} ${100*(i+1)/colors.length}%`]).join(', ')+')';}
 
@@ -2906,7 +2905,7 @@ function renderMasterCategories(list){
    categoryMeals.sort((a,b)=>displayRank(a)-displayRank(b));
   }
   const card=document.createElement('section');card.className='master-category-card';card.dataset.category=category;
-  const header=document.createElement('div');header.className='master-category-header';{const color=category&&activeGroupNames.has(category)?groupColor(category):'';header.style.background=color?'color-mix(in srgb,'+color+' 14%,#ffffff)':'#f8f9fa';if(color)card.style.setProperty('--group-color',color)}if(activeGroupNames.has(category)){card.classList.add('master-category-this-week');}
+  const header=document.createElement('div');header.className='master-category-header';{const colors=category&&activeGroupNames.has(category)?groupDayColors(category):[];header.style.background=colors.length?colors[0]:'#f8f9fa';if(colors.length)card.style.setProperty('--group-stripe',colors.length===1?'color-mix(in srgb,'+colors[0]+' 70%,#5a6470)':'linear-gradient(to bottom, '+colors.flatMap((c,i)=>['color-mix(in srgb,'+c+' 70%,#5a6470) '+100*i/colors.length+'%','color-mix(in srgb,'+c+' 70%,#5a6470) '+100*(i+1)/colors.length+'%']).join(', ')+')')}if(activeGroupNames.has(category)){card.classList.add('master-category-this-week');}
   const expanded=!groupReorderState&&masterExpandedCategories.has(category);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(expanded));
   toggle.onclick=()=>{if(groupReorderState)return;masterExpansionInitialized=true;const opening=!masterExpandedCategories.has(category);if(opening){if(!recipeBulkMode)masterExpandedCategories.clear();masterExpandedCategories.add(category)}else masterExpandedCategories.delete(category);if(recipeBulkMode){recipeBulkFocus={cat:category,rotation:true};bulkRecipeRender()}else renderList();if(opening&&!recipeBulkMode)requestAnimationFrame(()=>{const target=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category);if(target)target.scrollIntoView({behavior:'smooth',block:'start'});});};

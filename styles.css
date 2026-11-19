@@ -2197,9 +2197,9 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .unassigned-bulk-count{padding-left:4px}
 .unassigned-bulk-actions button{min-height:42px;flex-direction:row;gap:4px}
 /* Part 2c: one steady color per group (stripe + tinted header); assigned weekdays shown under the name. */
-.master-category-card[style*="--group-color"]{border-left:5px solid var(--group-color)}
+.master-category-card[style*="--group-stripe"]{position:relative}
+.master-category-card[style*="--group-stripe"]::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--group-stripe);border-radius:11px 0 0 11px;z-index:9;pointer-events:none}
 .master-category-days{font-weight:600;color:#4a5563}
-.master-category-card.master-category-this-week[style*="--group-color"]{border-left-color:var(--group-color)!important}
 /* Part 2a: every recipe row in a group list is indented the same, so names line up and the watermark heart stays inside the card. */
 .master-categories .master-category-meal:not(.featured-top-meal){padding-left:13px}
 .master-categories .master-category-meal:not(.featured-top-meal)>.master-meal-info{padding-left:0}

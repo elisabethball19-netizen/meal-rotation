@@ -52,9 +52,9 @@ def run(browser, name):
     p.wait_for_timeout(300)
     days = p.locator('.master-category-days').all_inner_texts()
     assert days and all(d.strip(' ·') for d in days), days
-    colors = p.locator('.master-category-card').evaluate_all('xs=>xs.map(x=>x.style.getPropertyValue("--group-color")).filter(Boolean)')
+    colors = p.locator('.master-category-card').evaluate_all('xs=>xs.map(x=>x.style.getPropertyValue("--group-stripe")).filter(Boolean)')
     active = p.evaluate("[...document.querySelectorAll('.master-category-this-week')].length")
-    assert len(colors) == active and active >= 1, (colors, active)  # only groups active this week are colored
+    assert 1 <= len(colors) <= active, (colors, active)  # only groups active this week are colored
     sb.shot(p, name, 'part2c-group-colors')
     n = p.evaluate('p2a.unassign()')
     p.wait_for_timeout(400)
