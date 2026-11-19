@@ -2267,3 +2267,21 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 .step-chip-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:4px}
 .step-chip-reset{margin-right:auto;font-size:13px}
 .ingredient-step-view[hidden]{display:none!important}
+/* Bottom bar: the current page gets a pill behind its icon and bold label. */
+#mealBottomNav .unified-nav-fab{background:transparent!important;box-shadow:none!important;border:0!important;color:#4a5563}
+#mealBottomNav .unified-nav-fab svg{box-sizing:content-box;padding:4px 18px;border-radius:999px;transition:background .15s}
+#mealBottomNav .unified-nav-fab.current-view{color:#1f3f7a!important;font-weight:700}
+#mealBottomNav .unified-nav-fab.current-view svg{background:#dbe6f6;stroke-width:2.1}
+/* Part 3b timers: one row in the recipe view; others drop down from the "+N timers" chip as an overlay. */
+#recipeViewer .recipe-viewer-bar{position:sticky}
+#recipeViewer .recipe-timer-more[aria-expanded=true]{background:#eef2f7;border-color:#5b6f8a}
+#recipeViewer .recipe-timer-dropdown{grid-column:1/-1;position:absolute;left:8px;right:8px;top:100%;z-index:30;background:#fff;border:1px solid #c7d0da;border-radius:10px;box-shadow:0 6px 18px #0002;padding:4px 8px;display:flex;flex-direction:column}
+#recipeViewer .recipe-timer-dropdown .recipe-timer-strip+.recipe-timer-strip{border-top:1px solid #e3e7ec;padding-top:2px}
+.recipe-timer-phone{display:flex;align-items:center;gap:6px;min-height:40px;font-size:14px}
+#recipeViewer .recipe-timer-label{display:flex;min-width:0;max-width:36%;flex:0 1 auto}
+#recipeViewer .recipe-timer-label-name,#cookingTimerControlsDialog .recipe-timer-label-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.recipe-timer-label-step{flex:none;white-space:nowrap}
+#recipeViewer .recipe-timer-strip>.recipe-timer-more{flex:none;min-height:30px;padding:0 9px;margin-left:2px}
+#recipeViewer .recipe-timer-strip>.recipe-timer-more{min-width:34px;padding:0 6px;font-weight:600}
+#recipeViewer .recipe-timer-strip .recipe-timer-readout{flex:none}
+#recipeViewer .recipe-timer-strip .recipe-timer-controls{flex:none;display:flex;margin-left:auto}

@@ -14,6 +14,7 @@ import sides_batch127_browser as sb  # noqa: E402
 T0 = datetime(2026, 11, 16, 20, tzinfo=timezone.utc)
 sb.fixture.HOOK += '''const b12Store=()=>typeof testStorage!=='undefined'?testStorage:localStorage;window.batch12={
  setup:()=>{const m=meals.find(m=>m.id===2);m.instructions=[{type:'step',text:'Simmer the sauce for 10 minutes.'},{type:'step',text:'Rest the rice for 1 minute.'},{type:'step',text:'Bake for 20 minutes.'}];persist();recipeViewPrefs.mode='full';saveRecipeViewPrefs();openSavedMealRecipe(m)},
+ rname:()=>meals.find(m=>m.id===2).name,
  timers:()=>cookingTimers.map(t=>[t.stepNumber,t.status]),
  stored:()=>JSON.parse(b12Store().getItem('mealRotationCookingTimersV1')||'null')?.timers?.length||0,
  legacy:()=>JSON.parse(b12Store().getItem('mealRotationCookingTimerV1')||'null')?.id||null,
@@ -38,13 +39,21 @@ def run(browser, name):
     strips = p.locator('#recipeViewer .recipe-viewer-bar .recipe-timer-strip')
     assert strips.count() == 1 and p.locator('#recipeViewer .recipe-timer-label').count() == 0
     step_timer(p, 2).click()
-    assert strips.count() == 2, strips.count()
-    labels = p.locator('#recipeViewer .recipe-timer-label').all_text_contents()
-    assert labels == ['Step 1', 'Step 2'], labels
+    # Part 3b: one row (soonest first: the 1-minute Step 2), the other behind a "+1 timer" chip.
+    rname = p.evaluate('batch12.rname()')
+    assert strips.count() == 1, strips.count()
+    assert p.locator('#recipeViewer .recipe-timer-label').all_text_contents() == [rname + ' · 2']
+    more = p.locator('#recipeViewer .recipe-timer-more')
+    assert more.inner_text() == '+1' and more.get_attribute('aria-label') == '+1 timer'
+    more.click()
+    drop = p.locator('#recipeViewer .recipe-timer-dropdown')
+    assert drop.is_visible() and drop.locator('.recipe-timer-label').all_text_contents() == [rname + ' · 1']
+    assert p.get_by_role('button', name='Hide timer controls').count() == 0
+    sb.shot(p, name, 'part3b-dropdown')
     assert p.evaluate('batch12.stored()') == 2 and p.evaluate('batch12.legacy()')
     sb.shot(p, name, 'batch12-two-timers')
     # Pause Step 1 only.
-    p.get_by_role('button', name='Pause timer (Step 1)', exact=True).click()
+    p.get_by_role('button', name='Pause timer (' + rname + ' · 1)', exact=True).click()
     assert p.evaluate('batch12.timers()') == [[1, 'paused'], [2, 'running']]
     # Tapping a step that already has a timer doesn't add another.
     step_timer(p, 1).click()
@@ -54,15 +63,11 @@ def run(browser, name):
     p.evaluate('batch12.sync()')
     done = p.get_by_role('alertdialog')
     done.wait_for(state='visible')
-    assert 'Step 2' in done.inner_text(), done.inner_text()
+    assert rname + ' · 2' in done.inner_text(), done.inner_text()
     sb.shot(p, name, 'batch12-finished')
     done.get_by_role('button', name='Acknowledge completed timer', exact=True).click()
     assert p.evaluate('batch12.timers()') == [[1, 'paused']]
-    # Hide / show.
-    p.get_by_role('button', name='Hide timer controls', exact=True).click()
-    assert strips.count() == 0
-    p.get_by_role('button', name='Show timer', exact=True).click()
-    assert strips.count() == 1
+    assert strips.count() == 1 and more.count() == 0
     # Reload keeps the timer.
     p.reload()
     p.wait_for_function('window.batch12')
@@ -93,10 +98,10 @@ def run(browser, name):
     msg = p.get_by_text('Up to 6 timers can run at once. Delete one to start another.')
     msg.wait_for(state='visible')
     sb.shot(p, name, 'batch12-limit')
-    assert p.locator('#recipeViewer .recipe-viewer-bar .recipe-timer-strip').count() == 3 and p.locator('.recipe-timer-more').text_content() == '+3 more timers'
+    assert p.locator('#recipeViewer .recipe-viewer-bar > .recipe-timer-strip').count() == 1 and p.locator('.recipe-timer-more').get_attribute('aria-label') == '+5 timers'
     p.get_by_role('button', name='OK', exact=True).click()
     p.locator('.recipe-timer-more').click()
-    assert p.locator('#cookingTimerControlsDialog .recipe-timer-strip').count() == 6
+    assert p.locator('#recipeViewer .recipe-timer-dropdown .recipe-timer-strip').count() == 5  # Part 3b: chip opens the dropdown
     p.keyboard.press('Escape')
     p.wait_for_timeout(200)
     assert len(p.evaluate('batch12.timers()')) == 6

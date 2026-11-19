@@ -2,7 +2,7 @@ const RECIPE_VIEW_PREFS_KEY='mealRotationRecipeViewPrefsV1';
 let recipeViewPrefs={mode:'full',ratio:.4,landscapeRatio:.5,syncIngredients:true,autoCompleteIngredients:true,keepScreenAwake:true,autoOpenLinkedRecipes:true,timerAlarmVolume:.8};
 try{const p=JSON.parse(localStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null');if(p&&typeof p.keepScreenAwake==='boolean')recipeViewPrefs.keepScreenAwake=p.keepScreenAwake;if(p&&['full','split'].includes(p.mode)&&Number.isFinite(p.ratio))recipeViewPrefs={mode:p.mode,ratio:Math.max(.1,Math.min(.9,p.ratio)),landscapeRatio:Number.isFinite(p.landscapeRatio)?Math.max(.1,Math.min(.9,p.landscapeRatio)):.5,syncIngredients:p.syncIngredients!==false,autoCompleteIngredients:p.autoCompleteIngredients!==false,keepScreenAwake:p.keepScreenAwake!==false,autoOpenLinkedRecipes:true,timerAlarmVolume:Number.isFinite(p.timerAlarmVolume)?Math.max(0,Math.min(1,p.timerAlarmVolume)):.8}}catch(e){}
 try{const saved=JSON.parse(localStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null');for(const key of ['syncIngredients','autoCompleteIngredients'])if(typeof saved?.[key]==='boolean')recipeViewPrefs[key]=saved[key]}catch(_){}
-recipeViewPrefs.needsAdjustingCollapsed={};try{const saved=JSON.parse(localStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null')?.needsAdjustingCollapsed;if(saved&&typeof saved==='object'&&!Array.isArray(saved))recipeViewPrefs.needsAdjustingCollapsed=Object.fromEntries(Object.entries(saved).filter(([,value])=>typeof value==='boolean'))}catch(e){}
+recipeViewPrefs.phoneTimer=false;try{recipeViewPrefs.phoneTimer=JSON.parse(localStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null')?.phoneTimer===true}catch(e){}recipeViewPrefs.needsAdjustingCollapsed={};try{const saved=JSON.parse(localStorage.getItem(RECIPE_VIEW_PREFS_KEY)||'null')?.needsAdjustingCollapsed;if(saved&&typeof saved==='object'&&!Array.isArray(saved))recipeViewPrefs.needsAdjustingCollapsed=Object.fromEntries(Object.entries(saved).filter(([,value])=>typeof value==='boolean'))}catch(e){}
 function saveRecipeViewPrefs(){recipeViewPrefs.autoOpenLinkedRecipes=true;try{localStorage.setItem(RECIPE_VIEW_PREFS_KEY,JSON.stringify(recipeViewPrefs))}catch(e){/* Keep viewing available when preferences cannot be saved. */}}
 // Recipe associations use existing content tokens, never schedule positions or progress state.
 function syncIngredientHeading(text){
@@ -779,6 +779,7 @@ function buildCookingTimerVolumeControl(settings){
  const slider=document.createElement('input');slider.type='range';slider.id='recipeTimerAlarmVolume';slider.min='0';slider.max='100';slider.step='1';slider.dataset.timerAlarmVolume='';slider.value=String(Math.round(recipeViewPrefs.timerAlarmVolume*100));slider.setAttribute('aria-valuetext',slider.value+'%');slider.oninput=()=>setCookingTimerAlarmVolume(slider.value);
  const preview=document.createElement('button');preview.type='button';preview.className='recipe-timer-icon recipe-timer-test-sound';setRecipeToolbarIcon(preview,'sound','Test alarm sound');preview.onclick=()=>{if(cookingTimer?.status==='complete')return;if(cookingTimerSound?.kind==='test')stopCookingTimerSound('test');else startCookingTimerSound('test')};
  row.append(label,output,slider,preview);settings.append(row);
+ {const phone=document.createElement('label');phone.className='settings-display-option recipe-timer-phone';const sw=document.createElement('input');sw.type='checkbox';sw.setAttribute('role','switch');sw.className='preference-switch';sw.checked=recipeViewPrefs.phoneTimer===true;sw.onchange=()=>{recipeViewPrefs.phoneTimer=sw.checked;saveRecipeViewPrefs()};phone.append(sw,document.createTextNode('Also set a phone timer'));settings.append(phone);if(typeof decoratePreferenceSwitches==='function')decoratePreferenceSwitches(phone)}
  const notify=document.createElement('button');notify.type='button';notify.className='recipe-timer-icon recipe-timer-notifications';setRecipeToolbarIcon(notify,'bell','Enable timer notifications');notify.hidden=true;notify.onclick=async()=>{try{await Notification.requestPermission()}catch(e){}syncCookingTimer()};settings.append(notify);
 }
 
@@ -803,7 +804,7 @@ function requestCookingTimerCompletion(){
   cookingTimerDismissDialog?.();recipeViewer?.openRecipesDialog?.();closeCookingTimerControls();
   const cover=document.createElement('div');cover.id='cookingTimerCompletion';cover.className='recipe-timer-dialog';cover.setAttribute('role','alertdialog');cover.setAttribute('aria-modal','true');cover.setAttribute('aria-labelledby','cookingTimerCompletionTitle');cover.setAttribute('aria-describedby','cookingTimerCompletionRecipe');
   const panel=document.createElement('div'),title=document.createElement('strong');title.id='cookingTimerCompletionTitle';title.textContent="Time's Up!";
-  const name=document.createElement('p');name.id='cookingTimerCompletionRecipe';name.textContent=(meals.find(m=>String(m.id)===String(timer.recipeId))?.name||timer.recipeName)+(cookingTimers.length>1&&timer.stepNumber?' · Step '+timer.stepNumber:'');
+  const name=document.createElement('p');name.id='cookingTimerCompletionRecipe';name.textContent=(meals.find(m=>String(m.id)===String(timer.recipeId))?.name||timer.recipeName)+(cookingTimers.length>1&&timer.stepNumber?' · '+timer.stepNumber:'');
   const acknowledge=document.createElement('button');acknowledge.type='button';acknowledge.className='recipe-timer-icon';setRecipeToolbarIcon(acknowledge,'save','Acknowledge completed timer');acknowledge.onclick=()=>cancelCookingTimer(timer.id);panel.append(title,name,acknowledge);cover.append(panel);
   const focus=document.activeElement,inert=[...document.body.children].map(el=>[el,el.inert]);for(const [el]of inert)el.inert=true;
   cookingTimerCompletionDialog={cover,inert,focus,id:timer.id};document.body.append(cover);acknowledge.focus({preventScroll:true});
@@ -850,7 +851,14 @@ async function startRecipeCookingTimer(meal,item,durations,stepNumber){
   if(recipeViewer!==view)return;
   syncCookingTimer();if(cookingTimers.length>=COOKING_TIMER_LIMIT){await showAppMessage('Up to '+COOKING_TIMER_LIMIT+' timers can run at once. Delete one to start another.');return}
   const timer={version:1,id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),recipeId:String(meal.id),recipeName:meal.name||'Recipe',stepToken:item.token,stepText:item.text,stepNumber,context:view.context?{...view.context}:null,status:'running',deadline:Date.now()+duration.ms,remaining:duration.ms};cookingTimers=[...cookingTimers,timer];saveCookingTimer();syncCookingTimer();
+  if(recipeViewPrefs.phoneTimer)handOffPhoneTimer(duration.ms,(meal.name||'Recipe')+(stepNumber?' · '+stepNumber:''));
  }finally{cookingTimerStarting=false}
+}
+// Experimental: ask Android's Clock app to run the same timer, so it rings even when this app is closed.
+function handOffPhoneTimer(ms,label){
+ if(!/Android/i.test(navigator.userAgent||''))return false;
+ const seconds=Math.max(1,Math.round(ms/1000));
+ try{location.href='intent:#Intent;action=android.intent.action.SET_TIMER;i.android.intent.extra.alarm.LENGTH='+seconds+';S.android.intent.extra.alarm.MESSAGE='+encodeURIComponent(label)+';B.android.intent.extra.alarm.SKIP_UI=true;end';return true}catch(e){return false}
 }
 function addRecipeCookingTimer(li,meal,item,stepNumber){
  const durations=recipeCookingDurations(item.text);if(!durations.length)return;
@@ -896,7 +904,9 @@ function updateRecipeTimerReopenControl(){
  if(!cookingTimers.some(t=>view.hiddenTimerIds?.has(t.id))){button?.remove();return}
  if(!button){button=document.createElement('button');button.type='button';button.className='recipe-header-icon recipe-timer-reopen';setRecipeToolbarIcon(button,'timer','Show timer');button.onclick=showRecipeCookingTimer;actions.append(button)}
 }
-function cookingTimerLabel(timer,viewMealId){return String(timer.recipeId)===String(viewMealId)&&timer.stepNumber?'Step '+timer.stepNumber:(meals.find(m=>String(m.id)===String(timer.recipeId))?.name||timer.recipeName)+(timer.stepNumber?' · '+timer.stepNumber:'')}
+// Every timer reads "Recipe · step" when more than one is running, so labels never depend on which recipe is open.
+function cookingTimerLabel(timer){return (meals.find(m=>String(m.id)===String(timer.recipeId))?.name||timer.recipeName)+(timer.stepNumber?' · '+timer.stepNumber:'')}
+function cookingTimersByUrgency(list){return [...list].sort((a,b)=>{const x=cookingTimerUrgency(a),y=cookingTimerUrgency(b);return x[0]-y[0]||x[1]-y[1]})}
 function renderCookingTimerSurface(bar,hide,timers=cookingTimers,viewMealId=null){
  const wanted=new Set(timers.map(t=>t.id+':'+t.status)),labelled=cookingTimers.length>1;
  for(const strip of [...bar.querySelectorAll(':scope>.recipe-timer-strip')])if(!wanted.has(strip.dataset.timerState)||strip.classList.contains('recipe-timer-labelled')!==labelled)strip.remove();
@@ -905,13 +915,12 @@ function renderCookingTimerSurface(bar,hide,timers=cookingTimers,viewMealId=null
   const key=timer.id+':'+timer.status;let strip=[...bar.querySelectorAll(':scope>.recipe-timer-strip')].find(el=>el.dataset.timerState===key);
   if(!strip){
    strip=document.createElement('div');strip.className='recipe-timer-strip';strip.dataset.timerState=key;strip.dataset.timerId=timer.id;
-   if(labelled){strip.classList.add('recipe-timer-labelled');const label=document.createElement('span');label.className='recipe-timer-label';label.textContent=cookingTimerLabel(timer,viewMealId);strip.append(label)}
+   if(labelled){strip.classList.add('recipe-timer-labelled');const label=document.createElement('span');label.className='recipe-timer-label';const nm=document.createElement('span');nm.className='recipe-timer-label-name';nm.textContent=meals.find(m=>String(m.id)===String(timer.recipeId))?.name||timer.recipeName;label.append(nm);if(timer.stepNumber){const st=document.createElement('span');st.className='recipe-timer-label-step';st.textContent=' · '+timer.stepNumber;label.append(st)}strip.append(label)}
    const readout=document.createElement('div');readout.className='recipe-timer-readout';readout.setAttribute('role','timer');readout.setAttribute('aria-live','off');strip.append(readout);
    const controls=document.createElement('div');controls.className='recipe-timer-controls';
    const control=(kind,label,action,disabled=false)=>{const b=document.createElement('button');b.type='button';b.className='recipe-timer-icon';setRecipeToolbarIcon(b,kind,label);b.disabled=disabled;b.onclick=action;controls.append(b)};
    const complete=timer.status==='complete',paused=timer.status==='paused',suffix=labelled?' ('+cookingTimerLabel(timer,viewMealId)+')':'';
    control(paused||complete?'play':'pause',(complete?'Timer finished':paused?'Resume timer':'Pause timer')+suffix,()=>paused?resumeCookingTimer(timer.id):pauseCookingTimer(timer.id),complete);
-   control('close','Hide timer controls'+suffix,()=>hide(timer.id));
    control('delete','Delete timer'+suffix,()=>cancelCookingTimer(timer.id));
    strip.append(controls);
    if(complete){strip.classList.add('recipe-timer-finished');const notice=document.createElement('span');notice.className='recipe-timer-announcement';notice.setAttribute('role','status');notice.textContent='Cooking timer finished';strip.append(notice)}
@@ -924,13 +933,17 @@ function renderCookingTimer(){
  refreshRecipeTimerIndicators();updateRecipeTimerReopenControl();
  const view=recipeViewer,bar=view?.cover.querySelector('.recipe-viewer-bar');
  if(bar){
-  // At most three rows in the viewer (most urgent first); the rest open from "+N more".
-  const visible=cookingTimers.filter(t=>!view.hiddenTimerIds?.has(t.id)),order=new Map([...visible].sort((a,b)=>{const x=cookingTimerUrgency(a),y=cookingTimerUrgency(b);return x[0]-y[0]||x[1]-y[1]}).map((t,i)=>[t.id,i])),shown=visible.filter(t=>order.get(t.id)<3);
-  renderCookingTimerSurface(bar,id=>hideRecipeCookingTimer(id),shown,view.mealId);
-  let more=bar.querySelector(':scope>.recipe-timer-more');const extra=visible.length-shown.length;
-  if(extra>0){if(!more){more=document.createElement('button');more.type='button';more.className='recipe-timer-more';more.onclick=()=>openCookingTimerControls(view.mealId);bar.append(more)}more.textContent='+'+extra+' more timer'+(extra===1?'':'s');bar.append(more)}else more?.remove();
+  // One row (soonest first); the rest open in a dropdown from the "+N timers" chip.
+  const sorted=cookingTimersByUrgency(cookingTimers),shown=sorted.slice(0,1),rest=sorted.slice(1);
+  renderCookingTimerSurface(bar,()=>{},shown,view.mealId);
+  let more=bar.querySelector('.recipe-timer-more'),drop=bar.querySelector(':scope>.recipe-timer-dropdown');
+  if(rest.length){
+   if(!more){more=document.createElement('button');more.type='button';more.className='recipe-timer-more';more.onclick=()=>{view.timerDropdownOpen=!view.timerDropdownOpen;renderCookingTimer()};}
+   more.textContent='+'+rest.length;more.setAttribute('aria-label','+'+rest.length+' timer'+(rest.length===1?'':'s'));more.setAttribute('aria-expanded',String(!!view.timerDropdownOpen));(bar.querySelector(':scope>.recipe-timer-strip')||bar).append(more);
+   if(view.timerDropdownOpen){if(!drop){drop=document.createElement('div');drop.className='recipe-timer-dropdown'}bar.append(drop);renderCookingTimerSurface(drop,()=>{},rest,view.mealId)}else drop?.remove();
+  }else{more?.remove();drop?.remove();view.timerDropdownOpen=false}
  }
- if(cookingTimerControlsDialog){if(!cookingTimers.length)closeCookingTimerControls();else{const id=cookingTimerControlsDialog.recipeId;renderCookingTimerSurface(cookingTimerControlsDialog.panel,()=>closeCookingTimerControls(),[...cookingTimers.filter(t=>String(t.recipeId)===id),...cookingTimers.filter(t=>String(t.recipeId)!==id)],id)}}
+ if(cookingTimerControlsDialog){if(!cookingTimers.length)closeCookingTimerControls();else{const id=cookingTimerControlsDialog.recipeId;renderCookingTimerSurface(cookingTimerControlsDialog.panel,()=>closeCookingTimerControls(),cookingTimersByUrgency(cookingTimers),id)}}
 }
 loadCookingTimers();
 window.addEventListener('focus',syncCookingTimer);window.addEventListener('pageshow',syncCookingTimer);document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendCookingTimerAlert();else syncCookingTimer()});window.addEventListener('pagehide',suspendCookingTimerAlert);document.addEventListener('freeze',suspendCookingTimerAlert);
