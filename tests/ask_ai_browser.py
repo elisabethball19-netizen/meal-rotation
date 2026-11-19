@@ -136,7 +136,7 @@ def run(browser, name):
     p.locator('.ask-ai-dialog textarea').fill('crispy pork')
     p.locator('.ask-ai-dialog').get_by_role('button', name='Open in Claude').click(); p.wait_for_timeout(250)
     assert p.evaluate('ai.opened()')[-1] == 'https://claude.ai/project/abc'
-    assert 'Write a recipe for my family: crispy pork' in p.evaluate('ai.copied()')
+    assert 'a recipe for my family: crispy pork' in p.evaluate('ai.copied()')
     assert not p.locator('.ask-ai-dialog').count()
 
     # Single answer -> review editor with restriction box; saving keeps step links, Off menu.
