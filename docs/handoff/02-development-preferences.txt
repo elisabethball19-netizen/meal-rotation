@@ -1,7 +1,7 @@
 DEVELOPMENT AND HANDOFF PREFERENCES
 Updated: 2026-11-21
 
-WORKFLOW (2026-11-21): implementation is done directly by Claude (chat or Claude Code), pushing to main as CLAUDE.md says; Codex is no longer used. Discussion and opinion questions stay discussion until the user gives an explicit go-ahead. Keep usage low: docs/handoff/04-remaining-work.txt is a short active list; finished history lives in docs/archive/ (never read unless asked). When a batch is built and phone-tested, move its entries from 04 to the archive instead of letting 04 grow.
+WORKFLOW (2026-11-21): implementation is done directly by Claude (chat or Claude Code), pushing to main as CLAUDE.md says; Codex is no longer used. Discussion and opinion questions stay discussion until the user gives an explicit go-ahead. Keep usage low: docs/handoff/04-remaining-work.txt is a short active list; finished history lives in docs/archive/ (never read unless asked). PHONE-TEST FAILURES (2026-11-21): log failed checks in 04 under the batch and fix them together in one pass after the whole checklist is done, not one by one (only a blocking failure is fixed at once). When a batch is built and phone-tested, move its entries from 04 to the archive instead of letting 04 grow.
 
 ROLE
 Help decide behavior, track work, and implement approved changes. Do not implement app changes merely because the user is brainstorming. When feedback arrives in several messages, collect it until the user says finished.
