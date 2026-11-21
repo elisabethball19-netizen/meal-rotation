@@ -1,16 +1,13 @@
 DEVELOPMENT AND HANDOFF PREFERENCES
 Updated: 2026-11-21
 
-CURRENT PAUSE - 2026-11-21 (Codex credits not yet reset; the user's own usage limit, not a rule)
-Until the user says her usage has reset and explicitly resumes: collect/discuss feedback and update documentation only; do not implement app code, launch Codex, or create implementation tasks. Time passing is not authorization. Keep approved choices, held ideas and unresolved proposals distinct. Pause status belongs here and in Remaining Work, not the evergreen handoff message.
-
-DOCS AND CODEX USAGE (2026-11-21): docs/handoff/04-remaining-work.txt is a short active list; finished history lives in docs/archive/ (never read unless an issue names it). Each approved batch goes in ONE GitHub issue with a short Codex prompt pointing to it; Codex reads docs only if the issue asks. When a batch is finished and phone-tested, move its entries from 04 to the archive rather than letting 04 grow.
+WORKFLOW (2026-11-21): implementation is done directly by Claude (chat or Claude Code), pushing to main as CLAUDE.md says; Codex is no longer used. Discussion and opinion questions stay discussion until the user gives an explicit go-ahead. Keep usage low: docs/handoff/04-remaining-work.txt is a short active list; finished history lives in docs/archive/ (never read unless asked). When a batch is built and phone-tested, move its entries from 04 to the archive instead of letting 04 grow.
 
 ROLE
-Help decide behavior, track work, and prepare precise Codex tasks. Do not implement app changes merely because the user is brainstorming. When feedback arrives in several messages, collect it until the user says finished.
+Help decide behavior, track work, and implement approved changes. Do not implement app changes merely because the user is brainstorming. When feedback arrives in several messages, collect it until the user says finished.
 
 CREDITS
-- Combine as many logically related approved changes as practical into coherent tasks to conserve Codex credits; avoid splitting shared components into repeated passes, while keeping unrelated queued batches out of a correction pass.
+- Combine as many logically related approved changes as practical into coherent tasks to conserve usage; avoid splitting shared components into repeated passes, while keeping unrelated queued batches out of a correction pass.
 - A tiny cosmetic item usually waits for related work rather than getting its own task.
 - Blocking bugs can justify a focused task.
 - Reuse existing components and domain operations.
@@ -18,7 +15,6 @@ CREDITS
 - Detailed scope can save correction rounds; brevity alone does not guarantee fewer credits.
 - Once focused checks pass, don't repeat/broaden them without new evidence.
 - Do not repeatedly retry deferred cosmetic fixes.
-- Direct model-selection notes to the user (e.g. Select Sol Light), not to Codex inside the task.
 
 ORIGINAL APP WORKFLOW
 Repository: https://github.com/elisabethball19-netizen/meal-rotation
@@ -30,7 +26,7 @@ Regular installed Android PWA is hosted through GitHub Pages.
 Never clear site data: it contains the user's recipes.
 Never invent commit, deployment, or testing results.
 For file-based tasks, edit the supplied latest source; do not silently substitute repository/older files. Normal HTML delivery index.html; test file only when requested.
-Keep corrections in the feature's current Codex thread. Start a new thread at a completed feature boundary.
+Keep corrections for a feature in the same GitHub issue when one exists.
 
 TASK QUALITY
 Own routine UI decisions: resolve spacing/alignment, icon sizing/placement, text wrapping/justification, control order and consistency from established app patterns. Ask only for material workflow/data decisions, not pixel-level polish. Before handoff consolidate into one current specification, removing superseded conflicts. Before delivery inspect realistic phone-sized screenshots (long names, both expansion states, narrow/landscape/large text) and complete open/save/cancel/Android Back/return-position flows in touched scope; fix obvious defects autonomously. Passing code checks is not visual acceptance. Avoid repeated broad testing; use focused existing checks and one coherent related batch to conserve credits. User phone review confirms results, not first design QA.
@@ -57,16 +53,16 @@ AUTOMATIC HANDOFF RESPONSIBILITY
 When the user approves a batch or says ready for the next implementation batch, do the following without asking them to repeat the workflow:
 1. Read current relevant reference documents; establish active original-app vs rebuild scope.
 2. Update only affected lasting decisions and backlog statuses, preserving evidence distinctions. Do not audit app code solely to refresh documentation.
-3. Create one scoped GitHub implementation issue, or update/reuse the existing feature issue for corrections rather than duplicating it. Include behavior, edge cases, exact wording, scope exclusions, screenshots/references when available, preservation rules, acceptance criteria and focused checks.
-4. Give the user the issue URL and a short copy-paste Codex instruction: implement that specific issue and follow root AGENTS.md. Avoid repeating the full issue in chat.
-5. Remind the USER to select Sol Light, outside the Codex instruction.
-6. Include a short phone-testing checklist. Recommend a new Codex thread only at a completed feature boundary; corrections stay in the existing thread.
-7. After actual implementation evidence and phone feedback, update affected statuses; do not call pushed work phone-verified before confirmation.
+3. For a sizeable or multi-part batch, create one scoped GitHub issue (behavior, edge cases, exact wording, scope exclusions, preservation rules, acceptance criteria, focused checks); for a small batch the approved description in chat is enough. Reuse the existing issue for corrections. Use the REST API (gh api) if GraphQL is blocked.
+4. Implement only what was approved, run the focused existing tests on both apps (index.html and meal-rotation-test.html), inspect phone-sized screenshots, bump the service worker version, commit and push to main.
+5. Report what was built, checks actually run, commit and deployment status. Do not call work phone-verified.
+6. Give the phone-testing checklist one item at a time (CLAUDE.md).
+7. After phone feedback, update affected statuses; do not call pushed work phone-verified before confirmation.
 This workflow is standing preference across handoffs, not a feature implementation request. If behavior is still meaningfully undecided, settle it before issuing an implementation task. If GitHub is inaccessible, state the limitation and provide a portable scoped prompt instead; do not claim an issue/update succeeded.
 User authorization to use this workflow permits preparing scoped issues when a batch is approved; it is not authorization to implement speculative features.
 Keep statuses distinct: proposed; approved; implemented/code-checked; awaiting phone test; phone-confirmed; deferred.
 A pushed commit alone is not proof of phone correctness.
-Fetch current repository facts when needed; do not infer what Codex did in another thread.
+Fetch current repository facts when needed; do not assume what another session did.
 If GitHub cannot be accessed in a handoff app, provide portable copies/relevant excerpts.
 
 REBUILD

@@ -22,5 +22,5 @@ Use README and relevant existing test scripts to establish actual commands; repo
 Read the assigned issue for scope. Do not implement the whole backlog. Mark code-complete work awaiting phone testing until confirmed.
 Update only affected lasting decisions/backlog statuses; do not append conflicting corrections or rewrite every document.
 
-## Automatic ChatGPT-to-Codex handoff
-When the user approves a batch, follow the issue-based handoff workflow in Development preferences without requiring the user to repeat it: update only relevant reference facts, create or update one scoped issue, then supply its link, a short Codex instruction referencing that issue and AGENTS.md, and a phone checklist. Tell the user to select Sol Light outside the Codex prompt. Keep follow-up corrections in the existing feature issue/thread where appropriate. Do not implement app changes from discussion alone.
+## Workflow
+Implementation is done directly by Claude; Codex is no longer used (2026-11-21). When the user approves a batch, implement only that batch, run focused checks on both apps, push to main, and give a phone checklist one item at a time. For sizeable batches use one scoped GitHub issue (REST API if GraphQL is blocked). Do not implement app changes from discussion alone. See CLAUDE.md and docs/handoff/02-development-preferences.txt.

@@ -2,8 +2,7 @@ APP EXPERIENCE AND ACCEPTED BEHAVIOR
 Updated: 2026-11-17
 Scope: intended/accepted original-app behavior. Current approved follow-up below supersedes historical presentation and queue notes; implemented is distinct from phone-accepted. No comprehensive code audit.
 
-DOCUMENTATION-ONLY FEEDBACK — 2026-11-17 (APP IMPLEMENTATION PAUSED)
-User is waiting for Codex usage to reset. Record and discuss feedback only; do not implement, launch Codex, create a new implementation task, or resume backlog automatically. All changes below are future requirements, NOT implementation claims. Latest phone reports override code-checked status only for reported scope.
+FEEDBACK RECORDED 2026-11-17 (pause since lifted; implementation now happens in Claude sessions when the user approves). Entries below were future requirements when written, NOT implementation claims; check 04-remaining-work.txt for current status. Latest phone reports override code-checked status only for reported scope.
 
 APPROVED FUTURE PRESENTATION / INTERACTION
 - Main meal-plan recipe titles return to REGULAR weight, not bold. Sides also regular-weight dark text, smaller than main, one per line with subtle indent slightly smaller than approved mockup; NO bullets. Wrapped side lines align to their own text. One-time recipe sides, fixed linked sides and other side types use identical styling; recurrence/type must not change typography. Preserve existing card structure/navigation and recipe links.
