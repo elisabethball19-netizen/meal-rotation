@@ -3,10 +3,12 @@
 This repository is the ORIGINAL app, not a separate fresh rebuild. Use current modular code; do not reconstruct a historical monolithic `index.html`. Keep the core web app in 100% pure vanilla HTML, CSS, and JavaScript with zero build tools or frontend frameworks.
 
 ## Read Selectively
-- [Vision](docs/handoff/01-app-vision.txt): product goals and simplicity.
-- [Development preferences](docs/handoff/02-development-preferences.txt): workflow/data rules; read for implementation.
-- [App experience](docs/handoff/03-app-experience.txt): relevant accepted behavior.
-- [Remaining work](docs/handoff/04-remaining-work.txt): state, evidence, and deferred scope.
+Read only what the assigned issue or prompt names. Do NOT load the docs/ folder by default; for a normal implementation task the issue is the scope and the code is the source of truth. Open a handoff file only when the issue points to it or the task needs that specific rule, and then read just the relevant section.
+- [Vision](docs/handoff/01-app-vision.txt): product goals (planning/discussion only).
+- [Development preferences](docs/handoff/02-development-preferences.txt): workflow/data rules (planning, handoff, or when the issue asks).
+- [App experience](docs/handoff/03-app-experience.txt): accepted behavior; search it for the feature you touch.
+- [Remaining work](docs/handoff/04-remaining-work.txt): short active list (open, held and awaiting-phone-test items).
+- `docs/archive/` is history only: never read it unless an issue names it.
 
 The latest explicit user instruction and approved task take precedence. These documents describe product intent and reported evidence, not a fresh audit. Historical docs may describe superseded stages.
 
