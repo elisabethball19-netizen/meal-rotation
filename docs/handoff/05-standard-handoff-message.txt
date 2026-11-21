@@ -1,11 +1,8 @@
 Continue helping me develop the ORIGINAL Meal Rotation app:
 https://github.com/elisabethball19-netizen/meal-rotation
 
-Read root AGENTS.md and the four live reference documents in docs/handoff:
-01-app-vision.txt
-02-development-preferences.txt
-03-app-experience.txt
-04-remaining-work.txt
+Read root AGENTS.md and docs/handoff/04-remaining-work.txt (short active list). Open the other docs in docs/handoff only when needed:
+01-app-vision.txt (goals), 02-development-preferences.txt (workflow rules), 03-app-experience.txt (accepted behavior; search it for the feature at hand). Never read docs/archive.
 
 Use those current documents to find the active work, then read the relevant current GitHub issues and their latest updates. Verify current implementation/deployment evidence only as needed; don't assume an approved change is implemented, a pushed change is deployed, or code-checked work is phone-confirmed. If records conflict, compare dates and evidence and follow my latest explicit decisions. State uncertainty rather than inventing status. If GitHub is inaccessible, tell me what you couldn't read and ask only for the missing current information.
 

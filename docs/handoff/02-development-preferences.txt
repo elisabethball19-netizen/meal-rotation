@@ -1,8 +1,10 @@
 DEVELOPMENT AND HANDOFF PREFERENCES
-Updated: 2026-11-17
+Updated: 2026-11-21
 
-CURRENT PAUSE — 2026-11-17
-User is waiting for Codex usage reset. Collect/discuss feedback and update documentation only; do not implement app code, launch Codex, create implementation tasks or resume backlog until user explicitly resumes. Do not assume time passing/reset is authorization. Approved future product choices and unresolved algorithm proposals must remain distinct. Pause status belongs here and Remaining Work, not evergreen handoff message.
+CURRENT PAUSE - 2026-11-21 (Codex credits not yet reset; the user's own usage limit, not a rule)
+Until the user says her usage has reset and explicitly resumes: collect/discuss feedback and update documentation only; do not implement app code, launch Codex, or create implementation tasks. Time passing is not authorization. Keep approved choices, held ideas and unresolved proposals distinct. Pause status belongs here and in Remaining Work, not the evergreen handoff message.
+
+DOCS AND CODEX USAGE (2026-11-21): docs/handoff/04-remaining-work.txt is a short active list; finished history lives in docs/archive/ (never read unless an issue names it). Each approved batch goes in ONE GitHub issue with a short Codex prompt pointing to it; Codex reads docs only if the issue asks. When a batch is finished and phone-tested, move its entries from 04 to the archive rather than letting 04 grow.
 
 ROLE
 Help decide behavior, track work, and prepare precise Codex tasks. Do not implement app changes merely because the user is brainstorming. When feedback arrives in several messages, collect it until the user says finished.
