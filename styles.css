@@ -2452,3 +2452,10 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 .grocery-meal-dialog-overlay h4{font-size:1em}
 /* Toggles on the right use the down chevron (flips up when open); left-side toggles use the small right arrow. */
 .right-chevron[aria-expanded=true] svg{transform:rotate(180deg)}
+
+/* Issue 129: compact Meal Groups rows, one fixed '!' slot, centered Ask AI choices. */
+.master-categories .shared-meal-name-line{min-height:34px}
+.master-categories .master-meal-info>.group-last-cooked{width:fit-content;min-height:20px!important}
+.master-categories .shared-meal-name-line.has-group-flag{padding-right:128px}
+.master-categories .shared-meal-name-line>.group-row-flag{position:absolute;right:96px;top:50%;transform:translateY(-50%);margin:0;width:32px;min-width:32px;height:44px;min-height:44px;padding:12px 8px}
+.ai-choice{align-items:center;justify-content:center;text-align:center}
