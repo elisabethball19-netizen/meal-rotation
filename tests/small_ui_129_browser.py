@@ -14,6 +14,7 @@ import batch4_groups_page_browser  # noqa: E402,F401  (registers batch4 hooks)
 sb.fixture.HOOK += '''window.small129={
  flag:()=>{const rice=meals.filter(m=>m.cat==='Rice');rice[0].needsTweaking=true;rice[2].needsTweaking=true;rice[2].name='Thai Red Curry Chicken With Extra Long Name Here';rice[1].lastCooked='2026-11-10';persist();renderList({readOnly:true})},
  render:()=>renderList({readOnly:true}),
+ offMenu:()=>{const m=meals.filter(x=>x.cat==='Rice')[3];m.rotation=false;m.recipeStatus='up-next';persist();renderList({readOnly:true})},
  tabs:on=>{showMealPlanTabs=on;render()},
  aiMenu:()=>openAiRecipeMenu(meals[0]),
  sections:cat=>[masterRecipeSectionOpen(cat,'rotation'),masterRecipeSectionOpen(cat,'up-next')],
@@ -51,10 +52,16 @@ def run(browser, name):
     p.wait_for_timeout(200)
     sb.shot(p, name, 'small129-groups')
     p.screenshot(path=str(OUT / (tag + '-groups.png')))
+    p.evaluate('small129.offMenu()')
+    p.evaluate("small129.setSections('Rice',true,true)")
+    p.evaluate('small129.render()')
+    p.screenshot(path=str(OUT / (tag + '-groups-offmenu.png')))
+    off = p.locator(RICE + ' .master-recipe-section[data-recipe-section="up-next"] .master-category-meal')
+    assert off.count() >= 1 and off.first.evaluate('e=>e.getBoundingClientRect().height') <= 66, 'Off menu row height'
     # 1. Compact rows: a single-line row is clearly shorter than the old 78px.
     rows = p.locator(RICE + ' .master-recipe-section[data-recipe-section="rotation"] .master-category-meal')
     heights = [rows.nth(i).evaluate('e=>e.getBoundingClientRect().height') for i in range(rows.count())]
-    assert min(heights) <= 70, heights
+    assert max(h for h in heights[1:]) <= 60, heights  # plain single-line rows (old: 78)
     for i in range(rows.count()):
         name_box = rows.nth(i).locator('.master-category-meal-name').first.evaluate('e=>e.getBoundingClientRect().bottom')
         cooked = rows.nth(i).locator('.group-last-cooked').first.evaluate('e=>e.getBoundingClientRect().top')
@@ -76,7 +83,7 @@ def run(browser, name):
         for j in range(names.count()):
             assert names.nth(j).evaluate('e=>e.getBoundingClientRect().right') <= boxes[i][0] + 1
     # Same slot on a row with no flag keeps the day label / chevron untouched (no '!' there).
-    assert rows.count() - 2 == p.locator(RICE + ' .master-category-meal:not(:has(.group-row-flag))').count()
+    assert rows.count() - 2 == p.locator(RICE + ' .master-recipe-section[data-recipe-section="rotation"] .master-category-meal:not(:has(.group-row-flag))').count()
     # 4. Bottom bar label.
     p.evaluate('small129.tabs(true)')
     labels = p.evaluate("[...document.querySelectorAll('#mealBottomNav button')].map(b=>[b.querySelector('span').textContent,b.getAttribute('aria-label'),b.querySelector('span').getBoundingClientRect().height])")
