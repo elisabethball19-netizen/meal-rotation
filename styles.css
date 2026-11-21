@@ -2488,3 +2488,13 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 .ai-tastes-summary{flex:1 1 auto;min-width:0;margin:0 4px 0 8px;color:#637080;font-size:13px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
 div.recipe-version-note{color:#56616d;font-weight:600;font-size:15px;min-height:36px;display:flex;align-items:center;margin:-4px 0 12px;padding:0;border:0;background:transparent}
 .recipe-version-link{border:0;background:transparent;color:#3d5f94;font:inherit;font-weight:600;padding:6px 0 6px 4px;min-height:36px;text-decoration:underline;text-underline-offset:2px}
+
+/* Batch 1 fixes: select-all in subgroup header, count beside name, even rows, lighter dialog text. */
+.master-recipe-section-count{margin-left:-2px;flex:0 0 auto}
+.master-recipe-section-name{flex:0 1 auto}
+.master-category-group-label{padding-right:100px}
+.recipe-group-selection.recipe-group-selection-inline{position:absolute;right:4px;top:0;height:44px;padding:0;gap:0;display:flex;align-items:center;justify-content:flex-end}
+.recipe-group-selection-inline>.top-action-icon{width:44px;min-width:44px;height:44px;min-height:44px;padding:0;display:grid;place-items:center}
+.master-category-group-head>.group-section-organize{top:0!important;bottom:auto!important;height:44px!important;min-height:44px!important}
+.master-categories .master-category-meal:not(.meal-card-edit-mode){min-height:48px}
+.ai-version-dialog .ai-choice-title{font-weight:500}
