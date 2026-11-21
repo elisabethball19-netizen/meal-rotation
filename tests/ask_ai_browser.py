@@ -100,7 +100,7 @@ def run(browser, name):
     go_ai(p)
     assert p.locator('.ask-ai-page h2').text_content() == 'Ask AI'
     jobs = p.locator('.ai-job').all_text_contents()
-    assert jobs == ['What’s in my fridge', 'Write a recipe', 'Convert a recipe', 'Would my family like it?', 'Out of an ingredient'], jobs
+    assert jobs == ['What’s in my fridge', 'Write a recipe', 'Change a recipe', 'Would my family like it?', 'Out of an ingredient'], jobs
     assert p.locator('#mealBottomNav button[data-destination=ai]').get_attribute('aria-current') == 'page'
     shot(p, tag, 'page')
 
@@ -171,7 +171,7 @@ def run(browser, name):
     p.evaluate('n=>ai.viewer(n)', target); p.wait_for_timeout(400)
     p.get_by_role('button', name='Ask AI about this recipe').click(); p.wait_for_timeout(200)
     shot(p, tag, 'recipe-menu')
-    p.locator('.ai-recipe-menu').get_by_role('button', name='Convert this recipe').click(); p.wait_for_timeout(500)
+    p.locator('.ai-recipe-menu').get_by_role('button', name='Change this recipe').click(); p.wait_for_timeout(500)
     conv = p.locator('.ask-ai-dialog')
     assert target in conv.text_content()
     shot(p, tag, 'convert')
@@ -196,17 +196,19 @@ def run(browser, name):
     assert p.evaluate('n=>ai.alt(n)', target) == 'original'
     # Recipe page: switch to the original and back, then discard the other version.
     p.evaluate('n=>ai.viewer(n)', target); p.wait_for_timeout(400)
-    p.get_by_role('button', name='Converted · Show original').click(); p.wait_for_timeout(200)
+    p.get_by_role('button', name='Show original').click(); p.wait_for_timeout(200)
     shot(p, tag, 'versions')
-    p.get_by_role('button', name='Switch to the original').click(); p.wait_for_timeout(300)
+    p.get_by_role('button', name='Switch to the original recipe').click(); p.wait_for_timeout(300)
     assert '2 tbsp soy sauce' in p.evaluate('n=>ai.meal(n)', target)['ingredients']
-    assert p.get_by_role('button', name='Original · Show converted').count() == 1
-    p.get_by_role('button', name='Original · Show converted').click(); p.wait_for_timeout(200)
-    p.get_by_role('button', name='Switch to the converted version').click(); p.wait_for_timeout(300)
+    assert p.get_by_role('button', name='Show changed').count() == 1 and p.locator('.recipe-version-note').text_content().startswith('Original')
+    p.get_by_role('button', name='Show changed').click(); p.wait_for_timeout(200)
+    p.get_by_role('button', name='Switch to the changed recipe').click(); p.wait_for_timeout(300)
     assert '2 tbsp coconut aminos' in p.evaluate('n=>ai.meal(n)', target)['ingredients']
-    p.get_by_role('button', name='Converted · Show original').click(); p.wait_for_timeout(200)
-    p.get_by_role('button', name='Discard the original').click(); p.wait_for_timeout(300)
-    assert p.evaluate('n=>ai.alt(n)', target) is None and p.get_by_role('button', name='Converted · Show original').count() == 0
+    p.get_by_role('button', name='Show original').click(); p.wait_for_timeout(200)
+    p.get_by_role('button', name='Discard the changed recipe').click(); p.wait_for_timeout(300)
+    # Discard targets the version being viewed: the saved original becomes the recipe.
+    assert p.evaluate('n=>ai.alt(n)', target) is None and p.get_by_role('button', name='Show original').count() == 0
+    assert '2 tbsp soy sauce' in p.evaluate('n=>ai.meal(n)', target)['ingredients']
     p.evaluate('ai.closeViewer()'); p.wait_for_timeout(300)
     # Replace keeps no other version.
     p.evaluate('n=>ai.setPending("like",n)', target)

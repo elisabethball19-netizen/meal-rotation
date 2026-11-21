@@ -956,7 +956,7 @@ function askAiStepLinks(record,tags){
 }
 async function copyAskAiText(text){try{await navigator.clipboard.writeText(text);return true}catch(e){const area=document.createElement('textarea');area.value=text;area.style.cssText='position:fixed;opacity:0;top:0;left:0';document.body.append(area);area.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}area.remove();return ok}}
 const AI_PENDING_KEY='mealRotationAskAiPendingV1';
-const AI_JOBS={fridge:'What’s in my fridge',write:'Write a recipe',convert:'Convert a recipe',like:'Would my family like it?',out:'Out of an ingredient'};
+const AI_JOBS={fridge:'What’s in my fridge',write:'Write a recipe',convert:'Change a recipe',like:'Would my family like it?',out:'Out of an ingredient'};
 function aiPending(){try{const v=JSON.parse(localStorage.getItem(AI_PENDING_KEY)||'null');return v&&AI_JOBS[v.job]?v:null}catch(e){return null}}
 function setAiPending(value){try{if(value)localStorage.setItem(AI_PENDING_KEY,JSON.stringify(value));else localStorage.removeItem(AI_PENDING_KEY)}catch(e){}}
 function aiFindRecipe(id){return id==null?null:meals.find(m=>String(m.id)===String(id)&&!m._scheduledEditorDraft)||null}
@@ -1025,7 +1025,7 @@ function openAskAiDialog(){openAiJobDialog('fridge')}
 // From a recipe page: the three recipe jobs, with the recipe already chosen.
 function openAiRecipeMenu(recipe){
  const d=recipeImportDialog('Ask AI about '+recipe.name);d.panel.classList.add('ai-recipe-menu');const list=document.createElement('div');list.className='ai-choice-list';
- for(const job of ['convert','like','out']){const b=document.createElement('button');b.type='button';b.className='ai-choice';b.textContent={convert:'Convert this recipe',like:'Would my family like it?',out:'I’m out of an ingredient'}[job];b.onclick=()=>{d.navigate=true;d.close();setTimeout(()=>openAiJobDialog(job,recipe),0)};list.append(b)}
+ for(const job of ['convert','like','out']){const b=document.createElement('button');b.type='button';b.className='ai-choice';const [choiceLabel,choiceLine]={convert:['Change this recipe','Less spicy, dairy-free, quicker…'],like:['Would my family like it?','A quick check against our tastes'],out:['I’m out of an ingredient','Get a swap for what’s missing']}[job],choiceTitle=document.createElement('span');choiceTitle.className='ai-choice-title';choiceTitle.textContent=choiceLabel;b.append(choiceTitle);{const sub=document.createElement('span');sub.className='ai-choice-line';sub.textContent=choiceLine;b.append(sub)}b.setAttribute('aria-label',choiceLabel);b.onclick=()=>{d.navigate=true;d.close();setTimeout(()=>openAiJobDialog(job,recipe),0)};list.append(b)}
  d.panel.append(list);
 }
 // One record per pasted recipe, built like the import review, Off menu, with step tags as links.
@@ -1098,13 +1098,14 @@ function switchRecipeVersion(meal){
  for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(alt,key)?alt[key]:undefined;patch.aiAltVersion=current;
  const oldLines=[...(meal.ingredients||[])];assignSharedRecipeFields(meal,patch);remapSelectionsAfterContentChange(meal,oldLines);persist();
 }
-function discardRecipeVersion(meal){if(!meal?.aiAltVersion)return;snapshot();assignSharedRecipeFields(meal,{aiAltVersion:undefined});persist()}
+// Discard the version being viewed: the saved other version becomes the recipe.
+function discardRecipeVersion(meal){const alt=meal?.aiAltVersion;if(!alt)return;snapshot();const patch={};for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(alt,key)?alt[key]:undefined;patch.aiAltVersion=undefined;const oldLines=[...(meal.ingredients||[])];assignSharedRecipeFields(meal,patch);remapSelectionsAfterContentChange(meal,oldLines);persist()}
 function openRecipeVersionDialog(meal,onDone){
- const showingConverted=meal.aiAltVersion?.kind==='original',d=recipeImportDialog(showingConverted?'Converted recipe':'Original recipe');d.panel.classList.add('ai-version-dialog');
+ const showingConverted=meal.aiAltVersion?.kind==='original',d=recipeImportDialog(showingConverted?'Changed recipe':'Original recipe');d.panel.classList.add('ai-version-dialog');
  const list=document.createElement('div');list.className='ai-choice-list';
  const add=(label,line,action)=>{const b=document.createElement('button');b.type='button';b.className='ai-choice';const t=document.createElement('span');t.className='ai-choice-title';t.textContent=label;b.append(t);if(line){const sub=document.createElement('span');sub.className='ai-choice-line';sub.textContent=line;b.append(sub)}b.setAttribute('aria-label',label);b.onclick=()=>{d.navigate=true;d.close();action();onDone?.()};list.append(b)};
- add(showingConverted?'Switch to the original':'Switch to the converted version','The other version is kept.',()=>{switchRecipeVersion(meal);showServingUndoToast(showingConverted?'Showing the original':'Showing the converted version')});
- add(showingConverted?'Discard the original':'Discard the converted version','',()=>{discardRecipeVersion(meal);showServingUndoToast(showingConverted?'Original discarded':'Converted version discarded')});
+ add(showingConverted?'Switch to the original recipe':'Switch to the changed recipe',showingConverted?'The changed version is saved.':'The original version is saved.',()=>{switchRecipeVersion(meal);showServingUndoToast(showingConverted?'Showing the original':'Showing the changed recipe')});
+ add(showingConverted?'Discard the changed recipe':'Discard the original recipe','',()=>{discardRecipeVersion(meal);showServingUndoToast(showingConverted?'Changed recipe discarded':'Original recipe discarded')});
  d.panel.append(list);
 }
 let aiTastesOpen=false,aiPasteOpen=false;
@@ -1125,10 +1126,10 @@ function renderAskAiPage(list){
  if(pending)page.append(paste);
  const section=(label,jobs)=>{const box=document.createElement('section');box.className='ai-section';const head=document.createElement('div');head.className='master-group-section-toggle ai-section-head';const name=document.createElement('span');name.className='master-group-section-name';name.textContent=label;head.append(name);box.append(head);
   const rows=document.createElement('div');rows.className='ai-job-list';for(const job of jobs){const b=document.createElement('button');b.type='button';b.className='ai-job';b.dataset.aiJob=job;const t=document.createElement('span');t.textContent=AI_JOBS[job];const arrow=document.createElement('span');arrow.className='ai-job-arrow';arrow.setAttribute('aria-hidden','true');arrow.innerHTML='<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>';b.append(t,arrow);b.onclick=()=>openAiJobDialog(job);rows.append(b)}box.append(rows);page.append(box)};
- section('New ideas',['fridge','write']);section('A recipe',['convert','like','out']);
+ section('New ideas',['fridge','write']);section('About a recipe',['convert','like','out']);
  if(!pending)page.append(paste);
  // Family tastes: collapsed by default (right-side chevron, like other cards).
- const tastes=document.createElement('section');tastes.className='ai-tastes master-category-card';const toggle=document.createElement('button');toggle.type='button';toggle.className='ai-tastes-toggle';toggle.setAttribute('aria-expanded',String(aiTastesOpen));const tName=document.createElement('span');tName.textContent='Family tastes';const chev=document.createElement('span');chev.className='ai-chevron';chev.setAttribute('aria-hidden','true');chev.innerHTML='<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>';toggle.append(tName,chev);toggle.onclick=()=>{aiTastesOpen=!aiTastesOpen;renderList({readOnly:true})};tastes.append(toggle);
+ const tastes=document.createElement('section');tastes.className='ai-tastes master-category-card';const toggle=document.createElement('button');toggle.type='button';toggle.className='ai-tastes-toggle';toggle.setAttribute('aria-expanded',String(aiTastesOpen));const tName=document.createElement('span');tName.textContent='Family tastes';const restrictionSummary=familyTastes.restrictions.trim().replace(/\s*[\n;]+\s*/g,', ');const tSummary=document.createElement('span');tSummary.className='ai-tastes-summary';tSummary.textContent=aiTastesOpen||!restrictionSummary?'':restrictionSummary.charAt(0).toUpperCase()+restrictionSummary.slice(1);const chev=document.createElement('span');chev.className='ai-chevron';chev.setAttribute('aria-hidden','true');chev.innerHTML='<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>';toggle.append(tName,tSummary,chev);toggle.onclick=()=>{aiTastesOpen=!aiTastesOpen;renderList({readOnly:true})};tastes.append(toggle);
  if(aiTastesOpen){const body=document.createElement('div');body.className='ai-tastes-body';
   for(const [key,label,placeholder,rows]of [['likes','What we like','e.g. Asian flavors, very savory, not too sweet, weeknight-friendly',3],['restrictions','Restrictions','e.g. no dairy, no soy',2],['claudeLink','Claude project link','https://claude.ai/project/…',1]]){const wrap=document.createElement('label');wrap.className='recipe-import-field family-tastes-field';const text=document.createElement('span');text.textContent=label;const field=rows>1?document.createElement('textarea'):document.createElement('input');if(rows>1)field.rows=rows;else{field.type='url';field.inputMode='url'}field.placeholder=placeholder;field.value=familyTastes[key]||'';field.setAttribute('aria-label',label);field.oninput=()=>saveFamilyTastes({...familyTastes,[key]:field.value});wrap.append(text,field);body.append(wrap)}
   tastes.append(body)}

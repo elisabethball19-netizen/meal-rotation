@@ -2460,3 +2460,31 @@ body:has([role=dialog]) .settings-footer,body:has(.editor) .settings-footer{bott
 .master-categories .shared-meal-name-line.has-group-flag{padding-right:110px}
 .master-categories .shared-meal-name-line>.group-row-flag{position:absolute;right:70px;top:50%;transform:translateY(-50%);margin:0;width:32px;min-width:32px;height:44px;min-height:44px;padding:12px 8px}
 .ai-choice{align-items:center;justify-content:center;text-align:center}
+
+/* Batch 1: batch-select icon lives on each subgroup (Regulars / Off menu) header. */
+.master-category-group-head{position:relative}
+.master-category-group-head>.group-section-organize{position:absolute;right:34px;top:10px;bottom:0;width:44px;min-width:44px;height:auto;min-height:36px;padding:0;display:grid;place-items:center;background:transparent;border:0}
+.master-category-group-head>.group-section-organize svg{width:22px;height:22px}
+
+/* Batch 1: Meal Groups cards look different from Meals - white card, thick colored left stripe, gaps, thin border. */
+.master-categories .master-category-card,.master-categories .master-category-card.master-category-this-week{position:relative;margin:0 0 11px;background:#fff;border:1px solid #e3e6ea!important;box-shadow:none!important}
+.master-categories .master-category-card>.master-category-header{background:#fff!important;min-height:44px;padding-top:4px;padding-bottom:4px}
+.master-categories .master-category-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--group-stripe,#c9ced4);border-radius:11px 0 0 11px;z-index:9;pointer-events:none}
+.master-layout-toggle svg{width:22px;height:22px}
+/* Temporary comparison layout: two columns; Edit/Plus/select only on the open card, which goes full width. */
+.master-categories[data-groups-layout="two"] .master-group-section[data-group-section="weekly"]>.master-group-section-body,.master-categories[data-groups-layout="two"] .master-group-section[data-group-section="other"]>.master-group-section-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:start}
+.master-categories[data-groups-layout="two"] .master-group-section-body>.master-category-card{margin:0}
+.master-categories[data-groups-layout="two"] .master-group-section-body>.master-category-card.master-category-open{grid-column:1/-1}
+.master-categories[data-groups-layout="two"] .master-category-card:not(.master-category-open)>.master-category-header>.iconbtn{display:none!important}
+.master-categories[data-groups-layout="two"] .master-category-card:not(.master-category-open) .master-category-title strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Batch 1: Last cooked date is editable from the full recipe editor. */
+.meal-editor-last-cooked{display:block;border:0;background:transparent;color:#637080;font-size:13px;text-align:left;min-height:36px;padding:2px 0;margin:2px 0}
+.meal-editor-last-cooked u{text-underline-offset:2px}
+
+/* Batch 1: Ask AI polish + version line (current version plain, other version a link). */
+.ai-paste-card:not(:has(.ai-paste-open)) .smallbtn.ai-review{background:#3d5f94!important;border-color:#3d5f94!important;color:#fff!important}
+.ai-tastes-toggle{gap:8px}
+.ai-tastes-summary{flex:1 1 auto;min-width:0;margin:0 4px 0 8px;color:#637080;font-size:13px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+div.recipe-version-note{color:#56616d;font-weight:600;font-size:15px;min-height:36px;display:flex;align-items:center;margin:-4px 0 12px;padding:0;border:0;background:transparent}
+.recipe-version-link{border:0;background:transparent;color:#3d5f94;font:inherit;font-weight:600;padding:6px 0 6px 4px;min-height:36px;text-decoration:underline;text-underline-offset:2px}
