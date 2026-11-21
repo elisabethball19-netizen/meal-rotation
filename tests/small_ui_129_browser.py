@@ -67,7 +67,11 @@ def run(browser, name):
     for i in range(2):
         row = flags.nth(i).locator('xpath=ancestor::*[contains(@class,"master-category-meal")][1]')
         chevron = row.locator('.group-recipe-toggle').evaluate('e=>e.getBoundingClientRect().left')
-        assert boxes[i][1] <= chevron - 40, (boxes[i], chevron)
+        assert chevron - 36 <= boxes[i][1] <= chevron - 20, (boxes[i], chevron)
+        day = row.locator('.master-meal-weekdays')
+        if day.count():
+            text_left = day.first.evaluate('e=>{const r=document.createRange();r.selectNodeContents(e);return r.getBoundingClientRect().left}')
+            assert boxes[i][1] - 8 <= text_left - 3, ('icon clear of day label', boxes[i], text_left)
         names = row.locator('.master-category-meal-name')
         for j in range(names.count()):
             assert names.nth(j).evaluate('e=>e.getBoundingClientRect().right') <= boxes[i][0] + 1
