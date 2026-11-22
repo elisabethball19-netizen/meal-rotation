@@ -2350,6 +2350,12 @@ div.recipe-version-note{color:#56616d;font-weight:600;font-size:15px;min-height:
 .master-category-group-head>.group-section-organize{top:0!important;bottom:auto!important;height:44px!important;min-height:44px!important}
 .master-categories .master-category-meal:not(.meal-card-edit-mode){min-height:48px}
 .ai-version-dialog .ai-choice-title{font-weight:500}
+
+/* Batch 1 round 2: featured row alignment in select mode, toast above recipe view, select icon nudge, hint text. */
+body.recipe-bulk-select .master-categories .master-category-meal.featured-top-meal{padding-left:13px!important}
+.serving-undo-toast{z-index:30100}
+.master-category-group-head>.group-section-organize{right:6px!important}
+.ai-extra-hint{margin:-4px 2px 0;font-size:13px;color:#637080}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -7249,7 +7255,7 @@ function openAiJobDialog(job,recipe=null){
  const sourceTabs=document.createElement('div');sourceTabs.className='serving-add-modes ask-ai-modes';sourceTabs.setAttribute('role','tablist');
  const chosenRow=document.createElement('div');chosenRow.className='ai-chosen-recipe';
  const sourceText=document.createElement('textarea');sourceText.className='ask-ai-input';sourceText.rows=4;sourceText.placeholder='Paste a recipe link or the recipe text';sourceText.setAttribute('aria-label','Recipe link or text');
- const extra=document.createElement('input');extra.type='text';extra.className='ai-extra';extra.placeholder='Anything else to change? (optional)';extra.setAttribute('aria-label','Anything else to change');
+ const extra=document.createElement('input');extra.type='text';extra.className='ai-extra';extra.placeholder='What should change? e.g. less spicy, quicker, no dairy';extra.setAttribute('aria-label','What should change');extra.setAttribute('aria-describedby','aiExtraHint');
  const missing=document.createElement('input');missing.type='text';missing.className='ai-extra';missing.placeholder='What are you out of?';missing.setAttribute('aria-label','What are you out of?');
  const chips=document.createElement('div');chips.className='ai-ingredient-chips';
  const picker=aiRecipePicker(m=>{chosen=m;draw()});
@@ -7263,7 +7269,7 @@ function openAiJobDialog(job,recipe=null){
   if(sourceMode==='found'&&!fromRecipe&&job!=='out')body.append(sourceText);
   else if(chosen){chosenRow.replaceChildren();const name=document.createElement('strong');name.textContent=chosen.name;chosenRow.append(name);if(!fromRecipe){const change=document.createElement('button');change.type='button';change.className='ai-change-recipe';change.textContent='Change';change.onclick=()=>{chosen=null;draw();picker.focus()};chosenRow.append(change)}if(!fromRecipe)body.append(chosenRow)}
   else body.append(picker.box);
-  if(job==='convert')body.append(extra);
+  if(job==='convert'){const hint=document.createElement('div');hint.id='aiExtraHint';hint.className='ai-extra-hint';hint.textContent='Leave blank to match your family’s restrictions and tastes.';body.append(extra,hint)}
   if(job==='out'&&chosen){body.append(missing);chips.replaceChildren();for(const line of (chosen.ingredients||[]).map(l=>String(typeof l==='string'?l:l?.text||'').trim()).filter(l=>l&&!/:\s*$/.test(l)).slice(0,14)){const chip=document.createElement('button');chip.type='button';chip.className='ai-ingredient-chip';chip.textContent=line;chip.onclick=()=>{missing.value=line;chips.querySelectorAll('.ai-ingredient-chip').forEach(c=>c.setAttribute('aria-pressed',String(c===chip)))};chip.setAttribute('aria-pressed','false');chips.append(chip)}body.append(chips)}
  }
  const request=()=>{
@@ -9979,7 +9985,7 @@ function selectRecipeBulkFromGroup(meal,group,checked=true){
 }
 function beginRecipeBulkGroup(group,meal=null,subgroup=null){
  if(showTop||editId!==null||recipeViewer||recipeBulkBusy||recipeBulkMode&&recipeBulkSourceGroup!==group)return;
- const top=scrollY;if(!recipeBulkMode){clearRecipeBulkSelection();recipeBulkSourceGroup=group;recipeBulkMode=true;recipeBulkSubgroup=meal?bulkRecipeSubgroup(meal):subgroup;if(meal)selectRecipeBulkFromGroup(meal,group)}
+ const top=scrollY;if(!recipeBulkMode){clearRecipeBulkSelection();recipeBulkSourceGroup=group;recipeBulkMode=true;recipeBulkSubgroup=meal?bulkRecipeSubgroup(meal):subgroup||(groupUsesRotation(group)?null:'all');if(meal)selectRecipeBulkFromGroup(meal,group)}
  recipeBulkFocus={cat:group,rotation:meal?!!meal.rotation:subgroup?subgroup==='rotation':true};recipeBulkSuppress=meal?String(meal.id):null;expandedGroupRecipe=null;beginGroupSelectionHistory();masterExpandedCategories.add(group);bulkRecipeRender({readOnly:true});if(!meal)requestAnimationFrame(()=>{const card=[...document.querySelectorAll('.master-category-card')].find(card=>card.dataset.category===group);if(card){const inset=parseFloat(getComputedStyle(card.querySelector('.master-category-header')).top)||0;scrollTo({top:Math.max(0,scrollY+card.getBoundingClientRect().top-inset),behavior:'instant'})}});
 }
 function beginRecipeBulk(meal,group){if(meal)beginRecipeBulkGroup(group,meal)}

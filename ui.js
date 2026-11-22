@@ -2197,7 +2197,7 @@ function selectRecipeBulkFromGroup(meal,group,checked=true){
 }
 function beginRecipeBulkGroup(group,meal=null,subgroup=null){
  if(showTop||editId!==null||recipeViewer||recipeBulkBusy||recipeBulkMode&&recipeBulkSourceGroup!==group)return;
- const top=scrollY;if(!recipeBulkMode){clearRecipeBulkSelection();recipeBulkSourceGroup=group;recipeBulkMode=true;recipeBulkSubgroup=meal?bulkRecipeSubgroup(meal):subgroup;if(meal)selectRecipeBulkFromGroup(meal,group)}
+ const top=scrollY;if(!recipeBulkMode){clearRecipeBulkSelection();recipeBulkSourceGroup=group;recipeBulkMode=true;recipeBulkSubgroup=meal?bulkRecipeSubgroup(meal):subgroup||(groupUsesRotation(group)?null:'all');if(meal)selectRecipeBulkFromGroup(meal,group)}
  recipeBulkFocus={cat:group,rotation:meal?!!meal.rotation:subgroup?subgroup==='rotation':true};recipeBulkSuppress=meal?String(meal.id):null;expandedGroupRecipe=null;beginGroupSelectionHistory();masterExpandedCategories.add(group);bulkRecipeRender({readOnly:true});if(!meal)requestAnimationFrame(()=>{const card=[...document.querySelectorAll('.master-category-card')].find(card=>card.dataset.category===group);if(card){const inset=parseFloat(getComputedStyle(card.querySelector('.master-category-header')).top)||0;scrollTo({top:Math.max(0,scrollY+card.getBoundingClientRect().top-inset),behavior:'instant'})}});
 }
 function beginRecipeBulk(meal,group){if(meal)beginRecipeBulkGroup(group,meal)}

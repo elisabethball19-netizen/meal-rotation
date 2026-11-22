@@ -984,7 +984,7 @@ function openAiJobDialog(job,recipe=null){
  const sourceTabs=document.createElement('div');sourceTabs.className='serving-add-modes ask-ai-modes';sourceTabs.setAttribute('role','tablist');
  const chosenRow=document.createElement('div');chosenRow.className='ai-chosen-recipe';
  const sourceText=document.createElement('textarea');sourceText.className='ask-ai-input';sourceText.rows=4;sourceText.placeholder='Paste a recipe link or the recipe text';sourceText.setAttribute('aria-label','Recipe link or text');
- const extra=document.createElement('input');extra.type='text';extra.className='ai-extra';extra.placeholder='Anything else to change? (optional)';extra.setAttribute('aria-label','Anything else to change');
+ const extra=document.createElement('input');extra.type='text';extra.className='ai-extra';extra.placeholder='What should change? e.g. less spicy, quicker, no dairy';extra.setAttribute('aria-label','What should change');extra.setAttribute('aria-describedby','aiExtraHint');
  const missing=document.createElement('input');missing.type='text';missing.className='ai-extra';missing.placeholder='What are you out of?';missing.setAttribute('aria-label','What are you out of?');
  const chips=document.createElement('div');chips.className='ai-ingredient-chips';
  const picker=aiRecipePicker(m=>{chosen=m;draw()});
@@ -998,7 +998,7 @@ function openAiJobDialog(job,recipe=null){
   if(sourceMode==='found'&&!fromRecipe&&job!=='out')body.append(sourceText);
   else if(chosen){chosenRow.replaceChildren();const name=document.createElement('strong');name.textContent=chosen.name;chosenRow.append(name);if(!fromRecipe){const change=document.createElement('button');change.type='button';change.className='ai-change-recipe';change.textContent='Change';change.onclick=()=>{chosen=null;draw();picker.focus()};chosenRow.append(change)}if(!fromRecipe)body.append(chosenRow)}
   else body.append(picker.box);
-  if(job==='convert')body.append(extra);
+  if(job==='convert'){const hint=document.createElement('div');hint.id='aiExtraHint';hint.className='ai-extra-hint';hint.textContent='Leave blank to match your family’s restrictions and tastes.';body.append(extra,hint)}
   if(job==='out'&&chosen){body.append(missing);chips.replaceChildren();for(const line of (chosen.ingredients||[]).map(l=>String(typeof l==='string'?l:l?.text||'').trim()).filter(l=>l&&!/:\s*$/.test(l)).slice(0,14)){const chip=document.createElement('button');chip.type='button';chip.className='ai-ingredient-chip';chip.textContent=line;chip.onclick=()=>{missing.value=line;chips.querySelectorAll('.ai-ingredient-chip').forEach(c=>c.setAttribute('aria-pressed',String(c===chip)))};chip.setAttribute('aria-pressed','false');chips.append(chip)}body.append(chips)}
  }
  const request=()=>{
