@@ -85,7 +85,7 @@ def run(browser, name):
     assert dlg.get_by_role('button', name='Import ingredients from photo').count() == 0 and dlg.get_by_role('button', name='Take photo of ingredients').count() == 0
     labels = dlg.locator('button[aria-label]').evaluate_all('(es)=>es.map(e=>e.getAttribute("aria-label"))')
     footer = [x for x in labels if x in ('Deselect all', 'Select all', 'Save', 'Cancel', 'Delete selected')]
-    assert footer == ['Deselect all', 'Select all', 'Save', 'Cancel'], labels
+    assert footer == ['Select all', 'Deselect all', 'Save', 'Cancel'], labels
     dlg.get_by_role('button', name='Deselect all', exact=True).click()
     assert not any(switches.evaluate_all('(es)=>es.map(e=>e.checked)'))
     dlg.get_by_role('button', name='Select all', exact=True).click()
