@@ -209,6 +209,15 @@ def run(browser, name):
     # Discard targets the version being viewed: the saved original becomes the recipe.
     assert p.evaluate('n=>ai.alt(n)', target) is None and p.get_by_role('button', name='Show original').count() == 0
     assert '2 tbsp soy sauce' in p.evaluate('n=>ai.meal(n)', target)['ingredients']
+    # The discard toast sits above the recipe view and its Undo brings the changed version back.
+    assert p.locator('.serving-undo-toast').count() == 1
+    p.locator('.serving-undo-toast button').click(); p.wait_for_timeout(400)
+    assert p.evaluate('n=>ai.alt(n)', target) == 'original', 'toast Undo must restore the changed version'
+    assert '2 tbsp coconut aminos' in p.evaluate('n=>ai.meal(n)', target)['ingredients']
+    assert p.get_by_role('button', name='Show original').count() == 1
+    p.get_by_role('button', name='Show original').click(); p.wait_for_timeout(200)
+    p.get_by_role('button', name='Discard the changed recipe').click(); p.wait_for_timeout(300)
+    assert p.evaluate('n=>ai.alt(n)', target) is None
     p.evaluate('ai.closeViewer()'); p.wait_for_timeout(300)
     # Replace keeps no other version.
     p.evaluate('n=>ai.setPending("like",n)', target)

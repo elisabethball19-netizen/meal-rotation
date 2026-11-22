@@ -1100,12 +1100,13 @@ function switchRecipeVersion(meal){
 }
 // Discard the version being viewed: the saved other version becomes the recipe.
 function discardRecipeVersion(meal){const alt=meal?.aiAltVersion;if(!alt)return;snapshot();const patch={};for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(alt,key)?alt[key]:undefined;patch.aiAltVersion=undefined;const oldLines=[...(meal.ingredients||[])];assignSharedRecipeFields(meal,patch);remapSelectionsAfterContentChange(meal,oldLines);persist()}
+const refreshViewerAfterUndo=()=>{if(typeof recipeViewer!=='undefined'&&recipeViewer)renderRecipeViewer()};
 function openRecipeVersionDialog(meal,onDone){
  const showingConverted=meal.aiAltVersion?.kind==='original',d=recipeImportDialog(showingConverted?'Changed recipe':'Original recipe');d.panel.classList.add('ai-version-dialog');
  const list=document.createElement('div');list.className='ai-choice-list';
  const add=(label,line,action)=>{const b=document.createElement('button');b.type='button';b.className='ai-choice';const t=document.createElement('span');t.className='ai-choice-title';t.textContent=label;b.append(t);if(line){const sub=document.createElement('span');sub.className='ai-choice-line';sub.textContent=line;b.append(sub)}b.setAttribute('aria-label',label);b.onclick=()=>{d.navigate=true;d.close();action();onDone?.()};list.append(b)};
- add(showingConverted?'Switch to the original recipe':'Switch to the changed recipe',showingConverted?'The changed version is saved.':'The original version is saved.',()=>{switchRecipeVersion(meal);showServingUndoToast(showingConverted?'Showing the original':'Showing the changed recipe')});
- add(showingConverted?'Discard the changed recipe':'Discard the original recipe','',()=>{discardRecipeVersion(meal);showServingUndoToast(showingConverted?'Changed recipe discarded':'Original recipe discarded')});
+ add(showingConverted?'Switch to the original recipe':'Switch to the changed recipe',showingConverted?'The changed version is saved.':'The original version is saved.',()=>{switchRecipeVersion(meal);showServingUndoToast(showingConverted?'Showing the original':'Showing the changed recipe',refreshViewerAfterUndo)});
+ add(showingConverted?'Discard the changed recipe':'Discard the original recipe','',()=>{discardRecipeVersion(meal);showServingUndoToast(showingConverted?'Changed recipe discarded':'Original recipe discarded',refreshViewerAfterUndo)});
  d.panel.append(list);
 }
 let aiTastesOpen=false,aiPasteOpen=false;

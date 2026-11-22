@@ -2500,7 +2500,10 @@ div.recipe-version-note{color:#56616d;font-weight:600;font-size:15px;min-height:
 .ai-version-dialog .ai-choice-title{font-weight:500}
 
 /* Batch 1 round 2: featured row alignment in select mode, toast above recipe view, select icon nudge, hint text. */
-body.recipe-bulk-select .master-categories .master-category-meal.featured-top-meal{padding-left:13px!important}
+.master-categories .master-category-meal.featured-top-meal{padding-left:13px!important}
 .serving-undo-toast{z-index:30100}
 .master-category-group-head>.group-section-organize{right:6px!important}
 .ai-extra-hint{margin:-4px 2px 0;font-size:13px;color:#637080}
+
+/* Round 3: scroll room under the sticky card header, aligned pinned first row in single-list select mode. */
+.master-category-group-head,.master-category-group-label{scroll-margin-top:84px}
