@@ -2507,3 +2507,8 @@ div.recipe-version-note{color:#56616d;font-weight:600;font-size:15px;min-height:
 
 /* Round 3: scroll room under the sticky card header, aligned pinned first row in single-list select mode. */
 .master-category-group-head,.master-category-group-label{scroll-margin-top:84px}
+
+/* Pin icon lines up with the Regulars titles (icon left edge = title left edge). */
+.master-categories .master-category-meal[data-up-next-star]:not(.meal-card-edit-mode)>.recipe-up-next-star{margin-left:-9px}
+.master-categories .master-category-meal[data-up-next-star]:not(.meal-card-edit-mode)>.master-meal-info{margin-left:-9px}
+body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-star]>.recipe-up-next-star,body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-star]>.master-meal-info{margin-left:0}
