@@ -100,6 +100,9 @@ def run(browser, name):
     assert 'Diamond Crystal kosher salt' in dlg.inner_text() and 'Shopping list:' not in dlg.inner_text()  # row shows the new name, no subline
     dlg.get_by_role('button', name='Edit shopping name for Fresh cilantro, for garnish', exact=True).click()
     ed.get_by_role('button', name='Delete ingredient', exact=True).click()
+    # Trash removes the row from the selector; 'Show removed' brings it back (switched off).
+    assert dlg.get_by_role('switch', name='Include Fresh cilantro, for garnish', exact=True).count() == 0
+    dlg.get_by_role('button', name='Show removed (1)', exact=True).click()
     assert not dlg.get_by_role('switch', name='Include Fresh cilantro, for garnish', exact=True).is_checked()
     sb.shot(p, name, 'batch2-include-rename')
     dlg.get_by_role('button', name='Save', exact=True).click()

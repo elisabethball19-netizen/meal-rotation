@@ -61,6 +61,10 @@ function groceryDisplayText(line){return line.line}
 const PENDING_SHOPPING_NAMES_KEY='mealRotationPendingShoppingNamesV1';
 function pendingShoppingNames(){try{const value=JSON.parse(localStorage.getItem(PENDING_SHOPPING_NAMES_KEY)||'{}');return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}catch(e){return {}}}
 function savePendingShoppingNames(value){try{localStorage.setItem(PENDING_SHOPPING_NAMES_KEY,JSON.stringify(value))}catch(e){}}
+// Ingredient rows removed from a recipe's shopping selector (recipe text is untouched); key = mealId|ingredient token.
+const HIDDEN_SHOPPING_LINES_KEY='mealRotationHiddenShoppingLinesV1';
+function hiddenShoppingLines(){try{const value=JSON.parse(localStorage.getItem(HIDDEN_SHOPPING_LINES_KEY)||'{}');return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}catch(e){return {}}}
+function saveHiddenShoppingLines(value){try{localStorage.setItem(HIDDEN_SHOPPING_LINES_KEY,JSON.stringify(value))}catch(e){}}
 function pendingShoppingNameKey(meal,line){const token=cookingItemTokens(meal).ingredients.find(i=>i.text===line)?.token;return token?String(meal.id)+'|'+token:''}
 function groceryContributionText(source,overrides=groceryTextOverrides()){
  for(const [key,record]of Object.entries(overrides).reverse()){
