@@ -61,7 +61,7 @@ def run(browser, name):
     # Meal Groups arrow: the meal moves first, then the selector opens (setting on by default).
     p.evaluate('reg.groups()')
     arrow(p, recipe).click()
-    chooser(p).wait_for()
+    chooser(p).wait_for(timeout=8000)
     assert p.evaluate('n=>reg.status(n)', recipe) == 'rotation', 'meal must already be in Regulars when the selector opens'
     assert chooser(p).locator('h3').text_content() == 'Ingredients to include in your weekly shopping list'
     assert sorted(on_lines(p)) == sorted(EXPECT_ON), on_lines(p)
@@ -75,7 +75,7 @@ def run(browser, name):
     p.evaluate('([n,l])=>reg.setSaved(n,l)', [recipe, EXPECT_ON])
     p.evaluate('reg.groups()')
     arrow(p, recipe).click()
-    p.wait_for_timeout(700)
+    p.wait_for_timeout(1700)
     assert p.evaluate('n=>reg.status(n)', recipe) == 'rotation' and chooser(p).count() == 0
     p.evaluate("localStorage.removeItem('mealRotationAutoIngredientSelectorV1')")
 
@@ -83,7 +83,7 @@ def run(browser, name):
     p.evaluate('([n,l])=>reg.setSaved(n,l)', [recipe, ['2 tsp dried oregano']])
     p.evaluate('reg.groups()')
     arrow(p, recipe).click()
-    chooser(p).wait_for()
+    chooser(p).wait_for(timeout=8000)
     assert on_lines(p) == ['2 tsp dried oregano'], on_lines(p)
     chooser(p).get_by_role('button', name='Cancel').click()
 
@@ -92,7 +92,7 @@ def run(browser, name):
     p.evaluate('n=>reg.edit(n)', recipe)
     p.locator('#recipeStatus label', has_text='Regulars').click()
     p.locator('#save').click()
-    chooser(p).wait_for()
+    chooser(p).wait_for(timeout=8000)
     chooser(p).get_by_role('button', name='Save').click()
     p.wait_for_timeout(500)
     assert p.evaluate('n=>reg.status(n)', recipe) == 'rotation', 'editor save should finish the move'
@@ -101,7 +101,7 @@ def run(browser, name):
     p.evaluate('([n,l])=>reg.setSaved(n,l)', [recipe, EXPECT_ON[:2]])
     p.evaluate('reg.groups()')
     arrow(p, recipe).click()
-    chooser(p).wait_for()
+    chooser(p).wait_for(timeout=8000)
     sa, da = chooser(p).get_by_role('button', name='Select all', exact=True), chooser(p).get_by_role('button', name='Deselect all', exact=True)
     p.wait_for_timeout(200)
     assert not sa.is_disabled() and not da.is_disabled()
@@ -113,7 +113,7 @@ def run(browser, name):
     p.evaluate('n=>reg.one(n)', recipe)
     p.evaluate('reg.groups()')
     arrow(p, recipe).click()
-    chooser(p).wait_for()
+    chooser(p).wait_for(timeout=8000)
     p.wait_for_timeout(200)
     assert chooser(p).get_by_role('button', name='Select all', exact=True).is_disabled() and chooser(p).get_by_role('button', name='Deselect all', exact=True).is_disabled(), 'both muted with fewer than 2 ingredients'
     chooser(p).get_by_role('button', name='Cancel').click()

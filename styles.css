@@ -2515,3 +2515,7 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 
 /* Select all / Deselect all are muted when they would do nothing. */
 .select-all-muted,.select-all-muted:disabled{opacity:.35;pointer-events:none;cursor:default}
+
+/* Brief pulse on a recipe that was just moved to Regulars. */
+@keyframes movedFlash{0%{background:#fff3b0;box-shadow:0 0 0 3px #f2c94c inset}70%{background:#fff3b0;box-shadow:0 0 0 3px #f2c94c inset}100%{background:transparent;box-shadow:none}}
+.master-category-meal.moved-flash{animation:movedFlash 1.3s ease-out}

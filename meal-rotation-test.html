@@ -2367,6 +2367,10 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 
 /* Select all / Deselect all are muted when they would do nothing. */
 .select-all-muted,.select-all-muted:disabled{opacity:.35;pointer-events:none;cursor:default}
+
+/* Brief pulse on a recipe that was just moved to Regulars. */
+@keyframes movedFlash{0%{background:#fff3b0;box-shadow:0 0 0 3px #f2c94c inset}70%{background:#fff3b0;box-shadow:0 0 0 3px #f2c94c inset}100%{background:transparent;box-shadow:none}}
+.master-category-meal.moved-flash{animation:movedFlash 1.3s ease-out}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -9896,7 +9900,7 @@ function renderGroceryViewToolbar(list){
  function add(label,svg,handler){const b=document.createElement('button');b.type='button';b.className='iconbtn top-action-icon';b.title=label;b.setAttribute('aria-label',label);b.innerHTML=svg;b.onclick=handler;bar.append(b);return b}
  const keyset=()=>new Set(getMasterGroceryItems().keys());
  const tickAll=checked=>withGroceryCheckSchedules(()=>{const before=JSON.parse(captureState());before.manualGroceriesUndo=manualGroceryItems();snapshot(JSON.stringify(before));setGroceryItemsChecked(getMasterGroceryItems(),checked);setAllManualGroceries(checked);testStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));renderList({readOnly:true})});
- const groceryKeys=[...keyset()],manualItems=manualGroceryItems(),allTicked=groceryKeys.every(k=>checkedIngredients.has(k))&&manualItems.every(g=>g.checked),noneTicked=!groceryKeys.some(k=>checkedIngredients.has(k))&&!manualItems.some(g=>g.checked),emptyList=!groceryKeys.length&&!manualItems.length;
+ const groceryEntries=[...getMasterGroceryItems()],manualItems=manualGroceryItems(),allTicked=groceryEntries.every(([k,i])=>groceryItemChecked(k,i))&&manualItems.every(g=>g.checked),noneTicked=!groceryEntries.some(([k,i])=>groceryItemChecked(k,i))&&!manualItems.some(g=>g.checked),emptyList=!groceryEntries.length&&!manualItems.length;
  setSelectAllDisabled(add('Select all groceries',grocerySelectionIcon(true),()=>tickAll(true)),emptyList||allTicked);
  setSelectAllDisabled(add('Deselect all groceries',grocerySelectionIcon(false),()=>tickAll(false)),emptyList||noneTicked);
  const hide=testStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';
@@ -11337,7 +11341,9 @@ function bindSelectAllState(all,none,getBoxes,{min=0,scope=null}={}){const sync=
 async function confirmRegularsMove(list){
  // The meal moves first; the ingredient selector (when the setting is on) opens right after, so the move never looks like it failed.
  const done=new Set(),pending=[];for(const meal of list){if(!meal||recipeStatus(meals.find(m=>String(m.id)===String(meal.id))||meal)==='rotation')continue;const id=sharedRecipeIdentity(meal);if(done.has(id))continue;done.add(id);pending.push(meal)}
- if(pending.length&&autoIngredientSelectorOn())setTimeout(async()=>{for(const meal of pending)await openTopIngredientChooser(meal,{regularsMove:true})},250);
+ // Show that the move happened: scroll to the moved rows and pulse them, then open the selector after a short pause.
+ if(pending.length){const ids=pending.map(m=>String(m.id));setTimeout(()=>{const rows=ids.flatMap(id=>[...document.querySelectorAll('.master-category-meal[data-meal-id="'+id+'"]')]);rows[0]?.scrollIntoView({behavior:'smooth',block:'center'});for(const row of rows){row.classList.remove('moved-flash');void row.offsetWidth;row.classList.add('moved-flash')}if(typeof showServingUndoToast==='function')showServingUndoToast(ids.length>1?'Moved '+ids.length+' recipes to Regulars':'Moved to Regulars')},150)}
+ if(pending.length&&autoIngredientSelectorOn())setTimeout(async()=>{for(const meal of pending)await openTopIngredientChooser(meal,{regularsMove:true})},1300);
  return true;
 }
 const AUTO_INGREDIENT_SELECTOR_KEY='mealRotationAutoIngredientSelectorV1';
@@ -11601,7 +11607,7 @@ function renderTopGroceries(list){
   const makeTextLink=(label,action)=>{const link=document.createElement('button');link.type='button';link.title=label;link.setAttribute('aria-label',label);link.innerHTML=label==='Select all'?'<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg>':label==='Deselect all'?'<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 12h10"/></svg>':label;link.style.cssText='cursor:pointer;border:0;background:transparent;color:#555;padding:4px;display:flex;align-items:center;justify-content:center';link.onclick=action;controls.append(link);return link};
   const selAllLink=makeTextLink('Select all',()=>{snapshot();groups.forEach((g,key)=>checkedIngredients.add(key));try{testStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()});
   const selNoneLink=makeTextLink('Deselect all',()=>{snapshot();groups.forEach((g,key)=>checkedIngredients.delete(key));try{testStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]))}catch(e){}renderList()});
-  {const keys=[...groups.keys()];setSelectAllDisabled(selAllLink,!keys.length||keys.every(k=>checkedIngredients.has(k)));setSelectAllDisabled(selNoneLink,!keys.length||!keys.some(k=>checkedIngredients.has(k)))}
+  {const entries=[...groups.entries()],isOn=([k,g])=>typeof groceryItemChecked==='function'?groceryItemChecked(k,g):checkedIngredients.has(k);setSelectAllDisabled(selAllLink,!entries.length||entries.every(isOn));setSelectAllDisabled(selNoneLink,!entries.length||!entries.some(isOn))}
   makeTextLink(hideSelected?'Show selected':'Hide selected',()=>{hideSelected=!hideSelected;testStorage.setItem('mealRotationHideCheckedGroceriesV1',String(hideSelected));renderList()});
   const undoLink=document.createElement('span');undoLink.textContent='Undo';undoLink.style.cssText='cursor:pointer;text-decoration:none'+(groceryUndo?'':' ;opacity:.45;pointer-events:none');undoLink.onclick=()=>{if(!history.length)return;const target=JSON.parse(history.pop());redoHistory.push(captureHistoryCounterpart(target));restoreState(target)};controls.append(undoLink);body.append(controls);
   list.append(section);
