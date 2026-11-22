@@ -32,7 +32,8 @@ sb.fixture.HOOK += '''window.reg={
  saved:name=>JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}')[String(meals.find(m=>m.name===name).id)]||null,
  setSaved:(name,lines)=>{const sel=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');const m=meals.find(m=>m.name===name);m.rotation=false;persist();sel[String(m.id)]=lines;localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(sel))},
  groups:()=>{showTop=false;groceryTabActive=false;allMealsActive=false;masterExpansionInitialized=true;masterExpandedCategories.add('Rice');setGroupPageSectionOpen('weekly',true);setMasterRecipeSectionOpen('Rice','up-next',true);render()},
- edit:name=>{const m=meals.find(m=>m.name===name);openEditor(m.id)}
+ edit:name=>{const m=meals.find(m=>m.name===name);openEditor(m.id)},
+ one:name=>{const m=meals.find(m=>m.name===name);m.ingredients=['1 tsp salt'];m.rotation=false;const sel=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');delete sel[String(m.id)];localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(sel));persist()}
 };'''
 
 
@@ -96,6 +97,26 @@ def run(browser, name):
     p.wait_for_timeout(500)
     assert p.evaluate('n=>reg.status(n)', recipe) == 'rotation', 'editor save should finish the move'
     assert p.evaluate('n=>reg.saved(n)', recipe) == ['2 tsp dried oregano']
+    # Select all / Deselect all are muted when they would do nothing.
+    p.evaluate('([n,l])=>reg.setSaved(n,l)', [recipe, EXPECT_ON[:2]])
+    p.evaluate('reg.groups()')
+    arrow(p, recipe).click()
+    chooser(p).wait_for()
+    sa, da = chooser(p).get_by_role('button', name='Select all', exact=True), chooser(p).get_by_role('button', name='Deselect all', exact=True)
+    p.wait_for_timeout(200)
+    assert not sa.is_disabled() and not da.is_disabled()
+    sa.click(); p.wait_for_timeout(300)
+    assert sa.is_disabled() and not da.is_disabled(), 'Select all muted once everything is on'
+    da.click(); p.wait_for_timeout(300)
+    assert da.is_disabled() and not sa.is_disabled(), 'Deselect all muted once nothing is on'
+    chooser(p).get_by_role('button', name='Cancel').click()
+    p.evaluate('n=>reg.one(n)', recipe)
+    p.evaluate('reg.groups()')
+    arrow(p, recipe).click()
+    chooser(p).wait_for()
+    p.wait_for_timeout(200)
+    assert chooser(p).get_by_role('button', name='Select all', exact=True).is_disabled() and chooser(p).get_by_role('button', name='Deselect all', exact=True).is_disabled(), 'both muted with fewer than 2 ingredients'
+    chooser(p).get_by_role('button', name='Cancel').click()
     assert not errors, errors
     c.close()
     print('PASS', name, 'Regulars move: moves first, selector after, setting off, saved choices kept, editor path', flush=True)

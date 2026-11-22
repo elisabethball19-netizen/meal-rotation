@@ -1307,7 +1307,7 @@ function openMealSearch(saved=null){
     const meal=meals.find(m=>String(m.id)===String(mealId));
     if(meal){const search={query:input.value,groups:[...selectedGroups],scroll:results.scrollTop};fromGroups?openSavedMealRecipe(meal,null,{...navigationOrigin,resumeDialog:()=>openMealSearch(search)}):openTopMealActionMenu(null,meal.cat,meal,false,null,{...navigationOrigin,resumeDialog:()=>openMealSearch(search)})}
   }
-  function updateResults(){
+  function updateResults(){if(typeof setSelectAllDisabled==='function')setSelectAllDisabled(clearGroups,!selectedGroups.size);
     clearGroups.hidden=!selectedGroups.size;
     filterButton.classList.toggle('active',selectedGroups.size>0);filterButton.title=selectedGroups.size?'Meal group filters ('+selectedGroups.size+' active)':'Meal group filters';
     results.replaceChildren();

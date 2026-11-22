@@ -2512,3 +2512,6 @@ div.recipe-version-note{color:#56616d;font-weight:600;font-size:15px;min-height:
 .master-categories .master-category-meal[data-up-next-star]:not(.meal-card-edit-mode)>.recipe-up-next-star{margin-left:-9px}
 .master-categories .master-category-meal[data-up-next-star]:not(.meal-card-edit-mode)>.master-meal-info{margin-left:-9px}
 body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-star]>.recipe-up-next-star,body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-star]>.master-meal-info{margin-left:0}
+
+/* Select all / Deselect all are muted when they would do nothing. */
+.select-all-muted,.select-all-muted:disabled{opacity:.35;pointer-events:none;cursor:default}
