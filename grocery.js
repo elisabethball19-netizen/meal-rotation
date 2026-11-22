@@ -57,6 +57,11 @@ function groceryTextKey(line){return JSON.stringify([...new Set((line.contributi
 function groceryTextSourceIdentity(id){try{const token=JSON.parse(id),dated=JSON.parse(token[0]);if(dated.length===6)dated.pop();return JSON.stringify([dated,token[1],token[2]])}catch(e){return id}}
 function groceryTextSourceMatches(a,b){if(a===b)return true;try{const x=JSON.parse(JSON.parse(a)[0]),y=JSON.parse(JSON.parse(b)[0]);if(x.length===6&&y.length===6)return false}catch(_){}return groceryTextSourceIdentity(a)===groceryTextSourceIdentity(b)}
 function groceryDisplayText(line){return line.line}
+// Shopping names typed for ingredients that are switched off (no shopping line yet); they apply as soon as the ingredient is included.
+const PENDING_SHOPPING_NAMES_KEY='mealRotationPendingShoppingNamesV1';
+function pendingShoppingNames(){try{const value=JSON.parse(localStorage.getItem(PENDING_SHOPPING_NAMES_KEY)||'{}');return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}catch(e){return {}}}
+function savePendingShoppingNames(value){try{localStorage.setItem(PENDING_SHOPPING_NAMES_KEY,JSON.stringify(value))}catch(e){}}
+function pendingShoppingNameKey(meal,line){const token=cookingItemTokens(meal).ingredients.find(i=>i.text===line)?.token;return token?String(meal.id)+'|'+token:''}
 function groceryContributionText(source,overrides=groceryTextOverrides()){
  for(const [key,record]of Object.entries(overrides).reverse()){
   let ids;try{ids=JSON.parse(key)}catch(_){continue}
@@ -69,6 +74,7 @@ function groceryContributionText(source,overrides=groceryTextOverrides()){
   }
   return scaleRecipeIngredient(record.text,source.multiplier/record.multiplier);
  }
+ {const pending=pendingShoppingNames()[String(source.mealId)+'|'+source.ingredientToken];if(pending&&typeof pending.text==='string'&&pending.text.trim())return scaleRecipeIngredient(pending.text,(source.multiplier||1)/(pending.multiplier||1))}
  return groceryShoppingText(source.line);
 }
 // Split recipe lines ("2 tsp curry" + "1 tsp curry, remaining") from one meal occurrence count as one source.

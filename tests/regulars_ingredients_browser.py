@@ -33,6 +33,9 @@ sb.fixture.HOOK += '''window.reg={
  setSaved:(name,lines)=>{const sel=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');const m=meals.find(m=>m.name===name);m.rotation=false;persist();sel[String(m.id)]=lines;localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(sel))},
  groups:()=>{showTop=false;groceryTabActive=false;allMealsActive=false;masterExpansionInitialized=true;masterExpandedCategories.add('Rice');setGroupPageSectionOpen('weekly',true);setMasterRecipeSectionOpen('Rice','up-next',true);render()},
  edit:name=>{const m=meals.find(m=>m.name===name);openEditor(m.id)},
+ fake:(name,line)=>{const m=meals.find(m=>m.name===name);const tok=cookingItemTokens(m).ingredients.find(i=>i.text===line)?.token;return groceryContributionText({id:JSON.stringify(['["x"]','k',1]),mealId:m.id,ingredientToken:tok,multiplier:1,line,original:line})},
+ pending:()=>JSON.parse((typeof testStorage!=='undefined'?testStorage:localStorage).getItem('mealRotationPendingShoppingNamesV1')||'{}'),
+ text:(name,line)=>{const m=meals.find(m=>m.name===name);const tok=cookingItemTokens(m).ingredients.find(i=>i.text===line)?.token;const s=getGroceryContributions(true,'both').find(s=>String(s.mealId)===String(m.id)&&s.ingredientToken===tok);return s?groceryContributionText(s):null},
  one:name=>{const m=meals.find(m=>m.name===name);m.ingredients=['1 tsp salt'];m.rotation=false;const sel=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}');delete sel[String(m.id)];localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(sel));persist()}
 };'''
 
@@ -98,6 +101,24 @@ def run(browser, name):
     p.wait_for_timeout(500)
     assert p.evaluate('n=>reg.status(n)', recipe) == 'rotation', 'editor save should finish the move'
     assert p.evaluate('n=>reg.saved(n)', recipe) == ['2 tsp dried oregano']
+    # A rename typed for a switched-off ingredient is kept and applies once it is included.
+    p.evaluate('([n,l])=>reg.setSaved(n,l)', [recipe, ['1 lb chicken thighs']])
+    p.evaluate('reg.groups()')
+    arrow(p, recipe).click()
+    chooser(p).wait_for(timeout=8000)
+    chooser(p).get_by_role('button', name='Edit shopping name for 1 tsp salt', exact=True).click()
+    ed = p.get_by_role('dialog', name='Edit ingredient', exact=True)
+    ed.get_by_role('textbox', name='Ingredient', exact=True).fill('1 tsp flaky sea salt')
+    ed.get_by_role('button', name='Save ingredient', exact=True).click()
+    assert '1 tsp flaky sea salt' in chooser(p).inner_text()
+    chooser(p).get_by_role('button', name='Save', exact=True).click()
+    p.wait_for_timeout(400)
+    assert '1 tsp flaky sea salt' in str(p.evaluate('reg.pending()')), p.evaluate('reg.pending()')
+    arrow_again = p.evaluate('([n,l])=>reg.setSaved(n,l)', [recipe, ['1 lb chicken thighs', '1 tsp salt']])
+    shown = p.evaluate('([n,l])=>reg.text(n,l)', [recipe, '1 tsp salt'])
+    assert shown in (None, '1 tsp flaky sea salt'), shown
+    assert p.evaluate('([n,l])=>reg.fake(n,l)', [recipe, '1 tsp salt']) == '1 tsp flaky sea salt', 'pending name applies to the shopping line'
+
     # Select all / Deselect all are muted when they would do nothing.
     p.evaluate('([n,l])=>reg.setSaved(n,l)', [recipe, EXPECT_ON[:2]])
     p.evaluate('reg.groups()')
