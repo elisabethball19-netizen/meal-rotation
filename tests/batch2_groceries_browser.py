@@ -97,7 +97,7 @@ def run(browser, name):
     ed = p.get_by_role('dialog', name='Edit ingredient', exact=True)
     ed.get_by_role('textbox', name='Ingredient', exact=True).fill('Diamond Crystal kosher salt')
     ed.get_by_role('button', name='Save ingredient', exact=True).click()
-    assert 'Shopping list: Diamond Crystal kosher salt' in dlg.inner_text()
+    assert 'Diamond Crystal kosher salt' in dlg.inner_text() and 'Shopping list:' not in dlg.inner_text()  # row shows the new name, no subline
     dlg.get_by_role('button', name='Edit shopping name for Fresh cilantro, for garnish', exact=True).click()
     ed.get_by_role('button', name='Delete ingredient', exact=True).click()
     assert not dlg.get_by_role('switch', name='Include Fresh cilantro, for garnish', exact=True).is_checked()
