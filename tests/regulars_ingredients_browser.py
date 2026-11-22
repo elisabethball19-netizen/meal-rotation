@@ -57,38 +57,39 @@ def run(browser, name):
     recipe = p.evaluate('l=>reg.setup(l)', LINES)
     assert sorted(p.evaluate('n=>reg.suggest(n)', recipe)) == sorted(EXPECT_ON), p.evaluate('n=>reg.suggest(n)', recipe)
 
-    # Meal Groups arrow: pop-up first; X cancels the move.
+    # Meal Groups arrow: the meal moves first, then the selector opens (setting on by default).
     p.evaluate('reg.groups()')
     arrow(p, recipe).click()
+    chooser(p).wait_for()
+    assert p.evaluate('n=>reg.status(n)', recipe) == 'rotation', 'meal must already be in Regulars when the selector opens'
     assert chooser(p).locator('h3').text_content() == 'Ingredients to include in your weekly shopping list'
     assert sorted(on_lines(p)) == sorted(EXPECT_ON), on_lines(p)
     p.screenshot(path=str(OUT / (tag + '-popup.png')))
     chooser(p).get_by_role('button', name='Cancel').click()
     p.wait_for_timeout(200)
-    assert p.evaluate('n=>reg.status(n)', recipe) == 'up-next' and p.evaluate('n=>reg.saved(n)', recipe) is None
+    assert p.evaluate('n=>reg.status(n)', recipe) == 'rotation' and p.evaluate('n=>reg.saved(n)', recipe) is None
 
-    # Check saves the choices and completes the move.
+    # Setting off: the meal just moves, no selector.
+    p.evaluate("localStorage.setItem('mealRotationAutoIngredientSelectorV1','off')")
+    p.evaluate('([n,l])=>reg.setSaved(n,l)', [recipe, EXPECT_ON])
+    p.evaluate('reg.groups()')
     arrow(p, recipe).click()
-    chooser(p).get_by_role('button', name='Save').click()
-    p.wait_for_timeout(300)
-    assert p.evaluate('n=>reg.status(n)', recipe) == 'rotation'
-    assert sorted(p.evaluate('n=>reg.saved(n)', recipe)) == sorted(EXPECT_ON)
+    p.wait_for_timeout(700)
+    assert p.evaluate('n=>reg.status(n)', recipe) == 'rotation' and chooser(p).count() == 0
+    p.evaluate("localStorage.removeItem('mealRotationAutoIngredientSelectorV1')")
 
     # Saved choices are never changed: a recipe with saved choices opens with exactly those.
     p.evaluate('([n,l])=>reg.setSaved(n,l)', [recipe, ['2 tsp dried oregano']])
     p.evaluate('reg.groups()')
     arrow(p, recipe).click()
+    chooser(p).wait_for()
     assert on_lines(p) == ['2 tsp dried oregano'], on_lines(p)
     chooser(p).get_by_role('button', name='Cancel').click()
 
-    # Recipe editor: switching to Regulars and saving opens the pop-up; X keeps the editor open, unsaved.
+    # Recipe editor: switching to Regulars and saving moves the meal, then opens the selector.
+    p.evaluate('([n,l])=>reg.setSaved(n,l)', [recipe, ['2 tsp dried oregano']])
     p.evaluate('n=>reg.edit(n)', recipe)
     p.locator('#recipeStatus label', has_text='Regulars').click()
-    p.locator('#save').click()
-    chooser(p).wait_for()
-    chooser(p).get_by_role('button', name='Cancel').click()
-    p.wait_for_timeout(200)
-    assert p.evaluate('n=>reg.status(n)', recipe) == 'up-next' and p.locator('#save').count() == 1
     p.locator('#save').click()
     chooser(p).wait_for()
     chooser(p).get_by_role('button', name='Save').click()
@@ -97,7 +98,7 @@ def run(browser, name):
     assert p.evaluate('n=>reg.saved(n)', recipe) == ['2 tsp dried oregano']
     assert not errors, errors
     c.close()
-    print('PASS', name, 'Regulars move: pop-up first, suggestions, cancel/save, saved choices kept, editor path', flush=True)
+    print('PASS', name, 'Regulars move: moves first, selector after, setting off, saved choices kept, editor path', flush=True)
 
 
 if __name__ == '__main__':

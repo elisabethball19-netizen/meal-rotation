@@ -541,7 +541,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
   });
 }
 ;let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24">'+appIconSvg.settings+'</svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
-const displayGroup=makeSettingsGroup('display','Display'),collapsedOptions=document.createElement('fieldset'),collapsedHeading=document.createElement('legend');collapsedOptions.className='collapsed-card-options';collapsedHeading.textContent='Show on collapsed meal cards';collapsedOptions.append(collapsedHeading);populateTimeSettings(collapsedOptions);populateCookedDateSetting(collapsedOptions);displayGroup.content.append(collapsedOptions);populateMakeAheadSetting(displayGroup.content);
+const displayGroup=makeSettingsGroup('display','Display'),collapsedOptions=document.createElement('fieldset'),collapsedHeading=document.createElement('legend');collapsedOptions.className='collapsed-card-options';collapsedHeading.textContent='Show on collapsed meal cards';collapsedOptions.append(collapsedHeading);populateTimeSettings(collapsedOptions);populateCookedDateSetting(collapsedOptions);displayGroup.content.append(collapsedOptions);populateMakeAheadSetting(displayGroup.content);populateAutoIngredientSelectorSetting(displayGroup.content);
  const manualOrderOption=document.createElement('label');manualOrderOption.className='settings-display-option';
  const manualOrderCheck=document.createElement('input');manualOrderCheck.type='checkbox';manualOrderCheck.setAttribute('role','switch');manualOrderCheck.className='preference-switch';manualOrderCheck.checked=manualRecipeOrdering;
  manualOrderCheck.onchange=()=>{manualRecipeOrdering=manualOrderCheck.checked;saveManualRecipeOrdering();renderList()};
@@ -3532,8 +3532,14 @@ function suggestedGroceryLines(meal){
  });
 }
 async function confirmRegularsMove(list){
- const done=new Set();for(const meal of list){if(!meal||recipeStatus(meals.find(m=>String(m.id)===String(meal.id))||meal)==='rotation')continue;const id=sharedRecipeIdentity(meal);if(done.has(id))continue;done.add(id);if(!await openTopIngredientChooser(meal,{regularsMove:true}))return false}return true;
+ // The meal moves first; the ingredient selector (when the setting is on) opens right after, so the move never looks like it failed.
+ const done=new Set(),pending=[];for(const meal of list){if(!meal||recipeStatus(meals.find(m=>String(m.id)===String(meal.id))||meal)==='rotation')continue;const id=sharedRecipeIdentity(meal);if(done.has(id))continue;done.add(id);pending.push(meal)}
+ if(pending.length&&autoIngredientSelectorOn())setTimeout(async()=>{for(const meal of pending)await openTopIngredientChooser(meal,{regularsMove:true})},250);
+ return true;
 }
+const AUTO_INGREDIENT_SELECTOR_KEY='mealRotationAutoIngredientSelectorV1';
+function autoIngredientSelectorOn(){try{return localStorage.getItem(AUTO_INGREDIENT_SELECTOR_KEY)!=='off'}catch(e){return true}}
+function populateAutoIngredientSelectorSetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=autoIngredientSelectorOn();check.onchange=()=>{try{localStorage.setItem(AUTO_INGREDIENT_SELECTOR_KEY,check.checked?'on':'off')}catch(e){}};label.append(check,document.createTextNode('Auto open ingredient selector when a recipe is moved to Regulars'));parent.append(label)}
 function openTopIngredientChooser(meal,options={}){
  if(meal.temporaryMeal){const entry=getDisplayedWeekdayMeals().find(item=>String(item.meal.id)===String(meal.id));if(entry)openOneTimeMealEditor(entry.day,entry.cat,meal);return}
   meal={...meal,ingredients:Array.isArray(meal.ingredients)?[...meal.ingredients]:[]};
