@@ -1,4 +1,4 @@
-"""Off menu -> Regulars opens 'Ingredients to include in your weekly shopping list' first (2026-11-19).
+"""Off menu -> Regulars opens 'Choose which ingredients to add to your shopping list' first (2026-11-19).
 
 - Suggested switches for a recipe with no saved choices: meat/produce/one-offs on; staples off;
   condiments off only when used in 3+ other Regulars.
@@ -63,7 +63,8 @@ def run(browser, name):
     arrow(p, recipe).click()
     chooser(p).wait_for(timeout=8000)
     assert p.evaluate('n=>reg.status(n)', recipe) == 'rotation', 'meal must already be in Regulars when the selector opens'
-    assert chooser(p).locator('h3').text_content() == 'Ingredients to include in your weekly shopping list'
+    assert chooser(p).locator('h3').text_content() == 'Choose which ingredients to add to your shopping list'
+    assert chooser(p).locator('.regulars-moved-banner').text_content().endswith(' moved to Regulars')
     assert sorted(on_lines(p)) == sorted(EXPECT_ON), on_lines(p)
     p.screenshot(path=str(OUT / (tag + '-popup.png')))
     chooser(p).get_by_role('button', name='Cancel').click()
@@ -75,7 +76,7 @@ def run(browser, name):
     p.evaluate('([n,l])=>reg.setSaved(n,l)', [recipe, EXPECT_ON])
     p.evaluate('reg.groups()')
     arrow(p, recipe).click()
-    p.wait_for_timeout(1700)
+    p.wait_for_timeout(700)
     assert p.evaluate('n=>reg.status(n)', recipe) == 'rotation' and chooser(p).count() == 0
     p.evaluate("localStorage.removeItem('mealRotationAutoIngredientSelectorV1')")
 

@@ -79,7 +79,7 @@ def run(browser, name):
     p.evaluate('id=>batch2.chooser(id)', ids[0])
     dlg.wait_for(state='visible')
     # Include editor: toggles, intro sentence, no import controls or bulk trash, footer Deselect/Select/Save/Cancel.
-    assert 'Ingredients to include in your weekly shopping list' in text  # heading replaces the intro sentence (2026-11-19)
+    assert 'Choose which ingredients to add to your shopping list' in text  # heading replaces the intro sentence (2026-11-19)
     switches = dlg.get_by_role('switch')
     assert switches.count() == len([l for l in LINES if not p.evaluate('l=>batch2.skip(l)', l)]) and dlg.locator('input[type=checkbox]:not([role=switch])').count() == 0
     assert dlg.get_by_role('button', name='Import ingredients from photo').count() == 0 and dlg.get_by_role('button', name='Take photo of ingredients').count() == 0

@@ -3538,9 +3538,7 @@ function bindSelectAllState(all,none,getBoxes,{min=0,scope=null}={}){const sync=
 async function confirmRegularsMove(list){
  // The meal moves first; the ingredient selector (when the setting is on) opens right after, so the move never looks like it failed.
  const done=new Set(),pending=[];for(const meal of list){if(!meal||recipeStatus(meals.find(m=>String(m.id)===String(meal.id))||meal)==='rotation')continue;const id=sharedRecipeIdentity(meal);if(done.has(id))continue;done.add(id);pending.push(meal)}
- // Show that the move happened: scroll to the moved rows and pulse them, then open the selector after a short pause.
- if(pending.length){const ids=pending.map(m=>String(m.id));setTimeout(()=>{const rows=ids.flatMap(id=>[...document.querySelectorAll('.master-category-meal[data-meal-id="'+id+'"]')]);rows[0]?.scrollIntoView({behavior:'smooth',block:'center'});for(const row of rows){row.classList.remove('moved-flash');void row.offsetWidth;row.classList.add('moved-flash')}if(typeof showServingUndoToast==='function')showServingUndoToast(ids.length>1?'Moved '+ids.length+' recipes to Regulars':'Moved to Regulars')},150)}
- if(pending.length&&autoIngredientSelectorOn())setTimeout(async()=>{for(const meal of pending)await openTopIngredientChooser(meal,{regularsMove:true})},1300);
+ if(pending.length&&autoIngredientSelectorOn())setTimeout(async()=>{for(const meal of pending)await openTopIngredientChooser(meal,{regularsMove:true})},50);
  return true;
 }
 const AUTO_INGREDIENT_SELECTOR_KEY='mealRotationAutoIngredientSelectorV1';
@@ -3558,7 +3556,7 @@ function openTopIngredientChooser(meal,options={}){
   let pendingIngredientImportUrl=String(meal.ingredientImportUrl||'');let pendingRecipeDetails=null;
   const overlay=document.createElement('div');overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label','Edit groceries');overlay.dataset.recipeEditDraft='true';overlay.style.cssText='position:fixed;inset:0;background:#0008;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
   const box=document.createElement('div');box.style.cssText='background:white;color:#222;border-radius:14px;padding:18px;max-width:520px;width:100%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 30px #0004';
-  const title=document.createElement('h3');title.textContent='Ingredients to include in your weekly shopping list';title.style.marginTop='0';
+  const title=document.createElement('h3');title.textContent='Choose which ingredients to add to your shopping list';title.style.marginTop='0';
   const intro=document.createElement('p');intro.className='muted grocery-include-intro';intro.hidden=true;
   const list=document.createElement('div');list.style.cssText='overflow-y:auto;min-height:0;flex:1 1 auto';
   const checks=[];const manualReselections=new Set();
@@ -3778,6 +3776,7 @@ function openTopIngredientChooser(meal,options={}){
   cancel.onclick=requestClose;trackGroupPopup(overlay,requestClose);
   [selectAll,deselectAll,deleteSelected,cancel,save].forEach(btn=>{btn.style.cssText='border:0;background:transparent;color:inherit;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:7px;cursor:pointer'});actions.append(deselectAll,selectAll,save,cancel);
   // Batch 2: importing stays in Edit recipe; this dialog only chooses what to shop for.
+  const movedBanner=options.regularsMove?document.createElement('div'):null;if(movedBanner){movedBanner.className='regulars-moved-banner';movedBanner.setAttribute('role','status');movedBanner.textContent='✓ '+(meal.name||'Recipe')+' moved to Regulars';box.append(movedBanner)}
   box.append(title,intro,list,addRow,actions);overlay.append(box);
   const chooserOpenedAt=Date.now();
   overlay.addEventListener('click',e=>{
