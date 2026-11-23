@@ -603,12 +603,16 @@ function groceryShoppingText(line){
  let t=original.replace(/\s*\([^()]*\)/g,'').replace(/\s*\[[^\[\]]*\]/g,'');
  t=t.replace(/(?:\s*[,;]|\s+-)?\s*\b(?:see\s+(?:the\s+)?(?:recipe\s+)?notes?(?:\s+below)?|divided|to\s+taste|(?:for|as)\s+(?:a\s+|the\s+)?garnish(?:ing)?|(?:for|to)\s+serv(?:e|ing)|as\s+needed|plus\s+(?:more|extra)(?:\s+(?:for|to|as)\s+[a-z ]+)?)\b\.?/gi,'');
  t=t.replace(/\s*,(?:\s*,)+/g,',').replace(/^[\s,;:-]+|[\s,;:-]+$/g,'').replace(/\s{2,}/g,' ').trim();
+ if(groceryAutoCleanOn()){const comma=t.indexOf(',');if(comma>0&&/^(?:(?:finely|roughly|thinly|coarsely|freshly|lightly|very)\s+)?(?:cut|chopped|diced|minced|sliced|grated|shredded|crushed|peeled|trimmed|halved|quartered|cubed|torn|julienned|mashed|melted|softened|beaten|drained|rinsed|thawed|cored|seeded|deveined|patted\s+dry|at\s+room\s+temperature|room\s+temperature)\b/i.test(t.slice(comma+1).trim()))t=t.slice(0,comma).trim()}
  return t||original.trim();
 }
+const GROCERY_AUTO_CLEAN_KEY='mealRotationAutoCleanGroceryV1';
+function groceryAutoCleanOn(){try{return localStorage.getItem(GROCERY_AUTO_CLEAN_KEY)!=='off'}catch(e){return true}}
 // Lines that name no ingredient (e.g. "SERVE WITH", "Serve with rice") never go on the grocery list.
 function groceryNonIngredientLine(line){
  const t=String(line??'').trim();if(!t)return true;
  if(/^(?:to\s+)?serv(?:e|ing)\s+(?:with|suggestions?|ideas?)\b/i.test(t)||/^(?:optional\s+)?(?:garnish(?:es)?|toppings?)\s*:?$/i.test(t))return true;
+ if(groceryAutoCleanOn()&&/^[^\d\u00bc-\u00be\u2150-\u215e]{1,40}:$/.test(t)&&t.split(/\s+/).length<=5)return true;
  return /^[^a-z\d]+$/.test(t)&&/[A-Z]/.test(t)&&/\s|:$/.test(t.trim());
 }
 function groceryQuantityParts(line){
