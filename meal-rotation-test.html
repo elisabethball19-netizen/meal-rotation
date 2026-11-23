@@ -10047,25 +10047,25 @@ function masterGroupDisplayOrder(){
  return [...automatic.filter(c=>active.has(c)),...dayAssigned.filter(c=>!active.has(c)),...manual.filter(c=>!active.has(c)&&!dayAssigned.includes(c))];
 }
 // Group colors (user design, 2026-11-22): only groups showing on a card in the displayed week get a color; a group keeps one color all week. Order of choice: its remembered color, the color of its first day, then any free color. The Next week preview is read-only; memory is saved only from the current week.
-let weekColorContext=null,weekColorFallback=null;const GROUP_COLOR_MEMORY_KEY='mealRotationGroupColorsV1';
+let weekColorContext=null,weekColorFallback=null;const GROUP_COLOR_MEMORY_KEY='mealRotationGroupColorsV2';
 function groupColorMemory(){try{const v=JSON.parse(testStorage.getItem(GROUP_COLOR_MEMORY_KEY)||'null');return v&&typeof v==='object'&&!Array.isArray(v)?v:{}}catch(e){return {}}}
 function computeGroupColors(entries,preview){
- const plan=masterDisplayPlan(),days=orderedDays(),palette=days.map(colorForDay),memory=groupColorMemory(),map=new Map(),used=new Set(),scheduled={},reserved=new Set();
+ const plan=masterDisplayPlan(),days=orderedDays(),palette=days.map(colorForDay),memory=groupColorMemory(),map=new Map(),used=new Set(),reserved=new Set(),firstDay=new Map();
  const groupOf=entry=>{const cat=entry.cat;if(!cat||cat==='@day')return null;const g=plan&&pairedMainGroup(plan,entry.day,cat)?entry.meal?.cat||cat:cat;return cats.includes(g)?g:null};
  const ordered=entries.map((entry,i)=>({entry,i})).sort((a,b)=>days.indexOf(a.entry.day)-days.indexOf(b.entry.day)||a.i-b.i).map(x=>x.entry);
- for(const entry of ordered)if(!groupOf(entry))reserved.add(colorForDay(entry.day));
- for(const entry of ordered){const g=groupOf(entry);if(!g||map.has(g))continue;
-  const color=[memory[g],colorForDay(entry.day)].find(c=>c&&palette.includes(c)&&!used.has(c))||palette.find(c=>!used.has(c)&&!reserved.has(c))||palette.find(c=>!used.has(c))||colorForDay(entry.day);
-  used.add(color);map.set(g,color);scheduled[g]=color;
- }
+ for(const entry of ordered){const g=groupOf(entry);if(!g)reserved.add(colorForDay(entry.day));else if(!firstDay.has(g))firstDay.set(g,entry.day)}
+ // Pass 1: every scheduled group takes its preferred color (remembered, else its first day's) when free; pass 2 gives conflicts a leftover color, so no group can take another group's own color.
+ const prefer=g=>[memory[g],colorForDay(firstDay.get(g))].filter(c=>c&&palette.includes(c));
+ for(const g of firstDay.keys()){const color=prefer(g).find(c=>!used.has(c));if(color){used.add(color);map.set(g,color)}}
+ for(const g of firstDay.keys()){if(map.has(g))continue;const color=palette.find(c=>!used.has(c)&&!reserved.has(c))||palette.find(c=>!used.has(c))||colorForDay(firstDay.get(g));used.add(color);map.set(g,color)}
+ const scheduled={};for(const g of firstDay.keys())if(!memory[g]||!palette.includes(memory[g]))scheduled[g]=map.get(g);
  for(const day of days)for(const g of masterDisplayCategories(day)){if(map.has(g))continue;const color=[memory[g],colorForDay(day)].find(c=>c&&palette.includes(c)&&!used.has(c));if(color)map.set(g,color)}
- if(!preview){try{const next={...memory,...scheduled};if(JSON.stringify(next)!==JSON.stringify(memory))testStorage.setItem(GROUP_COLOR_MEMORY_KEY,JSON.stringify(next))}catch(e){}}
+ if(!preview&&Object.keys(scheduled).length){try{testStorage.setItem(GROUP_COLOR_MEMORY_KEY,JSON.stringify({...memory,...scheduled}))}catch(e){}}
  return map;
 }
 function groupColorMap(){
  if(weekColorContext)return weekColorContext.map||(weekColorContext.map=computeGroupColors(weekColorContext.entries,weekColorContext.preview));
- if(weekColorFallback)return weekColorFallback;
- const plan=masterDisplayPlan();weekColorFallback=computeGroupColors(plan?getDisplayedWeekdayMealsForPlan(plan):[],false);Promise.resolve().then(()=>{weekColorFallback=null});return weekColorFallback;
+  const plan=masterDisplayPlan(),key=JSON.stringify([activePlanId,weekdayCategories,weekdayMealOverrides,plan?.alternatingGroupsV1]);if(weekColorFallback?.key===key)return weekColorFallback.map;weekColorFallback={key,map:computeGroupColors(plan?getDisplayedWeekdayMealsForPlan({...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}):[],false)};Promise.resolve().then(()=>{weekColorFallback=null});return weekColorFallback.map;
 }
 function colorForGroup(category){return groupColorMap().get(category)||null}
 function groupDayColors(category){const c=colorForGroup(category);return c?[c]:[]}
