@@ -3007,7 +3007,7 @@ function renderMasterCategories(list){
   const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(expanded));
   toggle.onclick=()=>{if(groupReorderState)return;masterExpansionInitialized=true;const opening=!masterExpandedCategories.has(category);if(!opening&&recipeBulkMode&&category===recipeBulkSourceGroup){masterExpandedCategories.delete(category);endRecipeBulk();return}if(opening){if(!recipeBulkMode){masterExpandedCategories.clear();if(category&&groupUsesRotation(category)){setMasterRecipeSectionOpen(category,'rotation',true);setMasterRecipeSectionOpen(category,'up-next',false)}}masterExpandedCategories.add(category)}else masterExpandedCategories.delete(category);if(recipeBulkMode){recipeBulkFocus={cat:category,rotation:true};bulkRecipeRender()}else renderList();if(opening&&!recipeBulkMode)requestAnimationFrame(()=>{const target=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category);if(target)target.scrollIntoView({behavior:'smooth',block:'start'});});};
   const chevron=document.createElementNS('http://www.w3.org/2000/svg','svg');chevron.setAttribute('viewBox','0 0 24 24');chevron.setAttribute('aria-hidden','true');chevron.innerHTML=expanded?'<path d="m6 15 6-6 6 6"/>':'<path d="m6 9 6 6 6-6"/>';toggle.append(chevron);
-  const name=document.createElement('strong');name.textContent=(category||'Unassigned')+' ('+categoryMeals.length+')';toggle.append(name);
+  const name=document.createElement('strong'),nameText=document.createElement('span'),nameCount=document.createElement('span');nameText.className='group-name-text';nameText.textContent=category||'Unassigned';nameCount.className='group-name-count';nameCount.textContent=' ('+categoryMeals.length+')';name.append(nameText,nameCount);toggle.append(name);
   const count=document.createElement('span');count.className='master-category-count';toggle.append(count);{const days=category?groupDayAbbreviations(category):[];if(days.length){const line=document.createElement('span');line.className='master-category-days';line.textContent=days.join(' · ');count.append(line)}}
 
   header.append(toggle);
@@ -3429,7 +3429,8 @@ function openWeekdayMealChooser(day,category,currentMeal,occasional=false,option
  function renderChoices(){
   const scroll=list.scrollTop;highlights=scheduledRecipeHighlights(pendingMeal&&String(pendingMeal.id)!==String(currentMeal?.id)?{day,category,meal:pendingMeal,occasional}:null);list.replaceChildren();
   if(normalizeSearchText(search.value)){
-   const matches=order.flatMap(cat=>masterRecipeOrder(cat).filter(meal=>mealMatchesSearch(meal,search.value)));
+   const found=new Map();for(const cat of order)for(const meal of masterRecipeOrder(cat).filter(meal=>mealMatchesSearch(meal,search.value))){const key=mealLinkedCopies(meal).map(copy=>String(copy.id)).sort().join('|')||String(meal.id);if(!found.has(key))found.set(key,[]);found.get(key).push(meal)}
+   const matches=[...found.values()].map(copies=>copies.find(meal=>meal.cat===category)||copies[0]);
    for(const meal of matches)list.append(recipeButton(meal,true));
    if(!matches.length){const empty=document.createElement('p');empty.textContent='No matching meals.';empty.style.color='#666';list.append(empty)}
   }else for(const cat of order){

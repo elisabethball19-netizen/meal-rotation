@@ -2561,7 +2561,7 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 .master-categories[data-groups-layout="two"] .master-category-card{display:flex;flex-direction:column}
 .master-categories[data-groups-layout="two"] .master-category-card>.master-category-header{flex:1;align-items:stretch}
 .master-categories[data-groups-layout="two"] .master-category-card>.master-category-header>.master-category-title{align-content:center;align-items:center}
-.master-category-header>.master-category-title{row-gap:0!important}.master-category-header>.master-category-title>.master-category-count{line-height:1.15}
+.master-category-header>.master-category-title{row-gap:0!important}.master-categories[data-groups-layout="two"] .master-category-card:not(.master-category-open) .master-category-title strong{display:flex;min-width:0}.group-name-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.group-name-count{flex:none;white-space:pre}.master-category-header>.master-category-title>.master-category-count{line-height:1.15}
 #recipeViewer.recipe-header-collapsed .recipe-viewer-bar{position:relative}
 #recipeViewer.recipe-header-collapsed .recipe-viewer-bar::after{content:'';position:absolute;left:4%;right:4%;bottom:0;height:3px;border-radius:3px;background:#e5e8eb}
 #recipeViewer:has(.recipe-tab-strip:not([hidden])).recipe-header-collapsed .recipe-viewer-bar::after{display:none}
