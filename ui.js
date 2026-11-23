@@ -2177,6 +2177,13 @@ function masterDisplayCategories(day){const plan=masterDisplayPlan();const raw=p
 function masterDisplayOrder(){const assigned=[];for(const day of orderedDays())for(const c of masterDisplayCategories(day))if(!assigned.includes(c))assigned.push(c);return [...assigned,...cats.filter(c=>!assigned.includes(c))];}
 // Part 2c: an active group wears the same weekday colors as its cards on the Meals page (split stripe when it spans days).
 // One color per group (user, 2026-11-19 design): derived from the active plan, nothing saved. Each group takes the color of its first assigned day (in display order); if another group already holds it, the next unused weekday color is used. Weekend (Sat + Sun) is one teal on both days.
+function masterGroupDisplayOrder(){
+ const {scheduledEntries}=scheduledRecipeHighlights(null,{activePlanBadgesOnly:true}),active=new Set(scheduledEntries.map(entry=>entry.cat));
+ for(const entry of scheduledEntries)for(const id of (Array.isArray(entry.meal.linkedMealIds)?entry.meal.linkedMealIds:[])){const linked=meals.find(m=>String(m.id)===String(id));if(linked&&cats.includes(linked.cat))active.add(linked.cat)}
+ const base=masterDisplayOrder(),automatic=[...base.filter(c=>active.has(c)),...base.filter(c=>!active.has(c))],manual=masterOrderedGroups(automatic),dayAssigned=[];
+ for(const day of orderedDays())for(const c of masterDisplayCategories(day))if(manual.includes(c)&&!dayAssigned.includes(c))dayAssigned.push(c);
+ return [...automatic.filter(c=>active.has(c)),...dayAssigned.filter(c=>!active.has(c)),...manual.filter(c=>!active.has(c)&&!dayAssigned.includes(c))];
+}
 function groupColorMap(){const map=new Map(),used=new Map(),palette=orderedDays().map(colorForDay);for(const day of orderedDays())for(const cat of masterDisplayCategories(day)){if(map.has(cat))continue;let color=colorForDay(day);if(used.has(color)&&used.get(color)!==day)color=palette.find(c=>!used.has(c))||color;if(!used.has(color))used.set(color,day);map.set(cat,color)}return map}
 function colorForGroup(category){return groupColorMap().get(category)||null}
 function groupDayColors(category){const c=colorForGroup(category);return c?[c]:[]}
