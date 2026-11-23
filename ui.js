@@ -15,8 +15,7 @@ function restoreSettingsDraft(json){
  weekdayCategories=JSON.parse(JSON.stringify(state.weekdayCategories));weekdayMealOverrides={...state.weekdayMealOverrides};weekdayRecipeFilters=JSON.parse(JSON.stringify(state.weekdayRecipeFilters||{}));
  weekdayColors={...state.weekdayColors};pinnedCats=[...state.pinnedCats];expandedCats=[...state.expandedCats];
  autoPinTopCategories=true;applyPinsToAllTabs=!!state.applyPinsToAllTabs;timeDisplayPrefs=JSON.parse(JSON.stringify(state.timeDisplayPrefs));
- manualRecipeOrdering=state.manualRecipeOrdering===true;saveManualRecipeOrdering();
- showLastCooked=state.showLastCooked!==false;saveLastCookedVisibility();showMealPlanTabs=!!state.showMealPlanTabs;if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;masterPinsOverride=state.masterPinsOverride!==false;saveMasterOpeningPrefs();mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId;startWeekday=state.startWeekday;autoPinTopCategories=true;
+  showLastCooked=state.showLastCooked!==false;saveLastCookedVisibility();showMealPlanTabs=!!state.showMealPlanTabs;if(['all','current','across','none'].includes(state.masterOpenMode))masterOpenMode=state.masterOpenMode;masterPinsOverride=state.masterPinsOverride!==false;saveMasterOpeningPrefs();mealPlans=JSON.parse(JSON.stringify(state.mealPlans));activePlanId=state.activePlanId;startWeekday=state.startWeekday;autoPinTopCategories=true;
  try{
  localStorage.setItem('mealRotationWeekdayCategoriesV1',JSON.stringify(weekdayCategories));
  localStorage.setItem('mealRotationWeekdayMealOverridesV1',JSON.stringify(weekdayMealOverrides));
@@ -571,10 +570,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
 }
 ;let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24">'+appIconSvg.settings+'</svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
 const displayGroup=makeSettingsGroup('display','Display'),collapsedOptions=document.createElement('fieldset'),collapsedHeading=document.createElement('legend');collapsedOptions.className='collapsed-card-options';collapsedHeading.textContent='Show on collapsed meal cards';collapsedOptions.append(collapsedHeading);populateTimeSettings(collapsedOptions);populateCookedDateSetting(collapsedOptions);displayGroup.content.append(collapsedOptions);populateMakeAheadSetting(displayGroup.content);populateAutoIngredientSelectorSetting(displayGroup.content);populateAutoCleanGrocerySetting(displayGroup.content);
- const manualOrderOption=document.createElement('label');manualOrderOption.className='settings-display-option';
- const manualOrderCheck=document.createElement('input');manualOrderCheck.type='checkbox';manualOrderCheck.setAttribute('role','switch');manualOrderCheck.className='preference-switch';manualOrderCheck.checked=manualRecipeOrdering;
- manualOrderCheck.onchange=()=>{manualRecipeOrdering=manualOrderCheck.checked;saveManualRecipeOrdering();renderList()};
- manualOrderOption.append(manualOrderCheck,document.createTextNode('Enable manual recipe ordering'));displayGroup.content.append(manualOrderOption);
+
 
 
 const sizeWrap=document.createElement('div');sizeWrap.className='meal-text-size-setting';

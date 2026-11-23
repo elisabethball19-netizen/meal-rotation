@@ -12,8 +12,8 @@ function saveTimeDisplayPrefs(){try{localStorage.setItem(timePreferencesStorageK
 const cookedDateVisibilityKey='mealRotationShowLastCookedV1';
 let showLastCooked=localStorage.getItem(cookedDateVisibilityKey)!=='false';
 const manualRecipeOrderingKey='mealRotationManualRecipeOrderingV1';
-let manualRecipeOrdering=localStorage.getItem(manualRecipeOrderingKey)==='true';
-function saveManualRecipeOrdering(){try{localStorage.setItem(manualRecipeOrderingKey,String(manualRecipeOrdering))}catch(e){}}
+let manualRecipeOrdering=false; // setting removed 2026-11-23; saved value ignored
+function saveManualRecipeOrdering(){}
 function saveLastCookedVisibility(){try{localStorage.setItem(cookedDateVisibilityKey,String(showLastCooked))}catch(e){}}
 const mealChooserSortKey='mealRotationChooserCookedSortV1';
 const mealChooserUndatedKey='mealRotationChooserIncludeUndatedV1';
