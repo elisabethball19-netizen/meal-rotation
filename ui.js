@@ -2783,6 +2783,8 @@ function appendScheduledRecipeWeekdays(row,meal,scheduledDaysByMeal){
  dayTag.textContent=orderedDays().filter(day=>scheduledDays.has(day)).map(day=>row.classList.contains('master-category-meal')?day.slice(0,3):day.slice(0,3).toUpperCase()).join(row.classList.contains('master-category-meal')?', ':' · ');
  dayTag.title='Scheduled: '+[...scheduledDays.entries()].map(([day,entries])=>day+' ('+[...new Set(entries.map(entry=>entry.planName))].join(', ')+')').join('; ');
  row.append(dayTag);
+ // Same x2-style badge as the week card, when a scheduled occurrence of this recipe is scaled.
+ {const scaled=[...scheduledDays.values()].flat().map(entry=>entry.planId?occurrenceMultiplier(cookingContext(entry.planId,entry.day,entry.cat,entry.meal,entry.linkedTo)):1).find(value=>value&&value!==1);const text=scaled?scaleBadgeText(scaled):'';if(text){const chip=document.createElement('span');chip.className='plan-scale-badge group-scale-badge';chip.textContent=text;chip.setAttribute('aria-label','Scaled '+text.slice(1)+' times');chip.style.cssText='display:inline-block;margin-left:6px;vertical-align:baseline';dayTag.append(chip)}}
 }
 // Onboarding reuses the existing creation/import and weekday-assignment workflows.
 function needsRotationSetup(){
