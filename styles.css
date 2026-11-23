@@ -2545,3 +2545,10 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 #recipeViewer .recipe-toolbar-icon.recipe-open-recipes{grid-column:4;justify-self:center}
 #recipeViewer .recipe-toolbar-icon.recipe-reset{grid-column:5;justify-self:center}
 #recipeViewer .recipe-toolbar-icon.recipe-settings-toggle{grid-column:6;justify-self:end}
+
+/* Collapsed recipe header: Needs Adjusting becomes an icon after the title; card chevrons turn smoothly. */
+#recipeViewer .recipe-collapsed-tweak{display:none}
+#recipeViewer.recipe-header-collapsed .recipe-collapsed-tweak:not([hidden]){display:inline-flex;margin:0;flex:none}
+#recipeViewer.recipe-header-collapsed .recipe-tweaking-status{display:none!important}
+.meal-actions-toggle svg{transition:transform .16s ease}
+@media (prefers-reduced-motion:reduce){.meal-actions-toggle svg{transition:none}}
