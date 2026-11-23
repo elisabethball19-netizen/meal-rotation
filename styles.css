@@ -2570,3 +2570,5 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 .master-grocery-item>.grocery-expand,.master-grocery-item>.grocery-item-edit{margin-top:-4px;margin-bottom:-4px}
 
 .plan-scale-badge{flex:none;align-self:center;margin-left:6px;padding:0 .5em;border-radius:.8em;font-size:.8em;font-weight:650;line-height:1.5;background:rgba(0,0,0,.1);color:#2b3340;white-space:nowrap}
+
+.recipe-bulk-dialog.serving-add-dialog .recipe-bulk-error:empty,.serving-add-dialog .recipe-bulk-error:empty{display:none}

@@ -2421,6 +2421,7 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 .master-grocery-item>.grocery-checkbox-target{margin-top:0}
 .master-grocery-item>.grocery-expand,.master-grocery-item>.grocery-item-edit{margin-top:-4px;margin-bottom:-4px}
 .plan-scale-badge{flex:none;align-self:center;margin-left:6px;padding:0 .5em;border-radius:.8em;font-size:.8em;font-weight:650;line-height:1.5;background:rgba(0,0,0,.1);color:#2b3340;white-space:nowrap}
+.recipe-bulk-dialog.serving-add-dialog .recipe-bulk-error:empty,.serving-add-dialog .recipe-bulk-error:empty{display:none}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -8286,7 +8287,7 @@ function openPlanCardScale(plan,entry,preview){
  const sync=()=>{for(const b of grid.children)b.setAttribute('aria-pressed',String(Number(b.dataset.multiplier)===Number(input.value)))};
  for(const [value,text]of [[.5,'½×'],[1,'1×'],[1.5,'1½×'],[2,'2×'],[3,'3×']]){const b=document.createElement('button');b.type='button';b.className='recipe-scale-option';b.textContent=text;b.dataset.multiplier=String(value);b.onclick=()=>{input.value=String(value);input.setCustomValidity('');sync()};grid.append(b)}
  const custom=document.createElement('label');custom.className='recipe-scale-custom';custom.append(document.createTextNode('Other'));input.type='number';input.inputMode='decimal';input.min='0';input.step='any';input.value=String(current);input.setAttribute('aria-label','Other multiplier');input.oninput=()=>{input.setCustomValidity('');sync()};custom.append(input);
- const note=document.createElement('p');note.className='muted';note.textContent='This meal and its grocery amounts only, this time.';
+ const note=document.createElement('p');note.className='muted';note.textContent='Applies to this meal and its groceries this week only.';note.style.cssText='margin:6px 0 0;font-size:14px';custom.style.cssText='display:flex;align-items:center;gap:12px;margin:10px 0 0';
  d.panel.append(grid,custom,note);sync();
  servingDialogFooter(d,'Apply recipe scale',()=>{
   const value=input.value.trim()?Number(input.value):NaN;if(!validRecipeMultiplier(value)){input.setCustomValidity('Enter a number greater than zero.');input.reportValidity();return}
