@@ -8185,6 +8185,10 @@ function pendingContext(plan,entry){return {...cookingContext(plan.id,entry.day,
 function appendFutureMealActions(body,card,plan,entry){return appendSharedMealActions(body,card,plan,entry,true)}
 
 function advanceMealPlanWeek(selectedSlots=null,allTabs=false,markCooked=false,retainedSlots=null,beforeState=null,preview=false){
+ const own=!rotationPendingCookTimes;if(own)rotationPendingCookTimes=outgoingWeekCookTimes(mealPlans.filter(plan=>allTabs||plan.id===activePlanId));
+ try{return advanceMealPlanWeekCore(selectedSlots,allTabs,markCooked,retainedSlots,beforeState,preview)}finally{if(own)rotationPendingCookTimes=rotationRecentCookTimes=null}
+}
+function advanceMealPlanWeekCore(selectedSlots=null,allTabs=false,markCooked=false,retainedSlots=null,beforeState=null,preview=false){
  const scope=mealPlans.filter(plan=>allTabs||plan.id===activePlanId),anchors=new Map(scope.map(plan=>[plan.id,mealPlanWeekStart(plan)])),retainedKeys=new Set(),retainedGroups=new Set(),selectedByPlan=new Map();
  for(const plan of scope){const selected=rotationSelectionEntries(plan).filter(item=>rotationSelectable(item,plan)&&(!selectedSlots||selectedSlots.has((allTabs?plan.id+'||':'')+weekdaySlotKey(item.day,item.cat))));selectedByPlan.set(plan.id,selected);const entries=getDisplayedWeekdayMealsForPlan(plan),affected=cycleAffectedEntries(entries,selected,plan);for(const entry of entries)if(!affected.some(item=>rotationOccurrenceKey({...item,planId:plan.id})===rotationOccurrenceKey({...entry,planId:plan.id}))) {retainedKeys.add(rotationOccurrenceKey({...entry,planId:plan.id}));retainedGroups.add(JSON.stringify([plan.id,entry.day,entry.cat]))}}
  if(![...selectedByPlan.values()].some(items=>items.length)&&!preview){snapshot(beforeState?JSON.stringify(beforeState):captureState());retainDueMakeAheadTasks()}
@@ -8207,8 +8211,9 @@ function previewMealPlanAdvance(selectedSlots=null,retainedSlots=null,planId=act
   meals=JSON.parse(JSON.stringify(meals));mealPlans=JSON.parse(JSON.stringify(mealPlans));const active=mealPlans.find(p=>p.id===activePlanId);Object.assign(active,{weekdayCategories:JSON.parse(JSON.stringify(weekdayCategories)),weekdayMealOverrides:{...weekdayMealOverrides},weekdayRecipeFilters:JSON.parse(JSON.stringify(weekdayRecipeFilters))});
   activePlanId=planId;const target=mealPlans.find(p=>p.id===planId);weekdayCategories=JSON.parse(JSON.stringify(target.weekdayCategories));weekdayMealOverrides={...target.weekdayMealOverrides};weekdayRecipeFilters=JSON.parse(JSON.stringify(target.weekdayRecipeFilters||{}));pinnedCats=[...(target.pinnedCats||[])];
   bulkRecipeStorageDraft=new Map(Array.from({length:testStorage.length},(_,i)=>{const key=testStorage.key(i);return [key,testStorage.getItem(key)]}));
-  const retainedKeys=advanceMealPlanWeek(selectedSlots,false,false,retainedSlots,null,true);if(hasDependentSideSlots())coordinateDependentSides();const plan=mealPlans.find(p=>p.id===planId);return {plan,entries:getDisplayedWeekdayMealsForPlan(plan),preview:true,retainedKeys};
- }finally{({meals,mealPlans,weekdayMealOverrides,activePlanId,weekdayCategories,weekdayRecipeFilters,pinnedCats,autoPinTopCategories}=saved);bulkRecipeStorageDraft=saved.storage}
+  rotationPendingCookTimes=outgoingWeekCookTimes([target]);
+  const retainedKeys=advanceMealPlanWeek(selectedSlots,false,false,retainedSlots,null,true);rotationRecentCookTimes=rotationPendingCookTimes;if(hasDependentSideSlots())coordinateDependentSides();const plan=mealPlans.find(p=>p.id===planId);return {plan,entries:getDisplayedWeekdayMealsForPlan(plan),preview:true,retainedKeys};
+ }finally{rotationRecentCookTimes=rotationPendingCookTimes=null;({meals,mealPlans,weekdayMealOverrides,activePlanId,weekdayCategories,weekdayRecipeFilters,pinnedCats,autoPinTopCategories}=saved);bulkRecipeStorageDraft=saved.storage}
 }
 function renderRotationWeekPreview(list){
  const source=previewMealPlanAdvance();if(!source)return;
@@ -8750,11 +8755,16 @@ function deferPlannedRecipes(plan,list){
  try{const start=mealPlanWeekStart(plan),end=new Date(start);end.setDate(end.getDate()+20);const from=cookingLocalDate(start),to=cookingLocalDate(end),soon=new Set(plannedMealsFor(plan.id).filter(p=>p.date>=from&&p.date<=to).map(p=>String(p.mealId)));
   return soon.size?[...list.filter(m=>!soon.has(String(m.id))),...list.filter(m=>soon.has(String(m.id)))]:list}catch(e){return list}
 }
+// While next week is being chosen, a meal on the outgoing week's plan counts as cooked on its scheduled day,
+// so it goes behind waiting recipes instead of repeating straight away. Never stored; Last cooked is unchanged.
+let rotationRecentCookTimes=null,rotationPendingCookTimes=null;
+function rotationRankTime(meal){const own=recipeLastCookedTime(meal),recent=rotationRecentCookTimes?.get(String(meal?.id))??(meal?.linkGroup?rotationRecentCookTimes?.get('linked:'+meal.linkGroup):undefined);return recent!=null&&(own==null||recent>own)?recent:own}
+function outgoingWeekCookTimes(plans){const times=new Map(),note=(key,time)=>times.set(key,Math.max(times.get(key)??-Infinity,time));for(const plan of plans){const start=mealPlanWeekStart(plan);for(const entry of getDisplayedWeekdayMealsForPlan(plan)){if(entry.scheduleOnly||!entry.meal||entry.meal.temporaryMeal)continue;const day=new Date(cookingDateInWeek(entry.day,start));day.setHours(0,0,0,0);note(String(entry.meal.id),day.getTime());if(entry.meal.linkGroup)note('linked:'+entry.meal.linkGroup,day.getTime())}}return times}
 function automaticRecipeCandidates(category,labels=[],library=meals,plan=null,derived=null){
  const cacheKey=derived&&JSON.stringify([plan?.id||'',category,labels]);if(derived?.candidates.has(cacheKey))return [...derived.candidates.get(cacheKey)];
  if(!groupUsesRotation(category))return [];
  const ordered=library.filter(meal=>recipeStatus(meal)==='rotation'&&meal.cat===category&&recipeMatchesFilters(meal,labels)).sort((a,b)=>{
-  const x=recipeLastCookedTime(a),y=recipeLastCookedTime(b);return x===null?(y===null?0:-1):y===null?1:x-y;
+  const x=rotationRankTime(a),y=rotationRankTime(b);return x===null?(y===null?0:-1):y===null?1:x-y;
  });
  const weighted=favoriteRotationPool(category,labels,library,plan,ordered);if(!weighted){const result=deferPlannedRecipes(plan,ordered);if(derived)derived.candidates.set(cacheKey,result);return [...result]}
  const credit=m=>(Number.isFinite(weighted.scores[String(m.id)])?weighted.scores[String(m.id)]:0)+(m.favorite===true?2:1);
@@ -9626,6 +9636,8 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  for(const plan of scope){
   const oldPlan=rotationBefore.mealPlans.find(old=>old.id===plan.id),hidden=hiddenRotated.filter(item=>item.planId===plan.id),hiddenSet=new Set(hidden);
   const reopening=selected.filter(item=>item.planId===plan.id&&!item.scheduleOnly).concat(hidden).sort((a,b)=>orderedDays().indexOf(a.day)-orderedDays().indexOf(b.day));
+  // This week has been read; from here next week is being chosen.
+  if(rotationPendingCookTimes)rotationRecentCookTimes=rotationPendingCookTimes;
   const due=new Map(),groups=new Set(),manualHidden=new Set(),reset=new Set();
   const hiddenGroups=new Set(hidden.filter(item=>rotationGroupScheduled(plan,item.day,item.cat)).map(item=>item.cat));
   for(const item of reopening){
