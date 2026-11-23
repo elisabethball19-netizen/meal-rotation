@@ -10097,7 +10097,7 @@ function computeGroupColors(entries,preview){
  for(const g of firstDay.keys()){const color=prefer(g).find(c=>!used.has(c));if(color){used.add(color);map.set(g,color)}}
  for(const g of firstDay.keys()){if(map.has(g))continue;const color=palette.find(c=>!used.has(c)&&!reserved.has(c))||palette.find(c=>!used.has(c))||colorForDay(firstDay.get(g));used.add(color);map.set(g,color)}
  const scheduled={};for(const g of firstDay.keys())if(!memory[g]||!palette.includes(memory[g]))scheduled[g]=map.get(g);
- for(const day of days)for(const g of masterDisplayCategories(day)){if(map.has(g))continue;const color=[memory[g],colorForDay(day)].find(c=>c&&palette.includes(c)&&!used.has(c));if(color)map.set(g,color)}
+ for(const day of days)for(const g of masterDisplayCategories(day)){if(map.has(g))continue;const color=[memory[g],colorForDay(day)].find(c=>c&&palette.includes(c)&&!used.has(c))||palette.find(c=>!used.has(c)&&!reserved.has(c))||palette.find(c=>!used.has(c));if(color){used.add(color);map.set(g,color)}}
  if(!preview&&Object.keys(scheduled).length){try{testStorage.setItem(GROUP_COLOR_MEMORY_KEY,JSON.stringify({...memory,...scheduled}))}catch(e){}}
  return map;
 }
