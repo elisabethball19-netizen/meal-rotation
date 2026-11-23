@@ -292,7 +292,7 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
     for(const parts of occurrences){const contribution=parts[0];
      const detail=document.createElement('span');detail.className='grocery-contribution';
      if(occurrences.length>1){const cb=document.createElement('input');cb.type='checkbox';cb.checked=parts.every(x=>grocerySourceChecked(x));cb.indeterminate=!cb.checked&&parts.some(x=>grocerySourceChecked(x)||groceryCheckedAmount(x)?.lo>0);cb.setAttribute('aria-label','Check '+contribution.mealName);cb.onchange=()=>changeCheck({contributions:parts,baseKey:contribution.baseKey,checkKeys:parts.flatMap(x=>x.checkKeys||[])},cb.checked);detail.append(cb)}
-     const link=document.createElement('button');link.type='button';link.className='grocery-recipe-link';link.dataset.mealId=String(contribution.mealId);link.dataset.planId=contribution.planId;link.dataset.day=contribution.day;link.dataset.grocerySourceId=contribution.id;link.textContent=contribution.mealName;
+     const link=document.createElement('button');link.type='button';link.className='grocery-recipe-link';link.dataset.mealId=String(contribution.mealId);link.dataset.planId=contribution.planId;link.dataset.day=contribution.day;link.dataset.grocerySourceId=contribution.id;link.textContent=contribution.mealName+(typeof scaleBadgeText==='function'&&scaleBadgeText(contribution.multiplier)?' '+scaleBadgeText(contribution.multiplier):'');
      link.onclick=()=>openGroceryRecipeSource(contribution);detail.append(link);source.append(detail);
     }
     const expandedKey=groceryTextKey(line);source.hidden=!expanded.has(expandedKey);
