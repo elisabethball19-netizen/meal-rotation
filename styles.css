@@ -2572,3 +2572,5 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 .plan-scale-badge{flex:none;align-self:center;margin-left:6px;padding:0 .5em;border-radius:.8em;font-size:.8em;font-weight:650;line-height:1.5;background:rgba(0,0,0,.1);color:#2b3340;white-space:nowrap}
 
 .recipe-bulk-dialog.serving-add-dialog .recipe-bulk-error:empty,.serving-add-dialog .recipe-bulk-error:empty{display:none}
+.master-categories .shared-meal-name-line.has-name-badges>.recipe-personal-name{flex:0 1 auto}.master-categories .shared-meal-name-line.has-name-badges>.group-scale-badge,.master-categories .shared-meal-name-line.has-name-badges>.needs-tweaking-icon{flex:0 0 auto}
+.master-categories .shared-meal-name-line.has-name-badges.has-group-flag{padding-right:84px}.master-categories .shared-meal-name-line.has-name-badges>.group-row-flag{position:static;transform:none;right:auto;top:auto;margin:-10px 0;width:32px;min-width:32px}

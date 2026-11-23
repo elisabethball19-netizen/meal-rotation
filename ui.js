@@ -2776,6 +2776,8 @@ function scheduledRecipeHighlights(preview=null,{activePlanBadgesOnly=false}={})
  }
  return {featuredColorById,scheduledDaysByMeal,scheduledEntries};
 }
+// Directly after the recipe name, on the same line: the scale badge, then the Needs Adjusting icon. Weekday and chevron stay at the right.
+function placeNameBadges(nameLine,row){const name=nameLine?.querySelector('.recipe-personal-name,.master-category-meal-name');if(!name)return;let anchor=name;const text=row.dataset.scaleBadge;if(text){const chip=document.createElement('span');chip.className='plan-scale-badge group-scale-badge';chip.textContent=text;chip.setAttribute('aria-label','Scaled '+text.slice(1)+' times');chip.style.cssText='display:inline-block;margin:0 4px 0 6px;vertical-align:middle';anchor.after(chip);anchor=chip}const icon=nameLine.querySelector('.needs-tweaking-icon');if(icon)anchor.after(icon);if(text||icon)nameLine.classList.add('has-name-badges')}
 function appendScheduledRecipeWeekdays(row,meal,scheduledDaysByMeal){
  const scheduledDays=scheduledDaysByMeal.get(String(meal.id));
  if(!scheduledDays?.size)return;
@@ -2783,8 +2785,8 @@ function appendScheduledRecipeWeekdays(row,meal,scheduledDaysByMeal){
  dayTag.textContent=orderedDays().filter(day=>scheduledDays.has(day)).map(day=>row.classList.contains('master-category-meal')?day.slice(0,3):day.slice(0,3).toUpperCase()).join(row.classList.contains('master-category-meal')?', ':' · ');
  dayTag.title='Scheduled: '+[...scheduledDays.entries()].map(([day,entries])=>day+' ('+[...new Set(entries.map(entry=>entry.planName))].join(', ')+')').join('; ');
  row.append(dayTag);
- // Same x2-style badge as the week card, when a scheduled occurrence of this recipe is scaled.
- {const scaled=[...scheduledDays.values()].flat().map(entry=>entry.planId?occurrenceMultiplier(cookingContext(entry.planId,entry.day,entry.cat,entry.meal,entry.linkedTo)):1).find(value=>value&&value!==1);const text=scaled?scaleBadgeText(scaled):'';if(text){const chip=document.createElement('span');chip.className='plan-scale-badge group-scale-badge';chip.textContent=text;chip.setAttribute('aria-label','Scaled '+text.slice(1)+' times');chip.style.cssText='display:inline-block;margin-left:6px;vertical-align:baseline';const cookedLine=row.querySelector('.meal-options-last-cooked');if(cookedLine&&cookedLine.parentElement){const line=document.createElement('div');line.className='group-cooked-scale-line';line.style.cssText='display:flex;align-items:center;gap:8px;max-width:100%';cookedLine.replaceWith(line);line.append(cookedLine,chip);chip.style.margin='0'}else{chip.style.cssText='display:inline-block;align-self:flex-start;width:fit-content;margin:3px 0 0';const info=row.querySelector('.master-meal-info')||row;info.append(chip)}}}
+ // Scaled recipes: remember the badge text; placeNameBadges puts it right after the recipe name.
+ {const scaled=[...scheduledDays.values()].flat().map(entry=>entry.planId?occurrenceMultiplier(cookingContext(entry.planId,entry.day,entry.cat,entry.meal,entry.linkedTo)):1).find(value=>value&&value!==1);const text=scaled?scaleBadgeText(scaled):'';if(text)row.dataset.scaleBadge=text;else delete row.dataset.scaleBadge}
 }
 // Onboarding reuses the existing creation/import and weekday-assignment workflows.
 function needsRotationSetup(){
@@ -3080,7 +3082,7 @@ function renderMasterCategories(list){
 
      row.append(mealInfo,...manualMoves);
      appendGroupInlineActions(row,mealInfo,nameLine,m,category);bindRecipeBulkRow(row,m);if(recipeBulkMode&&category&&groupUsesRotation(category)){const status=recipeSectionMoveButton(m);status.classList.add('organize-row-status');row.append(status)}if(recipeBulkMode&&category===recipeBulkSourceGroup&&rot==='up-next'){row.append(organizeDragHandle('Reorder '+m.name,dir=>moveUpNextRecipe(m,dir,groupMeals.filter(other=>other.upNextStar===m.upNextStar))))}
-     appendScheduledRecipeWeekdays(row,m,scheduledDaysByMeal);{const weekdays=row.querySelector(':scope>.master-meal-weekdays');if(weekdays)nameLine.querySelector('.group-row-actions').prepend(weekdays)}
+     appendScheduledRecipeWeekdays(row,m,scheduledDaysByMeal);{const weekdays=row.querySelector(':scope>.master-meal-weekdays');if(weekdays)nameLine.querySelector('.group-row-actions').prepend(weekdays)}placeNameBadges(nameLine,row);
      
      sectionBody.append(row);
     }
