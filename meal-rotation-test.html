@@ -2937,9 +2937,21 @@ function parseRecipeQuantity(line){
  if(lo===null||hi===null||hi<lo||/^(?:[x×/]|\d)/i.test(rest)||/(?:\b(?:and|or|plus)\b|\+)\s*\d/.test(rest))return null;
  return {lo,hi,rest,leading:match[1]};
 }
+function friendlyScaledAmount(value,rest,single){
+ const m=String(rest).match(/^(tsp|teaspoons?|tbsp|tablespoons?|cups?)\b(\.?)(.*)$/i);if(!m)return null;
+ const unit=/^t(?:sp|easp)/i.test(m[1])?'tsp':/^t(?:bsp|able)/i.test(m[1])?'tbsp':'cup',tail=m[3],gentle=/\b(salt|baking\s+(?:powder|soda)|yeast|cayenne|nutmeg|cloves?)\b/i.test(tail);
+ const nearest=(x,steps)=>steps.reduce((best,s)=>Math.abs(s-x)<Math.abs(best-x)-1e-9?s:best,steps[0]);
+ const quarter=x=>Math.max(1/8,Math.round(x*4)/4),eighth=x=>Math.max(1/8,Math.round(x*8)/8);
+ let v=value,u=unit;
+ if(u==='tsp'){if(v>=3){v=v/3;u='tbsp'}else v=gentle?eighth(v):quarter(v)}
+ if(u==='tbsp'){v=Math.round(v*2)/2||.5;if(v>=4&&v%4===0){v=v/16;u='cup'}else if(v>=3&&unit==='tsp'){v=Math.round(v*2)/2}}
+ if(u==='cup'&&unit==='cup'){const whole=Math.floor(v),frac=v-whole;v=whole+nearest(frac,[0,.25,1/3,.5,2/3,.75,1]);if(v<.125)v=.125}
+ const name=u==='cup'?(v>1?'cups':'cup'):u;return {value:v,text:name+m[2]+tail};
+}
 function scaleRecipeIngredient(line,multiplier){
  if(multiplier===1||syncIngredientHeading(line))return String(line);
  const quantity=parseRecipeQuantity(line);if(!quantity||!Number.isFinite(quantity.lo*multiplier)||!Number.isFinite(quantity.hi*multiplier))return String(line);
+ if(quantity.hi===quantity.lo){const friendly=friendlyScaledAmount(quantity.lo*multiplier,quantity.rest);if(friendly)return quantity.leading+formatRecipeQuantity(friendly.value)+' '+friendly.text}
  return quantity.leading+formatRecipeQuantity(quantity.lo*multiplier)+(quantity.hi!==quantity.lo?'–'+formatRecipeQuantity(quantity.hi*multiplier):'')+' '+quantity.rest;
 }
 // Display only: decimal amounts read as fractions ("1.5 tsp" -> "1½ tsp"); saved recipe text is never changed.
