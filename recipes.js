@@ -1404,8 +1404,8 @@ function setMakeAheadComplete(item,checked){
 }
 function realPreparationDue(item){const scheduled=parseCookingLocalDate(item.scheduled),task=item.task;if(scheduled&&task&&(Number.isFinite(task.daysBefore)||Number.isFinite(task.hoursBefore)))return cookingLocalDate(makeAheadDueDate(scheduled,task));const due=parseCookingLocalDate(item.due);return due?cookingLocalDate(due):null}
 // To-Do collapse/expand is remembered across refresh/reopen (UI preference only).
-const TODO_COLLAPSED_KEY='mealRotationTodoCollapsedV1',todoNextWeekChosen=(()=>{try{return JSON.parse(localStorage.getItem(TODO_COLLAPSED_KEY)||'null')?.nextChosen===true}catch(e){return false}})(),todoCollapsed=(()=>{try{const v=JSON.parse(localStorage.getItem(TODO_COLLAPSED_KEY)||'null');return {0:v?.[0]===true,1:v?.nextChosen===true?v?.[1]===true:true}}catch(e){return {0:false,1:true}}})();
-function saveTodoCollapsed(){try{localStorage.setItem(TODO_COLLAPSED_KEY,JSON.stringify({...todoCollapsed,nextChosen:todoNextWeekChosen}))}catch(e){}}
+const TODO_COLLAPSED_KEY='mealRotationTodoCollapsedV1',todoCollapsed=(()=>{try{const v=JSON.parse(localStorage.getItem(TODO_COLLAPSED_KEY)||'null');return {0:v?.[0]===true,1:v?.nextChosen===true?v?.[1]===true:true,nextChosen:v?.nextChosen===true}}catch(e){return {0:false,1:true,nextChosen:false}}})();
+function saveTodoCollapsed(){try{localStorage.setItem(TODO_COLLAPSED_KEY,JSON.stringify(todoCollapsed))}catch(e){}}
 // Completing the final task: keep the checked row briefly, then fade and collapse the section smoothly.
 function fadeOutTodo(section){
  if(section.dataset.fading)return;section.dataset.fading='true';
@@ -1440,7 +1440,7 @@ function renderTodayTodo(provided=null){
  const body=document.createElement('div');body.id='todoTaskItems';body.hidden=todoCollapsed[rotationWeekOffset];
  const collapse=heading.querySelector('.todo-collapse-toggle')||document.createElement('button');collapse.type='button';collapse.className='iconbtn todo-collapse-toggle';collapse.setAttribute('aria-controls',body.id);
  const refresh=()=>{body.hidden=todoCollapsed[rotationWeekOffset];collapse.setAttribute('aria-expanded',String(!body.hidden));setRecipeToolbarIcon(collapse,body.hidden?'expand':'collapse',body.hidden?'Expand to-do tasks':'Collapse to-do tasks')};
- collapse.onclick=()=>{todoCollapsed[rotationWeekOffset]=!todoCollapsed[rotationWeekOffset];if(rotationWeekOffset)todoNextWeekChosen=true;saveTodoCollapsed();refresh()};refresh();heading.replaceChildren(collapse,title,eye);section.replaceChildren(heading,body);
+ collapse.onclick=()=>{todoCollapsed[rotationWeekOffset]=!todoCollapsed[rotationWeekOffset];if(rotationWeekOffset)todoCollapsed.nextChosen=true;saveTodoCollapsed();refresh()};refresh();heading.replaceChildren(collapse,title,eye);section.replaceChildren(heading,body);
  for(const item of shown)body.append(makeAheadReminderRow(item,true));
  for(const item of shopRows)body.append(shopEarlyReminderRow(item));
  visibility?.remove();if(!old)header.after(section);
