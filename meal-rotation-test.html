@@ -2402,8 +2402,6 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 #recipeViewer .recipe-collapsed-tweak{display:none}
 #recipeViewer.recipe-header-collapsed .recipe-collapsed-tweak:not([hidden]){display:inline-flex;margin:0;flex:none}
 #recipeViewer.recipe-header-collapsed .recipe-tweaking-status{display:none!important}
-.meal-actions-toggle svg{transition:transform .16s ease}
-@media (prefers-reduced-motion:reduce){.meal-actions-toggle svg{transition:none}}
 
 .master-categories[data-groups-layout="two"] .master-group-section[data-group-section="weekly"]>.master-group-section-body,.master-categories[data-groups-layout="two"] .master-group-section[data-group-section="other"]>.master-group-section-body{align-items:stretch}
 .master-category-count:empty{display:none}
@@ -2419,6 +2417,9 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 #recipeViewer.recipe-header-collapsed .recipe-viewer-bar{position:relative}
 #recipeViewer.recipe-header-collapsed .recipe-viewer-bar::after{content:'';position:absolute;left:4%;right:4%;bottom:0;height:3px;border-radius:3px;background:#e5e8eb}
 #recipeViewer:has(.recipe-tab-strip:not([hidden])).recipe-header-collapsed .recipe-viewer-bar::after{display:none}
+.master-grocery-item,.manual-grocery-item{align-items:center}
+.master-grocery-item>.grocery-checkbox-target{margin-top:0}
+.master-grocery-item>.grocery-expand,.master-grocery-item>.grocery-item-edit{margin-top:-4px;margin-bottom:-4px}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -4311,8 +4312,7 @@ function toggleCookingItem(kind,token){
  renderRecipeViewer();
  if(kind==='steps'&&completing)scheduleRecipeAdvance(view,token);
 }
-function smoothRecipeHeader(view,change){const panes=[...view.cover.querySelectorAll('.recipe-pane')],ok=smoothAnimations&&panes.length&&!matchMedia('(prefers-reduced-motion: reduce)').matches;const before=ok?panes[0].getBoundingClientRect().top:0;change();if(!ok)return;const delta=before-panes[0].getBoundingClientRect().top;if(Math.abs(delta)<4)return;for(const pane of panes){pane.getAnimations?.().forEach(x=>x.cancel());pane.animate([{transform:'translateY('+delta+'px)'},{transform:'none'}],{duration:160,easing:'ease-out'})}view.cover.querySelector('.recipe-header')?.animate?.([{opacity:0},{opacity:1}],{duration:160})}
-function toggleRecipeHeaderCollapse(collapse){const view=recipeViewer;if(!view)return;view.headerCollapsed=!!collapse;recipeViewPrefs.headerCollapsed=!!collapse;saveRecipeViewPrefs();smoothRecipeHeader(view,()=>view.cover.classList.toggle('recipe-header-collapsed',!!collapse));const t=view.cover.querySelector('.recipe-collapsed-bar .recipe-collapse-toggle');if(t)t.setAttribute('aria-expanded',String(!collapse));(view.cover.querySelector(collapse?'.recipe-collapsed-bar .recipe-collapse-toggle':'.recipe-collapse-hide'))?.focus?.({preventScroll:true});view.syncGeometry?.()}
+function toggleRecipeHeaderCollapse(collapse){const view=recipeViewer;if(!view)return;view.headerCollapsed=!!collapse;recipeViewPrefs.headerCollapsed=!!collapse;saveRecipeViewPrefs();view.cover.classList.toggle('recipe-header-collapsed',!!collapse);const t=view.cover.querySelector('.recipe-collapsed-bar .recipe-collapse-toggle');if(t)t.setAttribute('aria-expanded',String(!collapse));(view.cover.querySelector(collapse?'.recipe-collapsed-bar .recipe-collapse-toggle':'.recipe-collapse-hide'))?.focus?.({preventScroll:true});view.syncGeometry?.()}
 function buildRecipeTitleHeader(view,meal,multiplier){
  const header=document.createElement('div');header.className='recipe-header';
 
@@ -7613,7 +7613,7 @@ function makeSettingsGroup(key,title){
   chevron.innerHTML='<path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>';
   summary.append(chevron);
   const content=document.createElement('div');content.className='settings-group-content';
-  details.append(summary,content);animateDetailsToggle(details);return {details,content};
+  details.append(summary,content);return {details,content};
 }
 // Short settings groups stay open rather than requiring an extra chevron.
 function settingsFlatGroup(title){
@@ -8204,19 +8204,10 @@ function setPlanCardExpanded(card,open){
  if(open){expandedPlanCards.clear();expandedPlanCards.add(key);for(const other of document.querySelectorAll('.plan-meal-card.plan-card-expanded'))if(other!==card)setPlanCardExpanded(other,false)}else expandedPlanCards.delete(key);
  card.classList.toggle('plan-card-expanded',open);const panel=card.querySelector('.expanded-meal-actions'),button=card.querySelector('.meal-actions-toggle');if(panel)panel.hidden=!open;button?.setAttribute('aria-expanded',String(open));
 }
-function animatePlanCardHeight(card,from){try{if(!smoothAnimations||matchMedia('(prefers-reduced-motion: reduce)').matches||!card.animate)return;const to=card.offsetHeight;if(!from||!to||Math.abs(from-to)<4)return;card.getAnimations?.().forEach(x=>x.cancel());const prev=card.style.overflow;card.style.overflow='hidden';const anim=card.animate([{height:from+'px'},{height:to+'px'}],{duration:160,easing:'ease-out'});const done=()=>{card.style.overflow=prev};anim.onfinish=done;anim.oncancel=done}catch(e){}}
-// Smooth open and close (Settings switch, default on; reduced motion always wins). One helper animates height for every expandable area.
-const SMOOTH_ANIMATION_KEY='mealRotationSmoothAnimationV1';let smoothAnimations=(()=>{try{return testStorage.getItem(SMOOTH_ANIMATION_KEY)!=='false'}catch(e){return true}})();
-function smoothToggle(find,change){const el=smoothAnimations?find():null,from=el?.offsetHeight;change();if(!el||!from)return;const next=find();if(next)animatePlanCardHeight(next,from)}
-function animateDetailsToggle(details){const summary=details.querySelector(':scope>summary'),content=details.querySelector(':scope>.settings-group-content');if(!summary||!content)return;
- summary.addEventListener('click',e=>{if(!smoothAnimations||!details.animate||matchMedia('(prefers-reduced-motion: reduce)').matches)return;e.preventDefault();details.getAnimations?.().forEach(x=>x.cancel());
-  const opening=!details.open,from=details.offsetHeight;let to;
-  if(opening){details.open=true;to=details.offsetHeight}else{const cs=getComputedStyle(content);to=Math.max(0,from-content.offsetHeight-parseFloat(cs.marginTop||0)-parseFloat(cs.marginBottom||0))}
-  if(Math.abs(from-to)<4){details.open=opening;return}
-  details.style.overflow='hidden';const anim=details.animate([{height:from+'px'},{height:to+'px'}],{duration:160,easing:'ease-out'});const done=()=>{details.style.overflow='';details.open=opening};anim.onfinish=done;anim.oncancel=done});}
+
 function togglePlanCard(card,open){const top=card.getBoundingClientRect().top,h0=card.offsetHeight;setPlanCardExpanded(card,open);if(open){const delta=card.getBoundingClientRect().top-top;if(delta)scrollBy({top:delta,behavior:'instant'});const sticky=document.querySelector('.meal-controls-sticky'),edge=(sticky?.getBoundingClientRect().bottom||0)+8;if(card.getBoundingClientRect().top<edge)scrollBy({top:card.getBoundingClientRect().top-edge,behavior:'instant'});
   // If the opened card runs under the bottom bar, bring it to the middle of the visible area (top-aligned when taller than that area). Cards that already fit don't move.
-  const navTop=document.getElementById('mealBottomNav')?.getBoundingClientRect().top||innerHeight,r=card.getBoundingClientRect(),room=navTop-edge-8;if(r.bottom>navTop-8)scrollBy({top:r.height>=room?r.top-edge:r.top+r.height/2-(edge+navTop)/2,behavior:'smooth'})}animatePlanCardHeight(card,h0)}
+  const navTop=document.getElementById('mealBottomNav')?.getBoundingClientRect().top||innerHeight,r=card.getBoundingClientRect(),room=navTop-edge-8;if(r.bottom>navTop-8)scrollBy({top:r.height>=room?r.top-edge:r.top+r.height/2-(edge+navTop)/2,behavior:'smooth'})}}
 
 function keepPlanCardScroll(){planCardReturnScroll={planId:activePlanId,week:rotationWeekOffset,y:scrollY}}
 function restorePlanCardScroll(){if(!planCardReturnScroll)return;const position=planCardReturnScroll;requestAnimationFrame(()=>{if(position.planId===activePlanId&&position.week===rotationWeekOffset&&showTop&&!groceryTabActive&&!allMealsActive&&editId===null){scrollTo({top:position.y,behavior:'instant'});if(planCardReturnScroll===position)planCardReturnScroll=null}})}
@@ -8406,7 +8397,7 @@ const displayGroup=makeSettingsGroup('display','Display'),collapsedOptions=docum
  const manualOrderCheck=document.createElement('input');manualOrderCheck.type='checkbox';manualOrderCheck.setAttribute('role','switch');manualOrderCheck.className='preference-switch';manualOrderCheck.checked=manualRecipeOrdering;
  manualOrderCheck.onchange=()=>{manualRecipeOrdering=manualOrderCheck.checked;saveManualRecipeOrdering();renderList()};
  manualOrderOption.append(manualOrderCheck,document.createTextNode('Enable manual recipe ordering'));displayGroup.content.append(manualOrderOption);
- {const smoothOption=document.createElement('label');smoothOption.className='settings-display-option';const smoothCheck=document.createElement('input');smoothCheck.type='checkbox';smoothCheck.setAttribute('role','switch');smoothCheck.className='preference-switch';smoothCheck.checked=smoothAnimations;smoothCheck.onchange=()=>{smoothAnimations=smoothCheck.checked;try{testStorage.setItem(SMOOTH_ANIMATION_KEY,String(smoothAnimations))}catch(e){}};smoothOption.append(smoothCheck,document.createTextNode('Smooth open and close'));displayGroup.content.append(smoothOption)}
+
 
 const sizeWrap=document.createElement('div');sizeWrap.className='meal-text-size-setting';
 const sizeLabel=document.createElement('label');sizeLabel.textContent='Text Size';sizeLabel.htmlFor='mealTextSizeSelect';
@@ -10867,7 +10858,7 @@ function renderMasterCategories(list){
   toggle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(open?'m6 15 6-6 6 6':'m6 9 6 6 6-6')+'"/></svg>';
   const name=document.createElement('span');name.className='master-group-section-name';name.textContent=label;
   const count=document.createElement('span');count.className='master-group-section-count';const n=key==='unassigned'?meals.filter(m=>m.cat==='').length:members.length;count.textContent=key==='unassigned'?n+' '+(n===1?'meal':'meals'):n+' '+(n===1?'group':'groups');
-  toggle.append(name,count);toggle.onclick=()=>{masterExpansionInitialized=true;if(open)for(const cat of members)masterExpandedCategories.delete(cat);else for(const other of ['weekly','other','unassigned'])if(other!==key){setGroupPageSectionOpen(other,false);for(const cat of displayedGroups)if(sectionOf(cat)===other)masterExpandedCategories.delete(cat)}setGroupPageSectionOpen(key,!open);renderList({readOnly:true})};{const run=toggle.onclick;toggle.onclick=()=>smoothToggle(()=>document.querySelector('.master-group-section[data-group-section="'+key+'"]'),run)}
+  toggle.append(name,count);toggle.onclick=()=>{masterExpansionInitialized=true;if(open)for(const cat of members)masterExpandedCategories.delete(cat);else for(const other of ['weekly','other','unassigned'])if(other!==key){setGroupPageSectionOpen(other,false);for(const cat of displayedGroups)if(sectionOf(cat)===other)masterExpandedCategories.delete(cat)}setGroupPageSectionOpen(key,!open);renderList({readOnly:true})};
   const body=document.createElement('div');body.className='master-group-section-body';body.hidden=!open;box.append(toggle,body);wrap.append(box);groupSections.set(key,body);
  }
  for(const category of displayedGroups){ 
@@ -10884,7 +10875,6 @@ function renderMasterCategories(list){
   const expanded=!groupReorderState&&masterExpandedCategories.has(category);card.classList.toggle('master-category-open',expanded);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='master-category-title';toggle.setAttribute('aria-expanded',String(expanded));
   toggle.onclick=()=>{if(groupReorderState)return;masterExpansionInitialized=true;const opening=!masterExpandedCategories.has(category);if(!opening&&recipeBulkMode&&category===recipeBulkSourceGroup){masterExpandedCategories.delete(category);endRecipeBulk();return}if(opening){if(!recipeBulkMode){masterExpandedCategories.clear();if(category&&groupUsesRotation(category)){setMasterRecipeSectionOpen(category,'rotation',true);setMasterRecipeSectionOpen(category,'up-next',false)}}masterExpandedCategories.add(category)}else masterExpandedCategories.delete(category);if(recipeBulkMode){recipeBulkFocus={cat:category,rotation:true};bulkRecipeRender()}else renderList();if(opening&&!recipeBulkMode)requestAnimationFrame(()=>{const target=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category);if(target)target.scrollIntoView({behavior:'smooth',block:'start'});});};
-  {const run=toggle.onclick;toggle.onclick=e=>smoothToggle(()=>[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category),()=>run(e))}
   const chevron=document.createElementNS('http://www.w3.org/2000/svg','svg');chevron.setAttribute('viewBox','0 0 24 24');chevron.setAttribute('aria-hidden','true');chevron.innerHTML=expanded?'<path d="m6 15 6-6 6 6"/>':'<path d="m6 9 6 6 6-6"/>';toggle.append(chevron);
   const name=document.createElement('strong');name.textContent=(category||'Unassigned')+' ('+categoryMeals.length+')';toggle.append(name);
   const count=document.createElement('span');count.className='master-category-count';toggle.append(count);{const days=category?groupDayAbbreviations(category):[];if(days.length){const line=document.createElement('span');line.className='master-category-days';line.textContent=days.join(' · ');count.append(line)}}
@@ -10910,7 +10900,6 @@ function renderMasterCategories(list){
     const sectionName=document.createElement('span');sectionName.className='master-recipe-section-name';sectionName.textContent=label;
     const sectionCount=document.createElement('span');sectionCount.className='master-recipe-section-count';sectionCount.textContent='('+groupMeals.length+')';group.append(chevron,sectionName,sectionCount);
     group.onclick=e=>{e.preventDefault();e.stopPropagation();const wasOpen=masterRecipeSectionOpen(category,rot);setMasterRecipeSectionOpen(category,rot,!wasOpen);if(wasOpen&&recipeBulkMode&&category===recipeBulkSourceGroup&&rot===recipeBulkSubgroup){endRecipeBulk();return}if(!wasOpen&&!recipeBulkMode){setMasterRecipeSectionOpen(category,rot==='rotation'?'up-next':'rotation',false);renderList();requestAnimationFrame(()=>{const target=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category)?.querySelector('.master-recipe-section[data-recipe-section="'+rot+'"]>.master-category-group-head, .master-recipe-section[data-recipe-section="'+rot+'"]>.master-category-group-label');target?.scrollIntoView({behavior:'smooth',block:'start'})});return}if(recipeBulkMode){recipeBulkFocus={cat:category,rotation:rot};bulkRecipeRender()}else renderList();document.getElementById(bodyId)?.previousElementSibling?.querySelector?.('.master-category-group-label')?.focus({preventScroll:true})};
-    {const run=group.onclick;group.onclick=e=>smoothToggle(()=>[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category),()=>run(e))}
     const sectionBody=document.createElement('div');sectionBody.className='master-recipe-section-recipes';sectionBody.id=bodyId;sectionBody.hidden=!open;if(rot!=='all'){const head=document.createElement('div');head.className='master-category-group-head';head.append(group);if(open&&!recipeBulkMode&&!groupReorderState){const pick=document.createElement('button');pick.type='button';pick.className='iconbtn group-organize group-section-organize';pick.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="8" height="8" rx="1"/><path d="m3.8 6 1.6 1.6 2.8-3M15 6h7"/><rect x="2" y="14" width="8" height="8" rx="1"/><path d="m3.8 18 1.6 1.6 2.8-3M15 18h7"/></svg>';pick.title='Select meals in '+label;pick.setAttribute('aria-label',pick.title);pick.onclick=e=>{e.preventDefault();e.stopPropagation();beginRecipeBulkGroup(category,null,rot)};head.append(pick)}section.append(head)}section.append(sectionBody);items.append(section);
     for(const m of groupMeals){
      const row=document.createElement('div');row.className='master-category-meal';row.dataset.mealId=String(m.id);const manualMoves=[];if(featuredColorById.has(String(m.id))){row.style.backgroundColor=featuredColorById.get(String(m.id));row.style.borderRadius='8px';row.classList.add('featured-top-meal')}bindMealSwipe(row,m);

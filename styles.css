@@ -2550,8 +2550,6 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 #recipeViewer .recipe-collapsed-tweak{display:none}
 #recipeViewer.recipe-header-collapsed .recipe-collapsed-tweak:not([hidden]){display:inline-flex;margin:0;flex:none}
 #recipeViewer.recipe-header-collapsed .recipe-tweaking-status{display:none!important}
-.meal-actions-toggle svg{transition:transform .16s ease}
-@media (prefers-reduced-motion:reduce){.meal-actions-toggle svg{transition:none}}
 
 .master-categories[data-groups-layout="two"] .master-group-section[data-group-section="weekly"]>.master-group-section-body,.master-categories[data-groups-layout="two"] .master-group-section[data-group-section="other"]>.master-group-section-body{align-items:stretch}
 .master-category-count:empty{display:none}
@@ -2567,3 +2565,6 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 #recipeViewer.recipe-header-collapsed .recipe-viewer-bar{position:relative}
 #recipeViewer.recipe-header-collapsed .recipe-viewer-bar::after{content:'';position:absolute;left:4%;right:4%;bottom:0;height:3px;border-radius:3px;background:#e5e8eb}
 #recipeViewer:has(.recipe-tab-strip:not([hidden])).recipe-header-collapsed .recipe-viewer-bar::after{display:none}
+.master-grocery-item,.manual-grocery-item{align-items:center}
+.master-grocery-item>.grocery-checkbox-target{margin-top:0}
+.master-grocery-item>.grocery-expand,.master-grocery-item>.grocery-item-edit{margin-top:-4px;margin-bottom:-4px}
