@@ -193,7 +193,7 @@ function weekSelector(offset,onChange){
 }
 function rotationWeekControls(){
  const controls=weekSelector(rotationWeekOffset,async value=>{if(!await confirmServingLeave()){renderList({readOnly:true});return}rotationWeekOffset=value;renderList({readOnly:true})});controls.classList.add('rotation-week-controls');
- const start=document.createElement('button');start.type='button';start.className='start-week-text';start.textContent='Start next week →';start.setAttribute('aria-label','Start next week');start.onclick=async()=>{if(await confirmServingLeave())openRotateOptions()};controls.append(start);return controls;
+ const start=document.createElement('button');start.type='button';start.className='start-week-text';start.textContent='Start next week →';start.setAttribute('aria-label','Start next week');start.onclick=async()=>{if(await confirmServingLeave())openRotateOptions()};if(startNextWeekDue())start.classList.add('start-week-due');controls.append(start);return controls;
 }
 function appendWeekdayDate(heading,date){
  const label=document.createElement('small');label.className='weekday-date';label.textContent=' · '+date.toLocaleDateString(undefined,{month:'short',day:'numeric'});heading.append(label);
@@ -2112,7 +2112,7 @@ function setSlotPin(plan,item,on){
 }
 function pinSvgMarkup(filled,size){return '<svg viewBox="0 0 24 24" width="'+size+'" height="'+size+'" fill="'+(filled?'currentColor':'none')+'" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">'+appIconSvg.pin+'</svg>'}
 function pinIconNode(label){const span=document.createElement('span');span.className='plan-pin-mark';span.setAttribute('role','img');span.setAttribute('aria-label',label);span.innerHTML=pinSvgMarkup(true,16);span.style.cssText='display:inline-flex;align-items:center;margin-left:4px;color:#5c6670;vertical-align:middle';return span}
-function openRotateOptions(allTabs=false){
+function openRotateOptions(allTabs=false,auto=false){
  // Reuse the existing active-plan scope; hidden plans are never included implicitly.
  const plans=allTabs?mealPlans:mealPlans.filter(plan=>plan.id===activePlanId);
  const shown=plans.flatMap(plan=>{const rows=displayedRotationSelectionEntries(plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides}:plan).filter(item=>!item.emptyAssigned&&rotationSelectable(item,plan)&&!(item.emptyWeek&&item.cat!=='@day'&&!(plan.id===activePlanId?getDayCategories(item.day):[].concat(plan.weekdayCategories?.[item.day]||[])).includes(item.cat))),out=[];for(const day of orderedDays()){const own=rows.filter(item=>item.day===day);if(own.length)out.push(...own);else out.push({day,cat:'@day',dayPlaceholder:true,emptyWeek:true,scheduleOnly:true,meal:{id:'empty:'+plan.id+':'+day,name:'—',cat:'@day',ingredients:[]}})}return out.map(item=>({...item,planId:plan.id,planName:plan.name}))});
@@ -2147,7 +2147,18 @@ function openRotateOptions(allTabs=false){
    undo.startWeekUndo=true;undo.skippedCookingState={keys:[...keys],...cookingBefore};history[history.length-1]=JSON.stringify(undo);
   }
  };
- d.panel.append(list,label,apply);decoratePreferenceSwitches(d.panel);close.focus({preventScroll:true});
+ if(auto){const row=document.createElement('div');row.className='start-week-actions';const later=document.createElement('button');later.type='button';later.className='smallbtn';later.textContent='Not yet';later.onclick=d.close;row.append(apply,later);d.panel.append(list,label,row)}else d.panel.append(list,label,apply);decoratePreferenceSwitches(d.panel);close.focus({preventScroll:true});
+}
+// New-week prompt (2026-11-23): once per week, on the Meals page, when the calendar has reached a new week and
+// the plan has not been advanced yet. Not yet / X just close; the 'Start next week' link then shows a dot until it is done.
+const START_WEEK_PROMPT_KEY='mealRotationStartWeekPromptedV1';
+function startNextWeekDue(plan=mealPlans.find(p=>p.id===activePlanId)){return !!plan&&cookingLocalDate(cookingPlanningWeekStart())>cookingLocalDate(mealPlanWeekStart(plan))}
+function maybePromptStartNextWeek(){
+ if(!showTop||editId!==null||recipeViewer||groceryTabActive||document.hidden||document.querySelector('[role="dialog"],.modal-overlay,.recipe-timer-dialog'))return;
+ const plan=mealPlans.find(p=>p.id===activePlanId);if(!startNextWeekDue(plan))return;
+ const week=plan.id+'|'+cookingLocalDate(cookingPlanningWeekStart());let saved={};try{saved=JSON.parse(localStorage.getItem(START_WEEK_PROMPT_KEY)||'{}')||{}}catch(e){}
+ if(saved.week===week)return;try{localStorage.setItem(START_WEEK_PROMPT_KEY,JSON.stringify({week}))}catch(e){return}
+ openRotateOptions(false,true);
 }
 function displayedRotationSelectionEntries(plan){
  const days=orderedDays();return rotationSelectionEntries(plan).sort((a,b)=>days.indexOf(a.day)-days.indexOf(b.day));
@@ -5080,7 +5091,7 @@ document.addEventListener('click',e=>{
 
 mealPersistence.showRecovery({normalize:normalizeImportedBackup,validate:validateBackupStorage,validateCore:d=>validateBackupStorage(normalizeImportedBackup(d))});
 if(!mealPersistence.recovery){
- try{rotationCalendarTrackingReady=true;render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');syncCookingTimer();syncMakeAheadLocalDay()}catch(error){mealPersistence.failStartup(error)}
+ try{rotationCalendarTrackingReady=true;render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');syncCookingTimer();syncMakeAheadLocalDay();setTimeout(maybePromptStartNextWeek,800)}catch(error){mealPersistence.failStartup(error)}
  if(!mealPersistence.recovery){showRecipePhotoRestoreNotice();resumeRecipeViewer();if(builtinSidesMigrationNotice)setTimeout(()=>showAppMessage(builtinSidesMigrationNotice),0)}
 }
 

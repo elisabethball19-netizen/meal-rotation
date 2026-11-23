@@ -2596,3 +2596,6 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 body.recipe-bulk-select .master-categories .master-category-meal.recipe-bulk-other-group{grid-template-columns:minmax(0,1fr)!important}
 body.recipe-bulk-select .master-categories .master-category-meal.recipe-bulk-other-group>.master-meal-info{grid-column:1!important}
 body.recipe-bulk-select .master-categories .shared-meal-name-line.has-name-badges,body.recipe-bulk-select .master-categories .shared-meal-name-line.has-name-badges.has-group-flag{padding-right:0!important}
+
+.start-next-week-dialog .start-week-actions{display:flex;gap:10px;align-items:stretch}.start-next-week-dialog .start-week-actions>button{flex:1 1 0;min-width:0}.start-next-week-dialog .start-week-actions>button:first-child{flex:2 1 0}
+.week-selector .start-week-text.start-week-due{position:relative}.week-selector .start-week-text.start-week-due::before{content:"";position:absolute;top:4px;left:-1px;width:7px;height:7px;border-radius:50%;background:#d97a00}

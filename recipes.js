@@ -1448,7 +1448,7 @@ function renderTodayTodo(provided=null){
 let makeAheadDayTimer=null,makeAheadLocalDay=null;
 function syncMakeAheadLocalDay(event=null){
  clearTimeout(makeAheadDayTimer);if(document.hidden)return;
- const now=new Date(),today=cookingLocalDate(now);if(today!==makeAheadLocalDay||['focus','pageshow','visibilitychange'].includes(event?.type)){makeAheadLocalDay=today;if((allMealsActive||rotationWeekOffset)&&showTop&&!groceryTabActive&&editId===null)renderList();else renderTodayTodo()}
+ const now=new Date(),today=cookingLocalDate(now);if(today!==makeAheadLocalDay||['focus','pageshow','visibilitychange'].includes(event?.type)){makeAheadLocalDay=today;if((allMealsActive||rotationWeekOffset)&&showTop&&!groceryTabActive&&editId===null)renderList();else renderTodayTodo();if(typeof maybePromptStartNextWeek==='function')setTimeout(maybePromptStartNextWeek,400)}
  const midnight=new Date(now);midnight.setHours(24,0,0,50);makeAheadDayTimer=setTimeout(syncMakeAheadLocalDay,Math.max(100,midnight-now));
 }
 window.addEventListener('focus',syncMakeAheadLocalDay);window.addEventListener('pageshow',syncMakeAheadLocalDay);window.addEventListener('pagehide',()=>clearTimeout(makeAheadDayTimer));document.addEventListener('visibilitychange',syncMakeAheadLocalDay);
