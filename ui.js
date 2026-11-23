@@ -405,9 +405,9 @@ function openPlanCardScale(plan,entry,preview){
  if(scaleStorageInvalid||groceryCheckStorageInvalid||!entry.meal)return;
  const context=preview?pendingContext(plan,entry):cookingContext(plan.id,entry.day,entry.cat,entry.meal,entry.linkedTo),current=planEntryMultiplier(plan,entry,preview);
  const d=recipeBulkDialog('Scale '+(entry.meal.name||'meal'),null,true);d.panel.classList.add('serving-add-dialog');
- const grid=document.createElement('div');grid.className='recipe-scale-grid';const input=document.createElement('input');
+ const grid=document.createElement('div');grid.className='recipe-scale-grid';const input=document.createElement('input');grid.style.cssText='display:flex;gap:6px;flex-wrap:nowrap;margin:2px 0 0';
  const sync=()=>{for(const b of grid.children)b.setAttribute('aria-pressed',String(Number(b.dataset.multiplier)===Number(input.value)))};
- for(const [value,text]of [[.5,'½×'],[1,'1×'],[1.5,'1½×'],[2,'2×'],[3,'3×']]){const b=document.createElement('button');b.type='button';b.className='recipe-scale-option';b.textContent=text;b.dataset.multiplier=String(value);b.onclick=()=>{input.value=String(value);input.setCustomValidity('');sync()};grid.append(b)}
+ for(const [value,text]of [[.5,'½×'],[1,'1×'],[1.5,'1½×'],[2,'2×'],[3,'3×']]){const b=document.createElement('button');b.type='button';b.className='recipe-scale-option';b.textContent=text;b.dataset.multiplier=String(value);b.style.cssText='flex:1 1 0;min-width:0;padding:10px 0;font-size:16px';b.onclick=()=>{input.value=String(value);input.setCustomValidity('');sync()};grid.append(b)}
  const custom=document.createElement('label');custom.className='recipe-scale-custom';custom.append(document.createTextNode('Other'));input.type='number';input.inputMode='decimal';input.min='0';input.step='any';input.value=String(current);input.setAttribute('aria-label','Other multiplier');input.style.cssText='width:7em;flex:none';input.oninput=()=>{input.setCustomValidity('');sync()};custom.append(input);
  const note=document.createElement('p');note.className='muted';note.textContent='Scaling applies to this meal and its groceries, this week only.';note.style.cssText='margin:6px 0 0;font-size:14px';custom.style.cssText='display:flex;align-items:center;gap:12px;margin:10px 0 0';
  d.panel.append(grid,custom,note);sync();
