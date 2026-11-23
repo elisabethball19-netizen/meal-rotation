@@ -2552,3 +2552,7 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 #recipeViewer.recipe-header-collapsed .recipe-tweaking-status{display:none!important}
 .meal-actions-toggle svg{transition:transform .16s ease}
 @media (prefers-reduced-motion:reduce){.meal-actions-toggle svg{transition:none}}
+
+/* Two groups on one day: the main group colors the card; the other group's color is a thin edge on the right. (Cards force background-image:none, so this cannot be a gradient.) */
+#list .plan-meal-card[data-second-group-edge]{position:relative}
+#list .plan-meal-card[data-second-group-edge]::after{content:'';position:absolute;right:0;top:0;bottom:0;width:6px;background:var(--second-group-edge);border-radius:0 8px 8px 0;pointer-events:none}
