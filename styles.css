@@ -2582,3 +2582,12 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 .master-categories .shared-meal-name-line.has-name-badges>.recipe-personal-name>.master-category-meal-name,.master-categories .shared-meal-name-line.has-name-badges>.master-category-meal-name{display:contents}
 .master-categories .name-badge-tail{white-space:nowrap}.master-categories .name-badge-tail>.needs-tweaking-icon,.master-categories .name-badge-tail>.group-scale-badge{display:inline-flex;vertical-align:middle;position:static;transform:none}.master-categories .name-badge-tail-word{cursor:pointer}
 .master-categories .name-badge-tail>.group-row-flag{margin:-12px 0 -12px 2px;width:32px;min-width:32px}
+
+/* v339: tighter Meals page week cards (about a third less space between group, name, last cooked and sides). */
+.plan-meal-card .plan-card-details{margin-top:1px}
+.plan-meal-card .plan-detail,.plan-meal-card .plan-cooked-detail.meal-options-last-cooked{margin:0!important;min-height:17px!important;line-height:1.25}
+.plan-meal-card .plan-cooked-detail.meal-options-last-cooked{min-height:21px!important;margin:-2px 0!important}
+.plan-meal-card .plan-linked-names{gap:0}
+.plan-meal-card .top-inline-linked{margin:2px 0 0}
+.plan-meal-card .plan-linked-names button{padding:0;min-height:20px}
+.plan-meal-card .plan-linked-names .plan-side-line,.plan-meal-card .plan-linked-names .plan-side-heading{min-height:20px}
