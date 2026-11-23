@@ -2192,6 +2192,11 @@ function entryDisplayGroup(entry){const cat=entry.cat;if(!cat||cat==='@day')retu
 // Colors belong to weekdays (colorForDay). A group shows one dot per assigned day, in that day's color.
 function groupDayColors(category){return orderedDays().filter(day=>masterDisplayCategories(day).includes(category)).map(colorForDay)}
 function colorForGroup(category){return groupDayColors(category)[0]||null}
+function fillGroupDaysLine(line,days){
+ line.textContent='';days.forEach((day,index)=>{const item=document.createElement('span');item.className='group-day-abbr'+(index===days.length-1?' group-day-last':'');item.textContent=day;line.append(item);if(index<days.length-1)line.append(document.createTextNode(' '))});
+ const trim=()=>{if(!line.isConnected)return;const items=[...line.querySelectorAll('.group-day-abbr')];items.forEach((item,index)=>{const next=items[index+1];item.classList.toggle('group-day-edge',!!next&&Math.abs(next.offsetTop-item.offsetTop)>2)})};
+ requestAnimationFrame(trim);if(window.ResizeObserver){const observer=new ResizeObserver(()=>{if(!line.isConnected){observer.disconnect();return}trim()});observer.observe(line)}
+}
 function groupDayAbbreviations(category){return orderedDays().filter(d=>masterDisplayCategories(d).includes(category)).map(d=>String(d).slice(0,3))}
 function masterDisplayColor(category){return colorForGroup(category)||'#ffffff'}
 
@@ -2987,7 +2992,7 @@ function renderMasterCategories(list){
   toggle.onclick=()=>{if(groupReorderState)return;masterExpansionInitialized=true;const opening=!masterExpandedCategories.has(category);if(!opening&&recipeBulkMode&&category===recipeBulkSourceGroup){masterExpandedCategories.delete(category);endRecipeBulk();return}if(opening){if(!recipeBulkMode){masterExpandedCategories.clear();if(category&&groupUsesRotation(category)){setMasterRecipeSectionOpen(category,'rotation',true);setMasterRecipeSectionOpen(category,'up-next',false)}}masterExpandedCategories.add(category)}else masterExpandedCategories.delete(category);if(recipeBulkMode){recipeBulkFocus={cat:category,rotation:true};bulkRecipeRender()}else renderList();if(opening&&!recipeBulkMode)requestAnimationFrame(()=>{const target=[...document.querySelectorAll('.master-category-card')].find(el=>el.dataset.category===category);if(target)target.scrollIntoView({behavior:'smooth',block:'start'});});};
   const chevron=document.createElementNS('http://www.w3.org/2000/svg','svg');chevron.setAttribute('viewBox','0 0 24 24');chevron.setAttribute('aria-hidden','true');chevron.innerHTML=expanded?'<path d="m6 15 6-6 6 6"/>':'<path d="m6 9 6 6 6-6"/>';toggle.append(chevron);
   const name=document.createElement('strong'),nameText=document.createElement('span'),nameCount=document.createElement('span');nameText.className='group-name-text';nameText.textContent=category||'Unassigned';nameCount.className='group-name-count';nameCount.textContent=' ('+categoryMeals.length+')';name.append(nameText,nameCount);toggle.append(name);
-  const count=document.createElement('span');count.className='master-category-count';toggle.append(count);{const days=category?groupDayAbbreviations(category):[];if(days.length){const line=document.createElement('span');line.className='master-category-days';line.textContent=days.join(' · ');count.append(line)}}
+  const count=document.createElement('span');count.className='master-category-count';toggle.append(count);{const days=category?groupDayAbbreviations(category):[];if(days.length){const line=document.createElement('span');line.className='master-category-days';count.append(line);fillGroupDaysLine(line,days)}}
 
   header.append(toggle);
   {
