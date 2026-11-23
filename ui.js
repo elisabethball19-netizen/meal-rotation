@@ -2177,7 +2177,7 @@ function masterDisplayCategories(day){const plan=masterDisplayPlan();const raw=p
 function masterDisplayOrder(){const assigned=[];for(const day of orderedDays())for(const c of masterDisplayCategories(day))if(!assigned.includes(c))assigned.push(c);return [...assigned,...cats.filter(c=>!assigned.includes(c))];}
 // Part 2c: an active group wears the same weekday colors as its cards on the Meals page (split stripe when it spans days).
 // One color per group (user, 2026-11-19 design): derived from the active plan, nothing saved. Each group takes the color of its first assigned day (in display order); if another group already holds it, the next unused weekday color is used. Weekend (Sat + Sun) is one teal on both days.
-function groupColorMap(){const map=new Map(),used=new Set(),palette=orderedDays().map(colorForDay);for(const day of orderedDays())for(const cat of masterDisplayCategories(day)){if(map.has(cat))continue;let color=colorForDay(day);if(used.has(color))color=palette.find(c=>!used.has(c))||color;used.add(color);map.set(cat,color)}return map}
+function groupColorMap(){const map=new Map(),used=new Map(),palette=orderedDays().map(colorForDay);for(const day of orderedDays())for(const cat of masterDisplayCategories(day)){if(map.has(cat))continue;let color=colorForDay(day);if(used.has(color)&&used.get(color)!==day)color=palette.find(c=>!used.has(c))||color;if(!used.has(color))used.set(color,day);map.set(cat,color)}return map}
 function colorForGroup(category){return groupColorMap().get(category)||null}
 function groupDayColors(category){const c=colorForGroup(category);return c?[c]:[]}
 function groupDayAbbreviations(category){return orderedDays().filter(d=>masterDisplayCategories(d).includes(category)).map(d=>String(d).slice(0,3))}
