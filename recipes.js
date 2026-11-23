@@ -1461,11 +1461,18 @@ function explicitMarinadeLead(duration){
  const text=String(duration||'').trim();if(/^overnight$/i.test(text))return {daysBefore:1};
  const parsed=text&&parseMarinateInput(text),minutes=parsed&&(parsed.high??parsed.low);return Number.isFinite(minutes)&&minutes>0&&minutes<=878400*60?{daysBefore:0,hoursBefore:minutes/60}:null;
 }
+function prepProteinName(line){
+ let t=String(line||'').replace(/\s*\([^()]*\)/g,'').replace(/\s*\[[^\[\]]*\]/g,'').split(',')[0].trim();
+ t=t.replace(/^[\d\s\/.\u00bc-\u00be\u2150-\u215e-]+/,'').replace(/^(?:lbs?|pounds?|oz|ounces?|kg|g|grams?|cups?|pieces?|large|small|medium|whole|cans?)\b\.?\s*(?:of\s+)?/i,'');
+ t=t.replace(/\b(?:boneless|skinless|bone-in|skin-on|fresh|frozen|lean|extra|thick-cut|thin-cut|thinly\s+sliced|trimmed|raw|large|small|medium|whole|good-quality|organic|free-range)\b[\s,-]*/gi,'').replace(/\s{2,}/g,' ').trim();
+ if(/\b(?:chuck|brisket|sirloin|flank|skirt|tri-?tip|short\s+ribs?|ribeye|rump|oxtail)\b/i.test(t))t=t.replace(/^beef\s+/i,'');
+ return t.toLowerCase();
+}
 function automaticPrepSources(meal){
  const signature=JSON.stringify([meal.ingredients,meal.marinate,meal.instructions]);const key=meal.id===undefined?meal:String(meal.id),cached=automaticPrepCache.get(key);if(cached?.signature===signature)return cached.sources;
- const meats=(meal.ingredients||[]).map(line=>removeIngredientListMarker(String(line).trim())).filter(line=>!/^##/.test(line)&&/\b(chicken|beef|pork|lamb|turkey|duck|veal|venison|goat|rabbit|bison|salmon|tuna|shrimp|prawns?|cod|haddock|tilapia|trout|fish)\b/i.test(line)&&!/\b(stock|broth|bouillon|soup|sauce|gravy|seasoning|rub|powder|paste|extract|fat|lard|suet|gelatin|eggs?|noodles|flavou?r|tofu|seitan|flavou?red?|cooked|canned|tinned|rotisserie|smoked|deli|jerky|bacon|ham|sausage|vegan|vegetarian|plant[- ]based|substitute|imitation)\b/i.test(line)&&!/\b(?:or|optional)\b/i.test(line));
+ const meats=(meal.ingredients||[]).map(line=>removeIngredientListMarker(String(line).trim())).filter(line=>!/^##/.test(line)&&(!/:\s*$/.test(line))&&(/\b(chicken|beef|pork|lamb|turkey|duck|veal|venison|goat|rabbit|bison|salmon|tuna|shrimp|prawns?|cod|haddock|tilapia|trout|fish)\b/i.test(line)||(/\b(chuck|roasts?|brisket|steaks?|short\s+ribs?|ribs|shanks?|sirloin|tenderloins?|loin|tri-?tip|flank|skirt|shoulder|butt|drumsticks?|thighs?|breasts?|wings?|ground\s+(?:meat|mince)|mince|fillets?|ribeye|rump|oxtail)\b/i.test(line)&&!/\b(celery|milk|cabbage|lettuce|romaine|rice|potato(?:es)?|onion|cheese|egg|butter)\b/i.test(line)))&&!/\b(stock|broth|bouillon|soup|sauce|gravy|seasoning|rub|powder|paste|extract|fat|lard|suet|gelatin|eggs?|noodles|flavou?r|tofu|seitan|flavou?red?|cooked|canned|tinned|rotisserie|smoked|deli|jerky|bacon|ham|sausage|vegan|vegetarian|plant[- ]based|substitute|imitation)\b/i.test(line)&&!/\b(?:or|optional)\b/i.test(line));
  let marinade=explicitMarinadeLead(meal.marinate);if(!marinade){const text=normalizeMarinadeDurationWords(instructionBlocks(meal.instructions).map(block=>block.text).join('\n'));const match=text.match(/\bmarinat(?:e|es|ed|ing|ion)\b([^.!?\n]{0,150}?)\b(overnight|\d+(?:\.\d+)?(?:\s*[-–—]\s*\d+(?:\.\d+)?)?\s*(?:days?|hours?|hrs?|minutes?|mins?)\b(?:\s+\d+\s*(?:minutes?|mins?))?)/i);marinade=explicitMarinadeLead(match&&!/\b(cook|bake|roast|fry|simmer|rest|serve|then)\b/i.test(match[1])?match[2]:'')}
- const sources={meats,marinade};automaticPrepCache.set(key,{signature,sources});return sources;
+ const sources={meats,names:meats.map(prepProteinName).filter((name,i,all)=>name&&all.indexOf(name)===i),marinade};automaticPrepCache.set(key,{signature,sources});return sources;
 }
 function automaticPrepEnabled(kind){return makeAheadDisplayPrefs.showMakeAheadReminders&&makeAheadDisplayPrefs[kind==='defrost'?'automaticDefrost':'automaticMarinating']===true}
 function rawMakeAheadTasks(meal){return Array.isArray(meal.makeAheadTasks)?meal.makeAheadTasks:[]}
@@ -1476,18 +1483,18 @@ function recipeMakeAheadTasks(meal){
   if(!automaticPrepEnabled(kind))continue;const id='automatic-prep:'+kind+':v1',saved=raw.find(task=>task?.id===id);
   if(saved?.autoSuppressed)continue;if(saved){if(validRecipePrepTask(saved))tasks.push(saved);continue}
   // Equivalent authored/legacy tasks keep their exact wording, IDs, timing and checks.
-  if(manual.some(task=>(kind==='defrost'?/\b(defrost|thaw)\w*\b/i:/\bmarinat\w*\b/i).test(task.description)))continue;
-  if(kind==='marinating'&&sources.marinade)tasks.push({id,autoPrep:kind,description:'Marinate',...sources.marinade});
-  if(kind==='defrost'&&sources.meats.length)tasks.push({id,autoPrep:kind,description:'Defrost '+sources.meats.join(' and '),daysBefore:1});
+  if(manual.some(task=>(kind==='defrost'?/\b(defrost|thaw)\w*\b/i:/\b(?:marinat|marinad)\w*\b/i).test(task.description)))continue;
+  if(kind==='marinating'&&sources.marinade)tasks.push({id,autoPrep:kind,description:'Marinate'+(sources.names.length?' '+sources.names.join(' and '):''),...sources.marinade});
+  if(kind==='defrost'&&sources.meats.length)tasks.push({id,autoPrep:kind,description:'Defrost '+sources.names.join(' and '),daysBefore:1});
  }
  return tasks;
 }
 function projectedPreparationTasks(meal,scheduled,multiplier=1){
- const tasks=recipeMakeAheadTasks(meal),marinade=tasks.find(task=>task.autoPrep==='marinating'||/\bmarinat\w*\b/i.test(task.description))||rawMakeAheadTasks(meal).find(task=>task?.autoPrep==='marinating'&&validRecipePrepTask(task))||automaticPrepSources(meal).marinade;
+ const tasks=recipeMakeAheadTasks(meal),marinade=tasks.find(task=>task.autoPrep==='marinating'||/\b(?:marinat|marinad)\w*\b/i.test(task.description))||rawMakeAheadTasks(meal).find(task=>task?.autoPrep==='marinating'&&validRecipePrepTask(task))||automaticPrepSources(meal).marinade;
  return tasks.map(task=>{
   if(task.autoPrep!=='defrost'||task.autoEdited)return task;
   let daysBefore=1;if(marinade){const before=makeAheadDueDate(scheduled,marinade);before.setDate(before.getDate()-1);daysBefore=Math.max(1,Math.round((Date.UTC(scheduled.getFullYear(),scheduled.getMonth(),scheduled.getDate())-Date.UTC(before.getFullYear(),before.getMonth(),before.getDate()))/86400000))}
-  return {...task,...(task.autoTimingEdited?{}:{daysBefore}),description:'Defrost '+automaticPrepSources(meal).meats.map(line=>scaleRecipeIngredient(line,multiplier)).join(' and ')};
+  return {...task,...(task.autoTimingEdited?{}:{daysBefore}),description:'Defrost '+automaticPrepSources(meal).names.join(' and ')};
  });
 }
 function editedAutomaticTask(initial,draft){return {...draft,autoEdited:initial.autoEdited===true||draft.description!==initial.description,autoTimingEdited:initial.autoTimingEdited===true||draft.daysBefore!==initial.daysBefore||draft.hoursBefore!==initial.hoursBefore}}
@@ -1592,7 +1599,7 @@ function bindPreparationTaskPress(row,item){
 function makeAheadTaskDescription(item,todayContext=false){
  const planName=String(item.plan.name||'meal'),name=/^(breakfast|lunch|dinner|supper|snacks?|soups?|salads?)$/i.test(planName)?planName.toLocaleLowerCase():planName;
  const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);const useTomorrow=todayContext&&!rotationWeekOffset&&item.scheduled===cookingLocalDate(tomorrow),useToday=todayContext&&!rotationWeekOffset&&item.scheduled===cookingLocalDate(new Date()),group=String(item.entry.cat||'').trim(),slot=showMealPlanTabs&&/^(soups?|salads?|breakfast|lunch|dinner|supper|snacks?)$/i.test(group)?group.toLocaleLowerCase():name;
- let context=' for '+(useToday?'today':useTomorrow?'tomorrow':item.entry.day)+(showMealPlanTabs?'’s '+slot:'');
+ let context=(/^marinate$/i.test(String(item.task.description).trim())?' ':' for ')+(useToday?'today':useTomorrow?'tomorrow':item.entry.day)+(showMealPlanTabs?'’s '+slot:'');
  const displayedOffset=allMealsActive?overviewWeekOffset:rotationWeekOffset;
  if(item.preview&&!displayedOffset&&!useTomorrow&&!useToday)context+=' next week';
  return item.task.description+context;
