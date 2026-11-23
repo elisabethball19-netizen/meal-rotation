@@ -5,12 +5,12 @@ let lowerOpenGroups=new Set();
 let activeTabMenuId=null;
 function captureSettingsDraft(){
  saveActiveMealPlan();
- return JSON.stringify({weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,weekdayColors,pinnedCats,expandedCats,autoPinTopCategories,applyPinsToAllTabs,timeDisplayPrefs,mealTextSize,showLastCooked,showMakeAheadReminders:makeAheadDisplayPrefs.showMakeAheadReminders,automaticMarinating:makeAheadDisplayPrefs.automaticMarinating,automaticDefrost:makeAheadDisplayPrefs.automaticDefrost,manualRecipeOrdering,showMealPlanTabs,mealPlans,activePlanId,startWeekday,masterOpenMode,masterPinsOverride,familyTastes});
+ return JSON.stringify({weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters,weekdayColors,pinnedCats,expandedCats,autoPinTopCategories,applyPinsToAllTabs,timeDisplayPrefs,mealTextSize,showLastCooked,showMakeAheadReminders:makeAheadDisplayPrefs.showMakeAheadReminders,automaticMarinating:makeAheadDisplayPrefs.automaticMarinating,automaticDefrost:makeAheadDisplayPrefs.automaticDefrost,automaticSourdough:makeAheadDisplayPrefs.automaticSourdough,manualRecipeOrdering,showMealPlanTabs,mealPlans,activePlanId,startWeekday,masterOpenMode,masterPinsOverride,familyTastes});
 }
 function restoreSettingsDraft(json){
  if(!json)return;
  const state=JSON.parse(json);if(state.familyTastes)saveFamilyTastes(state.familyTastes);
- makeAheadDisplayPrefs.showMakeAheadReminders=state.showMakeAheadReminders!==false;for(const key of ['automaticMarinating','automaticDefrost'])if(typeof state[key]==='boolean')makeAheadDisplayPrefs[key]=state[key];saveMakeAheadDisplayPrefs();
+ makeAheadDisplayPrefs.showMakeAheadReminders=state.showMakeAheadReminders!==false;for(const key of ['automaticMarinating','automaticDefrost','automaticSourdough'])if(typeof state[key]==='boolean')makeAheadDisplayPrefs[key]=state[key];saveMakeAheadDisplayPrefs();
  if(['normal','large','extra'].includes(state.mealTextSize)){mealTextSize=state.mealTextSize;localStorage.setItem(mealTextSizeKey,mealTextSize);applyMealTextSize()}
  weekdayCategories=JSON.parse(JSON.stringify(state.weekdayCategories));weekdayMealOverrides={...state.weekdayMealOverrides};weekdayRecipeFilters=JSON.parse(JSON.stringify(state.weekdayRecipeFilters||{}));
  weekdayColors={...state.weekdayColors};pinnedCats=[...state.pinnedCats];expandedCats=[...state.expandedCats];

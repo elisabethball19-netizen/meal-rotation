@@ -1387,14 +1387,14 @@ function renderRecipeTweakingStatus(view,meal){
 }
 // Display preferences do not alter recipe tasks or dated occurrence completions.
 const MAKE_AHEAD_DISPLAY_KEY='mealRotationMakeAheadDisplayV1';
-let makeAheadDisplayPrefs={showMakeAheadReminders:true,showCompletedToday:false,automaticMarinating:false,automaticDefrost:false};
+let makeAheadDisplayPrefs={showMakeAheadReminders:true,showCompletedToday:false,automaticMarinating:false,automaticDefrost:false,automaticSourdough:false};
 try{const saved=JSON.parse(localStorage.getItem(MAKE_AHEAD_DISPLAY_KEY)||'null');for(const key of Object.keys(makeAheadDisplayPrefs))if(typeof saved?.[key]==='boolean')makeAheadDisplayPrefs[key]=saved[key]}catch(e){}
 function saveMakeAheadDisplayPrefs(){try{localStorage.setItem(MAKE_AHEAD_DISPLAY_KEY,JSON.stringify(makeAheadDisplayPrefs))}catch(e){}}
 function populateMakeAheadSetting(parent){
  const add=(key,text,container)=>{const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=makeAheadDisplayPrefs[key];check.onchange=()=>{makeAheadDisplayPrefs[key]=check.checked;saveMakeAheadDisplayPrefs();children.hidden=!makeAheadDisplayPrefs.showMakeAheadReminders;renderList()};label.append(check,document.createTextNode(text));container.append(label)};
  const children=document.createElement('div');children.className='automatic-prep-settings';children.hidden=!makeAheadDisplayPrefs.showMakeAheadReminders;
  add('showMakeAheadReminders','Show Make Ahead Reminders',parent);add('automaticMarinating','Automatic marinating reminders',children);add('automaticDefrost','Automatic defrost reminders',children);
- const hint=document.createElement('p');hint.className='muted';hint.textContent='Defrost reminders default to the night before.';children.append(hint);parent.append(children);
+ const hint=document.createElement('p');hint.className='muted';hint.textContent='Defrost reminders default to the night before.';children.append(hint);add('automaticSourdough','Automatic sourdough reminders',children);const sourdoughHint=document.createElement('p');sourdoughHint.className='muted';sourdoughHint.textContent='Feed your starter two days before, and start the bread the day before.';children.append(sourdoughHint);parent.append(children);
 }
 function setMakeAheadComplete(item,checked){
  const plan=mealPlans.find(plan=>plan.id===item.plan.id);if(!plan)return;
@@ -1472,9 +1472,9 @@ function automaticPrepSources(meal){
  const signature=JSON.stringify([meal.ingredients,meal.marinate,meal.instructions]);const key=meal.id===undefined?meal:String(meal.id),cached=automaticPrepCache.get(key);if(cached?.signature===signature)return cached.sources;
  const meats=(meal.ingredients||[]).map(line=>removeIngredientListMarker(String(line).trim())).filter(line=>!/^##/.test(line)&&(!/:\s*$/.test(line))&&(/\b(chicken|beef|pork|lamb|turkey|duck|veal|venison|goat|rabbit|bison|salmon|tuna|shrimp|prawns?|cod|haddock|tilapia|trout|fish)\b/i.test(line)||(/\b(chuck|roasts?|brisket|steaks?|short\s+ribs?|ribs|shanks?|sirloin|tenderloins?|loin|tri-?tip|flank|skirt|shoulder|butt|drumsticks?|thighs?|breasts?|wings?|ground\s+(?:meat|mince)|mince|fillets?|ribeye|rump|oxtail)\b/i.test(line)&&!/\b(celery|milk|cabbage|lettuce|romaine|rice|potato(?:es)?|onion|cheese|egg|butter)\b/i.test(line)))&&!/\b(stock|broth|bouillon|soup|sauce|gravy|seasoning|rub|powder|paste|extract|fat|lard|suet|gelatin|eggs?|noodles|flavou?r|tofu|seitan|flavou?red?|cooked|canned|tinned|rotisserie|smoked|deli|jerky|bacon|ham|sausage|vegan|vegetarian|plant[- ]based|substitute|imitation)\b/i.test(line)&&!/\b(?:or|optional)\b/i.test(line));
  let marinade=explicitMarinadeLead(meal.marinate);if(!marinade){const text=normalizeMarinadeDurationWords(instructionBlocks(meal.instructions).map(block=>block.text).join('\n'));const match=text.match(/\bmarinat(?:e|es|ed|ing|ion)\b([^.!?\n]{0,150}?)\b(overnight|\d+(?:\.\d+)?(?:\s*[-–—]\s*\d+(?:\.\d+)?)?\s*(?:days?|hours?|hrs?|minutes?|mins?)\b(?:\s+\d+\s*(?:minutes?|mins?))?)/i);marinade=explicitMarinadeLead(match&&!/\b(cook|bake|roast|fry|simmer|rest|serve|then)\b/i.test(match[1])?match[2]:'')}
- const sources={meats,names:meats.map(prepProteinName).filter((name,i,all)=>name&&all.indexOf(name)===i),marinade};automaticPrepCache.set(key,{signature,sources});return sources;
+ const sourdough=/\bsourdough\s+bread\b/i.test([meal.name,meal.title,...(meal.ingredients||[]),instructionBlocks(meal.instructions).map(block=>block.text).join('\n'),meal.notes].filter(Boolean).join('\n')),sources={meats,sourdough,names:meats.map(prepProteinName).filter((name,i,all)=>name&&all.indexOf(name)===i),marinade};automaticPrepCache.set(key,{signature,sources});return sources;
 }
-function automaticPrepEnabled(kind){return makeAheadDisplayPrefs.showMakeAheadReminders&&makeAheadDisplayPrefs[kind==='defrost'?'automaticDefrost':'automaticMarinating']===true}
+function automaticPrepEnabled(kind){return makeAheadDisplayPrefs.showMakeAheadReminders&&makeAheadDisplayPrefs[kind==='defrost'?'automaticDefrost':/^sourdough/.test(kind)?'automaticSourdough':'automaticMarinating']===true}
 function rawMakeAheadTasks(meal){return Array.isArray(meal.makeAheadTasks)?meal.makeAheadTasks:[]}
 function validRecipePrepTask(task){return task&&typeof task.id==='string'&&typeof task.description==='string'&&task.description.trim()&&validMakeAheadLead(task)&&!task.autoSuppressed}
 function recipeMakeAheadTasks(meal){
@@ -1486,6 +1486,11 @@ function recipeMakeAheadTasks(meal){
   if(manual.some(task=>(kind==='defrost'?/\b(defrost|thaw)\w*\b/i:/\b(?:marinat|marinad)\w*\b/i).test(task.description)))continue;
   if(kind==='marinating'&&sources.marinade)tasks.push({id,autoPrep:kind,description:'Marinate'+(sources.names.length?' '+sources.names.join(' and '):''),...sources.marinade});
   if(kind==='defrost'&&sources.meats.length)tasks.push({id,autoPrep:kind,description:'Defrost '+sources.names.join(' and '),daysBefore:1});
+ }
+ if(sources.sourdough)for(const [kind,description,daysBefore,pattern] of [['sourdough-feed','Feed the sourdough starter',2,/\b(?:feed|refresh)\w*\b[^.]{0,30}\bstarter\b/i],['sourdough-bread','Begin the bread',1,/\bbegin\s+the\s+(?:bread|dough)\b|\bstart\s+the\s+(?:bread|dough)\b/i]]){
+  if(!automaticPrepEnabled(kind))continue;const id='automatic-prep:'+kind+':v1',saved=raw.find(task=>task?.id===id);
+  if(saved?.autoSuppressed)continue;if(saved){if(validRecipePrepTask(saved))tasks.push(saved);continue}
+  if(manual.some(task=>pattern.test(task.description)))continue;tasks.push({id,autoPrep:kind,description,daysBefore});
  }
  return tasks;
 }
