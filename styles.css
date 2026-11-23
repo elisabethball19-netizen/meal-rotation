@@ -2591,3 +2591,8 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 .plan-meal-card .top-inline-linked{margin:2px 0 0}
 .plan-meal-card .plan-linked-names button{padding:0;min-height:20px}
 .plan-meal-card .plan-linked-names .plan-side-line,.plan-meal-card .plan-linked-names .plan-side-heading{min-height:20px}
+
+/* v340: rows outside the subgroup being bulk-edited keep their normal, un-indented layout. */
+body.recipe-bulk-select .master-categories .master-category-meal.recipe-bulk-other-group{grid-template-columns:minmax(0,1fr)!important}
+body.recipe-bulk-select .master-categories .master-category-meal.recipe-bulk-other-group>.master-meal-info{grid-column:1!important}
+body.recipe-bulk-select .master-categories .shared-meal-name-line.has-name-badges,body.recipe-bulk-select .master-categories .shared-meal-name-line.has-name-badges.has-group-flag{padding-right:0!important}
