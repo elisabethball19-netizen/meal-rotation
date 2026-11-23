@@ -2379,7 +2379,7 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 #recipeViewer .recipe-collapse-toggle svg{transition:transform .12s}
 #recipeViewer .recipe-collapse-hide{flex:0 0 100%;order:9;height:26px;margin:-4px 0 -6px}
 #recipeViewer .recipe-collapse-hide svg{transform:rotate(180deg)}
-#recipeViewer .recipe-header{flex-wrap:wrap;border-bottom:1px solid #e5e8eb;padding-bottom:2px}
+#recipeViewer .recipe-header{flex-wrap:wrap}
 #recipeViewer.recipe-header-collapsed .recipe-header{display:none!important}
 #recipeViewer.recipe-header-collapsed .recipe-viewer-bar{display:flex!important;flex-wrap:nowrap;align-items:center;gap:6px;padding-top:calc(6px + env(safe-area-inset-top,0px));padding-bottom:6px}
 #recipeViewer.recipe-header-collapsed .recipe-viewer-bar>.recipe-toolbar-icon:not(:first-child){display:none!important}
@@ -2387,6 +2387,16 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 #recipeViewer .recipe-collapsed-name{flex:1;min-width:0;font-weight:700;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #recipeViewer .recipe-collapse-dot{display:none;width:9px;height:9px;border-radius:50%;background:#5876ad;flex:none}
 #recipeViewer .recipe-viewer-bar>.recipe-keep-awake.active~.recipe-collapsed-bar .recipe-collapse-dot{display:block}
+
+/* Header lines + toolbar order (user, 2026-11-22): no line under the toolbar; one short rounded divider under the chevron; icons: Close, Split, Lightbulb, Open recipes, Reset, Settings. */
+#recipeViewer .recipe-viewer-bar{border-bottom:0!important}
+#recipeViewer .recipe-viewer-bar>.recipe-toolbar-icon{grid-row:1}
+#recipeViewer .recipe-header::after{content:'';order:10;flex:0 0 92%;height:3px;margin:8px auto 0;border-radius:3px;background:#e5e8eb}
+#recipeViewer .recipe-toolbar-icon.recipe-view-mode{grid-column:2;justify-self:center}
+#recipeViewer .recipe-toolbar-icon.recipe-keep-awake{grid-column:3;justify-self:center}
+#recipeViewer .recipe-toolbar-icon.recipe-open-recipes{grid-column:4;justify-self:center}
+#recipeViewer .recipe-toolbar-icon.recipe-reset{grid-column:5;justify-self:center}
+#recipeViewer .recipe-toolbar-icon.recipe-settings-toggle{grid-column:6;justify-self:end}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
