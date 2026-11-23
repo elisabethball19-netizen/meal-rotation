@@ -3179,6 +3179,8 @@ for(const day of orderedDays()){
 for(const entry of emptyWeekEntries(currentPlan)){
  const assigned=getDayCategories(entry.day),independent=getDisplayedWeekdayMealsForPlan(currentPlan,null,null,null,true).some(item=>item.day===entry.day&&item.cat===entry.cat&&item.occasional&&item.linkedTo==null);
  if(entry.cat!=='@day'&&!assigned.includes(entry.cat)&&!independent)continue;
+ // A leftover empty mark whose old meal is gone must not draw a second card beside the meal now in that slot.
+ if(entry.cat!=='@day'&&displayedTop.some(item=>item.day===entry.day&&item.cat===entry.cat&&item.meal&&item.linkedTo==null&&!item.temporaryEmpty))continue;
  for(let i=displayedTop.length-1;i>=0;i--)if(displayedTop[i].day===entry.day&&!displayedTop[i].meal&&!displayedTop[i].temporaryEmpty&&(entry.cat==='@day'||displayedTop[i].cat===entry.cat||displayedTop[i].cat==null))displayedTop.splice(i,1);
  displayedTop.push({...entry,meal:null,temporaryEmpty:true});
 }
