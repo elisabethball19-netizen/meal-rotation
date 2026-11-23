@@ -2563,3 +2563,4 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 .master-categories[data-groups-layout="two"] .master-category-card{display:flex;flex-direction:column}
 .master-categories[data-groups-layout="two"] .master-category-card>.master-category-header{flex:1;align-items:stretch}
 .master-categories[data-groups-layout="two"] .master-category-card>.master-category-header>.master-category-title{align-content:center;align-items:center}
+.master-category-header>.master-category-title{row-gap:0!important}.master-category-header>.master-category-title>.master-category-count{line-height:1.15}
