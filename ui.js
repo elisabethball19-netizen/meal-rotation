@@ -418,11 +418,13 @@ function openPlanCardScale(plan,entry,preview){
  });
 }
 function planCardDisclosure(card,label){const toggle=document.createElement('button');toggle.type='button';toggle.className='iconbtn meal-actions-toggle';setIconButton(toggle,'down',label);toggle.setAttribute('aria-expanded','false');(card.querySelector('.plan-card-recipe')||card).append(toggle);return toggle}
+// A day-only item like "Leftovers" (no group, no recipe text) is not cooked from a recipe, so it shows no Last cooked.
+function planMealIsRecipeless(meal){const has=v=>Array.isArray(v)?v.some(x=>String(x||'').trim()):String(v||'').trim()!=='';return !has(meal.ingredients)&&!has(meal.instructions)&&!has(meal.url)&&!has(meal.sourceUrl)}
 function planCardDetails(plan,entry,preview=false,tasks=null){
  const details=document.createElement('div');details.className='plan-card-details';const meal=entry.meal;
  const parts=[];for(const [key,label]of [['prep','prep'],['total','total']]){const raw=key==='total'?(meal.total||((Number(meal.prep)||0)+(Number(meal.cook)||0))):meal.prep;if(raw!==''&&raw!=null&&Number(raw)>0)parts.push(time(raw)+' '+label)}
  {const marinate=String(meal.marinate||'').trim()?displayMarinateTime(meal.marinate)+' marinate':'',line=document.createElement('div');line.className='plan-detail plan-time-line';line.dataset.collapsedVisible=String(!!(parts.length&&timeDisplayPrefs.top.cooking||marinate&&timeDisplayPrefs.top.marinate));for(const [field,text,visible]of [['plan-cooking-detail',parts.join(' · '),timeDisplayPrefs.top.cooking],['plan-marinate-detail',marinate,timeDisplayPrefs.top.marinate]])if(text){const part=document.createElement('span');part.className='plan-time-part '+field;part.dataset.collapsedVisible=String(visible);part.textContent=text;line.append(part)}if(line.childElementCount)details.append(line)}
- {const date=document.createElement('button');date.type='button';date.className='plan-detail plan-cooked-detail meal-options-last-cooked';date.dataset.collapsedVisible=String(showLastCooked);setLastCookedValue(date,meal);date.setAttribute('aria-label','Edit last cooked date for '+meal.name);date.onclick=e=>{e.stopPropagation();keepPlanCardScroll();editMealCookedDate(meal,null,preview?pendingContext(plan,entry):cookingContext(plan.id,entry.day,entry.cat,meal,entry.linkedTo));watchPlanCardReturn()};details.append(date)}
+ if(!(!entry.cat||entry.cat==='@day')||!planMealIsRecipeless(meal)){const date=document.createElement('button');date.type='button';date.className='plan-detail plan-cooked-detail meal-options-last-cooked';date.dataset.collapsedVisible=String(showLastCooked);setLastCookedValue(date,meal);date.setAttribute('aria-label','Edit last cooked date for '+meal.name);date.onclick=e=>{e.stopPropagation();keepPlanCardScroll();editMealCookedDate(meal,null,preview?pendingContext(plan,entry):cookingContext(plan.id,entry.day,entry.cat,meal,entry.linkedTo));watchPlanCardReturn()};details.append(date)}
  return details;
 }
 function bindMealNamePress(name,entry,context=null){
@@ -5091,7 +5093,7 @@ document.addEventListener('click',e=>{
 
 mealPersistence.showRecovery({normalize:normalizeImportedBackup,validate:validateBackupStorage,validateCore:d=>validateBackupStorage(normalizeImportedBackup(d))});
 if(!mealPersistence.recovery){
- try{rotationCalendarTrackingReady=true;render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');syncCookingTimer();syncMakeAheadLocalDay();setTimeout(maybePromptStartNextWeek,800)}catch(error){mealPersistence.failStartup(error)}
+ try{rotationCalendarTrackingReady=true;if(typeof migrateAllVersionFlags==='function')migrateAllVersionFlags();render();window.history.replaceState({...window.history.state,mealRotationView:appViewSnapshot()},'');syncCookingTimer();syncMakeAheadLocalDay();setTimeout(maybePromptStartNextWeek,800)}catch(error){mealPersistence.failStartup(error)}
  if(!mealPersistence.recovery){showRecipePhotoRestoreNotice();resumeRecipeViewer();if(builtinSidesMigrationNotice)setTimeout(()=>showAppMessage(builtinSidesMigrationNotice),0)}
 }
 

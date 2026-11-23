@@ -1078,7 +1078,18 @@ function openAiMultiReview(items){
 // Recipe versions (2026-11-19): "Update" keeps the replaced content as meal.aiAltVersion (kind 'original'),
 // so the recipe page can switch back or discard it; "Replace" keeps no copy. Content fields only.
 const AI_VERSION_FIELDS=['ingredients','instructions','prep','cook','total','marinate','notes','recipeNotes','ingredientStepLinks','url','sourceUrl'];
-function aiRecipeContent(meal){const out={};for(const key of AI_VERSION_FIELDS)if(Object.hasOwn(meal,key)&&meal[key]!==undefined)out[key]=JSON.parse(JSON.stringify(meal[key]));return out}
+// Needs Adjusting is PER VERSION (2026-11-23): each version keeps its own flag + note; a new converted version starts without one.
+const AI_VERSION_FLAG_FIELDS=['needsTweaking','needsTweakingNote'];
+function aiRecipeContent(meal){const out={};for(const key of [...AI_VERSION_FIELDS,...AI_VERSION_FLAG_FIELDS])if(Object.hasOwn(meal,key)&&meal[key]!==undefined)out[key]=JSON.parse(JSON.stringify(meal[key]));return out}
+function clearedVersionFlags(){return Object.fromEntries(AI_VERSION_FLAG_FIELDS.map(key=>[key,undefined]))}
+function versionFlagPatch(alt){return Object.fromEntries(AI_VERSION_FLAG_FIELDS.map(key=>[key,Object.hasOwn(alt,key)?alt[key]:undefined]))}
+// Older converted recipes: while viewing the converted version the stored flag still belonged to the original.
+// Move it into the saved original once, so the converted version starts clean and switching back shows it again.
+function migrateVersionFlags(meal){
+ const alt=meal?.aiAltVersion;if(!alt||alt.kind!=='original'||alt.flagsV1===true)return false;
+ for(const key of AI_VERSION_FLAG_FIELDS){if(Object.hasOwn(meal,key)&&meal[key]!==undefined)alt[key]=meal[key];delete meal[key]}alt.flagsV1=true;return true;
+}
+function migrateAllVersionFlags(){let changed=false;for(const meal of meals)if(migrateVersionFlags(meal))changed=true;if(changed)try{persist()}catch(e){}return changed}
 // Saved grocery choices are never rewritten: lines that existed keep their state; only new lines get a suggestion.
 function remapSelectionsAfterContentChange(meal,oldLines=[],dropId=null){
  try{const key='mealRotationSelectedIngredientsV1',sel=JSON.parse(localStorage.getItem(key)||'{}'),lines=(meal.ingredients||[]).map(l=>String(l)),before=new Set(oldLines.map(String)),suggested=new Set(suggestedGroceryLines(meal));let changed=false;
@@ -1087,19 +1098,19 @@ function remapSelectionsAfterContentChange(meal,oldLines=[],dropId=null){
 }
 function mergeAiReplacement(saved){
  const original=aiFindRecipe(saved?.aiReplacesRecipeId);if(!saved)return false;const mode=saved.aiReplaceMode==='replace'?'replace':'update';delete saved.aiReplacesRecipeId;delete saved.aiReplaceMode;if(!original){persist();return false}
- const patch={};for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(saved,key)?saved[key]:undefined;
+ migrateVersionFlags(original);const patch={...clearedVersionFlags()};for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(saved,key)?saved[key]:undefined;
  // Keep the true original: converting again replaces the converted text, never the saved original.
- if(mode==='update'&&original.aiAltVersion?.kind!=='original')patch.aiAltVersion={kind:'original',savedAt:new Date().toISOString(),...aiRecipeContent(original)};
+ if(mode==='update'&&original.aiAltVersion?.kind!=='original')patch.aiAltVersion={kind:'original',flagsV1:true,savedAt:new Date().toISOString(),...aiRecipeContent(original)};
  const oldLines=[...(original.ingredients||[])];assignSharedRecipeFields(original,patch);remapSelectionsAfterContentChange(original,oldLines,saved.id);
  meals=meals.filter(m=>m!==saved);persist();showServingUndoToast((mode==='replace'?'Replaced ':'Updated ')+original.name);return true;
 }
 function switchRecipeVersion(meal){
- const alt=meal?.aiAltVersion;if(!alt)return;snapshot();const current={kind:alt.kind==='original'?'converted':'original',savedAt:new Date().toISOString(),...aiRecipeContent(meal)},patch={};
+ migrateVersionFlags(meal);const alt=meal?.aiAltVersion;if(!alt)return;snapshot();const current={kind:alt.kind==='original'?'converted':'original',flagsV1:true,savedAt:new Date().toISOString(),...aiRecipeContent(meal)},patch={...versionFlagPatch(alt)};
  for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(alt,key)?alt[key]:undefined;patch.aiAltVersion=current;
  const oldLines=[...(meal.ingredients||[])];assignSharedRecipeFields(meal,patch);remapSelectionsAfterContentChange(meal,oldLines);persist();
 }
 // Discard the version being viewed: the saved other version becomes the recipe.
-function discardRecipeVersion(meal){const alt=meal?.aiAltVersion;if(!alt)return;snapshot();const patch={};for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(alt,key)?alt[key]:undefined;patch.aiAltVersion=undefined;const oldLines=[...(meal.ingredients||[])];assignSharedRecipeFields(meal,patch);remapSelectionsAfterContentChange(meal,oldLines);persist()}
+function discardRecipeVersion(meal){migrateVersionFlags(meal);const alt=meal?.aiAltVersion;if(!alt)return;snapshot();const patch={...versionFlagPatch(alt)};for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(alt,key)?alt[key]:undefined;patch.aiAltVersion=undefined;const oldLines=[...(meal.ingredients||[])];assignSharedRecipeFields(meal,patch);remapSelectionsAfterContentChange(meal,oldLines);persist()}
 const refreshViewerAfterUndo=()=>{if(typeof recipeViewer!=='undefined'&&recipeViewer)renderRecipeViewer()};
 function openRecipeVersionDialog(meal,onDone){
  const showingConverted=meal.aiAltVersion?.kind==='original',d=recipeImportDialog(showingConverted?'Changed recipe':'Original recipe');d.panel.classList.add('ai-version-dialog');
