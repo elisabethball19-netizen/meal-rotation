@@ -375,7 +375,7 @@ function decoratePastAndTodayCard(card){
  return card;
 }
 function renderPlanMealCard(plan,entry,{preview=false,linked=[],tasks=null}={}){
- const {day,cat,meal,linkedTo}=entry,card=document.createElement('section');card.className='top-recipe-wrap plan-meal-card'+(!meal?' empty-plan-card':'')+(preview?' preview-plan-card':'');{const groupCat=cat&&cat!=='@day'?(pairedMainGroup(plan,day,cat)?meal?.cat||cat:cat):null;card.style.background=(groupCat&&colorForGroup(groupCat))||colorForDay(day)}card.dataset.scheduleDay=day;card.dataset.cardIdentity=planCardIdentity(plan,entry);
+ const {day,cat,meal,linkedTo}=entry,card=document.createElement('section');card.className='top-recipe-wrap plan-meal-card'+(!meal?' empty-plan-card':'')+(preview?' preview-plan-card':'');{const groupCat=entryDisplayGroup(entry);card.style.background=(groupCat&&colorForGroup(groupCat))||colorForDay(day)}card.dataset.scheduleDay=day;card.dataset.cardIdentity=planCardIdentity(plan,entry);
  if(!preview){card.dataset.weekRow='true';card.dataset.displayKey=scheduleDisplayKey(entry)}
  const date=meal?scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar):entry.temporaryEmpty?parseCookingLocalDate(emptyWeekSlotContext(plan,day,cat).date):cookingDateInWeek(day,mealPlanWeekStart(plan));card.dataset.date=cookingLocalDate(date);
  const stamp=document.createElement('button');stamp.type='button';stamp.onclick=()=>openRecurringDayEditor(day);stamp.setAttribute('aria-label','Meal groups for '+day);;stamp.className='plan-date';stamp.title=date.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});const weekday=document.createElement('strong');weekday.textContent=day.slice(0,3).toUpperCase();const number=document.createElement('span');number.textContent=date.getDate();stamp.append(weekday,number);card.append(stamp);
@@ -2180,18 +2180,20 @@ function masterDisplayOrder(){const assigned=[];for(const day of orderedDays())f
 // Part 2c: an active group wears the same weekday colors as its cards on the Meals page (split stripe when it spans days).
 // One color per group (user, 2026-11-19 design): derived from the active plan, nothing saved. Each group takes the color of its first assigned day (in display order); if another group already holds it, the next unused weekday color is used. Weekend (Sat + Sun) is one teal on both days.
 function masterGroupDisplayOrder(){
- const {scheduledEntries}=scheduledRecipeHighlights(null,{activePlanBadgesOnly:true}),active=new Set(scheduledEntries.map(entry=>entry.cat));
+ const {scheduledEntries}=scheduledRecipeHighlights(null,{activePlanBadgesOnly:true}),active=new Set(scheduledEntries.map(entry=>entryDisplayGroup(entry)||entry.cat));
  for(const entry of scheduledEntries)for(const id of (Array.isArray(entry.meal.linkedMealIds)?entry.meal.linkedMealIds:[])){const linked=meals.find(m=>String(m.id)===String(id));if(linked&&cats.includes(linked.cat))active.add(linked.cat)}
  const base=masterDisplayOrder(),automatic=[...base.filter(c=>active.has(c)),...base.filter(c=>!active.has(c))],manual=masterOrderedGroups(automatic),dayAssigned=[];
  for(const day of orderedDays())for(const c of masterDisplayCategories(day))if(manual.includes(c)&&!dayAssigned.includes(c))dayAssigned.push(c);
  return [...automatic.filter(c=>active.has(c)),...dayAssigned.filter(c=>!active.has(c)),...manual.filter(c=>!active.has(c)&&!dayAssigned.includes(c))];
 }
 // Group colors (user design, 2026-11-22): only groups showing on a card in the displayed week get a color; a group keeps one color all week. Order of choice: its remembered color, the color of its first day, then any free color. The Next week preview is read-only; memory is saved only from the current week.
-let weekColorContext=null,weekColorFallback=null;const GROUP_COLOR_MEMORY_KEY='mealRotationGroupColorsV2';
+// The group shown for a card is the group of the meal on it (a slot can hold a meal from another group); empty and day-level cards have none.
+function entryDisplayGroup(entry){const cat=entry.cat;if(!cat||cat==='@day')return null;const own=entry.meal&&entry.linkedTo==null&&cats.includes(entry.meal.cat)?entry.meal.cat:null;return own||(cats.includes(cat)?cat:null)}
+let weekColorContext=null,weekColorFallback=null;const GROUP_COLOR_MEMORY_KEY='mealRotationGroupColorsV3';
 function groupColorMemory(){try{const v=JSON.parse(localStorage.getItem(GROUP_COLOR_MEMORY_KEY)||'null');return v&&typeof v==='object'&&!Array.isArray(v)?v:{}}catch(e){return {}}}
 function computeGroupColors(entries,preview){
  const plan=masterDisplayPlan(),days=orderedDays(),palette=days.map(colorForDay),memory=groupColorMemory(),map=new Map(),used=new Set(),reserved=new Set(),firstDay=new Map();
- const groupOf=entry=>{const cat=entry.cat;if(!cat||cat==='@day')return null;const g=plan&&pairedMainGroup(plan,entry.day,cat)?entry.meal?.cat||cat:cat;return cats.includes(g)?g:null};
+ const groupOf=entryDisplayGroup;
  const ordered=entries.map((entry,i)=>({entry,i})).sort((a,b)=>days.indexOf(a.entry.day)-days.indexOf(b.entry.day)||a.i-b.i).map(x=>x.entry);
  for(const entry of ordered){const g=groupOf(entry);if(!g)reserved.add(colorForDay(entry.day));else if(!firstDay.has(g))firstDay.set(g,entry.day)}
  // Pass 1: every scheduled group takes its preferred color (remembered, else its first day's) when free; pass 2 gives conflicts a leftover color, so no group can take another group's own color.
@@ -2959,7 +2961,7 @@ function renderMasterCategories(list){
  // Linked side-dish groups are active even when they are not assigned as a weekday group.
  // Preserve the normal weekday order and the user's manual order within each tier.
  const baseGroupOrder=masterDisplayOrder();
- const activeGroupNames=new Set(scheduledEntries.map(entry=>entry.cat));
+ const activeGroupNames=new Set(scheduledEntries.map(entry=>entryDisplayGroup(entry)||entry.cat));
  for(const entry of scheduledEntries){
   for(const targetId of (Array.isArray(entry.meal.linkedMealIds)?entry.meal.linkedMealIds:[])){
    const linked=meals.find(m=>String(m.id)===String(targetId));
