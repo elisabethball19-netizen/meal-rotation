@@ -2555,3 +2555,11 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 
 .master-categories[data-groups-layout="two"] .master-group-section[data-group-section="weekly"]>.master-group-section-body,.master-categories[data-groups-layout="two"] .master-group-section[data-group-section="other"]>.master-group-section-body{align-items:stretch}
 .master-category-count:empty{display:none}
+.start-next-week-dialog .start-week-header{margin:0}.start-next-week-dialog .start-week-header>*{margin-top:0;margin-bottom:0}
+.start-next-week-dialog .start-week-header+p{margin:4px 0 6px!important}
+.start-next-week-dialog .start-week-checklist{margin:0!important}
+.start-next-week-dialog .start-week-checklist .start-week-choice{padding:7px 10px;margin-bottom:4px;min-height:44px}
+.start-next-week-dialog .start-week-checklist+label{margin-top:4px}
+.master-categories[data-groups-layout="two"] .master-category-card{display:flex;flex-direction:column}
+.master-categories[data-groups-layout="two"] .master-category-card>.master-category-header{flex:1;align-items:stretch}
+.master-categories[data-groups-layout="two"] .master-category-card>.master-category-header>.master-category-title{align-content:center;align-items:center}

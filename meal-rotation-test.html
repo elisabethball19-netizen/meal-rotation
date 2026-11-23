@@ -2407,6 +2407,14 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 
 .master-categories[data-groups-layout="two"] .master-group-section[data-group-section="weekly"]>.master-group-section-body,.master-categories[data-groups-layout="two"] .master-group-section[data-group-section="other"]>.master-group-section-body{align-items:stretch}
 .master-category-count:empty{display:none}
+.start-next-week-dialog .start-week-header{margin:0}.start-next-week-dialog .start-week-header>*{margin-top:0;margin-bottom:0}
+.start-next-week-dialog .start-week-header+p{margin:4px 0 6px!important}
+.start-next-week-dialog .start-week-checklist{margin:0!important}
+.start-next-week-dialog .start-week-checklist .start-week-choice{padding:7px 10px;margin-bottom:4px;min-height:44px}
+.start-next-week-dialog .start-week-checklist+label{margin-top:4px}
+.master-categories[data-groups-layout="two"] .master-category-card{display:flex;flex-direction:column}
+.master-categories[data-groups-layout="two"] .master-category-card>.master-category-header{flex:1;align-items:stretch}
+.master-categories[data-groups-layout="two"] .master-category-card>.master-category-header>.master-category-title{align-content:center;align-items:center}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -9881,7 +9889,7 @@ function openRotateOptions(allTabs=false){
  for(const item of shown){
   if(showMealPlanTabs&&item.planId!==previousPlan){const heading=document.createElement('h4');heading.textContent=item.planName;list.append(heading);previousPlan=item.planId}
   const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=true;
-  label.className='start-week-choice';label.style.background=(item.cat&&item.cat!=='@day'&&colorForGroup(item.cat))||colorForDay(item.day);const recipe=document.createElement('span');recipe.textContent=item.dayPlaceholder?'—':item.emptyWeek||String(item.meal.id).startsWith('empty:')?'Empty meal':item.meal.name;const weekday=document.createElement('span');weekday.className='start-week-choice-day';weekday.textContent=item.day.slice(0,3).toUpperCase();label.append(check,recipe,weekday);list.append(label);if(item.dayPlaceholder){check.checked=false;check.disabled=true;check.style.visibility='hidden'}else boxes.push({item,check});
+  label.className='start-week-choice';label.style.background=(item.cat&&item.cat!=='@day'&&colorForGroup(item.cat))||colorForDay(item.day);const recipe=document.createElement('span');recipe.textContent=item.dayPlaceholder?'—':item.emptyWeek||String(item.meal.id).startsWith('empty:')?'Empty meal':item.meal.name;const weekday=document.createElement('span');weekday.className='start-week-choice-day';weekday.textContent=item.day.slice(0,3).toUpperCase();label.append(check,recipe,weekday);list.append(label);if(item.dayPlaceholder){check.checked=false;check.disabled=true}else boxes.push({item,check});
  }
  if(!shown.length){const empty=document.createElement('p');empty.textContent='No scheduled meals are ready to replace.';list.append(empty)}
  const label=document.createElement('label'),cooked=document.createElement('input');cooked.type='checkbox';cooked.setAttribute('role','switch');cooked.className='preference-switch';cooked.checked=(testStorage.getItem(ROTATE_MARK_COOKED_KEY)??testStorage.getItem('mealRotationMarkRotatedAsCookedV1'))==='true';label.append(cooked,document.createTextNode('Mark replaced meals as cooked'));
@@ -10024,7 +10032,7 @@ function saveMealGroupSettings(category,name,use){
 }
 // Independent display choice for Meal Groups; never changes the active meal-plan tab.
 function masterDisplayPlan(){return mealPlans.find(p=>p.id===activePlanId)}
-function masterDisplayCategories(day){const plan=masterDisplayPlan();const raw=plan?.id===activePlanId?weekdayCategories[day]:plan?.weekdayCategories?.[day];return [...new Set((Array.isArray(raw)?raw:[raw]).filter(c=>typeof c==='string'&&cats.includes(c)))];}
+function masterDisplayCategories(day){const plan=masterDisplayPlan();const raw=plan?.id===activePlanId?weekdayCategories[day]:plan?.weekdayCategories?.[day];const alternating=Object.values(plan?.alternatingGroupsV1||{}).filter(seq=>seq.day===day).flatMap(seq=>(seq.groups||[]).map(id=>sequenceGroup(id)));return [...new Set([...(Array.isArray(raw)?raw:[raw]),...alternating].filter(c=>typeof c==='string'&&cats.includes(c)))];}
 function masterDisplayOrder(){const assigned=[];for(const day of orderedDays())for(const c of masterDisplayCategories(day))if(!assigned.includes(c))assigned.push(c);return [...assigned,...cats.filter(c=>!assigned.includes(c))];}
 // Part 2c: an active group wears the same weekday colors as its cards on the Meals page (split stripe when it spans days).
 // One color per group (user, 2026-11-19 design): derived from the active plan, nothing saved. Each group takes the color of its first assigned day (in display order); if another group already holds it, the next unused weekday color is used. Weekend (Sat + Sun) is one teal on both days.
