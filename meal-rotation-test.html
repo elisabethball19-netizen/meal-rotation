@@ -2424,6 +2424,7 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 .recipe-bulk-dialog.serving-add-dialog .recipe-bulk-error:empty,.serving-add-dialog .recipe-bulk-error:empty{display:none}
 .master-categories .shared-meal-name-line.has-name-badges>.recipe-personal-name{flex:0 1 auto}.master-categories .shared-meal-name-line.has-name-badges>.group-scale-badge,.master-categories .shared-meal-name-line.has-name-badges>.needs-tweaking-icon{flex:0 0 auto}
 .master-categories .shared-meal-name-line.has-name-badges.has-group-flag{padding-right:84px}.master-categories .shared-meal-name-line.has-name-badges>.group-row-flag{position:static;transform:none;right:auto;top:auto;margin:-10px 0;width:32px;min-width:32px}
+.master-categories .shared-meal-name-line.has-name-badges{padding-right:80px}.master-categories .shared-meal-name-line.has-name-badges.has-group-flag{padding-right:80px}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -10681,7 +10682,7 @@ function scheduledRecipeHighlights(preview=null,{activePlanBadgesOnly=false}={})
  return {featuredColorById,scheduledDaysByMeal,scheduledEntries};
 }
 // Directly after the recipe name, on the same line: the scale badge, then the Needs Adjusting icon. Weekday and chevron stay at the right.
-function placeNameBadges(nameLine,row){const name=nameLine?.querySelector('.recipe-personal-name,.master-category-meal-name');if(!name)return;let anchor=name;const text=row.dataset.scaleBadge;if(text){const chip=document.createElement('span');chip.className='plan-scale-badge group-scale-badge';chip.textContent=text;chip.setAttribute('aria-label','Scaled '+text.slice(1)+' times');chip.style.cssText='display:inline-block;margin:0 4px 0 6px;vertical-align:middle';anchor.after(chip);anchor=chip}const icon=nameLine.querySelector('.needs-tweaking-icon');if(icon)anchor.after(icon);if(text||icon)nameLine.classList.add('has-name-badges')}
+function placeNameBadges(nameLine,row){const name=nameLine?.querySelector('.recipe-personal-name,.master-category-meal-name');if(!name)return;let anchor=name;const text=row.dataset.scaleBadge;if(text){const chip=document.createElement('span');chip.className='plan-scale-badge group-scale-badge';chip.textContent=text;chip.setAttribute('aria-label','Scaled '+text.slice(1)+' times');chip.style.cssText='display:inline-block;margin:0 2px 0 4px;vertical-align:middle';anchor.after(chip);anchor=chip}const icon=nameLine.querySelector('.needs-tweaking-icon');if(icon)anchor.after(icon);if(text||icon)nameLine.classList.add('has-name-badges')}
 function appendScheduledRecipeWeekdays(row,meal,scheduledDaysByMeal){
  const scheduledDays=scheduledDaysByMeal.get(String(meal.id));
  if(!scheduledDays?.size)return;

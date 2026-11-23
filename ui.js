@@ -2777,7 +2777,7 @@ function scheduledRecipeHighlights(preview=null,{activePlanBadgesOnly=false}={})
  return {featuredColorById,scheduledDaysByMeal,scheduledEntries};
 }
 // Directly after the recipe name, on the same line: the scale badge, then the Needs Adjusting icon. Weekday and chevron stay at the right.
-function placeNameBadges(nameLine,row){const name=nameLine?.querySelector('.recipe-personal-name,.master-category-meal-name');if(!name)return;let anchor=name;const text=row.dataset.scaleBadge;if(text){const chip=document.createElement('span');chip.className='plan-scale-badge group-scale-badge';chip.textContent=text;chip.setAttribute('aria-label','Scaled '+text.slice(1)+' times');chip.style.cssText='display:inline-block;margin:0 4px 0 6px;vertical-align:middle';anchor.after(chip);anchor=chip}const icon=nameLine.querySelector('.needs-tweaking-icon');if(icon)anchor.after(icon);if(text||icon)nameLine.classList.add('has-name-badges')}
+function placeNameBadges(nameLine,row){const name=nameLine?.querySelector('.recipe-personal-name,.master-category-meal-name');if(!name)return;let anchor=name;const text=row.dataset.scaleBadge;if(text){const chip=document.createElement('span');chip.className='plan-scale-badge group-scale-badge';chip.textContent=text;chip.setAttribute('aria-label','Scaled '+text.slice(1)+' times');chip.style.cssText='display:inline-block;margin:0 2px 0 4px;vertical-align:middle';anchor.after(chip);anchor=chip}const icon=nameLine.querySelector('.needs-tweaking-icon');if(icon)anchor.after(icon);if(text||icon)nameLine.classList.add('has-name-badges')}
 function appendScheduledRecipeWeekdays(row,meal,scheduledDaysByMeal){
  const scheduledDays=scheduledDaysByMeal.get(String(meal.id));
  if(!scheduledDays?.size)return;
