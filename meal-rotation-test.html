@@ -2449,6 +2449,11 @@ body.recipe-bulk-select .master-categories .shared-meal-name-line.has-name-badge
 
 .start-next-week-dialog .start-week-actions{display:flex;gap:10px;align-items:stretch}.start-next-week-dialog .start-week-actions>button{flex:1 1 0;min-width:0}.start-next-week-dialog .start-week-actions>button:first-child{flex:2 1 0}
 .week-selector .start-week-text.start-week-due{position:relative}.week-selector .start-week-text.start-week-due::before{content:"";position:absolute;top:4px;left:-1px;width:7px;height:7px;border-radius:50%;background:#d97a00}
+
+/* v342: recipe scale menu - 'This time only' / 'Always scale this recipe' replaces the Remember switch. */
+.recipe-scale-menu .recipe-scale-choice{display:flex;flex-direction:column;gap:2px;margin:8px 0 2px}
+.recipe-scale-menu .recipe-scale-radio{display:flex;align-items:center;gap:10px;min-height:36px;font-size:15px}
+.recipe-scale-menu .recipe-scale-radio input{flex:none;width:20px;height:20px;margin:0}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -4390,7 +4395,10 @@ function buildRecipeTitleHeader(view,meal,multiplier){
  const custom=document.createElement('label');custom.className='recipe-scale-custom';custom.append(document.createTextNode('Other'));
  const input=document.createElement('input');input.type='number';input.inputMode='decimal';input.min='0';input.step='any';input.value=String(multiplier);input.setAttribute('aria-label','Other multiplier');custom.append(input);menu.append(custom);
  function updatePresets(){for(const option of grid.children)option.setAttribute('aria-pressed',String(Number(option.dataset.multiplier)===Number(input.value)))}
- const remember=document.createElement('input'),linkedToggle=document.createElement('input');for(const [toggle,label]of [[remember,'Remember'],[linkedToggle,'Scale linked recipe']]){toggle.type='checkbox';toggle.setAttribute('role','switch');toggle.className='preference-switch';if(toggle===linkedToggle&&!directServingRecipes(meal,view.context).length)continue;const row=document.createElement('label');row.className='recipe-scale-toggle';row.append(toggle,document.createTextNode(label));menu.append(row)}
+ const scaleChoice=document.createElement('div');scaleChoice.className='recipe-scale-choice';scaleChoice.setAttribute('role','radiogroup');scaleChoice.setAttribute('aria-label','How long to keep this scale');const choiceName='recipeScaleChoice'+Date.now(),once=document.createElement('input'),always=document.createElement('input');
+ for(const [radio,label] of [[once,'This time only'],[always,'Always scale this recipe']]){radio.type='radio';radio.name=choiceName;const row=document.createElement('label');row.className='recipe-scale-radio';row.append(radio,document.createTextNode(label));scaleChoice.append(row)}once.checked=true;menu.append(scaleChoice);
+ const remember={get checked(){return always.checked},set checked(value){always.checked=!!value;once.checked=!value}};
+ const linkedToggle=document.createElement('input');if(directServingRecipes(meal,view.context).length){linkedToggle.type='checkbox';linkedToggle.setAttribute('role','switch');linkedToggle.className='preference-switch';const row=document.createElement('label');row.className='recipe-scale-toggle';row.append(linkedToggle,document.createTextNode('Scale linked recipe'));menu.append(row)}
  const footer=document.createElement('div');footer.className='meal-unified-actions recipe-scale-footer';const apply=document.createElement('button'),cancel=document.createElement('button');apply.type=cancel.type='button';setIconButton(apply,'save','Apply recipe scale');setIconButton(cancel,'cancel','Cancel recipe scale');
  const commit=()=>{const value=input.value.trim()?Number(input.value):NaN;if(!validRecipeMultiplier(value)){input.setCustomValidity('Enter a number greater than zero.');input.reportValidity();return}input.setCustomValidity('');display(false);setViewedRecipeScale(value,{remember:remember.checked,linked:linkedToggle.checked})};
  input.oninput=()=>{input.setCustomValidity('');updatePresets()};input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();commit()}};apply.onclick=commit;cancel.onclick=()=>display(false);footer.append(apply,cancel);menu.append(footer);view.cancelScaleDraft=()=>display(false);

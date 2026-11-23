@@ -2599,3 +2599,8 @@ body.recipe-bulk-select .master-categories .shared-meal-name-line.has-name-badge
 
 .start-next-week-dialog .start-week-actions{display:flex;gap:10px;align-items:stretch}.start-next-week-dialog .start-week-actions>button{flex:1 1 0;min-width:0}.start-next-week-dialog .start-week-actions>button:first-child{flex:2 1 0}
 .week-selector .start-week-text.start-week-due{position:relative}.week-selector .start-week-text.start-week-due::before{content:"";position:absolute;top:4px;left:-1px;width:7px;height:7px;border-radius:50%;background:#d97a00}
+
+/* v342: recipe scale menu - 'This time only' / 'Always scale this recipe' replaces the Remember switch. */
+.recipe-scale-menu .recipe-scale-choice{display:flex;flex-direction:column;gap:2px;margin:8px 0 2px}
+.recipe-scale-menu .recipe-scale-radio{display:flex;align-items:center;gap:10px;min-height:36px;font-size:15px}
+.recipe-scale-menu .recipe-scale-radio input{flex:none;width:20px;height:20px;margin:0}
