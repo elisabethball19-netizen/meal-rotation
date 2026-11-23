@@ -4662,7 +4662,7 @@ function recipeMakeAheadTasks(meal){
   if(kind==='marinating'&&sources.marinade)tasks.push({id,autoPrep:kind,description:'Marinate'+(sources.names.length?' '+sources.names.join(' and '):''),...sources.marinade});
   if(kind==='defrost'&&sources.meats.length)tasks.push({id,autoPrep:kind,description:'Defrost '+sources.names.join(' and '),daysBefore:1});
  }
- if(sources.sourdough)for(const [kind,description,daysBefore,pattern] of [['sourdough-feed','Feed the sourdough starter',2,/\b(?:feed|refresh)\w*\b[^.]{0,30}\bstarter\b/i],['sourdough-bread','Begin the bread',1,/\bbegin\s+the\s+(?:bread|dough)\b|\bstart\s+the\s+(?:bread|dough)\b/i]]){
+ if(sources.sourdough)for(const [kind,description,daysBefore,pattern] of [['sourdough-feed','Feed the sourdough starter',2,/\b(?:feed|refresh)\w*\b[^.]{0,30}\bstarter\b/i],['sourdough-bread','Begin the bread',1,/\b(?:begin|start|make|bake|mix|prep(?:are)?|knead)\b[^.]{0,25}\b(?:bread|dough|loaf|loaves)\b/i]]){
   if(!automaticPrepEnabled(kind))continue;const id='automatic-prep:'+kind+':v1',saved=raw.find(task=>task?.id===id);
   if(saved?.autoSuppressed)continue;if(saved){if(validRecipePrepTask(saved))tasks.push(saved);continue}
   if(manual.some(task=>pattern.test(task.description)))continue;tasks.push({id,autoPrep:kind,description,daysBefore});
