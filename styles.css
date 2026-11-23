@@ -2553,3 +2553,5 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 .meal-actions-toggle svg{transition:transform .16s ease}
 @media (prefers-reduced-motion:reduce){.meal-actions-toggle svg{transition:none}}
 
+.master-categories[data-groups-layout="two"] .master-group-section[data-group-section="weekly"]>.master-group-section-body,.master-categories[data-groups-layout="two"] .master-group-section[data-group-section="other"]>.master-group-section-body{align-items:stretch}
+.master-category-count:empty{display:none}
