@@ -1379,6 +1379,6 @@ function saveUpNextOrder(){const order=normalizedUpNextOrder();if(JSON.stringify
 function upNextRank(meal,order){const peers=meal.linkGroup?meals.filter(m=>m.linkGroup===meal.linkGroup):[meal];return Math.min(...peers.map(m=>order.indexOf(String(m.id))).filter(i=>i>=0),Infinity)}
 function setRecipeStatus(meal,status){
  const peers=meal.linkGroup?meals.filter(m=>m.linkGroup===meal.linkGroup):[meal];
- for(const record of peers){record.rotation=status==='rotation';record.recipeStatus=status;if(typeof record.upNextStar!=='boolean')record.upNextStar=false;if(!record.rotation)delete record.rotationPromotionPriority}
+ for(const record of peers){if(record.rotation!==(status==='rotation'))delete record.queuedCatV1;record.rotation=status==='rotation';record.recipeStatus=status;if(typeof record.upNextStar!=='boolean')record.upNextStar=false;if(!record.rotation)delete record.rotationPromotionPriority}
 }
 function groupUsesRotation(category){const values=JSON.parse(localStorage.getItem(GROUP_ROTATION_KEY)||'{}');const key=groupIdentity(category);return !key||values[key]!==false}
