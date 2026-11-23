@@ -2576,3 +2576,9 @@ body.recipe-bulk-select .master-categories .master-category-meal[data-up-next-st
 .master-categories .shared-meal-name-line.has-name-badges.has-group-flag{padding-right:84px}.master-categories .shared-meal-name-line.has-name-badges>.group-row-flag{position:static;transform:none;right:auto;top:auto;margin:-10px 0;width:32px;min-width:32px}
 .master-categories .shared-meal-name-line.has-name-badges{padding-right:80px}.master-categories .shared-meal-name-line.has-name-badges.has-group-flag{padding-right:80px}
 .start-week-checklist .start-week-choice.has-pin{grid-template-columns:22px minmax(0,1fr) 30px 35px;align-items:center}.start-week-choice-day{white-space:nowrap}.start-week-choice .start-week-pin{justify-self:center}
+
+/* v338: badges and '!' stay on the name's last line (block flow + word joiner after the name). */
+.master-categories .shared-meal-name-line.has-name-badges{display:block}.master-categories .shared-meal-name-line.has-name-badges>.recipe-personal-name,.master-categories .shared-meal-name-line.has-name-badges>.master-category-meal-name{display:inline}.master-categories .shared-meal-name-line.has-name-badges>.group-scale-badge,.master-categories .shared-meal-name-line.has-name-badges>.needs-tweaking-icon{display:inline-flex;vertical-align:middle}
+.master-categories .shared-meal-name-line.has-name-badges>.recipe-personal-name>.master-category-meal-name,.master-categories .shared-meal-name-line.has-name-badges>.master-category-meal-name{display:contents}
+.master-categories .name-badge-tail{white-space:nowrap}.master-categories .name-badge-tail>.needs-tweaking-icon,.master-categories .name-badge-tail>.group-scale-badge{display:inline-flex;vertical-align:middle;position:static;transform:none}.master-categories .name-badge-tail-word{cursor:pointer}
+.master-categories .name-badge-tail>.group-row-flag{margin:-12px 0 -12px 2px;width:32px;min-width:32px}

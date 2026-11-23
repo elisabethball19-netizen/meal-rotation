@@ -938,6 +938,17 @@ function reorderQueueRecipe(meal,target,before){
  const state=captureState(),category=meal.cat;holdGroupWeek(category);
  const order=regularsQueue(category).filter(m=>m!==meal),at=order.indexOf(target);if(at<0)return;order.splice(before?at:at+1,0,meal);
  if(!writeRegularsQueue(category,order))return;snapshot(state);persist();saveActiveMealPlan();renderList();
+ if(regularsQueue(category)[0]===meal)offerQueueSwap(meal);
+}
+// Dragged to the very top: offer it for this week's next not-yet-cooked meal of that group (user, 2026-11-23).
+async function offerQueueSwap(meal){
+ const plan=mealPlans.find(p=>p.id===activePlanId);if(!plan)return;const entries=getDisplayedWeekdayMealsForPlan(plan);
+ if(entries.some(e=>String(e.meal?.id)===String(meal.id)))return;const today=cookingLocalDate(new Date());
+ const slot=entries.filter(e=>e.cat===meal.cat&&e.linkedTo==null&&!e.scheduleOnly&&!e.occasional&&e.meal&&!String(e.meal.id).startsWith('empty:')).map(e=>({e,date:cookingLocalDate(scheduledOccurrenceDate({...e,planId:plan.id},plan.rotationCalendar))})).filter(x=>x.date>=today&&!cookingSession(cookingContext(plan.id,x.e.day,x.e.cat,x.e.meal,null))?.cookedDate).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0)[0];
+ if(!slot)return;
+ const answer=await appDialog('Swap '+(meal.name||'this recipe')+' into '+slot.e.day+' this week?',null,'options',['Swap','Next time']);
+ if(answer!=='Swap'||!meals.includes(meal))return;
+ applyManualWeekdayMeal(slot.e.day,meal.cat,meal,null);
 }
 function automaticRecipeCandidates(category,labels=[],library=meals,plan=null,derived=null){
  const cacheKey=derived&&JSON.stringify([plan?.id||'',category,labels]);if(derived?.candidates.has(cacheKey))return [...derived.candidates.get(cacheKey)];
@@ -2816,7 +2827,9 @@ function scheduledRecipeHighlights(preview=null,{activePlanBadgesOnly=false}={})
  return {featuredColorById,scheduledDaysByMeal,scheduledEntries};
 }
 // Directly after the recipe name, on the same line: the scale badge, then the Needs Adjusting icon. Weekday and chevron stay at the right.
-function placeNameBadges(nameLine,row){const name=nameLine?.querySelector('.recipe-personal-name,.master-category-meal-name');if(!name)return;let anchor=name;const text=row.dataset.scaleBadge;if(text){const chip=document.createElement('button');chip.type='button';chip.className='plan-scale-badge group-scale-badge';chip.textContent=text;chip.setAttribute('aria-label','Scaled '+text.slice(1)+' times. Change scale');chip.style.cssText='display:inline-block;margin:0 2px 0 4px;vertical-align:middle;border:0;font:inherit;font-size:.8em;font-weight:650;cursor:pointer;touch-action:manipulation';const target=row._scaleEntry,owner=target&&mealPlans.find(p=>p.id===target.planId);if(owner)chip.onclick=event=>{event.preventDefault();event.stopPropagation();openPlanCardScale(owner,target,false)};anchor.after(chip);anchor=chip}const icon=nameLine.querySelector('.needs-tweaking-icon');if(icon)anchor.after(icon);if(text||icon)nameLine.classList.add('has-name-badges')}
+function placeNameBadges(nameLine,row){const name=nameLine?.querySelector('.recipe-personal-name,.master-category-meal-name');if(!name)return;let anchor=name;const text=row.dataset.scaleBadge;if(text){const chip=document.createElement('button');chip.type='button';chip.className='plan-scale-badge group-scale-badge';chip.textContent=text;chip.setAttribute('aria-label','Scaled '+text.slice(1)+' times. Change scale');chip.style.cssText='display:inline-block;margin:0 2px 0 4px;vertical-align:middle;border:0;font:inherit;font-size:.8em;font-weight:650;cursor:pointer;touch-action:manipulation';const target=row._scaleEntry,owner=target&&mealPlans.find(p=>p.id===target.planId);if(owner)chip.onclick=event=>{event.preventDefault();event.stopPropagation();openPlanCardScale(owner,target,false)};anchor.after(chip);anchor=chip}const icon=nameLine.querySelector('.needs-tweaking-icon');if(icon)anchor.after(icon);if(text||icon){nameLine.classList.add('has-name-badges');glueNameBadges(nameLine,[nameLine.querySelector('.group-scale-badge'),icon].filter(Boolean))}}
+// The last word and the badges/'!' share one unbreakable span, so they never drop to a line of their own.
+function glueNameBadges(nameLine,badges){const btn=nameLine.querySelector('.master-category-meal-name');if(!btn||!badges.length||nameLine.querySelector('.linked-name-ending')||btn.children.length)return;const full=btn.textContent,at=full.lastIndexOf(' ');if(at<=0)return;btn.textContent=full.slice(0,at+1);const tail=document.createElement('span');tail.className='name-badge-tail';const word=document.createElement('span');word.className='name-badge-tail-word';word.textContent=full.slice(at+1);word.onclick=e=>{e.preventDefault();e.stopPropagation();btn.click()};tail.append(word,...badges);btn.after(tail)}
 function appendScheduledRecipeWeekdays(row,meal,scheduledDaysByMeal){
  const scheduledDays=scheduledDaysByMeal.get(String(meal.id));
  if(!scheduledDays?.size)return;
