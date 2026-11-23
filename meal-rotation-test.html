@@ -8776,6 +8776,8 @@ function allocateScheduledWeek(library,categories,plans,days,reservedPlanId=null
   }
  }
  const pendingSides=slots.filter(slot=>slot.dependent&&!slot.manual);for(const slot of pendingSides)slots.splice(slots.indexOf(slot),1);
+ // The same recipe twice in one group in one week is never wanted when the later slot only holds an automatic replacement (substitution); that slot picks again. Picks the user made themselves stay exact.
+ const seenManual=new Map();for(const slot of slots){if(!slot.manual)continue;const dupKey=String(slot.plan.id)+'|'+slot.cat+'|'+String(slot.preferred.id);if(seenManual.has(dupKey)&&slot.choice?.substitution===true){slot.manual=false;slot.preferred=null}else seenManual.set(dupKey,slot)}
  // Deliberate manual duplicates stay exact. Their IDs reserve ordinary automatic slots.
  for(const slot of slots.filter(slot=>slot.manual)){slot.meal=slot.preferred;used.add(String(slot.meal.id))}
  const fixed=new Set(used),owners=new Map(),dependentReservations=new Set(pendingSides.filter(slot=>slot.preferred).map(slot=>sharedRecipeIdentity(slot.preferred)));for(const slot of pendingSides)if(slot.preferred){fixed.add(String(slot.preferred.id));used.add(String(slot.preferred.id))}
