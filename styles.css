@@ -1155,13 +1155,6 @@ button.recipe-tweaking-edit{display:inline-flex;align-items:center;gap:5px;}
 
 #recipeViewer .recipe-cooking-settings{flex:none;margin:2px 0 0;font-size:13px;color:#52657e;}
 #recipeViewer .recipe-auto-complete{display:flex;align-items:center;gap:9px;min-height:44px;padding:4px 0;}
-/* Ingredient-list trial (2026-11-24): remove with the losing modes. */
-#recipeViewer .recipe-empty-step-options{border:0;margin:0 0 4px;padding:0 0 0 29px;min-width:0}
-#recipeViewer .recipe-empty-step-options legend{padding:0;font-size:.85rem;color:#666}
-#recipeViewer .recipe-empty-step-options .recipe-auto-complete{min-height:36px}
-#recipeViewer .recipe-empty-step-options:disabled{opacity:.5}
-#recipeViewer .recipe-sync-step-note{position:sticky;top:0;z-index:1;margin:0 0 6px;padding:4px 2px;background:#fff;color:#7a8594;font-size:.85rem;font-style:italic}
-#recipeViewer .recipe-sync-step-note[hidden]{display:none}
 #recipeViewer .recipe-auto-complete input{width:20px;height:20px;flex:none;margin:0;}
 
 #recipeViewer .recipe-header{display:flex;align-items:center;gap:8px;margin:22px 0 18px;flex:none;}
