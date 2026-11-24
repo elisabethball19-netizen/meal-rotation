@@ -7395,7 +7395,7 @@ function aiFindRecipe(id){return id==null?null:meals.find(m=>String(m.id)===Stri
 // Which AI the Ask AI flow opens (2026-11-23): Claude by default. The request is ALWAYS copied first; links that
 // prefill the question are used only when short enough, otherwise the AI's site opens and the person pastes.
 const AI_TARGET_KEY='mealRotationAiTargetV1';
-const AI_TARGETS={claude:{name:'Claude',url:t=>'https://claude.ai/new?q='+encodeURIComponent(t),home:'https://claude.ai/new'},chatgpt:{name:'ChatGPT',url:t=>'https://chatgpt.com/?q='+encodeURIComponent(t),home:'https://chatgpt.com/'},copilot:{name:'Copilot',url:t=>'https://copilot.microsoft.com/?q='+encodeURIComponent(t),home:'https://copilot.microsoft.com/'},perplexity:{name:'Perplexity',url:t=>'https://www.perplexity.ai/search?q='+encodeURIComponent(t),home:'https://www.perplexity.ai/'},gemini:{name:'Gemini',url:null,home:'https://gemini.google.com/app'},copy:{name:'your AI',url:null,home:null}};
+const AI_TARGETS={claude:{name:'Claude',url:t=>'https://claude.ai/new?q='+encodeURIComponent(t),home:'https://claude.ai/new'},chatgpt:{name:'ChatGPT',url:null,home:'https://chatgpt.com/'},copilot:{name:'Copilot',url:t=>'https://copilot.microsoft.com/?q='+encodeURIComponent(t),home:'https://copilot.microsoft.com/'},perplexity:{name:'Perplexity',url:t=>'https://www.perplexity.ai/search?q='+encodeURIComponent(t),home:'https://www.perplexity.ai/'},gemini:{name:'Gemini',url:null,home:'https://gemini.google.com/app'},copy:{name:'your AI',url:null,home:null}};
 function aiTargetKey(){try{const v=localStorage.getItem(AI_TARGET_KEY);return AI_TARGETS[v]?v:'claude'}catch(e){return 'claude'}}
 function aiTargetName(){return AI_TARGETS[aiTargetKey()].name}
 // Send: copy the request, then open the chosen AI (Claude: the saved project/chat link, or a new prefilled chat).
@@ -7404,7 +7404,7 @@ async function sendAiRequest(text){
  if(key==='copy')return copied?'Request copied. Paste it into your AI.':'Could not copy the request.';
  if(key==='claude'&&/^https:\/\/claude\.ai\//i.test(link)){window.open(link,'_blank','noopener');return copied?'Request copied. Paste it into Claude.':'Could not copy the request.'}
  const prefilled=target.url?target.url(text):'';
- if(prefilled&&(key==='claude'||prefilled.length<=1800)){window.open(prefilled,'_blank','noopener');return key==='claude'?'':copied?'Request copied too, in case you need to paste it.':''}
+ if(prefilled&&(key==='claude'||prefilled.length<=1800)){window.open(prefilled,'_blank','noopener');return key==='claude'?'':copied?'Request copied. If it is not filled in, paste it.':''}
  window.open(target.home,'_blank','noopener');return copied?'Request copied. Paste it into '+target.name+'.':'Could not copy the request.';
 }
 // Recipe chooser used by Convert / Would they like it / Out of an ingredient (search by name, Regulars first).
@@ -7431,7 +7431,7 @@ function openAiJobDialog(job,recipe=null){
  const picker=aiRecipePicker(m=>{chosen=m;draw()});
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
  const status=document.createElement('p');status.className='muted ask-ai-status';status.setAttribute('role','status');
- const actions=document.createElement('div');actions.className='ai-send-actions';const open=document.createElement('button'),copy=document.createElement('button');open.type=copy.type='button';open.className='smallbtn ai-primary';open.textContent='Open in Claude';copy.className='smallbtn';copy.textContent='Copy request';actions.append(open,copy);
+ const actions=document.createElement('div');actions.className='ai-send-actions';const open=document.createElement('button'),copy=document.createElement('button');open.type=copy.type='button';open.className='smallbtn ai-primary';open.textContent='Open in '+aiTargetName();copy.className='smallbtn';copy.textContent='Copy request';actions.append(...(aiTargetKey()==='copy'?[copy]:[open,copy]));
  function draw(){
   body.replaceChildren();error.textContent='';
   if(job==='fridge'||job==='write'){input.placeholder=job==='fridge'?'What do you have? e.g. chicken thighs, bok choy, rice, limes':'What would you like? e.g. crispy pork, quick weeknight';input.setAttribute('aria-label',AI_JOBS[job]);body.append(input);return}
@@ -7573,7 +7573,7 @@ function renderAskAiPage(list){
  const pending=aiPending();
  // Waiting answer card first, when a request was sent; otherwise a quiet "Paste an answer" row at the end.
  const paste=document.createElement('div');paste.className='ai-paste-card';
- const pasteHead=document.createElement('div');pasteHead.className='ai-paste-head';const pasteTitle=document.createElement('strong');pasteTitle.textContent=pending?'Paste Claude’s answer':'Paste an answer';pasteHead.append(pasteTitle);
+ const pasteHead=document.createElement('div');pasteHead.className='ai-paste-head';const pasteTitle=document.createElement('strong');pasteTitle.textContent=pending?(aiTargetKey()==='claude'?'Paste Claude’s answer':'Paste the AI’s answer'):'Paste an answer';pasteHead.append(pasteTitle);
  let pasteJob=null;if(pending){const clear=document.createElement('button');clear.type='button';clear.className='iconbtn ai-paste-clear';setIconButton(clear,'cancel','Clear waiting request');clear.onclick=()=>{setAiPending(null);aiPasteOpen=false;renderList({readOnly:true})};pasteHead.append(clear);pasteJob=document.createElement('p');pasteJob.className='ai-paste-job';pasteJob.textContent=AI_JOBS[pending.job]+(pending.recipeName?' · '+pending.recipeName:'')}
  const answer=document.createElement('textarea');answer.rows=5;answer.placeholder='Paste the whole answer from '+aiTargetName();answer.setAttribute('aria-label','Paste the answer');
  const err=document.createElement('p');err.className='recipe-bulk-error';err.setAttribute('role','status');
@@ -11696,9 +11696,9 @@ function populateShoppingLinksSetting(parent){const label=document.createElement
 // Optional switch (default on): off hides the Ask AI tab and the recipe-page sparkle; saved tastes/links stay.
 const AI_FEATURES_KEY='mealRotationAiFeaturesV1';
 function aiFeaturesOn(){try{return localStorage.getItem(AI_FEATURES_KEY)!=='off'}catch(e){return true}}
-function populateAiFeaturesSetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=aiFeaturesOn();check.onchange=()=>{try{if(check.checked)localStorage.removeItem(AI_FEATURES_KEY);else localStorage.setItem(AI_FEATURES_KEY,'off')}catch(e){}if(!check.checked)aiTabActive=false;render()};label.append(check,document.createTextNode('Show Ask AI (tab and recipe sparkle)'));parent.append(label)}
+function populateAiFeaturesSetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=aiFeaturesOn();check.onchange=()=>{try{if(check.checked)localStorage.removeItem(AI_FEATURES_KEY);else localStorage.setItem(AI_FEATURES_KEY,'off')}catch(e){}if(!check.checked)aiTabActive=false;render()};label.append(check,document.createTextNode('Show Ask AI'));parent.append(label)}
 function populateAiTargetSetting(parent){
- const set=document.createElement('fieldset');set.className='collapsed-card-options ai-target-options';const legend=document.createElement('legend');legend.textContent='AI to open for Ask AI';set.append(legend);
+ const set=document.createElement('fieldset');set.className='collapsed-card-options ai-target-options';set.setAttribute('aria-label','AI to open for Ask AI');
  for(const [key,label]of [['claude','Claude'],['chatgpt','ChatGPT'],['copilot','Copilot'],['perplexity','Perplexity'],['gemini','Gemini (copy, then paste)'],['copy','Just copy the request']]){
   const row=document.createElement('label');row.className='settings-display-option';const radio=document.createElement('input');radio.type='radio';radio.name='aiTarget';radio.value=key;radio.checked=aiTargetKey()===key;
   radio.onchange=()=>{try{if(key==='claude')localStorage.removeItem(AI_TARGET_KEY);else localStorage.setItem(AI_TARGET_KEY,key)}catch(e){}};row.append(radio,document.createTextNode(label));set.append(row);
