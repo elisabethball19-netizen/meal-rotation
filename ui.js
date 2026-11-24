@@ -475,7 +475,7 @@ function renderAllMealsOverview(list){
      for(const side of simpleSidesForEntry(source.plan,entry)){const simple=document.createElement('div');simple.className='days-side';simple.textContent=side.name;meals_.append(simple)}}
     row.append(tab,meals_);box.append(row);
    }
-   const due=tasks.filter(item=>date===today?(item.due<=today&&!(item.due<today&&item.complete)):item.due===date).sort((a,b)=>Number(a.complete)-Number(b.complete)||a.due.localeCompare(b.due));
+   const due=tasks.filter(item=>(!item.complete||makeAheadDisplayPrefs.showCompletedToday)&&(date===today?(item.due<=today&&!(item.due<today&&item.complete)):item.due===date)).sort((a,b)=>Number(a.complete)-Number(b.complete)||a.due.localeCompare(b.due));
    if(due.length){const prep=document.createElement('div');prep.className='days-prep';for(const item of due)prep.append(makeAheadReminderRow(item,true,{navigate:false}));box.append(prep)}
    return box;
   };

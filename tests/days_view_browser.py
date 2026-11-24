@@ -21,6 +21,7 @@ sb.fixture.HOOK += '''window.days={
   makeAheadDisplayPrefs.showMakeAheadReminders=true;persist();saveActiveMealPlan();
  },
  open:()=>{showTop=true;groceryTabActive=false;aiTabActive=false;allMealsActive=true;showMealPlanTabs=true;rotationWeekOffset=1;render()},
+ showDone:on=>{makeAheadDisplayPrefs.showCompletedToday=on;render()},
  checks:()=>mealPlans.flatMap(p=>Object.entries(p.makeAheadChecks||{}).filter(([k,v])=>v).map(([k])=>k)).length
 };'''
 
@@ -56,12 +57,24 @@ def run(browser, name):
     # Checking it saves the shared completion and the page redraws (collapsed state kept).
     cards.nth(3).locator('summary').click()
     assert cards.nth(3).get_attribute('open') is not None
-    prep.locator('input[type=checkbox]').check()
+    prep.locator('input[type=checkbox]').click()
     p.wait_for_timeout(300)
     assert p.evaluate('days.checks()') == 1
-    assert p.locator('.days-card').nth(0).locator('.days-prep input[type=checkbox]').is_checked(), 'stays visible, checked'
+    assert p.locator('.days-card').nth(0).locator('.days-prep').count() == 0, 'completed prep hides (show-completed off)'
     assert p.locator('.days-card').nth(3).get_attribute('open') is not None, 'expanded day stays open after redraw'
     p.screenshot(path=str(OUT / f'{tag}-open.png'))
+    # Centering: checkbox and text share a vertical center when shown.
+    p.evaluate('days.showDone(true)')
+    box = p.locator('.days-card').nth(0).locator('.days-prep input[type=checkbox]')
+    txt = p.locator('.days-card').nth(0).locator('.days-prep .make-ahead-reminder')
+    cb, tb = box.bounding_box(), txt.bounding_box()
+    assert abs((cb['y'] + cb['height'] / 2) - (tb['y'] + tb['height'] / 2)) <= 3, (cb, tb)
+    assert box.is_checked()
+    p.evaluate('days.showDone(false)')
+    row = p.locator('.days-card').nth(1).locator('.days-row').nth(1)
+    assert row.bounding_box()['height'] < 46, row.bounding_box()
+    mn = p.locator('.days-card').nth(1).locator('.days-mealname').first.bounding_box()
+    assert mn['height'] < 34, mn
     p.locator('.days-card').nth(3).locator('summary').click()
     assert p.locator('.days-card').nth(3).get_attribute('open') is None
 
