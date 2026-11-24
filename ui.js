@@ -121,6 +121,28 @@ async function navigateAfterSettings(callback){if(!await confirmServingLeave())r
  callback();
  pushAppViewHistory();
 }
+
+const displaySectionKey='mrDisplaySectionV1',displaySectionMs=5*60*1000;
+function displaySectionLoad(){try{const saved=JSON.parse(localStorage.getItem(displaySectionKey)||'null');if(saved&&saved.key&&Date.now()-saved.at<displaySectionMs)return saved.key}catch(_){}return null}
+function displaySectionSave(key){try{if(key)localStorage.setItem(displaySectionKey,JSON.stringify({key,at:Date.now()}));else localStorage.removeItem(displaySectionKey)}catch(_){}}
+function displaySectionsApplyExpiry(){const live=displaySectionLoad();for(const open of document.querySelectorAll('.settings-subgroup[open]'))if(open.dataset.displaySection!==live)open.open=false}
+function displaySubgroups(parent){
+ const remembered=displaySectionLoad(),list=[],subs={};
+ for(const [key,title,hasSwitch] of [['general','General',false],['cards','Meal cards',false],['make','Make Ahead reminders',true],['groceries','Groceries',false],['ai','Ask AI',true]]){
+  const details=document.createElement('details');details.className='settings-subgroup';details.dataset.displaySection=key;
+  const summary=document.createElement('summary'),arrow=document.createElementNS('http://www.w3.org/2000/svg','svg');arrow.setAttribute('class','settings-subarrow');arrow.setAttribute('viewBox','0 0 24 24');arrow.setAttribute('aria-hidden','true');arrow.innerHTML='<path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/>';
+  const name=document.createElement('span');name.className='settings-subname';name.textContent=title;const status=document.createElement('span');status.className='settings-substatus';
+  summary.append(arrow,name,status);
+  const content=document.createElement('div');content.className='settings-group-content settings-subgroup-content';
+  details.append(summary,content);details.open=remembered===key;
+  details.addEventListener('toggle',()=>{if(details.open){for(const other of list)if(other!==details&&other.open)other.open=false;displaySectionSave(key)}else if(displaySectionLoad()===key)displaySectionSave(null)});
+  list.push(details);subs[key]={details,content,status,hasSwitch};parent.append(details);
+ }
+ subs.refresh=()=>{for(const key of ['make','ai']){const sub=subs[key],master=sub.content.querySelector('input[type=checkbox]');sub.status.textContent=master&&!master.checked?'Off':''}};
+ parent.addEventListener('change',()=>subs.refresh());
+ parent.addEventListener('click',()=>{const open=displaySectionLoad();if(open)displaySectionSave(open)});
+ return subs;
+}
 function makeSettingsGroup(key,title){
   const details=document.createElement('details');details.className='settings-group';details.dataset.settingsGroup=key;
   const summary=document.createElement('summary');summary.textContent=title;
@@ -625,18 +647,16 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
   populateAutoMoveSetting(weekGroup.content);
 }
 ;let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24">'+appIconSvg.settings+'</svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
-const displayGroup=makeSettingsGroup('display','Display'),collapsedOptions=document.createElement('fieldset'),collapsedHeading=document.createElement('legend');collapsedOptions.className='collapsed-card-options';collapsedHeading.textContent='Show on collapsed meal cards';collapsedOptions.append(collapsedHeading);populateTimeSettings(collapsedOptions);populateCookedDateSetting(collapsedOptions);displayGroup.content.append(collapsedOptions);populateMakeAheadSetting(displayGroup.content);populateAutoIngredientSelectorSetting(displayGroup.content);populateAutoCleanGrocerySetting(displayGroup.content);populateShoppingLinksSetting(displayGroup.content);populateAiFeaturesSetting(displayGroup.content);populateAiTargetSetting(displayGroup.content);
+const displayGroup=makeSettingsGroup('display','Display'),collapsedOptions=document.createElement('fieldset'),collapsedHeading=document.createElement('legend');collapsedOptions.className='collapsed-card-options';collapsedHeading.textContent='Show on collapsed meal cards';collapsedOptions.append(collapsedHeading);populateTimeSettings(collapsedOptions);populateCookedDateSetting(collapsedOptions);const subs=displaySubgroups(displayGroup.content);collapsedOptions.setAttribute('aria-label','Show on collapsed meal cards');collapsedHeading.hidden=true;subs.cards.content.append(collapsedOptions);populateMakeAheadSetting(subs.make.content);populateAutoIngredientSelectorSetting(subs.groceries.content);populateAutoCleanGrocerySetting(subs.groceries.content);populateShoppingLinksSetting(subs.groceries.content);populateAiFeaturesSetting(subs.ai.content);populateAiTargetSetting(subs.ai.content);
 
 
 
 const sizeWrap=document.createElement('div');sizeWrap.className='meal-text-size-setting';
-const sizeLabel=document.createElement('label');sizeLabel.textContent='Text Size';sizeLabel.htmlFor='mealTextSizeSelect';
-const sizeSelect=document.createElement('select');sizeSelect.id='mealTextSizeSelect';sizeSelect.setAttribute('aria-label','Text Size');
-for(const [value,label] of [['normal','Normal'],['large','Large'],['extra','Extra Large']]){const option=document.createElement('option');option.value=value;option.textContent=label;sizeSelect.append(option)}
-sizeSelect.value=mealTextSize;
-sizeSelect.onchange=()=>{mealTextSize=sizeSelect.value;localStorage.setItem(mealTextSizeKey,mealTextSize);applyMealTextSize()};
-sizeWrap.append(sizeLabel,sizeSelect);displayGroup.content.prepend(sizeWrap);
-panel.append(displayGroup.details);
+const sizeLabel=document.createElement('span');sizeLabel.className='meal-text-size-label';sizeLabel.textContent='Text Size';
+const sizeSet=document.createElement('fieldset');sizeSet.className='text-size-options';sizeSet.setAttribute('aria-label','Text Size');
+for(const [value,label] of [['normal','Normal'],['large','Large'],['extra','Extra Large']]){const row=document.createElement('label');row.className='settings-display-option';const radio=document.createElement('input');radio.type='radio';radio.name='mealTextSize';radio.value=value;radio.checked=mealTextSize===value;radio.onchange=()=>{if(!radio.checked)return;mealTextSize=value;localStorage.setItem(mealTextSizeKey,mealTextSize);applyMealTextSize()};row.append(radio,document.createTextNode(label));sizeSet.append(row)}
+sizeWrap.append(sizeLabel,sizeSet);subs.general.content.prepend(sizeWrap);
+subs.refresh();panel.append(displayGroup.details);
 recipeBulkBackupAPI={capture:captureBackupStorage,validate:validateBackupStorage,restore:restoreBackupStorage};
 let exportBtn=document.createElement('button');exportBtn.textContent='Save backup';exportBtn.onclick=()=>{persist();saveActiveMealPlan();saveTimeDisplayPrefs();return exportRecipeBackup({version:2,cats,active,meals,weekdayCategories,weekdayMealOverrides,weekdayColors,categoryColors,timeDisplayPrefs,masterOpenMode,masterPinsOverride,autoPinTopCategories,applyPinsToAllTabs,pinnedCats,expandedCats,mealPlans:{plans:mealPlans,activeId:activePlanId},showMealPlanTabs,storage:captureBackupStorage()})};
 const exportRecipesBtn=document.createElement('button');exportRecipesBtn.textContent='Export recipes';exportRecipesBtn.onclick=()=>exportRecipeBackup({version:2,cats,meals:meals.filter(meal=>!meal._scheduledEditorDraft)},'meal-rotation-recipes.json');
@@ -680,7 +700,7 @@ restoreBtn.onclick=()=>{
   }catch(e){alert('Backup rejected or restore failed: '+e.message+'. No changes were made if validation failed.')}
  };input.click();
 };
-let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=async()=>{await finishSettings('ask');render()};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipes from a link, photo, text or file';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=displayGroup;
+let closeSettings=document.createElement('button');closeSettings.textContent='Close';closeSettings.onclick=async()=>{await finishSettings('ask');render()};let importBtn=document.createElement('button');importBtn.textContent='Import recipes';importBtn.title='Import recipes from a link, photo, text or file';importBtn.onclick=()=>openRecipeImportSourcePicker();const planGroup=subs.general;
  const planOption=document.createElement('label');planOption.className='settings-display-option settings-display-option-with-help';
  const planCheck=document.createElement('input');planCheck.type='checkbox';planCheck.setAttribute('role','switch');planCheck.className='preference-switch';planCheck.checked=showMealPlanTabs;
  planCheck.onchange=()=>{const apply=on=>{showMealPlanTabs=on;planCheck.checked=on;localStorage.setItem('mealRotationShowPlanTabsV1',String(on));renderList()};if(planCheck.checked||mealPlans.length<2){apply(planCheck.checked);return}planCheck.checked=true;chooseMealToKeep(id=>{if(id!==activePlanId)loadMealPlan(id,false);allMealsActive=false;groceryTabActive=false,aiTabActive=false;apply(false)})};
@@ -695,7 +715,7 @@ let closeSettings=document.createElement('button');closeSettings.textContent='Cl
  const backupGroup=makeSettingsGroup('backups','Backups'),backupRow=document.createElement('div');backupRow.className='settings-backup-controls';backupRow.append(exportBtn,restoreBtn);const diagnostic=document.createElement('button');diagnostic.type='button';diagnostic.textContent='Export meal-date diagnostic';diagnostic.title='Read-only dates and assignment details for the selected meal plan; no recipe names or contents.';diagnostic.onclick=()=>exportRecipeBackup(occurrenceDateDiagnostic(),'meal-date-diagnostic.json');backupRow.append(diagnostic);const backupHint=document.createElement('p');backupHint.className='muted';backupHint.textContent='Save or restore your full collection, meal plans, progress and settings.';backupGroup.content.append(backupHint,backupRow);panel.append(backupGroup.details);
  panel.append(makeSettingsFooter());decoratePreferenceSwitches(panel);
  const help=document.createElement('button');help.id='help';help.className='iconbtn';help.title='Help and gestures';help.setAttribute('aria-label','Help and gestures');help.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01" stroke-linecap="round"/></svg>';help.onclick=()=>openHelpModal();actions.append(help);settings.onclick=async()=>{
- const opening=panel.classList.contains('hidden');
+ const opening=panel.classList.contains('hidden');if(opening)displaySectionsApplyExpiry();
  if(!opening){await finishSettings('ask');render();return}
  if(settingsBaseline!==null&&activeSettingsPanel==='lower'){
   await finishSettings('ask');render();document.getElementById('settings')?.click();return;
