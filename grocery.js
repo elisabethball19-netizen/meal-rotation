@@ -37,7 +37,7 @@ function appendManualGroceries(rows,refresh){
   text.addEventListener('pointerdown',event=>{if(event.button!==0)return;held=false;start={x:event.clientX,y:event.clientY};clearTimeout(timer);timer=setTimeout(()=>{held=true;openManualGroceryEditor(item,refresh)},550)});
   text.addEventListener('pointermove',event=>{if(start&&Math.hypot(event.clientX-start.x,event.clientY-start.y)>10){clearTimeout(timer);start=null}});for(const event of ['pointerup','pointercancel','pointerleave'])text.addEventListener(event,()=>{clearTimeout(timer);start=null});
   text.addEventListener('contextmenu',event=>event.preventDefault());row.addEventListener('click',event=>{if(held){event.preventDefault();event.stopImmediatePropagation();held=false}},true);
-  row.append(check,text);section.append(row);
+  const shop=typeof shoppingLinkNode==='function'?shoppingLinkNode(item.text,refresh):null;row.append(...[check,text,shop].filter(Boolean));section.append(row);
  }rows.append(section);
 }
 // Regular items: reusable grocery templates (name, optional amount, Repeat weekly). Templates never change
@@ -83,29 +83,62 @@ function groceryContributionText(source,overrides=groceryTextOverrides()){
 }
 // Split recipe lines ("2 tsp curry" + "1 tsp curry, remaining") from one meal occurrence count as one source.
 function groceryOccurrenceGroups(line){const groups=new Map();for(const c of line.contributions||[]){const k=[c.mealId,c.planId,c.day].join('|');if(!groups.has(k))groups.set(k,[]);groups.get(k).push(c)}return [...groups.values()]}
+// Update the recipe too (2026-11-23): an edit can also rewrite the ingredient line in the recipe itself.
+// Only the version being viewed changes (the saved AI other version is untouched); sides are never rewritten here.
+function groceryRecipeUpdatable(source){return !!source&&source.simpleSideName===undefined&&typeof source.original==='string'&&meals.some(m=>String(m.id)===String(source.mealId)&&Array.isArray(m.ingredients))}
+function groceryRecipeWording(source,text){
+ const entered=groceryQuantityParts(text),m=Number(source.multiplier)||1;
+ if(!entered||m===1||!(entered.lo>0))return text;
+ return formatRecipeQuantity(entered.lo/m)+(entered.hi!==entered.lo?'–'+formatRecipeQuantity(entered.hi/m):'')+' '+(entered.unit?entered.unit+' ':'')+entered.name;
+}
+function applyGroceryRecipeUpdates(updates){
+ const plan=new Map();let skipped=0;
+ for(const {source,text} of updates){
+  const meal=meals.find(m=>String(m.id)===String(source.mealId));if(!meal||!groceryRecipeUpdatable(source)){skipped++;continue}
+  let normalized,index;try{[,normalized,index]=JSON.parse(source.id)}catch(e){skipped++;continue}
+  let seen=0,at=-1;(meal.ingredients||[]).forEach((raw,i)=>{if(at<0&&ingredientKey(compactIngredientFractions(String(raw??'').trim()))===normalized){if(seen===index)at=i;seen++}});
+  if(at<0){skipped++;continue}
+  const key=meal.id+'|'+at;if(!plan.has(key))plan.set(key,{meal,at,text:groceryRecipeWording(source,text).trim()})
+ }
+ const byMeal=new Map();for(const item of plan.values()){if(!byMeal.has(item.meal))byMeal.set(item.meal,[]);byMeal.get(item.meal).push(item)}
+ for(const [meal,items] of byMeal){
+  const oldLines=[...meal.ingredients],next=[...oldLines],pairs=[];
+  for(const {at,text} of items){if(!text){skipped++;continue}pairs.push([String(oldLines[at]),text]);next[at]=text}
+  assignSharedRecipeFields(meal,{ingredients:next});
+  try{const key='mealRotationSelectedIngredientsV1',sel=JSON.parse(localStorage.getItem(key)||'{}');let changed=false;
+   for(const copy of mealLinkedCopies(meal)){const prev=sel[String(copy.id)];if(!Array.isArray(prev))continue;sel[String(copy.id)]=prev.map(l=>{const hit=pairs.find(([o])=>o===String(l));return hit?hit[1]:l});changed=true}
+   if(changed)localStorage.setItem(key,JSON.stringify(sel))}catch(e){}
+ }
+ return {updated:[...byMeal.keys()].length,skipped};
+}
+function groceryRecipeSwitch(text){
+ const label=document.createElement('label');label.className='grocery-recipe-switch';const input=document.createElement('input');input.type='checkbox';input.setAttribute('role','switch');input.className='preference-switch';label.append(input,document.createTextNode(text));if(typeof decoratePreferenceSwitches==='function')decoratePreferenceSwitches(label);return {label,input};
+}
 function openGroceryTextEditor(line,refresh){
  if(groceryOccurrenceGroups(line).length>1){openGroceryContributionEditor(line,refresh);return}
  const d=recipeBulkDialog('Edit grocery item'),field=document.createElement('input');field.type='text';field.className='manual-grocery-field';field.setAttribute('aria-label','Grocery item');field.value=line.line;
- const note=document.createElement('p');note.className='muted';note.textContent='Changes apply only to your grocery list. Quantities still update when you scale the recipe.';
+ const note=document.createElement('p');note.className='muted';const GROCERY_ONLY='Changes apply only to your grocery list. Quantities still update when you scale the recipe.';note.textContent=GROCERY_ONLY;
+ const recipeSources=(line.contributions||[]).filter(groceryRecipeUpdatable),recipeNames=[...new Set(recipeSources.map(source=>source.mealName))],toggle=recipeSources.length?groceryRecipeSwitch('Also update the recipe'):null;
+ if(toggle)toggle.input.onchange=()=>{note.textContent=toggle.input.checked?'Also changes this ingredient in '+recipeNames.join(' and ')+'. Undo reverses both.':GROCERY_ONLY};
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save grocery item');setIconButton(cancel,'cancel','Cancel');
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
- save.onclick=()=>{const text=field.value.trim();if(!text){error.textContent='Enter a grocery item.';field.focus();return}try{const records=groceryTextOverrides();delete records[groceryTextKey(line)];const entered=groceryQuantityParts(text),total=groceryQuantityParts(line.line);
+ save.onclick=()=>{const text=field.value.trim();if(!text){error.textContent='Enter a grocery item.';field.focus();return}try{const records=groceryTextOverrides(),updates=[];delete records[groceryTextKey(line)];const entered=groceryQuantityParts(text),total=groceryQuantityParts(line.line);
  for(const source of line.contributions||[]){const original=groceryQuantityParts(groceryContributionText(source));let wording=text;
  if(entered&&total&&original&&total.lo>0){const ratio=entered.lo/total.lo,amount=formatRecipeQuantity(original.lo*ratio)+(original.hi!==original.lo?'–'+formatRecipeQuantity(original.hi*ratio):'');wording=amount+' '+(entered.unit?entered.unit+' ':'')+entered.name}
- records[JSON.stringify([source.id])]={text:wording,multiplier:source.multiplier||1};}const before=captureState();localStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records));snapshot(before);d.close();refresh()}catch(e){error.textContent=e.message}};
- cancel.onclick=d.close;field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save.click()}};actions.append(save,cancel);d.panel.append(field,note,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);field.focus({preventScroll:true});
+ if(toggle?.input.checked&&groceryRecipeUpdatable(source)){updates.push({source,text:wording});delete records[JSON.stringify([source.id])]}else records[JSON.stringify([source.id])]={text:wording,multiplier:source.multiplier||1};}const before=captureState();if(updates.length)applyGroceryRecipeUpdates(updates);localStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records));if(updates.length)persist();snapshot(before);d.close();refresh()}catch(e){error.textContent=e.message}};
+ cancel.onclick=d.close;field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save.click()}};actions.append(save,cancel);d.panel.append(field,...(toggle?[toggle.label]:[]),note,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);field.focus({preventScroll:true});
 }
 // Batch 2: a multi-recipe item lists each recipe's own amount; each saves as that recipe's shopping wording only.
 function openGroceryContributionEditor(line,refresh){
  const d=recipeBulkDialog('Edit grocery item'),fields=[];
- const note=document.createElement('p');note.className='muted';note.textContent='Changes apply only to your grocery list. Quantities still update when you scale the recipe.';
+ const note=document.createElement('p');note.className='muted';note.textContent='Changes apply only to your grocery list. Quantities still update when you scale the recipe. Turn on "Also update this recipe" under a recipe to change its ingredient too.';
  const list=document.createElement('div');list.className='grocery-contribution-fields';
- for(const source of line.contributions){const label=document.createElement('label');label.className='grocery-contribution-field';const name=document.createElement('span');name.className='grocery-contribution-recipe';name.textContent=source.mealName;const field=document.createElement('input');field.type='text';field.className='manual-grocery-field';field.setAttribute('aria-label','Grocery item for '+source.mealName);field.value=groceryContributionText(source);label.append(name,field);list.append(label);fields.push([source,field])}
+ for(const source of line.contributions){const label=document.createElement('label');label.className='grocery-contribution-field';const name=document.createElement('span');name.className='grocery-contribution-recipe';name.textContent=source.mealName;const field=document.createElement('input');field.type='text';field.className='manual-grocery-field';field.setAttribute('aria-label','Grocery item for '+source.mealName);field.value=groceryContributionText(source);const toggle=groceryRecipeUpdatable(source)?groceryRecipeSwitch('Also update this recipe'):null;label.append(name,field);list.append(label);if(toggle)list.append(toggle.label);fields.push([source,field,toggle])}
  const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';setIconButton(save,'save','Save grocery item');setIconButton(cancel,'cancel','Cancel');
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
  save.onclick=()=>{const empty=fields.find(([,field])=>!field.value.trim());if(empty){error.textContent='Enter a grocery item.';empty[1].focus();return}try{const records=groceryTextOverrides();delete records[groceryTextKey(line)];
-  for(const [source,field]of fields){const text=field.value.trim();if(text===groceryContributionText(source))continue;records[JSON.stringify([source.id])]={text,multiplier:source.multiplier||1}}
-  const before=captureState();localStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records));snapshot(before);d.close();refresh()}catch(e){error.textContent=e.message}};
+  const updates=[];for(const [source,field,toggle]of fields){const text=field.value.trim();if(toggle?.input.checked){updates.push({source,text});delete records[JSON.stringify([source.id])];continue}if(text===groceryContributionText(source))continue;records[JSON.stringify([source.id])]={text,multiplier:source.multiplier||1}}
+  const before=captureState();if(updates.length)applyGroceryRecipeUpdates(updates);localStorage.setItem(GROCERY_TEXT_OVERRIDES_KEY,JSON.stringify(records));if(updates.length)persist();snapshot(before);d.close();refresh()}catch(e){error.textContent=e.message}};
  cancel.onclick=d.close;actions.append(save,cancel);d.panel.append(list,note,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);fields[0]?.[1].focus({preventScroll:true});
 }
 function bindGroceryTextPress(name,line,refresh){

@@ -266,3 +266,6 @@ v358 (2026-11-23) Remembered Walmart products: long-press the grocery magnifier 
 v359 (2026-11-23) Walmart long-press reworked for phones: touch timer + contextmenu handler, no native link menu. Awaiting phone test.
 v358/v359 phone-confirmed 2026-11-23: remembered Walmart products (long-press, save, open, change/remove).
 v360 (2026-11-23) Ask AI paste: drops closing chatter (Enjoy!/Let me know...) and curly quotes around titles; chatty, fenced, plain and bold answers verified in harness. Awaiting phone test.
+v360 phone check skipped by Elisabeth; she will report any chatter seen on imported AI recipes.
+
+v361 (2026-11-23) (1) Grocery edit dialog: switch "Also update the recipe" (off by default) rewrites that ingredient in the recipe too (unscaled amount, viewed version only, sides excluded, selections carried, one Undo). Multi-recipe items get one switch per recipe. (2) Shopping text cleanup now strips nested parentheses fully ("cider* ((not vinegar))" no longer leaves "()"). (3) Walmart magnifier on Additional items rows, aligned with the others. Awaiting phone test.
