@@ -525,6 +525,7 @@ function rotatePinnedCategoriesToWeekdayOrder(){
  plan.pinnedDisplayOrder=[...ordered,...remainder];
  saveActiveMealPlan();
 }
+const weekdayDraftRows=new Set();
 function splitPlanSettings(){return showTop&&showMealPlanTabs&&mealPlans.length>1}
 function renderTabs(){let t=$('tabs');const previousRow=document.getElementById('categoryButtons');const oldCatMenu=document.getElementById('catmenu');if(oldCatMenu&&previousRow&&previousRow.contains(oldCatMenu))document.body.append(oldCatMenu);if(previousRow)previousRow.remove();const pageKey=showTop?'top-recipes':(masterCategoriesView?'master-groups':'group:'+active);const keepSettingsOpen=activeSettingsPanel==='upper'&&lastRenderedPageKey===pageKey&&!!t.querySelector('#settingsPanel:not(.hidden)');const openSettingsGroups=keepSettingsOpen?new Set([...t.querySelectorAll('details[data-settings-group][open]')].map(d=>d.dataset.settingsGroup)):new Set();lastRenderedPageKey=pageKey;const categoryMenu=$('catmenu');if(categoryMenu&&categoryMenu.parentNode===t)categoryMenu.remove();t.innerHTML='';const categoryRow=document.createElement('div');categoryRow.id='categoryButtons';categoryRow.className='tabs category-button-row';if(categoryMenu)categoryRow.append(categoryMenu);const effectivePins=effectivePinnedCategories();
 // Group shortcuts were retired. Keep the empty anchor for older UI callers,
@@ -572,7 +573,22 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
     };
     const label=document.createElement('strong');label.textContent=day;
     head.append(radio,label);outer.append(head);
-    const groups=document.createElement('button');groups.type='button';groups.className='smallbtn weekday-sequence-edit';const plan=mealPlans.find(p=>p.id===activePlanId),seq=Object.values(plan.alternatingGroupsV1||{}).find(s=>s.day===day);groups.textContent=seq?seq.groups.map(id=>sequenceGroup(id)||'Deleted group').join(' · '):(getDayCategories(day).join(' · ')||'Choose meal groups');groups.setAttribute('aria-label','Meal groups for '+day);groups.onclick=()=>openRecurringDayEditor(day);outer.append(groups);weekGroup.content.append(outer);
+    const plan=mealPlans.find(p=>p.id===activePlanId),seq=Object.values(plan.alternatingGroupsV1||{}).find(s=>s.day===day),ids=seq?[...seq.groups]:getDayCategories(day).map(c=>groupIdentity(c,true)),rows=weekdayDraftRows.has(day)?[...ids,null]:ids.length?ids:[null];
+    const choices=masterGroupDisplayOrder().filter(cat=>groupUsesRotation(cat));
+    const commit=next=>{weekdayDraftRows.delete(day);const top=scrollY;try{applyDayGroupSequence(day,next.filter(Boolean))}catch(e){showAppMessage(e.message)}renderTabs();renderList();scrollTo({top,behavior:'instant'})};
+    rows.forEach((id,index)=>{
+     const row=document.createElement('div');row.className='weekday-group-row'+(index===0?' weekday-group-first':'');
+     const select=document.createElement('select');select.setAttribute('aria-label',(index?'Another meal group':'Meal group')+' for '+day);
+     const blank=document.createElement('option');blank.value='';blank.textContent='Choose…';select.append(blank);
+     for(const cat of choices){const value=groupIdentity(cat,true);if(value!==id&&rows.includes(value))continue;const option=document.createElement('option');option.value=value;option.textContent=cat;select.append(option)}
+     if(id&&!sequenceGroup(id)){const gone=document.createElement('option');gone.value=id;gone.textContent='Deleted group';select.append(gone)}
+     select.value=id||'';select.onchange=()=>{const next=[...rows];if(select.value)next[index]=select.value;else next.splice(index,1);commit(next)};row.append(select);
+     if(index>0){const remove=document.createElement('button');remove.type='button';remove.className='weekday-remove iconbtn';setIconButton(remove,'delete','Remove '+(sequenceGroup(id)||'this row')+' from '+day);remove.onclick=()=>{if(!id){weekdayDraftRows.delete(day);renderTabs();return}commit(rows.filter((_,i)=>i!==index))};row.append(remove)}
+     outer.append(row);
+    });
+    const add=document.createElement('button');add.type='button';add.className='weekday-add iconbtn';setIconButton(add,'add','Add another group to '+day);add.disabled=!ids.length||weekdayDraftRows.has(day)||choices.length<=ids.length;add.onclick=()=>{weekdayDraftRows.add(day);renderTabs()};outer.append(add);
+    if(ids.length>1){const alt=document.createElement('div');alt.className='weekday-alternate';const note=document.createElement('span');note.className='muted';note.textContent='Takes turns · this week: '+(sequenceGroup(ids[Math.min(seq?.position||0,ids.length-1)])||'—');const link=document.createElement('button');link.type='button';link.className='weekday-alternate-link';link.textContent='Alternate weeks…';link.onclick=()=>openRecurringDayEditor(day);alt.append(note,link);outer.append(alt)}
+    weekGroup.content.append(outer);
   });
   populateAutoMoveSetting(weekGroup.content);
 }

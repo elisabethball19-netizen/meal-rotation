@@ -79,6 +79,19 @@ function saveServingSession(target,sides,baseline){
   actual.servingSidesV1={...actual.servingSidesV1,[target.key]:JSON.parse(JSON.stringify(sides))};actual.simpleSideOccurrences={...actual.simpleSideOccurrences,[target.key]:sides.filter(s=>s.type==='simple').map(({id,name,ingredients})=>({id,name,ingredients}))};
  });
 }
+// Inline Weekday Setup (2026-11-23): the same save as the day popup, from the dropdown rows. 2+ groups take turns.
+function applyDayGroupSequence(day,groups){
+ const planId=activePlanId,plan=mealPlans.find(p=>p.id===planId),assigned=getDayCategories(day).filter(cat=>cats.includes(cat)),existing=Object.values(plan.alternatingGroupsV1||{}).find(seq=>seq.day===day);
+ const legacy=getDisplayedWeekdayMealsForPlan(plan).filter(e=>e.day===day&&!e.linkedTo&&!e.servingParentId&&!pairedMainGroup(plan,day,e.cat)).length>1;if(legacy){openRecurringDayEditor(day);return}
+ groups=[...new Set(groups)].filter(id=>sequenceGroup(id)&&groupUsesRotation(sequenceGroup(id)));
+ const active=existing?existing.groups[existing.position||0]:assigned[0]?groupIdentity(assigned[0],true):null,position=Math.max(0,groups.indexOf(active)),onceId=plan.occasionalMeals?.[day]??null;
+ servingTransaction(()=>{const target=mealPlans.find(p=>p.id===planId);target.alternatingGroupsV1??={};for(const [key,seq]of Object.entries(target.alternatingGroupsV1))if(seq.day===day)delete target.alternatingGroupsV1[key];
+  const selected=groups.length?sequenceGroup(groups[Math.min(position,groups.length-1)]):null;
+  if(groups.length>1)target.alternatingGroupsV1[day]={day,groups:[...groups],position:Math.min(position,groups.length-1),...(existing?.credits?{credits:{...existing.credits}}:{})};
+  weekdayCategories[day]=selected?[selected]:[EMPTY_DAY_ASSIGNMENT];target.weekdayCategories=JSON.parse(JSON.stringify(weekdayCategories));
+  if(selected&&onceId&&!assigned.length){const key=weekdaySlotKey(day,selected);target.cycleSlotChoices={...target.cycleSlotChoices,[key]:{mealId:String(onceId),parentId:'',substitution:true,retain:true}};weekdayMealOverrides={...weekdayMealOverrides,[key]:String(onceId)};target.weekdayMealOverrides={...weekdayMealOverrides};if(target.occasionalMeals)delete target.occasionalMeals[day]}
+ });
+}
 function openRecurringDayEditor(day){
  const planId=activePlanId,plan=mealPlans.find(p=>p.id===planId),assigned=getDayCategories(day).filter(cat=>cats.includes(cat)),existing=Object.values(plan.alternatingGroupsV1||{}).find(seq=>seq.day===day),currentEntries=getDisplayedWeekdayMealsForPlan(plan).filter(e=>e.day===day&&!e.linkedTo&&!e.servingParentId&&!pairedMainGroup(plan,day,e.cat)),legacy=currentEntries.length>1;
  const onceId=plan.occasionalMeals?.[day]??null;
