@@ -249,3 +249,5 @@ v350 (2026-11-23, code-complete, awaiting phone test): WALMART LINKS step 1. Set
 v351 (2026-11-23, code-complete, awaiting phone test): Needs Adjusting "!" on EXPANDED Meals cards, beside the heart (serving.js): gray when not set, amber when set; opens the existing Needs Adjusting pop-up (same data as the recipe view); the collapsed-row amber "!" is hidden while expanded so there is no duplicate.
 
 NOT BUILT 2026-11-23 (recipe-view pencil -> full editor): the old return-to-viewer scaffolding (recipeEditorReturn, returnToEditedRecipe, viewerTabs/previewProgress/pane scroll) has no producer any more, so wiring openViewedRecipeEditor to openEditor means rebuilding viewer state capture/restore (tabs, progress, scale, scroll, history entries). Treat as a multi-file Opus task; do it with the user, not unattended.
+
+v343-v351 phone-confirmed 2026-11-23 (Walmart links, expanded-card "!", cut names all worked). v352 (code-complete, awaiting phone test): the Needs Adjusting pop-up hides the trash button when no flag exists yet (shows only check and X); with an existing flag all three show.

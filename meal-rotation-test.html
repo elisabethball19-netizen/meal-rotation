@@ -4940,7 +4940,7 @@ function openNeedsTweaking(meal,updated=null,editing=false){
  const heading=recipeTweakingHeading(meal,()=>{},'needsTweakingTitle');heading.querySelector('.recipe-tweaking-trash')?.remove();
  const actions=document.createElement('div');actions.className='meal-unified-actions';
  const save=document.createElement('button'),trash=document.createElement('button'),cancel=document.createElement('button');for(const button of [save,trash,cancel])button.type='button';
- setIconButton(save,'save','Save Needs Adjusting');setIconButton(trash,'delete','Remove Needs Adjusting');setIconButton(cancel,'cancel','Cancel Needs Adjusting');trash.disabled=meal.needsTweaking!==true;
+ setIconButton(save,'save','Save Needs Adjusting');setIconButton(trash,'delete','Remove Needs Adjusting');setIconButton(cancel,'cancel','Cancel Needs Adjusting');trash.disabled=meal.needsTweaking!==true;if(meal.needsTweaking!==true)trash.style.setProperty('display','none','important');
  save.onclick=()=>{if(!meals.includes(meal)){status.textContent='This recipe changed. Close and reopen it.';return}snapshot();assignRecipeTweaking(meal,true,field.value);persist();close();refreshNeedsTweakingViews(updated)};
  trash.onclick=()=>removeRecipeNeedsTweaking(meal,updated,close);cancel.onclick=close;actions.append(save,trash,cancel);panel.append(heading,recipe,label,field,status,actions);
  shade.append(panel);shade.addEventListener('click',e=>{if(e.target===shade)close()});
