@@ -102,7 +102,8 @@ def run(browser, name):
     plans = p.evaluate('batch13.plans()')
     assert [x[0] for x in plans] == [d0, d1, '2027-01-15'] and plans[1][2] is False and plans[0][3] == d0 and plans[2][3] is None, plans
     sb.shot(p, name, 'batch13-week-after')
-    # Reload keeps plans and the applied schedule.
+    # Reload keeps plans and the applied schedule (the fixture's Tuesday week start must persist, issue 130).
+    p.evaluate("(typeof testStorage!=='undefined'?testStorage:localStorage).setItem('mealRotationStartWeekdayV1','Tuesday')")
     p.reload()
     p.wait_for_function('window.batch13')
     assert len(p.evaluate('batch13.plans()')) == 3 and p.evaluate('([w,d])=>batch13.main(w,d)', [0, d0])[0] == pick0
