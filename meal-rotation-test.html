@@ -12696,7 +12696,21 @@ function collapseRecipeEditorField(field,title){
  details.addEventListener('toggle',()=>{try{const prefs=JSON.parse(testStorage.getItem(RECIPE_EDITOR_SECTIONS_KEY)||'{}')||{};prefs.viewer={...prefs.viewer,[key]:details.open};testStorage.setItem(RECIPE_EDITOR_SECTIONS_KEY,JSON.stringify(prefs))}catch(e){}});
  return details;
 }
+// Recipe-view pencil (2026-11-23): opens the same full editor as Meal Groups. The viewer (tabs, progress, scale,
+// scroll) is saved first and reopened as it was when the editor saves, cancels, deletes or Back is pressed.
 function openViewedRecipeEditor(){
+ const view=recipeViewer;if(!view)return;
+ if(view.linkEdit){recipeLinkMessage(view,'Save or cancel the current ingredient links before editing the recipe.');return}
+ const meal=meals.find(m=>String(m.id)===view.mealId);if(!meal||document.querySelector('[data-viewer-recipe-draft]'))return;
+ if(editId!==null||recipeEditorReturn)return openViewedRecipeQuickEditor();
+ cancelRecipeAdvance(view);view.importController?.abort();
+ const saved={mealId:view.mealId,context:view.context,viewerTabs:snapshotRecipeTabs(view),navigationOrigin:view.navigationOrigin,appScroll:view.scroll};
+ finishRecipeViewerClose(false);recipeEditorReturn=saved;
+ try{openEditor(meal.id)}catch(error){recipeEditorReturn=null;returnToSavedViewer(saved);throw error}
+ if(editId===null){recipeEditorReturn=null;returnToSavedViewer(saved)}
+}
+function returnToSavedViewer(saved){recipeEditorReturn=saved;returnToEditedRecipe()}
+function openViewedRecipeQuickEditor(){
  const view=recipeViewer;if(!view)return;
  if(view.linkEdit){recipeLinkMessage(view,'Save or cancel the current ingredient links before editing the recipe.');return}
  const meal=meals.find(m=>String(m.id)===view.mealId);if(!meal||document.querySelector('[data-viewer-recipe-draft]'))return;
@@ -12762,6 +12776,7 @@ function returnToEditedRecipe(){
  const anchor=saved.viewerTabs?.anchor,meal=meals.find(m=>String(m.id)===String(anchor?.mealId||saved.mealId));
  if(!meal){if(window.history.state?.mealRotationRecipeViewer){const state={...window.history.state};delete state.mealRotationRecipeViewer;window.history.replaceState(state,'')}return true}
  const context=definiteRecipeContext(anchor?.context||saved.context);
+ if(saved.viewerTabs)for(const tab of saved.viewerTabs.cache.values()){const record=meals.find(m=>String(m.id)===String(tab.mealId));if(!record||!tab.recipeContent)continue;if(JSON.stringify(tab.recipeContent.ingredients)!==JSON.stringify(record.ingredients)||JSON.stringify(tab.recipeContent.instructions)!==JSON.stringify(record.instructions)){if(tab.previewProgress)tab.previewProgress=compatiblePreviewProgress(tab.previewProgress,tab.recipeContent,record);tab.recipeContent={ingredients:record.ingredients,instructions:record.instructions}}}
  openRecipeViewer(meal,context,false,saved.viewerTabs,saved.navigationOrigin);const view=recipeViewer;view.scroll=saved.appScroll;
  if(!saved.viewerTabs){view.previewProgress=compatiblePreviewProgress(saved.previewProgress,saved.recipeContent,meal);view.previewScale=saved.previewScale;renderRecipeViewer();view.cover.scrollTop=saved.scroll;[...view.content.querySelectorAll('.recipe-pane')].forEach((p,i)=>p.scrollTop=saved.panes[i]||0)}
  window.history.replaceState({...window.history.state,mealRotationRecipeViewer:{mealId:view.anchorTab.mealId,context:view.anchorTab.context}},'');return true;

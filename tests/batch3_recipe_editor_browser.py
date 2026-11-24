@@ -16,38 +16,27 @@ sb.fixture.HOOK += '''window.batch3={
  editor:id=>{openEditor(id);let d=document.getElementById('recipeIngredientLinks');while(d){if(d.tagName==='DETAILS')d.open=true;d=d.parentElement}},
  renamePath:()=>appIconSvg.rename,
  closeViewer:()=>{if(recipeViewer)closeRecipeViewer()},
- closeEditor:()=>{editId=null;render()}
+ closeEditor:()=>{editId=null;render()},
+ state:()=>[editId,recipeViewer?recipeViewer.mealId:null]
 };'''
 
 
 def run(browser, name):
     c, p, errors, prefix = sb.open_page(browser, name)
     p.evaluate('batch3.seed()')
-    # Viewer -> Edit recipe: every edit section starts collapsed, even after one was left open.
+    # Viewer -> Edit recipe (2026-11-23): opens the full editor (sections collapsed); Cancel reopens the recipe.
     p.evaluate('batch3.viewerEdit()')
-    d = p.get_by_role('dialog', name='Edit Recipe', exact=True)
-    d.wait_for(state='visible')
-    states = d.locator('details.viewer-editor-section').evaluate_all('(es)=>es.map(e=>e.open)')
+    p.wait_for_timeout(500)
+    assert p.evaluate('batch3.state()') == [2, None], p.evaluate('batch3.state()')
+    states = p.locator('#editor details.meal-editor-section').evaluate_all('(es)=>es.filter(e=>!e.classList.contains("meal-editor-serve")).map(e=>e.open)')
     assert states and not any(states), states
-    d.locator('details.viewer-editor-section summary').first.click()
-    row = d.locator('.recipe-source-row')
-    assert row.locator('.recipe-source-site').text_content() == 'seriouseats.com', row.inner_text()
-    pencil = row.get_by_role('button', name='Edit recipe link', exact=True)
-    assert pencil.inner_html().count('<path') == p.evaluate('batch3.renamePath()').count('<path') and 'Original recipe' not in row.inner_text()
-    url = d.get_by_role('textbox', name='Recipe source link', exact=True)
-    assert url.is_hidden()
-    pencil.click()
-    assert url.is_visible()
+    assert p.locator('#editor .recipe-source-site').text_content() == 'seriouseats.com'
     sb.shot(p, name, 'batch3-viewer-editor')
-    d.get_by_role('button', name='Cancel', exact=False).last.click() if d.get_by_role('button', name='Cancel', exact=False).count() else p.keyboard.press('Escape')
-    p.wait_for_timeout(300)
+    p.locator('#editor #cancel').click()
+    p.wait_for_timeout(500)
+    assert p.evaluate('batch3.state()') == [None, '2'], p.evaluate('batch3.state()')
     p.evaluate('batch3.closeViewer()')
-    p.evaluate('batch3.viewerEdit()')
-    d.wait_for(state='visible')
-    assert not any(d.locator('details.viewer-editor-section').evaluate_all('(es)=>es.map(e=>e.open)')), 'collapsed on every opening'
-    p.keyboard.press('Escape')
     p.wait_for_timeout(200)
-    p.evaluate('batch3.closeViewer()')
     # Main editor: same source row; empty link shows a pencil to add one.
     p.evaluate('batch3.noLink()')
     p.evaluate('batch3.editor(3)')
@@ -61,7 +50,7 @@ def run(browser, name):
     assert p.locator('#recipeIngredientLinks').is_hidden()
     assert not errors, errors
     c.close()
-    print('PASS', name, 'batch 3: source row both editors, viewer edit collapsed, step picker', flush=True)
+    print('PASS', name, 'batch 3: source row, viewer pencil opens full editor and returns, step picker', flush=True)
 
 
 if __name__ == '__main__':
