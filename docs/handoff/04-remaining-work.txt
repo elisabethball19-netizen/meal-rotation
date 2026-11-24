@@ -239,3 +239,5 @@ v346 (2026-11-23, code-complete, awaiting phone test): carried-over sourdough re
 v347 (2026-11-23, code-complete, awaiting phone test): arriving at a meal group (e.g. tapping a group label on Meals) now opens it with Regulars expanded and Off menu collapsed; other sections keep their saved state.
 
 v342 phone-confirmed (scale radios work). v348 (2026-11-23, code-complete, awaiting phone test): recipe-viewer scale menu now matches the Meals scale dialog (five amount buttons in one row, grey fill; compact Other box). CSS only.
+
+Phone-confirmed 2026-11-23: v343 (Needs Adjusting per version, Leftovers no Last cooked), v344, v345, v346, v347, v348. Still pending real-world: v341 new-week prompt (Tue Dec 1), Start next week placement after next rotation.
