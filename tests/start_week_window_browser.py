@@ -24,6 +24,7 @@ fixture.HOOK += '''window.sw130={
  stale:()=>{const p=mealPlans[0];p.mealPlanWeekStartV1='2026-11-24';const e=getDisplayedWeekdayMealsForPlan(p).find(e=>e.day==='Tuesday'&&!e.linkedTo),key=rotationOccurrenceKey({...e,planId:p.id});p.rotationCalendar.occurrences[key]='2026-11-17';p.rotationCalendar.assignedOn[key]='2026-11-10';p.rotationCalendar=rotationCalendarForPlan(p,getDisplayedWeekdayMealsForPlan(p));return p.rotationCalendar.occurrences[key]},
  wed:()=>{const p=mealPlans[0];p.mealPlanWeekStartV1='2026-11-24';startWeekday='Wednesday';const e=getDisplayedWeekdayMealsForPlan(p).find(e=>e.day==='Tuesday'&&!e.linkedTo),key=rotationOccurrenceKey({...e,planId:p.id});p.rotationCalendar.occurrences[key]='2026-11-24';p.rotationCalendar.assignedOn[key]='2026-11-17';p.rotationCalendar=rotationCalendarForPlan(p,getDisplayedWeekdayMealsForPlan(p));const out=[cookingLocalDate(mealPlanWeekStart(p)),p.rotationCalendar.occurrences[key]];startWeekday='Tuesday';return out},
  wedSwitch:()=>{const p=mealPlans[0];p.mealPlanWeekStartV1='2026-11-24';const e=getDisplayedWeekdayMealsForPlan(p).find(e=>e.day==='Tuesday'&&!e.linkedTo),key=rotationOccurrenceKey({...e,planId:p.id});const go=day=>{const old=new Map(mealPlans.map(x=>[x.id,mealPlanWeekStart(x)]));startWeekday=day;realignPlanWeeks(old);return mealPlans[0].rotationCalendar.occurrences[key]};p.rotationCalendar.occurrences[key]='2026-11-24';p.rotationCalendar.assignedOn[key]='2026-11-17';const out=[go('Wednesday'),go('Tuesday'),go('Wednesday'),go('Tuesday')];return out},
+ pend:()=>{restoringRotationCalendars=true;weekdayCategories.Wednesday=['Rice'];weekdayMealOverrides['Wednesday::Rice']='4';const pl=mealPlans[0];pl.weekdayCategories={...weekdayCategories};pl.weekdayMealOverrides={...weekdayMealOverrides};pl.cycleSlotChoices['Wednesday::Rice']={mealId:'4',parentId:'',substitution:true,retain:true};pl.mealPlanWeekStartV1='2026-11-24';for(const id of [2,3,4])meals.find(m=>m.id===id).makeAheadTasks=[{id:'b'+id,description:'Begin the bread',daysBefore:1}];const entries=getDisplayedWeekdayMealsForPlan(pl),cal=rotationCalendarForPlan(pl,entries),a=parseCookingLocalDate('2026-11-24');cal.weekStart='2026-11-24';for(const e of entries){const k=rotationOccurrenceKey({...e,planId:pl.id}),d=cookingLocalDate(cookingDateInWeek(e.day,a));cal.occurrences[k]=d;cal.assignedOn[k]='2026-11-17';cal.assignedAt[k]='2026-11-16T12:00:00.000Z';cal.slots[rotationCalendarSlot(e)]=d}pl.rotationCalendar=cal;restoringRotationCalendars=false;saveActiveMealPlan(false);retainDueMakeAheadTasks();persist();follow126.home();const before=document.querySelector('#todaysTodo')?.innerText;saveActiveMealPlan();const old=new Map(mealPlans.map(x=>[x.id,mealPlanWeekStart(x)]));startWeekday='Wednesday';realignPlanWeeks(old);renderList({readOnly:true});return [before,document.querySelector('#todaysTodo')?.innerText||'',mealPlans[0].makeAheadPending.map(x=>x.scheduled)]},
  depth:()=>history.length,open:()=>openStartNextWeek(),rotate:()=>openRotateOptions(false),offset:()=>rotationWeekOffset,load:id=>{loadMealPlan(id,false);follow126.home()},
  third:week=>{mealPlans.find(p=>p.id==='third').mealPlanWeekStartV1=week;saveActiveMealPlan(false)},
  plans:()=>JSON.stringify(mealPlans.map(p=>({id:p.id,week:p.mealPlanWeekStartV1,o:p.weekdayMealOverrides,c:p.weekdayCategories})))
@@ -173,6 +174,14 @@ def run(browser, name):
     # D) Switching the start weekday re-dates the week both ways (Tue 11-24 <-> Tue 12-01).
     p.evaluate('sw130.seed()')
     assert p.evaluate('sw130.wedSwitch()') == ['2026-12-01', '2026-11-24', '2026-12-01', '2026-11-24']
+
+    # E) A saved (pending) reminder follows its meal when the start weekday changes: no stale "today's dinner".
+    p.evaluate('sw130.seed()')
+    p.clock.set_fixed_time(datetime(2026, 11, 24, 20, tzinfo=timezone.utc))
+    before, after, pend = p.evaluate('sw130.pend()')
+    assert 'today' in before and 'tomorrow' in before, before
+    assert 'today' not in after and 'tomorrow' in after, after
+    assert sorted(pend) == ['2026-11-25', '2026-12-01'], pend
 
     assert not errors, errors
     if prefix:

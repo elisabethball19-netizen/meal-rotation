@@ -8282,7 +8282,7 @@ function appendWeekdayDate(heading,date){
 // Changing the start weekday re-dates the displayed week's meals (and their carried prep reminders) into the new
 // week, in either direction, so dates keep running in order. Dates outside the old displayed week are untouched.
 function realignPlanWeeks(oldStarts){
- saveActiveMealPlan();
+ // Callers save the active plan BEFORE changing startWeekday, so the calendar still holds the old dates here.
  for(const plan of mealPlans){
   const old=oldStarts.get(plan.id),start=mealPlanWeekStart(plan);if(!old||!plan.rotationCalendar?.occurrences||cookingLocalDate(old)===cookingLocalDate(start))continue;
   const end=new Date(old);end.setDate(end.getDate()+6);const lo=cookingLocalDate(old),hi=cookingLocalDate(end);
@@ -8695,6 +8695,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
         return;
       }
       snapshot();
+      saveActiveMealPlan();
       const oldWeekStarts=new Map(mealPlans.map(p=>[p.id,mealPlanWeekStart(p)]));
       startWeekday=day;
       testStorage.setItem('mealRotationStartWeekdayV1',day);
