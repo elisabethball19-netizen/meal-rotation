@@ -23,6 +23,7 @@ fixture.HOOK += '''window.sw130={
  nextTue:()=>{const s=previewMealPlanAdvance();const e=s.entries.find(e=>e.day==='Tuesday'&&!e.linkedTo);return e?String(e.meal.id):null},
  stale:()=>{const p=mealPlans[0];p.mealPlanWeekStartV1='2026-11-24';const e=getDisplayedWeekdayMealsForPlan(p).find(e=>e.day==='Tuesday'&&!e.linkedTo),key=rotationOccurrenceKey({...e,planId:p.id});p.rotationCalendar.occurrences[key]='2026-11-17';p.rotationCalendar.assignedOn[key]='2026-11-10';p.rotationCalendar=rotationCalendarForPlan(p,getDisplayedWeekdayMealsForPlan(p));return p.rotationCalendar.occurrences[key]},
  wed:()=>{const p=mealPlans[0];p.mealPlanWeekStartV1='2026-11-24';startWeekday='Wednesday';const e=getDisplayedWeekdayMealsForPlan(p).find(e=>e.day==='Tuesday'&&!e.linkedTo),key=rotationOccurrenceKey({...e,planId:p.id});p.rotationCalendar.occurrences[key]='2026-11-24';p.rotationCalendar.assignedOn[key]='2026-11-17';p.rotationCalendar=rotationCalendarForPlan(p,getDisplayedWeekdayMealsForPlan(p));const out=[cookingLocalDate(mealPlanWeekStart(p)),p.rotationCalendar.occurrences[key]];startWeekday='Tuesday';return out},
+ wedSwitch:()=>{const p=mealPlans[0];p.mealPlanWeekStartV1='2026-11-24';const e=getDisplayedWeekdayMealsForPlan(p).find(e=>e.day==='Tuesday'&&!e.linkedTo),key=rotationOccurrenceKey({...e,planId:p.id});const go=day=>{const old=new Map(mealPlans.map(x=>[x.id,mealPlanWeekStart(x)]));startWeekday=day;realignPlanWeeks(old);return mealPlans[0].rotationCalendar.occurrences[key]};p.rotationCalendar.occurrences[key]='2026-11-24';p.rotationCalendar.assignedOn[key]='2026-11-17';const out=[go('Wednesday'),go('Tuesday'),go('Wednesday'),go('Tuesday')];return out},
  depth:()=>history.length,open:()=>openStartNextWeek(),rotate:()=>openRotateOptions(false),offset:()=>rotationWeekOffset,load:id=>{loadMealPlan(id,false);follow126.home()},
  third:week=>{mealPlans.find(p=>p.id==='third').mealPlanWeekStartV1=week;saveActiveMealPlan(false)},
  plans:()=>JSON.stringify(mealPlans.map(p=>({id:p.id,week:p.mealPlanWeekStartV1,o:p.weekdayMealOverrides,c:p.weekdayCategories})))
@@ -168,6 +169,10 @@ def run(browser, name):
     # C) Changing the start weekday to Wednesday: the week starts Wed 11-25, so Tuesday falls on Dec 1 (after Monday).
     p.evaluate('sw130.seed()')
     assert p.evaluate('sw130.wed()') == ['2026-11-25', '2026-12-01']
+
+    # D) Switching the start weekday re-dates the week both ways (Tue 11-24 <-> Tue 12-01).
+    p.evaluate('sw130.seed()')
+    assert p.evaluate('sw130.wedSwitch()') == ['2026-12-01', '2026-11-24', '2026-12-01', '2026-11-24']
 
     assert not errors, errors
     if prefix:
