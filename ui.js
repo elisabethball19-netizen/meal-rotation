@@ -3702,11 +3702,32 @@ function shoppingSearchName(text){
  t=t.replace(/^(?:(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|lbs?|pounds?|oz|ounces?|kg|g|grams?|ml|l|cans?|jars?|packages?|pkgs?|bunch(?:es)?|heads?|cloves?|stalks?|pinch(?:es)?|dash(?:es)?|large|small|medium)\b\.?\s*)+(?:of\s+)?/i,'');
  return t.replace(/[*]+/g,'').replace(/\s{2,}/g,' ').trim();
 }
-function shoppingLinkNode(text){
+// Remembered product (2026-11-23): long-press an item's magnifier to save the exact Walmart product link; the magnifier then opens it directly.
+const SHOPPING_PRODUCTS_KEY='mealRotationShoppingProductsV1';
+function shoppingProducts(){try{const v=JSON.parse(localStorage.getItem(SHOPPING_PRODUCTS_KEY)||'{}');return v&&typeof v==='object'&&!Array.isArray(v)?v:{}}catch(e){return {}}}
+function shoppingProductKey(name){return String(name||'').toLowerCase().replace(/\s+/g,' ').trim()}
+function saveShoppingProduct(name,url){const key=shoppingProductKey(name),all=shoppingProducts();if(url)all[key]=url;else delete all[key];try{if(Object.keys(all).length)localStorage.setItem(SHOPPING_PRODUCTS_KEY,JSON.stringify(all));else localStorage.removeItem(SHOPPING_PRODUCTS_KEY)}catch(e){}}
+function openShoppingProductEditor(name,refresh){
+ const d=recipeBulkDialog('Usual product: '+name),field=document.createElement('input');field.type='url';field.className='manual-grocery-field';field.setAttribute('aria-label','Walmart product link');field.placeholder='Paste the Walmart product link';field.value=shoppingProducts()[shoppingProductKey(name)]||'';
+ const note=document.createElement('p');note.className='muted';note.textContent='Open the product on Walmart, share its link, and paste it here. The magnifier will open it directly.';
+ const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
+ const actions=document.createElement('div');actions.className='meal-unified-actions';const save=document.createElement('button'),trash=document.createElement('button'),cancel=document.createElement('button');for(const b of [save,trash,cancel])b.type='button';
+ setIconButton(save,'save','Save product link');setIconButton(trash,'delete','Remove product link');setIconButton(cancel,'cancel','Cancel');if(!field.value)trash.style.setProperty('display','none','important');
+ save.onclick=()=>{const url=field.value.trim();if(!url){saveShoppingProduct(name,'');d.close();refresh();return}if(!/^https:\/\/[^\s]+$/i.test(url)){error.textContent='Paste a full link that starts with https://';field.focus();return}saveShoppingProduct(name,url);d.close();refresh()};
+ trash.onclick=()=>{saveShoppingProduct(name,'');d.close();refresh()};cancel.onclick=d.close;field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save.click()}};
+ actions.append(save,trash,cancel);d.panel.append(field,note,error,actions);fitOneTimeMealViewport(d.overlay,d.panel);field.focus({preventScroll:true});
+}
+function shoppingLinkNode(text,refresh=()=>renderList()){
  const name=shoppingSearchName(text);if(!shoppingLinksOn()||!name)return null;
- const a=document.createElement('a');a.className='iconbtn grocery-shopping-link';a.href='https://www.walmart.com/search?q='+encodeURIComponent(name);a.target='_blank';a.rel='noopener noreferrer';
- a.setAttribute('aria-label','Find '+name+' at Walmart');a.title='Find at Walmart';a.addEventListener('click',event=>event.stopPropagation());
- a.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5.5 5.5"/></svg>';return a;
+ const saved=shoppingProducts()[shoppingProductKey(name)],a=document.createElement('a');a.className='iconbtn grocery-shopping-link'+(saved?' has-product':'');a.href=saved||'https://www.walmart.com/search?q='+encodeURIComponent(name);a.target='_blank';a.rel='noopener noreferrer';
+ a.setAttribute('aria-label',saved?'Open your usual '+name+' at Walmart. Press and hold to change.':'Find '+name+' at Walmart. Press and hold to save your usual product.');a.title=saved?'Your usual product (press and hold to change)':'Find at Walmart (press and hold to save a product)';
+ let timer=null,held=false,start=null;
+ a.addEventListener('pointerdown',event=>{if(event.button!==0)return;held=false;start={x:event.clientX,y:event.clientY};clearTimeout(timer);timer=setTimeout(()=>{held=true;openShoppingProductEditor(name,refresh)},550)});
+ a.addEventListener('pointermove',event=>{if(start&&Math.hypot(event.clientX-start.x,event.clientY-start.y)>10){clearTimeout(timer);start=null}});
+ for(const ev of ['pointerup','pointercancel','pointerleave'])a.addEventListener(ev,()=>{clearTimeout(timer);start=null});
+ a.addEventListener('contextmenu',event=>event.preventDefault());
+ a.addEventListener('click',event=>{event.stopPropagation();if(held){event.preventDefault();held=false}});
+ a.innerHTML=saved?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5.5 5.5"/></svg>';return a;
 }
 function populateShoppingLinksSetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=shoppingLinksOn();check.onchange=()=>{try{if(check.checked)localStorage.setItem(SHOPPING_LINKS_KEY,'walmart');else localStorage.removeItem(SHOPPING_LINKS_KEY)}catch(e){}renderList()};label.append(check,document.createTextNode('Show "Find at Walmart" links on grocery items'));parent.append(label)}
 // Optional switch (default on): off hides the Ask AI tab and the recipe-page sparkle; saved tastes/links stay.
