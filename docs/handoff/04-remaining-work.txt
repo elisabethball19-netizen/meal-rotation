@@ -263,3 +263,4 @@ v355 phone-tested: button wording OK; the 'Request copied...' message was not vi
 v356 phone-tested: ChatGPT shows 'Copied.' itself; toast is hidden behind the AI page (decision pending: show on return or remove). v357 (CSS only, awaiting phone test): the six 'AI to open' radios are indented under the 'Show Ask AI' switch and tighter (30px rows, 18px radios).
 
 v358 (2026-11-23) Remembered Walmart products: long-press the grocery magnifier to save a Walmart product link for that item (key mealRotationShoppingProductsV1); the icon becomes a link icon and opens the saved product. Press and hold again to change or remove. Awaiting phone test.
+v359 (2026-11-23) Walmart long-press reworked for phones: touch timer + contextmenu handler, no native link menu. Awaiting phone test.

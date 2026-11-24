@@ -3722,10 +3722,16 @@ function shoppingLinkNode(text,refresh=()=>renderList()){
  const saved=shoppingProducts()[shoppingProductKey(name)],a=document.createElement('a');a.className='iconbtn grocery-shopping-link'+(saved?' has-product':'');a.href=saved||'https://www.walmart.com/search?q='+encodeURIComponent(name);a.target='_blank';a.rel='noopener noreferrer';
  a.setAttribute('aria-label',saved?'Open your usual '+name+' at Walmart. Press and hold to change.':'Find '+name+' at Walmart. Press and hold to save your usual product.');a.title=saved?'Your usual product (press and hold to change)':'Find at Walmart (press and hold to save a product)';
  let timer=null,held=false,start=null;
- a.addEventListener('pointerdown',event=>{if(event.button!==0)return;held=false;start={x:event.clientX,y:event.clientY};clearTimeout(timer);timer=setTimeout(()=>{held=true;openShoppingProductEditor(name,refresh)},550)});
- a.addEventListener('pointermove',event=>{if(start&&Math.hypot(event.clientX-start.x,event.clientY-start.y)>10){clearTimeout(timer);start=null}});
- for(const ev of ['pointerup','pointercancel','pointerleave'])a.addEventListener(ev,()=>{clearTimeout(timer);start=null});
- a.addEventListener('contextmenu',event=>event.preventDefault());
+ const openEditor=()=>{if(held)return;held=true;clearTimeout(timer);openShoppingProductEditor(name,refresh)};
+ const begin=(x,y)=>{held=false;start={x,y};clearTimeout(timer);timer=setTimeout(openEditor,500)};
+ const cancel=()=>{clearTimeout(timer);start=null};
+ a.addEventListener('touchstart',event=>{const t=event.touches[0];begin(t.clientX,t.clientY)},{passive:true});
+ a.addEventListener('touchmove',event=>{const t=event.touches[0];if(start&&Math.hypot(t.clientX-start.x,t.clientY-start.y)>10)cancel()},{passive:true});
+ a.addEventListener('touchend',cancel);a.addEventListener('touchcancel',()=>clearTimeout(timer));
+ a.addEventListener('mousedown',event=>{if(event.button===0)begin(event.clientX,event.clientY)});
+ a.addEventListener('mouseup',cancel);a.addEventListener('mouseleave',cancel);
+ a.addEventListener('contextmenu',event=>{event.preventDefault();openEditor()});
+ a.draggable=false;a.addEventListener('dragstart',event=>event.preventDefault());
  a.addEventListener('click',event=>{event.stopPropagation();if(held){event.preventDefault();held=false}});
  a.innerHTML=saved?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5.5 5.5"/></svg>';return a;
 }
