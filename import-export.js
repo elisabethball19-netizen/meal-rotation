@@ -1089,7 +1089,14 @@ function migrateVersionFlags(meal){
  const alt=meal?.aiAltVersion;if(!alt||alt.kind!=='original'||alt.flagsV1===true)return false;
  for(const key of AI_VERSION_FLAG_FIELDS){if(Object.hasOwn(meal,key)&&meal[key]!==undefined)alt[key]=meal[key];delete meal[key]}alt.flagsV1=true;return true;
 }
-function migrateAllVersionFlags(){let changed=false;for(const meal of meals)if(migrateVersionFlags(meal))changed=true;if(changed)try{persist()}catch(e){}return changed}
+// One time (2026-11-23): "removed" automatic reminders recorded before suppressions were time-stamped come back.
+// Several recipes had them switched off without the person choosing it; a reminder can be removed again from the editor.
+function releaseLegacyAutoSuppressions(){
+ const key='mealRotationAutoSuppressReleasedV1';try{if(localStorage.getItem(key)==='1')return false}catch(e){return false}
+ let changed=false;for(const meal of meals){if(!Array.isArray(meal.makeAheadTasks))continue;const kept=meal.makeAheadTasks.filter(task=>!(task&&task.autoSuppressed===true&&!task.autoSuppressedAt));if(kept.length!==meal.makeAheadTasks.length){changed=true;if(kept.length)meal.makeAheadTasks=kept;else delete meal.makeAheadTasks}}
+ try{localStorage.setItem(key,'1')}catch(e){}if(changed)try{persist()}catch(e){}return changed;
+}
+function migrateAllVersionFlags(){releaseLegacyAutoSuppressions();let changed=false;for(const meal of meals)if(migrateVersionFlags(meal))changed=true;if(changed)try{persist()}catch(e){}return changed}
 // Saved grocery choices are never rewritten: lines that existed keep their state; only new lines get a suggestion.
 function remapSelectionsAfterContentChange(meal,oldLines=[],dropId=null){
  try{const key='mealRotationSelectedIngredientsV1',sel=JSON.parse(localStorage.getItem(key)||'{}'),lines=(meal.ingredients||[]).map(l=>String(l)),before=new Set(oldLines.map(String)),suggested=new Set(suggestedGroceryLines(meal));let changed=false;

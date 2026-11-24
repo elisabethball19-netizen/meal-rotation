@@ -54,8 +54,9 @@ function pushAppViewHistory(){
  }
 }
 // Editor and its child dialogs consume Back before view navigation.
-let editorHistoryClosing=false,editorBackBusy=false,editorHistorySettled=Promise.resolve(),resolveEditorHistory=null;
-function stepEditorHistoryBack(){editorHistoryClosing=true;editorHistorySettled=new Promise(resolve=>resolveEditorHistory=resolve);window.history.back()}
+let editorHistoryClosing=false,editorHistoryPending=0,editorBackBusy=false,editorHistorySettled=Promise.resolve(),resolveEditorHistory=null;
+// Two closes in a row (a confirm dialog, then the editor) each need their own popstate swallowed.
+function stepEditorHistoryBack(){editorHistoryClosing=true;if(++editorHistoryPending===1)editorHistorySettled=new Promise(resolve=>resolveEditorHistory=resolve);window.history.back()}
 const editorDialogStack=[];
 function dismissEditorHistory(){
  if(window.history.state?.mealRotationEditor&&editId===null){stepEditorHistoryBack()}
@@ -70,7 +71,7 @@ async function closeMealEditorWithPrompt(){
  if(editId!==null){mealPersistence.cancelOwner('recipe:'+editId);rollbackEditorCategories();editId=null;restoreMealEditorScroll()}await editorHistorySettled;return true;
 }
 window.addEventListener('popstate',event=>{
- if(editorHistoryClosing){editorHistoryClosing=false;resolveEditorHistory?.();resolveEditorHistory=null;event.stopImmediatePropagation();return}
+ if(editorHistoryClosing){editorHistoryPending=Math.max(0,editorHistoryPending-1);if(!editorHistoryPending){editorHistoryClosing=false;resolveEditorHistory?.();resolveEditorHistory=null}event.stopImmediatePropagation();return}
  if(editId===null||recipeViewer||recipeEditorReturn||!mealEditorReturnView||mealEditorReturnView.view!=='groups')return;
  event.stopImmediatePropagation();const state={...window.history.state,mealRotationView:{view:'groups',planId:activePlanId},mealRotationEditor:String(editId)};
  const child=editorDialogStack.at(-1),active=document.activeElement,keyboard=active?.matches('input:not([type=checkbox]),textarea')&&(document.querySelector('#editor .meal-editor-keyboard-open')||innerHeight-(window.visualViewport?.height||innerHeight)>120);
@@ -1067,10 +1068,17 @@ function weekDisplayRank(plan,entry,base){
  if(index>=0)return index;const fallback=base.filter(item=>item.day===entry.day).indexOf(original);return order.length+(fallback<0?base.length:fallback);
 }
 function temporarySlotHidesEntry(plan,entry){const item=weekSchedule(plan).slots[temporarySlotKey(entry.day,entry.cat)];return !!item&&(!Array.isArray(item.occurrences)||item.occurrences.includes(rotationOccurrenceKey({...entry,planId:plan.id})))}
+// Removing a meal that was only HELD (an automatic pick kept when Regulars were reordered) releases the hold,
+// so the slot goes back to the top of the Regulars order instead of re-filling with the same meal.
+function releaseHeldAutomaticSlot(plan,entry){
+ if(!entry?.cat||entry.cat==='@day')return;const key=weekdaySlotKey(entry.day,entry.cat),choice=plan.cycleSlotChoices?.[key];
+ if(!choice||!choice.retain||choice.substitution||String(choice.mealId)!==String(entry.meal?.id))return;
+ delete plan.cycleSlotChoices[key];if(plan.weekdayMealOverrides)delete plan.weekdayMealOverrides[key];if(plan.cycleRetainedSlots)delete plan.cycleRetainedSlots[key];
+}
 function skipMealOccurrence(planId,entry,key){
  const plan=mealPlans.find(plan=>plan.id===planId),current=plan&&recipePlanEntries(planId).find(item=>simpleSideOccurrenceKey(plan,item)===key);if(activePlanId!==planId||!current)return;
  if(current.occasional&&current.linkedTo==null){removeOccasionalMeal(current.day,current);return}
- changeTemporaryWeek(plan=>{const item=emptyWeekSlotRecord(plan,current.day,current.cat);item.scheduledDate=JSON.parse(key).at(-1);const base=queueWeekEntries(plan),masked=current.meal.temporaryMeal?base.filter(item=>item.day===current.day&&item.cat===current.cat&&!item.occasional&&item.linkedTo==null):[current],affected=cycleAffectedEntries(base,masked,plan),keys=new Set(affected.map(item=>rotationOccurrenceKey({...item,planId}))),slots=new Set(affected.map(rotationCalendarSlot));for(const field of ['occurrences','assignedOn','assignedAt'])item.calendar[field]=Object.fromEntries(Object.entries(item.calendar[field]).filter(([key])=>keys.has(key)));item.calendar.slots=Object.fromEntries(Object.entries(item.calendar.slots).filter(([key])=>slots.has(key)));item.occurrences=[...new Set([...(weekSchedule(plan).slots[temporarySlotKey(current.day,current.cat)]?.occurrences||[]),...masked.map(entry=>rotationOccurrenceKey({...entry,planId}))])];editableWeekSchedule(plan).slots[temporarySlotKey(current.day,current.cat)]=item},current);
+ changeTemporaryWeek(plan=>{releaseHeldAutomaticSlot(plan,current);const item=emptyWeekSlotRecord(plan,current.day,current.cat);item.scheduledDate=JSON.parse(key).at(-1);const base=queueWeekEntries(plan),masked=current.meal.temporaryMeal?base.filter(item=>item.day===current.day&&item.cat===current.cat&&!item.occasional&&item.linkedTo==null):[current],affected=cycleAffectedEntries(base,masked,plan),keys=new Set(affected.map(item=>rotationOccurrenceKey({...item,planId}))),slots=new Set(affected.map(rotationCalendarSlot));for(const field of ['occurrences','assignedOn','assignedAt'])item.calendar[field]=Object.fromEntries(Object.entries(item.calendar[field]).filter(([key])=>keys.has(key)));item.calendar.slots=Object.fromEntries(Object.entries(item.calendar.slots).filter(([key])=>slots.has(key)));item.occurrences=[...new Set([...(weekSchedule(plan).slots[temporarySlotKey(current.day,current.cat)]?.occurrences||[]),...masked.map(entry=>rotationOccurrenceKey({...entry,planId}))])];editableWeekSchedule(plan).slots[temporarySlotKey(current.day,current.cat)]=item},current);
 }
 function applyWeekSchedule(plan,entries,days){
  if(!plan.weekSchedule)return entries;

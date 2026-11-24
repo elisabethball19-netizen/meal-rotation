@@ -1511,7 +1511,7 @@ function preparationTaskDraft(meal,shown,drafts){
  for(const draft of drafts){const initial=visible.get(draft.id),saved=raw.find(task=>task?.id===draft.id);if(!initial?.autoPrep){changes.set(draft.id,draft);continue}
   if(JSON.stringify(draft)===JSON.stringify(initial)){if(saved)changes.set(draft.id,saved)}else changes.set(draft.id,editedAutomaticTask(initial,draft));
  }
- for(const task of shown)if(!kept.has(task.id))changes.set(task.id,task.autoPrep?{id:task.id,autoPrep:task.autoPrep,autoSuppressed:true,description:'',daysBefore:0}:null);
+ for(const task of shown)if(!kept.has(task.id))changes.set(task.id,task.autoPrep?{id:task.id,autoPrep:task.autoPrep,autoSuppressed:true,autoSuppressedAt:new Date().toISOString(),description:'',daysBefore:0}:null);
  const result=raw.map(task=>changes.has(task?.id)?changes.get(task.id):task).filter(task=>task!==null),existing=new Set(raw.map(task=>task?.id));
  for(const [id,task]of changes)if(task&&!existing.has(id))result.push(task);return result;
 }
