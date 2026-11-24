@@ -8612,7 +8612,6 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
      outer.append(row);
     });
     const add=document.createElement('button');add.type='button';add.className='weekday-add iconbtn';setIconButton(add,'add','Add another group to '+day);add.disabled=!ids.length||weekdayDraftRows.has(day)||choices.length<=ids.length;add.onclick=()=>{weekdayDraftRows.add(day);renderTabs()};outer.append(add);
-    if(ids.length>1){const alt=document.createElement('div');alt.className='weekday-alternate';const note=document.createElement('span');note.className='muted';note.textContent='Takes turns · this week: '+(sequenceGroup(ids[Math.min(seq?.position||0,ids.length-1)])||'—');const link=document.createElement('button');link.type='button';link.className='weekday-alternate-link';link.textContent='Alternate weeks…';link.onclick=()=>openRecurringDayEditor(day);alt.append(note,link);outer.append(alt)}
     weekGroup.content.append(outer);
   });
   populateAutoMoveSetting(weekGroup.content);
