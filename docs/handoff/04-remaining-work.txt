@@ -281,3 +281,4 @@ v367 (2026-11-23) Weekday Setup inline layout phone-confirmed; removed the 'Take
 v368 (2026-11-23) Weekday Setup now also shows in Settings opened from Meal Groups (her request).
 v369 (2026-11-23) Auto-move switch wording: 'Automatically move pinned Off Menu meals to Regulars' (Settings and Edit group); Settings note 'Turn it on for each group in its Edit menu.'
 v370 (2026-11-23) Settings auto-move switch: 'Enable auto-move for Off Menu meals' (group switch keeps 'Automatically move pinned Off Menu meals to Regulars'). Note wording still open.
+v371 (2026-11-23) Settings auto-move note: 'Turn auto-move on for a group in its Edit menu.'

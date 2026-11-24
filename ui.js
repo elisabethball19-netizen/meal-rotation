@@ -2176,7 +2176,7 @@ function populateAutoMoveSetting(parent){
  const settings=autoMoveSettings();check.checked=settings.on;label.append(check,document.createTextNode('Enable auto-move for Off Menu meals'));
  const set=document.createElement('fieldset');set.className='collapsed-card-options auto-move-options';set.setAttribute('aria-label','How often');set.hidden=!settings.on;
  for(const [value,text] of [[1,'Every week'],[2,'Every 2 weeks'],[4,'Every 4 weeks']]){const row=document.createElement('label');row.className='settings-display-option';const radio=document.createElement('input');radio.type='radio';radio.name='autoMoveEvery';radio.checked=settings.every===value;radio.onchange=()=>{const next=autoMoveSettings();next.every=value;next.count=0;saveAutoMoveSettings(next)};row.append(radio,document.createTextNode(text));set.append(row)}
- const hint=document.createElement('p');hint.className='muted auto-move-hint';hint.textContent='Turn it on for each group in its Edit menu.';hint.hidden=!settings.on;
+ const hint=document.createElement('p');hint.className='muted auto-move-hint';hint.textContent='Turn auto-move on for a group in its Edit menu.';hint.hidden=!settings.on;
  check.onchange=()=>{const next=autoMoveSettings();next.on=check.checked;next.count=0;saveAutoMoveSettings(next);set.hidden=hint.hidden=!check.checked;renderList()};
  wrap.append(label,set,hint);parent.append(wrap);decoratePreferenceSwitches(wrap);
 }
