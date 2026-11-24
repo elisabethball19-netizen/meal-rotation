@@ -658,6 +658,7 @@ let closeSettings=document.createElement('button');closeSettings.textContent='Cl
  planCopy.append(planLabel,planHint);planOption.append(planCheck,planCopy);planGroup.content.append(planOption);
  const recipeGroup=makeSettingsGroup('recipes','Import or share recipes'),recipeRow=document.createElement('div');recipeRow.className='settings-backup-controls';
  recipeRow.append(importBtn,exportRecipesBtn);const recipeHint=document.createElement('p');recipeHint.className='muted';recipeHint.textContent='';recipeHint.hidden=true;recipeGroup.content.append(recipeHint,recipeRow);panel.append(recipeGroup.details);
+ panel.append(deletedRecipesSettingsGroup());
  const backupGroup=makeSettingsGroup('backups','Backups'),backupRow=document.createElement('div');backupRow.className='settings-backup-controls';backupRow.append(exportBtn,restoreBtn);const diagnostic=document.createElement('button');diagnostic.type='button';diagnostic.textContent='Export meal-date diagnostic';diagnostic.title='Read-only dates and assignment details for the selected meal plan; no recipe names or contents.';diagnostic.onclick=()=>exportRecipeBackup(occurrenceDateDiagnostic(),'meal-date-diagnostic.json');backupRow.append(diagnostic);const backupHint=document.createElement('p');backupHint.className='muted';backupHint.textContent='Save or restore your full collection, meal plans, progress and settings.';backupGroup.content.append(backupHint,backupRow);panel.append(backupGroup.details);
  panel.append(makeSettingsFooter());decoratePreferenceSwitches(panel);
  const help=document.createElement('button');help.id='help';help.className='iconbtn';help.title='Help and gestures';help.setAttribute('aria-label','Help and gestures');help.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01" stroke-linecap="round"/></svg>';help.onclick=()=>openHelpModal();actions.append(help);settings.onclick=async()=>{
@@ -2662,11 +2663,74 @@ function appendBulkRecipeNames(parent,ids){
  const names=document.createElement('div');names.className='recipe-bulk-selected-names';const seen=new Set();for(const meal of meals.filter(meal=>ids.includes(String(meal.id)))){const key=meal.linkGroup||'recipe:'+meal.id;if(seen.has(key))continue;seen.add(key);const name=document.createElement('div');name.textContent=meal.name||'Untitled meal';names.append(name)}parent.append(names);return names;
 }
 async function confirmDeleteRecipes(ids){
+ // One delete dialog for all recipes (2026-11-24): reason radios + optional note; recipes go to Deleted recipes for 30 days.
  const expanded=selectedSharedRecipeIds(ids);if(!expanded.length)return null;
- return new Promise(resolve=>{const d=recipeBulkDialog('Delete these recipes?');appendBulkRecipeNames(d.panel,expanded);const note=document.createElement('p');note.className='muted recipe-bulk-note';note.textContent='Unselected linked recipes will not be deleted.';
- const actions=document.createElement('div');actions.className='meal-unified-actions';const yes=document.createElement('button'),no=document.createElement('button');yes.type=no.type='button';setIconButton(yes,'save','Confirm deletion');setIconButton(no,'cancel','Cancel deletion');let settled=false;const finish=value=>{if(settled)return;settled=true;d.close();resolve(value)};yes.onclick=()=>finish(expanded);no.onclick=()=>finish(null);actions.append(yes,no);d.panel.append(note,actions);const observer=new MutationObserver(()=>{if(!d.overlay.isConnected){observer.disconnect();if(!settled){settled=true;resolve(null)}}});observer.observe(document.body,{childList:true});no.focus({preventScroll:true});});
+ const chosen=meals.filter(m=>expanded.includes(String(m.id))),single=new Set(chosen.map(m=>m.linkGroup||'recipe:'+m.id)).size===1,them=single?'it':'them';
+ return new Promise(resolve=>{const d=recipeBulkDialog(single?'Delete this recipe?':'Delete these recipes?');d.overlay.classList.add('recipe-delete-dialog');appendBulkRecipeNames(d.panel,expanded);
+ let reason=chosen.some(m=>recipeStatus(m)==='rotation')?'disliked':'cleanup';
+ const why=document.createElement('div');why.className='recipe-delete-reasons';why.setAttribute('role','radiogroup');why.setAttribute('aria-label','Why are you deleting '+them+'?');
+ const noteWrap=document.createElement('label');noteWrap.className='recipe-delete-note';const noteText=document.createElement('span');noteText.textContent='What didn’t you like? (optional)';const note=document.createElement('textarea');note.rows=2;note.maxLength=300;note.placeholder='e.g. too spicy, the kids skipped it';noteWrap.append(noteText,note);
+ for(const [key,text]of [['disliked','Didn’t like it'],['cleanup','Just cleaning up']]){const label=document.createElement('label');label.className='recipe-bulk-choice';const radio=document.createElement('input');radio.type='radio';radio.name='recipe-delete-reason';radio.value=key;radio.checked=reason===key;radio.onchange=()=>{reason=key;noteWrap.hidden=key!=='disliked'};label.append(radio,document.createTextNode(text));why.append(label)}
+ noteWrap.hidden=reason!=='disliked';
+ const info=document.createElement('p');info.className='muted recipe-bulk-note';info.textContent='You can restore '+them+' from Settings › Deleted recipes for 30 days.'+(chosen.some(m=>m.linkGroup)?' Unselected linked recipes will not be deleted.':'');
+ const actions=document.createElement('div');actions.className='meal-unified-actions';const yes=document.createElement('button'),no=document.createElement('button');yes.type=no.type='button';setIconButton(yes,'save','Confirm deletion');setIconButton(no,'cancel','Cancel deletion');let settled=false;const finish=value=>{if(settled)return;settled=true;d.close();resolve(value)};yes.onclick=()=>finish({ids:expanded,reason,note:reason==='disliked'?note.value.trim():''});no.onclick=()=>finish(null);actions.append(yes,no);d.panel.append(why,noteWrap,info,actions);const observer=new MutationObserver(()=>{if(!d.overlay.isConnected){observer.disconnect();if(!settled){settled=true;resolve(null)}}});observer.observe(document.body,{childList:true});no.focus({preventScroll:true});});
 }
-async function deleteRecipeBulk(){const ids=await confirmDeleteRecipes(bulkRecipeSelected().map(m=>String(m.id)));if(!ids)return;try{applyRecipeBulk(ids,{delete:true})}catch(error){await showAppMessage('Bulk delete could not be completed: '+error.message)}}
+async function deleteRecipeBulk(){const choice=await confirmDeleteRecipes(bulkRecipeSelected().map(m=>String(m.id)));if(!choice)return;try{deleteRecipesToBin(choice)}catch(error){await showAppMessage('Bulk delete could not be completed: '+error.message)}}
+
+// Deleted recipes bin + dislikes (2026-11-24). Keys are literals so Settings can read them before this block runs.
+// mealRotationDeletedRecipesV1: [{id,deletedAt,reason,note?,name,records:[{meal,index,selection}]}], purged after 30 days on app open.
+// mealRotationRecipeDislikesV1: [{id,name,group,note?,date}] kept after purge; sent with Ask AI requests. Both are in captureState (Undo/Redo) and full backups.
+function readRecipeBinList(key){try{const v=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(v)?v.filter(x=>x&&typeof x==='object'&&!Array.isArray(x)):[]}catch(e){return []}}
+function writeRecipeBinList(key,list){if(list.length)localStorage.setItem(key,JSON.stringify(list));else localStorage.removeItem(key)}
+function deletedRecipes(){return readRecipeBinList('mealRotationDeletedRecipesV1')}
+function recipeDislikes(){return readRecipeBinList('mealRotationRecipeDislikesV1')}
+function purgeDeletedRecipes(now=Date.now()){const list=deletedRecipes(),keep=list.filter(entry=>!(now-Date.parse(entry.deletedAt)>=30*864e5));if(keep.length!==list.length)writeRecipeBinList('mealRotationDeletedRecipesV1',keep)}
+try{purgeDeletedRecipes()}catch(e){}
+function deleteRecipesToBin(choice,options={}){
+ const ids=new Set(choice.ids.map(String)),selections=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}'),groups=new Map();
+ meals.forEach((meal,index)=>{if(!ids.has(String(meal.id))||meal._scheduledEditorDraft)return;const key=meal.linkGroup||'recipe:'+meal.id;if(!groups.has(key))groups.set(key,[]);groups.get(key).push({meal:JSON.parse(JSON.stringify(meal)),index,selection:Array.isArray(selections[String(meal.id)])?selections[String(meal.id)]:null})});
+ const top=history.at(-1),done=applyRecipeBulk([...ids],{delete:true},options);if(done===false)return false;
+ try{
+  const now=new Date().toISOString(),stamp=Date.now(),bin=deletedRecipes(),dislikes=recipeDislikes(),disliked=choice.reason==='disliked',note=String(choice.note||'').trim().slice(0,300);
+  [...groups.values()].forEach((records,i)=>{const first=records[0].meal,entryId='deleted-'+stamp+'-'+i+'-'+Math.random().toString(36).slice(2,8),name=String(first.name||'Untitled meal');bin.unshift({id:entryId,deletedAt:now,reason:disliked?'disliked':'cleanup',...(disliked&&note?{note}:{}),name,records});if(disliked)dislikes.unshift({id:entryId,name,group:String(first.cat||''),...(note?{note}:{}),date:now.slice(0,10)})});
+  writeRecipeBinList('mealRotationDeletedRecipesV1',bin);if(disliked)writeRecipeBinList('mealRotationRecipeDislikesV1',dislikes);
+ }catch(error){
+  // Never delete without a way back: undo the deletion when the bin cannot be saved.
+  if(history.at(-1)!==top){const target=JSON.parse(history.pop());restoreState(target)}
+  throw Error('Deleted recipes could not be saved (storage may be full), so nothing was deleted.');
+ }
+ return true;
+}
+function restoreDeletedRecipe(entryId){
+ const bin=deletedRecipes(),entry=bin.find(item=>item.id===entryId);if(!entry||!Array.isArray(entry.records)||!entry.records.length)throw Error('This recipe is no longer in Deleted recipes.');
+ snapshot();
+ const items=entry.records.filter(item=>item&&item.meal&&typeof item.meal==='object').map(item=>({...item,meal:JSON.parse(JSON.stringify(item.meal))})).sort((a,b)=>(a.index||0)-(b.index||0));
+ // A copy goes back to its own group; copies whose group is gone are dropped unless none survive, then one returns to Unassigned.
+ let kept=items.filter(item=>!item.meal.cat||cats.includes(item.meal.cat));if(!kept.length)kept=items.slice(0,1);
+ const used=new Set(meals.map(m=>String(m.id))),linkTaken=entry.records.some(item=>item.meal?.linkGroup&&meals.some(m=>m.linkGroup===item.meal.linkGroup)),newLink=kept.length>1?(linkTaken?'linked-restored-'+Date.now():kept[0].meal.linkGroup||'linked-restored-'+Date.now()):'';
+ const selections=JSON.parse(localStorage.getItem('mealRotationSelectedIngredientsV1')||'{}'),restored=[];
+ for(const item of kept){const meal=item.meal;delete meal._scheduledEditorDraft;if(used.has(String(meal.id))||!(typeof meal.id==='number'||typeof meal.id==='string'))meal.id=id++;used.add(String(meal.id));if(Number.isFinite(Number(meal.id)))id=Math.max(id,Number(meal.id)+1);
+  if(meal.cat&&!cats.includes(meal.cat))meal.cat='';if(!meal.cat){meal.rotation=false;meal.recipeStatus='up-next';delete meal.queuedCatV1;delete meal.rotationPromotionPriority}
+  meal.linkGroup=newLink;meal.linkedMealIds=(Array.isArray(meal.linkedMealIds)?meal.linkedMealIds:[]).filter(other=>meals.some(m=>String(m.id)===String(other)));
+  meals.splice(Math.min(Math.max(0,Number(item.index)||0),meals.length),0,meal);if(item.selection)selections[String(meal.id)]=item.selection;restored.push(meal)}
+ localStorage.setItem('mealRotationSelectedIngredientsV1',JSON.stringify(selections));
+ writeRecipeBinList('mealRotationDeletedRecipesV1',bin.filter(item=>item.id!==entryId));writeRecipeBinList('mealRotationRecipeDislikesV1',recipeDislikes().filter(item=>item.id!==entryId));
+ persist();renderList();return restored[0];
+}
+function removeRecipeDislike(dislikeId){snapshot();writeRecipeBinList('mealRotationRecipeDislikesV1',recipeDislikes().filter(item=>item.id!==dislikeId))}
+function deletedRecipesSettingsGroup(){
+ const group=makeSettingsGroup('deleted','Deleted recipes'),body=document.createElement('div');body.className='deleted-recipes-settings';group.content.append(body);
+ const dateLabel=value=>{const t=Date.parse(value);return Number.isFinite(t)?new Date(t).toLocaleDateString(undefined,{month:'short',day:'numeric'}):''};
+ const draw=()=>{body.replaceChildren();try{purgeDeletedRecipes()}catch(e){}
+  const hint=document.createElement('p');hint.className='muted';hint.textContent='Deleted recipes are kept for 30 days, then removed for good.';body.append(hint);
+  const bin=deletedRecipes();if(!bin.length){const empty=document.createElement('p');empty.className='muted deleted-recipes-empty';empty.textContent='No deleted recipes.';body.append(empty)}
+  for(const entry of bin){const row=document.createElement('div');row.className='deleted-recipe-row';const text=document.createElement('div');text.className='deleted-recipe-text';const name=document.createElement('span');name.className='deleted-recipe-name';name.textContent=entry.name||'Untitled meal';const meta=document.createElement('small');meta.className='muted';const groupName=entry.records?.[0]?.meal?.cat;meta.textContent=[dateLabel(entry.deletedAt),entry.reason==='disliked'?'Didn’t like it':'Cleaning up',groupName||'Unassigned'].filter(Boolean).join(' · ');text.append(name,meta);
+   const restore=document.createElement('button');restore.type='button';restore.className='smallbtn deleted-recipe-restore';restore.textContent='Restore';restore.setAttribute('aria-label','Restore '+(entry.name||'recipe'));restore.onclick=async()=>{try{const meal=restoreDeletedRecipe(entry.id);draw();showServingUndoToast((meal?.name||'Recipe')+' restored to '+(meal?.cat||'Unassigned'),draw)}catch(error){await showAppMessage('Recipe could not be restored: '+error.message);draw()}};row.append(text,restore);body.append(row)}
+  const dislikes=recipeDislikes();if(dislikes.length){const head=document.createElement('strong');head.className='deleted-recipes-subhead';head.textContent='Meals we didn’t like';const sub=document.createElement('p');sub.className='muted';sub.textContent='Sent with Ask AI requests so it avoids similar meals.';body.append(head,sub);
+   for(const item of dislikes){const row=document.createElement('div');row.className='deleted-recipe-row';const text=document.createElement('div');text.className='deleted-recipe-text';const name=document.createElement('span');name.className='deleted-recipe-name';name.textContent=item.name;const meta=document.createElement('small');meta.className='muted';meta.textContent=[item.note,item.group].filter(Boolean).join(' · ');text.append(name);if(meta.textContent)text.append(meta);const remove=document.createElement('button');remove.type='button';remove.className='iconbtn';setIconButton(remove,'delete','Remove '+item.name+' from meals we didn’t like');remove.onclick=()=>{removeRecipeDislike(item.id);draw()};row.append(text,remove);body.append(row)}}
+ };
+ draw();group.details.addEventListener('toggle',()=>{if(group.details.open)draw()});return group.details;
+}
 
 function newMealGroupButton(onCreated){
  const add=document.createElement('button');add.type='button';add.className='smallbtn';add.textContent='+ New Group';add.style.minHeight='44px';add.setAttribute('aria-haspopup','dialog');
@@ -3082,7 +3146,7 @@ function renderUnassignedChecklist(body,list){
  const chosen=()=>[...unassignedSelection].filter(id=>meals.some(m=>String(m.id)===id));
  // The shared group dialog reads its source and picks once, at open; borrow the bulk globals only for that moment.
  move.onclick=()=>{const picked=chosen();if(!picked.length||recipeBulkMode)return;const saved=[recipeBulkSourceGroup,new Set(recipeBulkIds)];recipeBulkSourceGroup='';recipeBulkIds=new Set(picked);try{chooseBulkGroups(null,change=>{if(bulkGroupChangePending(picked,change)){applyRecipeBulk(picked,{}, {bulkGroups:change});picked.forEach(id=>unassignedSelection.delete(id));renderList({readOnly:true})}},move)}finally{[recipeBulkSourceGroup,recipeBulkIds]=saved}};
- remove.onclick=async()=>{const picked=await confirmDeleteRecipes(chosen());if(!picked)return;try{applyRecipeBulk(picked,{delete:true});picked.forEach(id=>unassignedSelection.delete(String(id)));renderList({readOnly:true})}catch(error){await showAppMessage('Delete could not be completed: '+error.message)}};
+ remove.onclick=async()=>{const picked=await confirmDeleteRecipes(chosen());if(!picked)return;try{deleteRecipesToBin(picked);picked.ids.forEach(id=>unassignedSelection.delete(String(id)));renderList({readOnly:true})}catch(error){await showAppMessage('Delete could not be completed: '+error.message)}};
  const tick=document.createElement('div');tick.className='unassigned-bulk-tick';
  for(const checked of [true,false]){const button=document.createElement('button');button.type='button';button.className='iconbtn unassigned-tick-all';button.innerHTML=grocerySelectionIcon(checked);button.title=button.ariaLabel=checked?'Select all':'Deselect all';button.onclick=()=>{unassignedSelection.clear();if(checked)for(const m of list)unassignedSelection.add(String(m.id));rows.querySelectorAll('input.check').forEach(box=>{box.checked=checked});refresh()};tickButtons.push([button,checked]);tick.append(button)}
  const actions=document.createElement('div');actions.className='unassigned-bulk-actions';actions.append(move,remove);bar.append(tick,count,actions);body.append(bar);
@@ -5111,7 +5175,7 @@ $('save').onclick=async()=>{
 
  }finally{persistenceEditorSaving=false}
 };
-$('cancel').onclick=()=>{mealPersistence.cancelOwner('recipe:'+m.id);rollbackEditorCategories();editId=null;if(tutorialStage==='editing')setTutorialStage('2');restoreMealEditorScroll()};$('delete').onclick=async()=>{const ids=await confirmDeleteRecipes([String(m.id)]);if(!ids)return;try{applyRecipeBulk(ids,{delete:true},{render:false})}catch(e){await showAppMessage('Recipe could not be deleted: '+e.message);return}if(newRecipeDraftId===m.id)newRecipeDraftId=null;editorCategoryBaseline=null;editorDraftCategories=null;editId=null;restoreMealEditorScroll()};installEditableMealCard(m);decorateScheduledMealEditor()}function installEditableMealCard(meal){
+$('cancel').onclick=()=>{mealPersistence.cancelOwner('recipe:'+m.id);rollbackEditorCategories();editId=null;if(tutorialStage==='editing')setTutorialStage('2');restoreMealEditorScroll()};$('delete').onclick=async()=>{const choice=await confirmDeleteRecipes([String(m.id)]);if(!choice)return;try{deleteRecipesToBin(choice,{render:false})}catch(e){await showAppMessage('Recipe could not be deleted: '+e.message);return}if(newRecipeDraftId===m.id)newRecipeDraftId=null;editorCategoryBaseline=null;editorDraftCategories=null;editId=null;restoreMealEditorScroll()};installEditableMealCard(m);decorateScheduledMealEditor()}function installEditableMealCard(meal){
  const root=document.querySelector('#editor .editor'),fields=root.querySelector('.meal-editor-fields');let card=mealEditorRow();
  if(card){const anchor=document.createElement('div');anchor.dataset.mealEditorAnchor=String(meal.id);card.before(anchor)}
  else{card=document.createElement('div');card.className='master-category-meal';card.dataset.mealId=String(meal.id);const info=document.createElement('div');info.className='master-meal-info';card.append(info)}

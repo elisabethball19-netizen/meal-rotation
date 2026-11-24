@@ -328,6 +328,7 @@ function validateSavedRecords(data,requireCore=false){
  if(Object.hasOwn(parsed,'mealRotationGroupRotationV1')&&(!object(parsed.mealRotationGroupRotationV1)||Object.values(parsed.mealRotationGroupRotationV1).some(v=>typeof v!=='boolean')))throw Error('Invalid group rotation settings');
  if(Object.hasOwn(parsed,'mealRotationGroceryTextOverridesV1'))validateGroceryTextOverrides(parsed.mealRotationGroceryTextOverridesV1);
  if(Object.hasOwn(parsed,'mealRotationManualGroceriesV1'))validateManualGroceryItems(parsed.mealRotationManualGroceriesV1);
+ for(const key of ['mealRotationDeletedRecipesV1','mealRotationRecipeDislikesV1'])if(Object.hasOwn(data,key)){let list;try{list=JSON.parse(data[key])}catch(e){throw Error('Unreadable saved JSON: '+key)}if(!Array.isArray(list)||list.some(x=>!object(x)||typeof x.id!=='string'||typeof x.name!=='string'||key==='mealRotationDeletedRecipesV1'&&(!Array.isArray(x.records)||x.records.some(r=>!object(r)||!object(r.meal)))))throw Error('Invalid saved list: '+key)}
  if(requireCore&&!Object.hasOwn(data,'mealRotationDataV1'))throw Error('Missing recipe collection');
  if(Object.hasOwn(data,'mealRotationDataV1'))validateBackupCore(startupCore(parsed.mealRotationDataV1));
  if(Object.hasOwn(data,'mealRotationPlansV1'))validateBackupCore({...startupCore(parsed.mealRotationDataV1),mealPlans:parsed.mealRotationPlansV1});
