@@ -8416,6 +8416,8 @@ function previewMealPlanAdvance(selectedSlots=null,retainedSlots=null,planId=act
   activePlanId=planId;const target=mealPlans.find(p=>p.id===planId);weekdayCategories=JSON.parse(JSON.stringify(target.weekdayCategories));weekdayMealOverrides={...target.weekdayMealOverrides};weekdayRecipeFilters=JSON.parse(JSON.stringify(target.weekdayRecipeFilters||{}));pinnedCats=[...(target.pinnedCats||[])];
   bulkRecipeStorageDraft=new Map(Array.from({length:testStorage.length},(_,i)=>{const key=testStorage.key(i);return [key,testStorage.getItem(key)]}));
   rotationPendingCookTimes=outgoingWeekCookTimes([target]);
+  // Pinned slots stay on next week's menu (the dialog unchecks them), so the preview must carry them too.
+  if(selectedSlots===null){const rows=rotationSelectionEntries(target).filter(item=>rotationSelectable(item,target)),pinned=rows.filter(item=>slotPinned(target,item));if(pinned.length){const key=item=>weekdaySlotKey(item.day,item.cat);selectedSlots=new Set(rows.filter(item=>!pinned.includes(item)).map(key));retainedSlots=new Set([...(retainedSlots||[]),...pinned.map(key)]);for(const item of pinned){const slot=key(item),id=String(item.meal.id);target.weekdayMealOverrides={...target.weekdayMealOverrides,[slot]:id};target.cycleRetainedSlots={...target.cycleRetainedSlots,[slot]:id};target.cycleSlotChoices={...target.cycleSlotChoices,[slot]:{...target.cycleSlotChoices?.[slot],mealId:id,parentId:String(item.linkedTo??''),retain:true}};weekdayMealOverrides={...weekdayMealOverrides,[slot]:id}}}}
   const retainedKeys=advanceMealPlanWeek(selectedSlots,false,false,retainedSlots,null,true);rotationRecentCookTimes=rotationPendingCookTimes;if(hasDependentSideSlots())coordinateDependentSides();const plan=mealPlans.find(p=>p.id===planId);return {plan,entries:getDisplayedWeekdayMealsForPlan(plan),preview:true,retainedKeys};
  }finally{rotationRecentCookTimes=rotationPendingCookTimes=null;({meals,mealPlans,weekdayMealOverrides,activePlanId,weekdayCategories,weekdayRecipeFilters,pinnedCats,autoPinTopCategories}=saved);bulkRecipeStorageDraft=saved.storage}
 }
@@ -10084,9 +10086,10 @@ function rotationCalendarForPlan(plan,entries,now=new Date()){
  for(const item of entries){
   const key=rotationOccurrenceKey({...item,planId:plan.id}),stored=dated?parseCookingLocalDate(saved.occurrences?.[key]):null;
   const on=dated?parseCookingLocalDate(saved.assignedOn?.[key]):null;
-  let date=stored&&on&&on<=stored&&cookingWeekdays[stored.getDay()]===item.day?cookingLocalDate(stored):null;
-  const known=dated&&Object.prototype.hasOwnProperty.call(saved.occurrences||{},key);
-  if(!known&&canAssign){const prior=parseCookingLocalDate(saved?.slots?.[rotationCalendarSlot(item)]);date=prior?cookingLocalDate(prior):cookingLocalDate(cookingDateInWeek(item.day,mealPlanWeekStart(plan)))}
+  const floor=parseCookingLocalDate(plan.mealPlanWeekStartV1),stale=!!(floor&&stored&&stored<floor);
+  let date=!stale&&stored&&on&&on<=stored&&cookingWeekdays[stored.getDay()]===item.day?cookingLocalDate(stored):null;
+  const known=dated&&!stale&&Object.prototype.hasOwnProperty.call(saved.occurrences||{},key);
+  if(!known&&canAssign){const prior=stale?null:parseCookingLocalDate(saved?.slots?.[rotationCalendarSlot(item)]);date=prior?cookingLocalDate(prior):cookingLocalDate(cookingDateInWeek(item.day,mealPlanWeekStart(plan)))}
   occurrences[key]=date;assignedOn[key]=known?saved.assignedOn?.[key]||null:date?(date<cookingLocalDate(now)?date:cookingLocalDate(now)):null;assignedAt[key]=known?saved.assignedAt?.[key]||null:date?now.toISOString():null;
  }
  // A linked-only attachment has its parent's scheduled date, not a separate week.

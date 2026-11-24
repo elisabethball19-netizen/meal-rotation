@@ -19,6 +19,9 @@ fixture.HOOK += '''window.sw130={
   restoringRotationCalendars=false;showMealPlanTabs=tabs;saveActiveMealPlan(false);persist();follow126.home()},
  weeks:()=>Object.fromEntries(mealPlans.map(p=>[p.id,p.mealPlanWeekStartV1])),
  slot:(plan,key)=>{const p=mealPlans.find(x=>x.id===plan),e=getDisplayedWeekdayMealsForPlan(p.id===activePlanId?{...p,weekdayCategories,weekdayMealOverrides}:p).find(e=>weekdaySlotKey(e.day,e.cat)===key&&!e.linkedTo);return e?String(e.meal.id):null},
+ pinTue:on=>{const p=mealPlans[0],e=getDisplayedWeekdayMealsForPlan(p).find(e=>e.day==='Tuesday'&&!e.linkedTo);setSlotPin(p,e,on);saveActiveMealPlan(false);return String(e.meal.id)},
+ nextTue:()=>{const s=previewMealPlanAdvance();const e=s.entries.find(e=>e.day==='Tuesday'&&!e.linkedTo);return e?String(e.meal.id):null},
+ stale:()=>{const p=mealPlans[0];p.mealPlanWeekStartV1='2026-11-24';const e=getDisplayedWeekdayMealsForPlan(p).find(e=>e.day==='Tuesday'&&!e.linkedTo),key=rotationOccurrenceKey({...e,planId:p.id});p.rotationCalendar.occurrences[key]='2026-11-17';p.rotationCalendar.assignedOn[key]='2026-11-10';p.rotationCalendar=rotationCalendarForPlan(p,getDisplayedWeekdayMealsForPlan(p));return p.rotationCalendar.occurrences[key]},
  depth:()=>history.length,open:()=>openStartNextWeek(),rotate:()=>openRotateOptions(false),offset:()=>rotationWeekOffset,load:id=>{loadMealPlan(id,false);follow126.home()},
  third:week=>{mealPlans.find(p=>p.id==='third').mealPlanWeekStartV1=week;saveActiveMealPlan(false)},
  plans:()=>JSON.stringify(mealPlans.map(p=>({id:p.id,week:p.mealPlanWeekStartV1,o:p.weekdayMealOverrides,c:p.weekdayCategories})))
@@ -150,6 +153,16 @@ def run(browser, name):
     press(p)
     w = p.evaluate('sw130.weeks()')
     assert w == {'original': '2026-11-24', 'hidden': '2026-11-24', 'third': '2026-11-24'}, w
+
+    # A) A pinned slot is carried in the Next week preview (matches the Start next week dialog).
+    p.evaluate('sw130.seed()')
+    cur = p.evaluate('sw130.pinTue(false)')
+    assert p.evaluate('sw130.nextTue()') != cur, 'unpinned slot rotates'
+    p.evaluate('sw130.pinTue(true)')
+    assert p.evaluate('sw130.nextTue()') == cur, 'pinned slot must show the same meal next week'
+    # B) A stored date before the displayed week (left by a start-weekday change) is recomputed into the week.
+    p.evaluate('sw130.seed()')
+    assert p.evaluate('sw130.stale()') == '2026-11-24'
 
     assert not errors, errors
     if prefix:
