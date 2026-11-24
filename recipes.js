@@ -1465,12 +1465,15 @@ function explicitMarinadeLead(duration){
  const parsed=text&&parseMarinateInput(text),minutes=parsed&&(parsed.high??parsed.low);return Number.isFinite(minutes)&&minutes>0&&minutes<=878400*60?{daysBefore:0,hoursBefore:minutes/60}:null;
 }
 function prepProteinName(line){
- let t=String(line||'').replace(/\s*\([^()]*\)/g,'').replace(/\s*\[[^\[\]]*\]/g,'').split(',')[0].trim();
- t=t.replace(/^[\d\s\/.\u00bc-\u00be\u2150-\u215e-]+/,'').replace(/^(?:lbs?|pounds?|oz|ounces?|kg|g|grams?|cups?|pieces?|large|small|medium|whole|cans?)\b\.?\s*(?:of\s+)?/i,'');
- t=t.replace(/\b(?:boneless|skinless|bone-in|skin-on|fresh|frozen|lean|extra|thick-cut|thin-cut|thinly\s+sliced|trimmed|raw|large|small|medium|whole|good-quality|organic|free-range)\b[\s,-]*/gi,'').replace(/\s{2,}/g,' ').trim();
+ let t=String(line||'');for(let before;before!==t;){before=t;t=t.replace(/\s*\([^()]*\)/g,'')}
+ t=t.replace(/\s*\[[^\[\]]*\]/g,'').replace(/\b(?:small|medium|large|extra-large)-sized\b/gi,'').replace(/\b(?:boneless|skinless|bone-in|skin-on|fresh|frozen|lean|extra|thick-cut|thin-cut|thinly\s+sliced|trimmed|raw|large|small|medium|whole|good-quality|organic|free-range)\b[\s,-]*/gi,'');
+ t=t.split(',')[0].replace(/\s+or\s+.*$/i,'').trim();
+ t=t.replace(/^[\d\s\/.\u00bc-\u00be\u2150-\u215e-]+/,'').replace(/^(?:lbs?|\|b|ib|pounds?|oz|ounces?|kg|g|grams?|cups?|pieces?|cans?)\b\.?\s*(?:of\s+)?/i,'');
+ t=t.replace(/[*]+/g,'').replace(/\s{2,}/g,' ').replace(/^[-\s]+|[-\s]+$/g,'');
  if(/\b(?:chuck|brisket|sirloin|flank|skirt|tri-?tip|short\s+ribs?|ribeye|rump|oxtail)\b/i.test(t))t=t.replace(/^beef\s+/i,'');
  return t.toLowerCase();
 }
+
 function automaticPrepSources(meal){
  const signature=JSON.stringify([meal.ingredients,meal.marinate,meal.instructions]);const key=meal.id===undefined?meal:String(meal.id),cached=automaticPrepCache.get(key);if(cached?.signature===signature)return cached.sources;
  const meats=(meal.ingredients||[]).map(line=>removeIngredientListMarker(String(line).trim())).filter(line=>!/^##/.test(line)&&(!/:\s*$/.test(line))&&(/\b(chicken|beef|pork|lamb|turkey|duck|veal|venison|goat|rabbit|bison|salmon|tuna|shrimp|prawns?|cod|haddock|tilapia|trout|fish)\b/i.test(line)||(/\b(chuck|roasts?|brisket|steaks?|short\s+ribs?|ribs|shanks?|sirloin|tenderloins?|loin|tri-?tip|flank|skirt|shoulder|butt|drumsticks?|thighs?|breasts?|wings?|ground\s+(?:meat|mince)|mince|fillets?|ribeye|rump|oxtail)\b/i.test(line)&&!/\b(celery|milk|cabbage|lettuce|romaine|rice|potato(?:es)?|onion|cheese|egg|butter)\b/i.test(line)))&&!/\b(stock|broth|bouillon|soup|sauce|gravy|seasoning|rub|powder|paste|extract|fat|lard|suet|gelatin|eggs?|noodles|flavou?r|tofu|seitan|flavou?red?|cooked|canned|tinned|rotisserie|smoked|deli|jerky|bacon|ham|sausage|vegan|vegetarian|plant[- ]based|substitute|imitation)\b/i.test(line)&&!/\b(?:or|optional)\b/i.test(line.replace(/\(\s*or\b[^()]*\)/gi,'')));
