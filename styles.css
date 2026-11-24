@@ -2613,3 +2613,4 @@ body.recipe-bulk-select .master-categories .shared-meal-name-line.has-name-badge
 #recipeViewer .recipe-scale-grid .recipe-scale-option[aria-pressed=true]{background:#e5edf8!important}
 #recipeViewer .recipe-scale-custom{display:flex!important;align-items:center!important;gap:12px!important;margin:10px 0 0!important;padding:0 2px!important;font-size:16px!important}
 #recipeViewer .recipe-scale-custom input{width:7em!important;flex:none!important;min-height:0!important;padding:7px!important}
+.grocery-shopping-link{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:34px;min-height:34px;color:#5876ad;text-decoration:none}.grocery-shopping-link svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}

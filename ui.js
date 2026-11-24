@@ -576,7 +576,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
   });
 }
 ;let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24">'+appIconSvg.settings+'</svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
-const displayGroup=makeSettingsGroup('display','Display'),collapsedOptions=document.createElement('fieldset'),collapsedHeading=document.createElement('legend');collapsedOptions.className='collapsed-card-options';collapsedHeading.textContent='Show on collapsed meal cards';collapsedOptions.append(collapsedHeading);populateTimeSettings(collapsedOptions);populateCookedDateSetting(collapsedOptions);displayGroup.content.append(collapsedOptions);populateMakeAheadSetting(displayGroup.content);populateAutoIngredientSelectorSetting(displayGroup.content);populateAutoCleanGrocerySetting(displayGroup.content);
+const displayGroup=makeSettingsGroup('display','Display'),collapsedOptions=document.createElement('fieldset'),collapsedHeading=document.createElement('legend');collapsedOptions.className='collapsed-card-options';collapsedHeading.textContent='Show on collapsed meal cards';collapsedOptions.append(collapsedHeading);populateTimeSettings(collapsedOptions);populateCookedDateSetting(collapsedOptions);displayGroup.content.append(collapsedOptions);populateMakeAheadSetting(displayGroup.content);populateAutoIngredientSelectorSetting(displayGroup.content);populateAutoCleanGrocerySetting(displayGroup.content);populateShoppingLinksSetting(displayGroup.content);
 
 
 
@@ -3693,6 +3693,22 @@ async function confirmRegularsMove(list){
 const AUTO_INGREDIENT_SELECTOR_KEY='mealRotationAutoIngredientSelectorV1';
 function autoIngredientSelectorOn(){try{return localStorage.getItem(AUTO_INGREDIENT_SELECTOR_KEY)!=='off'}catch(e){return true}}
 function populateAutoCleanGrocerySetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=groceryAutoCleanOn();check.onchange=()=>{try{localStorage.setItem(GROCERY_AUTO_CLEAN_KEY,check.checked?'on':'off')}catch(e){}renderList()};label.append(check,document.createTextNode('Clean up grocery list text (hide headings and prep notes)'));parent.append(label)}
+// Optional (off by default) "Find at Walmart" link on each grocery item: opens Walmart search for the item name.
+const SHOPPING_LINKS_KEY='mealRotationShoppingLinksV1';
+function shoppingLinksOn(){try{return localStorage.getItem(SHOPPING_LINKS_KEY)==='walmart'}catch(e){return false}}
+function shoppingSearchName(text){
+ let t=String(text||'');for(let before;before!==t;){before=t;t=t.replace(/\s*\([^()]*\)/g,'')}
+ t=t.replace(/\b(?:boneless|skinless|bone-in|skin-on)\b[\s,-]*/gi,'').split(',')[0].replace(/\s+or\s+.*$/i,'').replace(/^[\d\s\/.\u00bc-\u00be\u2150-\u215e-]+/,'');
+ t=t.replace(/^(?:(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|lbs?|pounds?|oz|ounces?|kg|g|grams?|ml|l|cans?|jars?|packages?|pkgs?|bunch(?:es)?|heads?|cloves?|stalks?|pinch(?:es)?|dash(?:es)?|large|small|medium)\b\.?\s*)+(?:of\s+)?/i,'');
+ return t.replace(/[*]+/g,'').replace(/\s{2,}/g,' ').trim();
+}
+function shoppingLinkNode(text){
+ const name=shoppingSearchName(text);if(!shoppingLinksOn()||!name)return null;
+ const a=document.createElement('a');a.className='iconbtn grocery-shopping-link';a.href='https://www.walmart.com/search?q='+encodeURIComponent(name);a.target='_blank';a.rel='noopener noreferrer';
+ a.setAttribute('aria-label','Find '+name+' at Walmart');a.title='Find at Walmart';a.addEventListener('click',event=>event.stopPropagation());
+ a.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5.5 5.5"/></svg>';return a;
+}
+function populateShoppingLinksSetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=shoppingLinksOn();check.onchange=()=>{try{if(check.checked)localStorage.setItem(SHOPPING_LINKS_KEY,'walmart');else localStorage.removeItem(SHOPPING_LINKS_KEY)}catch(e){}renderList()};label.append(check,document.createTextNode('Show "Find at Walmart" links on grocery items'));parent.append(label)}
 function populateAutoIngredientSelectorSetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=autoIngredientSelectorOn();check.onchange=()=>{try{localStorage.setItem(AUTO_INGREDIENT_SELECTOR_KEY,check.checked?'on':'off')}catch(e){}};label.append(check,document.createTextNode('Auto open ingredient selector when a recipe is moved to Regulars'));parent.append(label)}
 function openTopIngredientChooser(meal,options={}){
  if(meal.temporaryMeal){const entry=getDisplayedWeekdayMeals().find(item=>String(item.meal.id)===String(meal.id));if(entry)openOneTimeMealEditor(entry.day,entry.cat,meal);return}

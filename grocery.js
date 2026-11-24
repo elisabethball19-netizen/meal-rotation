@@ -302,7 +302,7 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
     if(occurrences.length>1){const count=document.createElement('span');count.className='muted grocery-source-count';count.textContent=' ('+occurrences.length+')';name.append(count)}
     details.append(name,source);
     const pencil=document.createElement('button');pencil.type='button';pencil.className='iconbtn grocery-contribution-edit grocery-item-edit';setIconButton(pencil,'rename','Edit shopping wording for '+line.line);pencil.onclick=()=>openGroceryTextEditor(line,updateRows);
-    const target=document.createElement('label');target.className='grocery-checkbox-target';target.append(check);row.replaceChildren(target,details,pencil,chevron);container.append(row);
+    const target=document.createElement('label');target.className='grocery-checkbox-target';target.append(check);const shop=typeof shoppingLinkNode==='function'?shoppingLinkNode(line.line):null;row.replaceChildren(...[target,details,shop,pencil,chevron].filter(Boolean));container.append(row);
    });
    appendManualGroceries(rows,updateRows);
   }
