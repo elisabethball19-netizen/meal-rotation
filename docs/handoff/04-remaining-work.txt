@@ -259,3 +259,5 @@ v353 phone-confirmed? (not yet reported). v354 (2026-11-23, code-complete, await
 v355 (2026-11-23, code-complete, awaiting phone test): fixes from her v354 test - send button reads 'Open in <chosen AI>' (hidden for 'Just copy'), paste heading follows the AI, ChatGPT no longer uses a prefill link (it did not prefill on her phone): request is copied and chatgpt.com opens with 'Paste it into ChatGPT'; Copilot/Perplexity prefill still unverified (message says paste if not filled). Settings: label shortened to 'Show Ask AI', legend line under it removed.
 
 v355 phone-tested: button wording OK; the 'Request copied...' message was not visible (dialog closes at once and the returned text was discarded). v356 (code-complete, awaiting phone test): small 6-second toast (aiToast) shows that message after sending via Open in <AI>.
+
+v356 phone-tested: ChatGPT shows 'Copied.' itself; toast is hidden behind the AI page (decision pending: show on return or remove). v357 (CSS only, awaiting phone test): the six 'AI to open' radios are indented under the 'Show Ask AI' switch and tighter (30px rows, 18px radios).

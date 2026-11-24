@@ -2621,3 +2621,8 @@ body.recipe-bulk-select .master-categories .shared-meal-name-line.has-name-badge
 .expanded-name-needs[aria-pressed=true]{color:#b07808}.expanded-name-needs[aria-pressed=true] svg{fill:#fff3c4}
 .plan-card-recipe>.expanded-name-needs{align-self:center}.plan-meal-card:not(.plan-card-expanded) .expanded-name-needs{display:none!important}
 .plan-meal-card.plan-card-expanded .plan-card-recipe .needs-tweaking-icon{display:none}
+
+/* Ask AI choices sit under the "Show Ask AI" switch: indented and tightly spaced so they read as part of it. */
+#settingsPanel .settings-group-content>.ai-target-options.collapsed-card-options{margin:-6px 0 8px 54px!important;padding:0!important;border:0!important;min-width:0}
+#settingsPanel .ai-target-options .settings-display-option{display:flex!important;align-items:center;gap:10px!important;margin:0!important;padding:0!important;min-height:30px!important;font-size:14px;line-height:1.3}
+#settingsPanel .ai-target-options input[type=radio]{width:18px!important;height:18px!important;min-width:18px;min-height:18px;margin:0;flex:0 0 18px;accent-color:#315ba8}
