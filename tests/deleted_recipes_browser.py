@@ -100,7 +100,13 @@ def run(browser, name):
     group.locator('summary').click()
     p.wait_for_timeout(300)
     rows = group.locator('.deleted-recipe-row')
-    assert rows.count() == 3, rows.count()  # 2 deleted + 1 dislike
+    assert rows.count() == 2, rows.count()  # dislikes start collapsed
+    tog = group.locator('.deleted-dislikes-toggle')
+    assert tog.get_attribute('aria-expanded') == 'false' and '(1)' in tog.text_content()
+    shot(p, name.split('.')[0], 'dislikes-closed')
+    tog.click()
+    assert rows.count() == 3 and group.locator('.deleted-dislikes-toggle').get_attribute('aria-expanded') == 'true'
+    shot(p, name.split('.')[0], 'dislikes-open')
     group.scroll_into_view_if_needed()
     shot(p, tag, 'settings')
     btn = group.get_by_role('button', name='Restore ' + before['name'])
