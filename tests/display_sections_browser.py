@@ -58,8 +58,15 @@ def run(browser, name):
     p.locator('.settings-subgroup[data-display-section=ai]').evaluate('e=>e.open=true')
     p.locator('.settings-subgroup[data-display-section=ai] input[type=checkbox]').first.evaluate('e=>e.click()')
     assert p.locator('.settings-subgroup[data-display-section=ai] .settings-substatus').text_content() == 'Off'
+    p.wait_for_timeout(500)
+    ensure_display(p)
+    assert p.locator('.settings-subgroup[data-display-section=ai]').get_attribute('open') is not None, 'section stays remembered after rebuild'
+    assert p.locator('input[name=aiTarget]').first.is_hidden(), 'provider options hidden while Ask AI is off'
     p.locator('.settings-subgroup[data-display-section=ai] input[type=checkbox]').first.evaluate('e=>e.click()')
+    p.wait_for_timeout(500)
+    ensure_display(p)
     assert p.locator('.settings-subgroup[data-display-section=ai] .settings-substatus').text_content() == ''
+    assert p.locator('input[name=aiTarget]').first.is_visible(), 'shown again when on'
     p.wait_for_timeout(600)
     # Remembered across a rebuild within 5 minutes, then reset to collapsed.
     ensure_display(p)
