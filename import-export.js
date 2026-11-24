@@ -960,11 +960,20 @@ const AI_JOBS={fridge:'What’s in my fridge',write:'Write a recipe',convert:'Ch
 function aiPending(){try{const v=JSON.parse(localStorage.getItem(AI_PENDING_KEY)||'null');return v&&AI_JOBS[v.job]?v:null}catch(e){return null}}
 function setAiPending(value){try{if(value)localStorage.setItem(AI_PENDING_KEY,JSON.stringify(value));else localStorage.removeItem(AI_PENDING_KEY)}catch(e){}}
 function aiFindRecipe(id){return id==null?null:meals.find(m=>String(m.id)===String(id)&&!m._scheduledEditorDraft)||null}
-// Send: copy the request, then open the saved Claude project/chat link (paste there) or a new prefilled chat.
+// Which AI the Ask AI flow opens (2026-11-23): Claude by default. The request is ALWAYS copied first; links that
+// prefill the question are used only when short enough, otherwise the AI's site opens and the person pastes.
+const AI_TARGET_KEY='mealRotationAiTargetV1';
+const AI_TARGETS={claude:{name:'Claude',url:t=>'https://claude.ai/new?q='+encodeURIComponent(t),home:'https://claude.ai/new'},chatgpt:{name:'ChatGPT',url:t=>'https://chatgpt.com/?q='+encodeURIComponent(t),home:'https://chatgpt.com/'},copilot:{name:'Copilot',url:t=>'https://copilot.microsoft.com/?q='+encodeURIComponent(t),home:'https://copilot.microsoft.com/'},perplexity:{name:'Perplexity',url:t=>'https://www.perplexity.ai/search?q='+encodeURIComponent(t),home:'https://www.perplexity.ai/'},gemini:{name:'Gemini',url:null,home:'https://gemini.google.com/app'},copy:{name:'your AI',url:null,home:null}};
+function aiTargetKey(){try{const v=localStorage.getItem(AI_TARGET_KEY);return AI_TARGETS[v]?v:'claude'}catch(e){return 'claude'}}
+function aiTargetName(){return AI_TARGETS[aiTargetKey()].name}
+// Send: copy the request, then open the chosen AI (Claude: the saved project/chat link, or a new prefilled chat).
 async function sendAiRequest(text){
- const copied=await copyAskAiText(text),link=String(familyTastes.claudeLink||'').trim();
- if(/^https:\/\/claude\.ai\//i.test(link)){window.open(link,'_blank','noopener');return copied?'Request copied. Paste it into Claude.':'Could not copy the request.'}
- window.open('https://claude.ai/new?q='+encodeURIComponent(text),'_blank','noopener');return '';
+ const key=aiTargetKey(),target=AI_TARGETS[key],copied=await copyAskAiText(text),link=String(familyTastes.claudeLink||'').trim();
+ if(key==='copy')return copied?'Request copied. Paste it into your AI.':'Could not copy the request.';
+ if(key==='claude'&&/^https:\/\/claude\.ai\//i.test(link)){window.open(link,'_blank','noopener');return copied?'Request copied. Paste it into Claude.':'Could not copy the request.'}
+ const prefilled=target.url?target.url(text):'';
+ if(prefilled&&(key==='claude'||prefilled.length<=1800)){window.open(prefilled,'_blank','noopener');return key==='claude'?'':copied?'Request copied too, in case you need to paste it.':''}
+ window.open(target.home,'_blank','noopener');return copied?'Request copied. Paste it into '+target.name+'.':'Could not copy the request.';
 }
 // Recipe chooser used by Convert / Would they like it / Out of an ingredient (search by name, Regulars first).
 function aiRecipePicker(onChange){
@@ -1136,7 +1145,7 @@ function renderAskAiPage(list){
  const paste=document.createElement('div');paste.className='ai-paste-card';
  const pasteHead=document.createElement('div');pasteHead.className='ai-paste-head';const pasteTitle=document.createElement('strong');pasteTitle.textContent=pending?'Paste Claude’s answer':'Paste an answer';pasteHead.append(pasteTitle);
  let pasteJob=null;if(pending){const clear=document.createElement('button');clear.type='button';clear.className='iconbtn ai-paste-clear';setIconButton(clear,'cancel','Clear waiting request');clear.onclick=()=>{setAiPending(null);aiPasteOpen=false;renderList({readOnly:true})};pasteHead.append(clear);pasteJob=document.createElement('p');pasteJob.className='ai-paste-job';pasteJob.textContent=AI_JOBS[pending.job]+(pending.recipeName?' · '+pending.recipeName:'')}
- const answer=document.createElement('textarea');answer.rows=5;answer.placeholder='Paste the whole answer from Claude';answer.setAttribute('aria-label','Paste the answer');
+ const answer=document.createElement('textarea');answer.rows=5;answer.placeholder='Paste the whole answer from '+aiTargetName();answer.setAttribute('aria-label','Paste the answer');
  const err=document.createElement('p');err.className='recipe-bulk-error';err.setAttribute('role','status');
  const review=document.createElement('button');review.type='button';review.className='smallbtn recipe-review-action ai-review';review.textContent='Review recipe';
  review.onclick=async()=>{err.textContent='';try{splitAiAnswer(answer.value).forEach(askAiItemFromAnswer)}catch(e){err.textContent=e.message;return}await reviewAiAnswer(answer.value)};

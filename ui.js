@@ -576,7 +576,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
   });
 }
 ;let settings=document.createElement('button');settings.id='settings';settings.className='iconbtn';settings.title='Settings and backups';settings.setAttribute('aria-label','Settings and backups');settings.setAttribute('aria-expanded','false');settings.innerHTML='<svg viewBox="0 0 24 24">'+appIconSvg.settings+'</svg>';actions.append(settings);let panel=document.createElement('div');panel.id='settingsPanel';panel.className='settings-panel hidden';const upperSplit=splitPlanSettings();
-const displayGroup=makeSettingsGroup('display','Display'),collapsedOptions=document.createElement('fieldset'),collapsedHeading=document.createElement('legend');collapsedOptions.className='collapsed-card-options';collapsedHeading.textContent='Show on collapsed meal cards';collapsedOptions.append(collapsedHeading);populateTimeSettings(collapsedOptions);populateCookedDateSetting(collapsedOptions);displayGroup.content.append(collapsedOptions);populateMakeAheadSetting(displayGroup.content);populateAutoIngredientSelectorSetting(displayGroup.content);populateAutoCleanGrocerySetting(displayGroup.content);populateShoppingLinksSetting(displayGroup.content);populateAiFeaturesSetting(displayGroup.content);
+const displayGroup=makeSettingsGroup('display','Display'),collapsedOptions=document.createElement('fieldset'),collapsedHeading=document.createElement('legend');collapsedOptions.className='collapsed-card-options';collapsedHeading.textContent='Show on collapsed meal cards';collapsedOptions.append(collapsedHeading);populateTimeSettings(collapsedOptions);populateCookedDateSetting(collapsedOptions);displayGroup.content.append(collapsedOptions);populateMakeAheadSetting(displayGroup.content);populateAutoIngredientSelectorSetting(displayGroup.content);populateAutoCleanGrocerySetting(displayGroup.content);populateShoppingLinksSetting(displayGroup.content);populateAiFeaturesSetting(displayGroup.content);populateAiTargetSetting(displayGroup.content);
 
 
 
@@ -3713,6 +3713,14 @@ function populateShoppingLinksSetting(parent){const label=document.createElement
 const AI_FEATURES_KEY='mealRotationAiFeaturesV1';
 function aiFeaturesOn(){try{return localStorage.getItem(AI_FEATURES_KEY)!=='off'}catch(e){return true}}
 function populateAiFeaturesSetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=aiFeaturesOn();check.onchange=()=>{try{if(check.checked)localStorage.removeItem(AI_FEATURES_KEY);else localStorage.setItem(AI_FEATURES_KEY,'off')}catch(e){}if(!check.checked)aiTabActive=false;render()};label.append(check,document.createTextNode('Show Ask AI (tab and recipe sparkle)'));parent.append(label)}
+function populateAiTargetSetting(parent){
+ const set=document.createElement('fieldset');set.className='collapsed-card-options ai-target-options';const legend=document.createElement('legend');legend.textContent='AI to open for Ask AI';set.append(legend);
+ for(const [key,label]of [['claude','Claude'],['chatgpt','ChatGPT'],['copilot','Copilot'],['perplexity','Perplexity'],['gemini','Gemini (copy, then paste)'],['copy','Just copy the request']]){
+  const row=document.createElement('label');row.className='settings-display-option';const radio=document.createElement('input');radio.type='radio';radio.name='aiTarget';radio.value=key;radio.checked=aiTargetKey()===key;
+  radio.onchange=()=>{try{if(key==='claude')localStorage.removeItem(AI_TARGET_KEY);else localStorage.setItem(AI_TARGET_KEY,key)}catch(e){}};row.append(radio,document.createTextNode(label));set.append(row);
+ }
+ parent.append(set);
+}
 function populateAutoIngredientSelectorSetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=autoIngredientSelectorOn();check.onchange=()=>{try{localStorage.setItem(AUTO_INGREDIENT_SELECTOR_KEY,check.checked?'on':'off')}catch(e){}};label.append(check,document.createTextNode('Auto open ingredient selector when a recipe is moved to Regulars'));parent.append(label)}
 function openTopIngredientChooser(meal,options={}){
  if(meal.temporaryMeal){const entry=getDisplayedWeekdayMeals().find(item=>String(item.meal.id)===String(meal.id));if(entry)openOneTimeMealEditor(entry.day,entry.cat,meal);return}
