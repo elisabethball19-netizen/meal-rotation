@@ -2463,6 +2463,13 @@ body.recipe-bulk-select .master-categories .shared-meal-name-line.has-name-badge
 #recipeViewer .recipe-scale-custom{display:flex!important;align-items:center!important;gap:12px!important;margin:10px 0 0!important;padding:0 2px!important;font-size:16px!important}
 #recipeViewer .recipe-scale-custom input{width:7em!important;flex:none!important;min-height:0!important;padding:7px!important}
 .grocery-shopping-link{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:34px;min-height:34px;color:#5876ad;text-decoration:none}.grocery-shopping-link svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+
+/* Needs Adjusting "!" on an expanded Meals card (next to the heart): gray when not set, amber when set. */
+.expanded-name-needs{flex:0 0 32px;min-width:32px;width:32px;height:32px;min-height:32px;padding:4px;border:0;background:transparent;color:#8b94a0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation}
+.expanded-name-needs svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.expanded-name-needs[aria-pressed=true]{color:#b07808}.expanded-name-needs[aria-pressed=true] svg{fill:#fff3c4}
+.plan-card-recipe>.expanded-name-needs{align-self:center}.plan-meal-card:not(.plan-card-expanded) .expanded-name-needs{display:none!important}
+.plan-meal-card.plan-card-expanded .plan-card-recipe .needs-tweaking-icon{display:none}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -13545,7 +13552,11 @@ function makeServingButton(label,icon,action){const button=document.createElemen
 function makeServingIcon(label,icon,action){const button=document.createElement('button');button.type='button';button.className='iconbtn serving-icon-action';setIconButton(button,icon,label);button.onclick=event=>{event.preventDefault();event.stopPropagation();keepPlanCardScroll();action()};return button}
 function appendSharedMealActions(body,card,plan,entry,preview=false){
  const meal=entry.meal,toggle=planCardDisclosure(card,'Meal actions for '+(meal?.name||'empty meal')),panel=document.createElement('div');panel.className='expanded-meal-actions shared-meal-actions';panel.hidden=true;
- if(meal){const heart=recipeFavoriteButton(meal);heart.classList.add('expanded-name-heart');card.querySelector('.plan-card-recipe').append(heart)}
+ if(meal){const heart=recipeFavoriteButton(meal);heart.classList.add('expanded-name-heart');card.querySelector('.plan-card-recipe').append(heart);
+  // Needs Adjusting is reachable here too: same data and same pop-up as the recipe view.
+  const flag=document.createElement('button');flag.type='button';flag.className='expanded-name-needs';flag.innerHTML=needsTweakingIconSvg();flag.setAttribute('aria-pressed',String(meal.needsTweaking===true));flag.title='Needs Adjusting: '+(meal.name||'Recipe');flag.setAttribute('aria-label',flag.title);
+  for(const event of ['pointerdown','pointerup','touchstart','touchend','dblclick'])flag.addEventListener(event,e=>e.stopPropagation());
+  flag.onclick=e=>{e.preventDefault();e.stopPropagation();const current=meals.find(m=>String(m.id)===String(meal.id));if(current)openNeedsTweaking(current)};card.querySelector('.plan-card-recipe').append(flag)}
  const target=servingTarget(plan,entry,preview?1:0),uiKey=target.key+'|'+target.week;
  const grid=document.createElement('div');grid.className='shared-meal-action-grid';const choose=()=>openWeekdayMealChooser(entry.day,entry.cat==='@day'?null:entry.cat,meal||null,!!entry.occasional||!entry.cat||entry.cat==='@day',{...(preview?{futurePlan:plan}:{}),slotContext:!preview&&entry.temporaryEmpty?emptyWeekSlotContext(plan,entry.day,entry.cat):null,occurrenceKey:meal?simpleSideOccurrenceKey(plan,entry):null,cardIdentity:card.dataset.cardIdentity});
  if(meal){grid.append(makeServingButton('Edit recipe','rename',()=>openEditor(meal.id,false,{...captureMealEditorOrigin(),servingTarget:target})),makeServingButton('Choose meal','search',choose),makeServingButton('Edit groceries','grocery',()=>openTopIngredientChooser(meal)),makeServingButton('Scale','scale',()=>openPlanCardScale(plan,entry,preview)),makeServingButton('Clear meal','cancel',()=>{if(preview)applyRecipeBulk([String(meal.id)],{},{mealSelection:{planId:plan.id,week:1,day:entry.day,category:entry.cat,mealId:String(meal.id),empty:true}});else skipMealOccurrence(plan.id,entry,simpleSideOccurrenceKey(plan,entry))}))}
