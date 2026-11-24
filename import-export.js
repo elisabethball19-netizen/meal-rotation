@@ -928,6 +928,7 @@ function buildAiJobRequest(job,data={}){
  else if(job==='write'){out.push('I\'d like a recipe for my family: '+String(data.input||'').trim(),'',...aiProfileLines({avoidRepeats:true}),'','This is a two-step conversation.','','Step 1 (your reply now): suggest 3 different recipes that fit what I asked. For each, give only a number, the name and one line on why it fits us. Then stop and ask which ones I want. Do NOT write any full recipe yet.','','Step 2 (after I answer with a number, several numbers, or "all"): write each recipe I chose in exactly the format below, one after another, with nothing before or after. '+AI_TAG_RULE);format()}
  else if(job==='convert'){out.push('Convert this recipe so it follows our restrictions and suits our tastes. Keep it as close to the original as you can.'+(String(data.extra||'').trim()?' Also: '+String(data.extra).trim():''),'',source,'',...aiProfileLines({strict:true,noRegulars:true}),'','First list what you changed in a few short lines. Then give the full converted recipe in exactly this format. '+AI_TAG_RULE);format()}
  else if(job==='like'){out.push('Would my family like this recipe? Give an honest verdict in a few sentences, based on our tastes, restrictions and favorites below.','',source,'',...aiProfileLines({strict:true}),'','If tweaks would make it a better fit, say what they are. Then give the recipe, with your suggested tweaks, in exactly this format so I can save it. '+AI_TAG_RULE);format()}
+ else if(job==='scale'){const x=String(data.multiplier||1).replace(/\.0+$/,'');out.push('Rewrite this recipe to make '+x+' times the amount.','','Change only the ingredient amounts. Use kitchen-friendly measures (for example round to the nearest 1/4 tsp, 1/2 tbsp, or 1/4 or 1/3 cup; 3 tsp becomes 1 tbsp; 4 tbsp becomes 1/4 cup). Keep lines like "to taste" or "a pinch" sensible. Keep each ingredient\'s wording, and keep the title, times and steps word for word. Update the servings if the recipe lists them.','',source,'','Give the full recipe in exactly this format, with nothing before or after. '+AI_TAG_RULE);format()}
  else if(job==='out'){out.push('I\'m cooking this right now and I\'m out of '+String(data.missing||'an ingredient').trim()+'. What\'s the best substitute I\'m likely to have at home, and how much should I use? Keep it short.','',source);if(familyTastes.restrictions.trim())out.push('','Our restrictions: '+familyTastes.restrictions.trim()+'.')}
  return out.join('\n');
 }
@@ -957,8 +958,10 @@ function askAiStepLinks(record,tags){
 }
 async function copyAskAiText(text){try{await navigator.clipboard.writeText(text);return true}catch(e){const area=document.createElement('textarea');area.value=text;area.style.cssText='position:fixed;opacity:0;top:0;left:0';document.body.append(area);area.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}area.remove();return ok}}
 const AI_PENDING_KEY='mealRotationAskAiPendingV1';
-const AI_JOBS={fridge:'What’s in my fridge',write:'Write a recipe',convert:'Change a recipe',like:'Would my family like it?',out:'Out of an ingredient'};
+const AI_JOBS={fridge:'What’s in my fridge',write:'Write a recipe',convert:'Change a recipe',like:'Would my family like it?',out:'Out of an ingredient',scale:'Scale a recipe'};
 function aiPending(){try{const v=JSON.parse(localStorage.getItem(AI_PENDING_KEY)||'null');return v&&AI_JOBS[v.job]?v:null}catch(e){return null}}
+// Scale menu third option: send a "make N times" request for this recipe through Ask AI; the answer saves as the updated version.
+async function sendRecipeScaleToAi(meal,multiplier){const text=buildAiJobRequest('scale',{recipe:meal,multiplier});setAiPending({job:'scale',recipeId:String(meal.id),recipeName:meal.name+' ×'+multiplier,multiplier,at:Date.now()});const note=await sendAiRequest(text);aiToast(note);setTimeout(()=>{if(recipeViewer)closeRecipeViewer();showTop=true;groceryTabActive=false;allMealsActive=false;aiTabActive=true;editId=null;render();window.scrollTo(0,0)},0)}
 function setAiPending(value){try{if(value)localStorage.setItem(AI_PENDING_KEY,JSON.stringify(value));else localStorage.removeItem(AI_PENDING_KEY)}catch(e){}}
 function aiFindRecipe(id){return id==null?null:meals.find(m=>String(m.id)===String(id)&&!m._scheduledEditorDraft)||null}
 // Which AI the Ask AI flow opens (2026-11-23): Claude by default. The request is ALWAYS copied first; links that
@@ -1061,15 +1064,15 @@ function splitAiAnswer(text){
 function restrictionNote(flags){const note=document.createElement('div');note.className='import-restriction-flags';note.setAttribute('role','note');const title=document.createElement('strong');title.textContent='Check for your restrictions';const list=document.createElement('ul');for(const f of flags){const li=document.createElement('li');li.textContent=f.line+' ('+f.label+')';list.append(li)}note.append(title,list);return note}
 async function reviewAiAnswer(answer){
  const parts=splitAiAnswer(answer),items=[];for(const part of parts)items.push(askAiItemFromAnswer(part));
- const pending=aiPending(),original=items.length===1&&['convert','like'].includes(pending?.job)?aiFindRecipe(pending.recipeId):null;
+ const pending=aiPending(),original=items.length===1&&['convert','like','scale'].includes(pending?.job)?aiFindRecipe(pending.recipeId):null;
  if(items.length>1){openAiMultiReview(items);return}
- let replace=false,mode='copy';if(original){mode=await chooseAiSaveMode(original);if(!mode)return;replace=mode!=='copy'}
+ let replace=false,mode='copy';if(original&&pending.job==='scale'){mode='update';replace=true}else if(original){mode=await chooseAiSaveMode(original);if(!mode)return;replace=mode!=='copy'}
  const item=items[0];if(replace){item.aiReplacesRecipeId=String(original.id);item.aiReplaceMode=mode;item.name=original.name}else item.aiTargetGroup=ensureAiRecipesGroup();item.aiReturnToGroups=true;
  await groupHistorySettled;await editorHistorySettled;await reviewRecipeImportItems([item],'Ask AI');setAiPending(null);
  const flags=restrictionConflicts(item.ingredients);
  const place=()=>{const card=document.querySelector('#editor .meal-card-edit-mode'),fields=document.querySelector('#editor .meal-editor-fields');if(!card&&!fields)return;
   let anchor=card;
-  if(replace){let note=document.querySelector('#editor .ai-replace-note');if(!note){note=document.createElement('p');note.className='ai-replace-note';note.textContent=mode==='replace'?'Saving replaces '+original.name+'. The original isn’t kept.':'Saving updates '+original.name+'. The original is kept, and you can switch back from the recipe page.'}if(card){if(card.nextElementSibling!==note)card.after(note);anchor=note}else if(!note.isConnected)fields.prepend(note)}
+  if(replace){let note=document.querySelector('#editor .ai-replace-note');if(!note){note=document.createElement('p');note.className='ai-replace-note';note.textContent=mode==='replace'?'Saving replaces '+original.name+'. The original isn’t kept.':'Saving updates '+original.name+'. The original is kept, and you can switch back from the recipe page.';if(pending?.job==='scale')note.textContent+=' The steps weren’t rewritten, so check any amounts they mention.'}if(card){if(card.nextElementSibling!==note)card.after(note);anchor=note}else if(!note.isConnected)fields.prepend(note)}
   if(flags.length){let n=document.querySelector('#editor .import-restriction-flags');if(!n)n=restrictionNote(flags);if(anchor){if(anchor.nextElementSibling!==n)anchor.after(n)}else if(!n.isConnected)fields.prepend(n)}};
  place();requestAnimationFrame(()=>requestAnimationFrame(place));setTimeout(place,300);
 }

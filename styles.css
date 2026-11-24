@@ -2640,3 +2640,5 @@ body.recipe-bulk-select .master-categories .shared-meal-name-line.has-name-badge
 @container weekday-settings (max-width:16.5em){#topSettingsPanel .weekday-alternate{grid-column:1/4;margin-left:24px}}
 #topSettingsPanel .weekday-assignment{grid-template-columns:108px minmax(80px,1fr) 44px}
 #topSettingsPanel .weekday-group-row select{appearance:none;-webkit-appearance:none;padding:7px 26px 7px 8px;text-overflow:ellipsis;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 6px center/16px 16px;color:#222;font-size:14px}
+.recipe-scale-radio-off{opacity:.55;flex-wrap:wrap}
+.recipe-scale-radio-why{display:block;width:100%;margin:-2px 0 4px 28px;font-size:12px;color:#5c6670}
