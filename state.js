@@ -614,7 +614,7 @@ const groceryQuantityUnits={cup:'cup',cups:'cup',tbsp:'tbsp',tablespoon:'tbsp',t
 // Drops parentheticals and non-shopping phrases; keeps prep words such as minced, frozen, shredded.
 function groceryShoppingText(line){
  const original=String(line??'');
- let t=original,prevT;do{prevT=t;t=t.replace(/\s*\([^()]*\)/g,'').replace(/\s*\[[^\[\]]*\]/g,'')}while(t!==prevT);
+ let t=original.replace(/\*+/g,''),prevT;do{prevT=t;t=t.replace(/\s*\([^()]*\)/g,'').replace(/\s*\[[^\[\]]*\]/g,'')}while(t!==prevT);
  t=t.replace(/(?:\s*[,;]|\s+-)?\s*\b(?:see\s+(?:the\s+)?(?:recipe\s+)?notes?(?:\s+below)?|divided|to\s+taste|(?:for|as)\s+(?:a\s+|the\s+)?garnish(?:ing)?|(?:for|to)\s+serv(?:e|ing)|as\s+needed|plus\s+(?:more|extra)(?:\s+(?:for|to|as)\s+[a-z ]+)?)\b\.?/gi,'');
  t=t.replace(/\s*,(?:\s*,)+/g,',').replace(/^[\s,;:-]+|[\s,;:-]+$/g,'').replace(/\s{2,}/g,' ').trim();
  if(groceryAutoCleanOn()){const comma=t.indexOf(',');if(comma>0&&/^(?:(?:finely|roughly|thinly|coarsely|freshly|lightly|very)\s+)?(?:cut|chopped|diced|minced|sliced|grated|shredded|crushed|peeled|trimmed|halved|quartered|cubed|torn|julienned|mashed|melted|softened|beaten|drained|rinsed|thawed|cored|seeded|deveined|patted\s+dry|at\s+room\s+temperature|room\s+temperature)\b/i.test(t.slice(comma+1).trim()))t=t.slice(0,comma).trim()}
