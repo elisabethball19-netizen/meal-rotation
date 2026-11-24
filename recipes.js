@@ -1550,7 +1550,9 @@ function buildMakeAheadEditor(meal,before=$('editorNotesSection'),options={}){
 function makeAheadWeekStart(){const plan=mealPlans.find(p=>p.id===activePlanId);return parseCookingLocalDate(plan?.rotationCalendar?.weekStart)||cookingPlanningWeekStart()}
 function makeAheadTaskComplete(plan,key){
  if(Object.hasOwn(plan.makeAheadChecks||{},key))return plan.makeAheadChecks[key]===true;
- const target=JSON.parse(key);return Object.entries(plan.makeAheadChecks||{}).some(([saved,checked])=>{try{const parts=JSON.parse(saved);return checked&&(parts[2]==='preview'||target[2]==='preview')&&parts[0]===target[0]&&parts[1]===target[1]&&parts[3]===target[3]}catch(_){return false}});
+ const target=JSON.parse(key);return Object.entries(plan.makeAheadChecks||{}).some(([saved,checked])=>{try{const parts=JSON.parse(saved);// A meal taken off this slot and put back on the SAME date keeps its checks (2026-11-24): only the assignment time
+  // differs. A different date never matches, so prep for a moved meal shows again.
+  return checked&&parts[0]===target[0]&&parts[1]===target[1]&&parts[3]===target[3]}catch(_){return false}});
 }
 function scheduledMakeAheadTasks(includeUpcoming=true,upcoming=null){
  const start=cookingPlanningWeekStart(),rows=[],seen=new Set(),current=mealPlans.map(plan=>({plan:plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:plan,entries:null}));
