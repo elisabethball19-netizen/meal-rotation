@@ -7372,12 +7372,13 @@ function buildAskAiRequest(mode,input){return buildAiJobRequest(mode==='fridge'?
 function askAiDurationMinutes(text){const t=String(text||'').toLowerCase();let total=0,found=false;const h=t.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/),m=t.match(/(\d+)\s*(?:m|min|mins|minute|minutes)\b/);if(h){total+=Math.round(parseFloat(h[1])*60);found=true}if(m){total+=parseInt(m[1],10);found=true}if(!found){const n=t.match(/^\s*(\d+)\s*$/);if(n){total=parseInt(n[1],10);found=true}}return found&&total>0?total:null}
 function askAiItemFromAnswer(answer){
  let text=String(answer||'').replace(/\r/g,'').replace(/^```[a-z]*\n?|```$/gm,'').trim();const start=text.search(/^\s*(?:\*\*)?Title:/im);if(start>0)text=text.slice(start);
+ text=text.replace(/(?:\n[ \t]*(?:enjoy|hope (?:this|that|you)|let me know|feel free|happy cooking|bon app|i can also|would you like|want me to)[^\n]*)+\s*$/i,'').trim();
  if(!text)throw Error('Paste the AI\'s answer first.');
  const details=extractCompleteRecipe(text)||recipeTextSections(text);if(!details.ingredients?.length&&!details.instructions?.some(step=>step.type==='step'))details.notes=details.notes||text;
  const field=name=>(text.match(new RegExp('^\\s*(?:\\*\\*)?'+name+'(?:\\*\\*)?\\s*:\\s*(?:\\*\\*)?\\s*(.+)$','im'))||[])[1]||'';
  // The requested format has an "Ingredients" heading; read that block directly (generic extraction can take steps).
  const block=[],stepTags={},lines=text.split('\n');let inside=false;for(const line of lines){const head=line.trim().replace(/^#{1,6}\s*/,'').replace(/\*\*/g,'').replace(/:$/,'').trim();if(/^ingredients$/i.test(head)){inside=true;continue}if(inside&&/^(?:instructions|directions|method|steps|notes)$/i.test(head))break;if(inside&&line.trim()){const clean=line.trim().replace(/^(?:[-*•]|\d+[.)])\s+/,''),tag=clean.match(/\s*\[\s*(?:steps?\s*)?(\d+(?:\s*(?:,|&|and)\s*\d+)*)\s*\]\s*$/i),text=tag?clean.slice(0,tag.index).trim():clean;block.push(text);if(tag)stepTags[ingredientLine(text)]=tag[1].split(/\s*(?:,|&|and)\s*/).map(Number)}}
- const item={...details,name:(details.name||field('Title')||text.split('\n')[0]).replace(/\*\*/g,'').trim()||'AI recipe',ingredients:block.length?block:details.ingredients?.length?details.ingredients:extractRecipeIngredients(text)};
+ const item={...details,name:(details.name||field('Title')||text.split('\n')[0]).replace(/\*\*/g,'').replace(/^["“”‘’'\s]+|["“”‘’'\s]+$/g,'').trim()||'AI recipe',ingredients:block.length?block:details.ingredients?.length?details.ingredients:extractRecipeIngredients(text)};
  const prep=askAiDurationMinutes(field('Prep time')),cook=askAiDurationMinutes(field('Cook time'));if(prep&&!item.prep)item.prep=prep;if(cook&&!item.cook)item.cook=cook;if(Object.keys(stepTags).length)item.aiStepTags=stepTags;
  // Its own identity, so a repeat paste always opens the single-recipe review (not the bulk file importer).
  item.importSourceId='ask-ai:'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);

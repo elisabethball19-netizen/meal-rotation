@@ -265,3 +265,4 @@ v356 phone-tested: ChatGPT shows 'Copied.' itself; toast is hidden behind the AI
 v358 (2026-11-23) Remembered Walmart products: long-press the grocery magnifier to save a Walmart product link for that item (key mealRotationShoppingProductsV1); the icon becomes a link icon and opens the saved product. Press and hold again to change or remove. Awaiting phone test.
 v359 (2026-11-23) Walmart long-press reworked for phones: touch timer + contextmenu handler, no native link menu. Awaiting phone test.
 v358/v359 phone-confirmed 2026-11-23: remembered Walmart products (long-press, save, open, change/remove).
+v360 (2026-11-23) Ask AI paste: drops closing chatter (Enjoy!/Let me know...) and curly quotes around titles; chatty, fenced, plain and bold answers verified in harness. Awaiting phone test.
