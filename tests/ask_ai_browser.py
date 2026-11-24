@@ -149,6 +149,15 @@ def run(browser, name):
     assert flags == ['2 tbsp soy sauce (soy)', '1 tbsp butter (dairy)'], flags
     p.locator('#save').click(); p.wait_for_timeout(700)
     assert p.evaluate('ai.onGroups()'), 'after saving an AI recipe the app stays on Meal Groups'
+    p.wait_for_timeout(300)
+    t = p.locator('.serving-undo-toast')
+    assert t.count() == 1 and t.locator('span').text_content() == 'Saved Garlic Chicken Stir-Fry', 'saved-new toast'
+    assert t.get_by_role('button', name='Open').count() == 1 and t.get_by_role('button', name='Undo').count() == 1
+    p.evaluate("document.getElementById('aiToast')?.remove()"); shot(p, tag, 'saved-toast')
+    t.get_by_role('button', name='Open').click(); p.wait_for_timeout(500)
+    assert p.locator('.serving-undo-toast').count() == 0, 'Open dismisses the toast'
+    assert p.evaluate('!!document.querySelector(".recipe-viewer, #recipeViewer, [data-recipe-viewer]")'), 'Open shows the recipe viewer'
+    p.evaluate('ai.closeViewer()'); p.wait_for_timeout(300)
     saved = p.evaluate('n=>ai.meal(n)', 'Garlic Chicken Stir-Fry')
     assert saved and saved['cat'] == 'AI recipes' and saved['rotation'] is False and saved['links'] == 2 and saved['ingredients'][0] == '1 lb chicken thighs', saved
     assert p.evaluate('ai.pending()') is None
@@ -193,6 +202,8 @@ def run(browser, name):
     upd = p.evaluate('n=>ai.meal(n)', target)
     assert '2 tbsp coconut aminos' in upd['ingredients'] and upd['id'] == saved['id'], upd
     assert p.evaluate('ai.count()') == count, 'update must not add a recipe'
+    ut = p.locator('.serving-undo-toast')
+    assert ut.count() == 1 and ut.locator('span').text_content() == 'Updated ' + target and ut.get_by_role('button', name='Open').count() == 1, 'updated toast has Open'
     assert p.evaluate('n=>ai.alt(n)', target) == 'original'
     # Recipe page: switch to the original and back, then discard the other version.
     p.evaluate('n=>ai.viewer(n)', target); p.wait_for_timeout(400)

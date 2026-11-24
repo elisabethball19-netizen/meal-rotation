@@ -7588,7 +7588,7 @@ function mergeAiReplacement(saved){
  // Keep the true original: converting again replaces the converted text, never the saved original.
  if(mode==='update'&&original.aiAltVersion?.kind!=='original')patch.aiAltVersion={kind:'original',flagsV1:true,savedAt:new Date().toISOString(),...aiRecipeContent(original)};
  const oldLines=[...(original.ingredients||[])];assignSharedRecipeFields(original,patch);remapSelectionsAfterContentChange(original,oldLines,saved.id);
- meals=meals.filter(m=>m!==saved);persist();showServingUndoToast((mode==='replace'?'Replaced ':'Updated ')+original.name);return true;
+ meals=meals.filter(m=>m!==saved);persist();showServingUndoToast((mode==='replace'?'Replaced ':'Updated ')+original.name,null,()=>openSavedMealRecipe(original));return true;
 }
 function switchRecipeVersion(meal){
  migrateVersionFlags(meal);const alt=meal?.aiAltVersion;if(!alt)return;snapshot();const current={kind:alt.kind==='original'?'converted':'original',flagsV1:true,savedAt:new Date().toISOString(),...aiRecipeContent(meal)},patch={...versionFlagPatch(alt)};
@@ -13287,6 +13287,7 @@ $('save').onclick=async()=>{
   try{applyRecipeBulk([String(m.id)],{}, {render:false,preferredSides,editor:{sourceId:String(m.id),...(()=>{const remap=$('recipeIngredientLinks').ingredientRemap,keys=new Set(nextIngredients.map(ingredientKey)),kept=Object.fromEntries(Object.entries(remap||{}).filter(([from,parts])=>!keys.has(ingredientKey(from))&&parts.every(t=>keys.has(ingredientKey(t)))));return Object.keys(kept).length?{ingredientRemap:kept}:{}})(),...(servingDraft.target&&JSON.stringify(servingDraft.sides)!==initialServeRules?{servingTarget:servingDraft.target,servingSidesDraft:servingDraft.sides}:{}),memberships:editorMembershipDraft.map(draft=>({...draft})),newGroups:pendingEditorGroups.filter(cat=>editorDraftCategories.includes(cat)),fields,rotation:$('rotation').checked,status:$('recipeStatus').hidden?null:$('recipeStatus').dataset.status,preserveStatus:$('recipeStatus').hidden}})}catch(e){await showAppMessage('Recipe could not be saved: '+e.message+' Your draft is still open.');return}
   let saved=meals.find(record=>String(record.id)===String(m.id));
   const aiReturn=!!saved?.aiReturnToGroups;if(aiReturn){delete saved.aiReturnToGroups;persist()}
+  const aiNewRecipe=aiReturn&&saved&&!saved.aiReplacesRecipeId?saved:null;
   if(saved?.aiReplacesRecipeId){const target=aiFindRecipe(saved.aiReplacesRecipeId);if(mergeAiReplacement(saved))saved=target}
   const chooseFirstGroup=newRecipeDraftId===m.id&&saved?.cat===''&&meals.length===1;
   if(newRecipeDraftId===m.id){
@@ -13298,6 +13299,7 @@ $('save').onclick=async()=>{
   }
   editorCategoryBaseline=null;editorDraftCategories=null;editId=null;if(tutorialStage==='editing')setTutorialStage('3');restoreMealEditorScroll();
   if(aiReturn&&saved&&!chooseFirstGroup)setTimeout(()=>locateRecipeInGroups(saved),0);
+  if(aiNewRecipe)setTimeout(()=>showServingUndoToast('Saved '+(aiNewRecipe.name||'recipe'),null,()=>openSavedMealRecipe(aiNewRecipe)),50);
   if(chooseFirstGroup)chooseGroupForFirstMeal(saved);
   else if(saved&&importedRecipeDetailsDraft?.recipeImportReferences?.length)recipeImportNotice('Related recipe references were found. No new links have been selected.',[saved]);
 
@@ -13821,7 +13823,7 @@ function commitServingSession(session){
  finally{const source=servingSource(session.target);if(source){const fresh=servingSides(source.plan,source.parent,source.entries),known=new Map(session.sides.map(s=>[s.id,s]));session.baseline=JSON.stringify(fresh);session.sides=fresh.map(side=>{const old=known.get(side.id);if(!old)return side;for(const key of Object.keys(old))delete old[key];return Object.assign(old,side)}).concat(drafts)}session.dirty=drafts.length>0}
 }
 let servingToastTimer=null;
-function showServingUndoToast(message,afterUndo=null){document.querySelector('.serving-undo-toast')?.remove();clearTimeout(servingToastTimer);const toast=document.createElement('div');toast.className='serving-undo-toast';toast.setAttribute('role','status');const text=document.createElement('span');text.textContent=message;const undo=document.createElement('button');undo.type='button';undo.textContent='Undo';const depth=history.length;undo.onclick=()=>{toast.remove();clearTimeout(servingToastTimer);if(history.length===depth){document.getElementById('undo')?.click();afterUndo?.()}};toast.append(text,undo);document.body.append(toast);toast.inert=false;for(const delay of [0,150,600])setTimeout(()=>{if(toast.isConnected)toast.inert=false},delay);servingToastTimer=setTimeout(()=>toast.remove(),5000)}
+function showServingUndoToast(message,afterUndo=null,openAction=null){document.querySelector('.serving-undo-toast')?.remove();clearTimeout(servingToastTimer);const toast=document.createElement('div');toast.className='serving-undo-toast';toast.setAttribute('role','status');const text=document.createElement('span');text.textContent=message;const undo=document.createElement('button');undo.type='button';undo.textContent='Undo';const depth=history.length;undo.onclick=()=>{toast.remove();clearTimeout(servingToastTimer);if(history.length===depth){document.getElementById('undo')?.click();afterUndo?.()}};if(openAction){const open=document.createElement('button');open.type='button';open.className='serving-toast-open';open.textContent='Open';open.onclick=()=>{toast.remove();clearTimeout(servingToastTimer);openAction()};toast.append(text,open,undo)}else toast.append(text,undo);document.body.append(toast);toast.inert=false;for(const delay of [0,150,600])setTimeout(()=>{if(toast.isConnected)toast.inert=false},delay);servingToastTimer=setTimeout(()=>toast.remove(),openAction?8000:5000)}
 function makeServingButton(label,icon,action){const button=document.createElement('button');button.type='button';button.className='meal-inline-action';setIconButton(button,icon,label);const text=document.createElement('span');text.textContent=label;button.append(text);button.onclick=event=>{event.preventDefault();event.stopPropagation();keepPlanCardScroll();action()};return button}
 function makeServingIcon(label,icon,action){const button=document.createElement('button');button.type='button';button.className='iconbtn serving-icon-action';setIconButton(button,icon,label);button.onclick=event=>{event.preventDefault();event.stopPropagation();keepPlanCardScroll();action()};return button}
 function appendSharedMealActions(body,card,plan,entry,preview=false){

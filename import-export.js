@@ -1128,7 +1128,7 @@ function mergeAiReplacement(saved){
  // Keep the true original: converting again replaces the converted text, never the saved original.
  if(mode==='update'&&original.aiAltVersion?.kind!=='original')patch.aiAltVersion={kind:'original',flagsV1:true,savedAt:new Date().toISOString(),...aiRecipeContent(original)};
  const oldLines=[...(original.ingredients||[])];assignSharedRecipeFields(original,patch);remapSelectionsAfterContentChange(original,oldLines,saved.id);
- meals=meals.filter(m=>m!==saved);persist();showServingUndoToast((mode==='replace'?'Replaced ':'Updated ')+original.name);return true;
+ meals=meals.filter(m=>m!==saved);persist();showServingUndoToast((mode==='replace'?'Replaced ':'Updated ')+original.name,null,()=>openSavedMealRecipe(original));return true;
 }
 function switchRecipeVersion(meal){
  migrateVersionFlags(meal);const alt=meal?.aiAltVersion;if(!alt)return;snapshot();const current={kind:alt.kind==='original'?'converted':'original',flagsV1:true,savedAt:new Date().toISOString(),...aiRecipeContent(meal)},patch={...versionFlagPatch(alt)};
