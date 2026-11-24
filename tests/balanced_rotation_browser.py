@@ -13,6 +13,8 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 sys.path.insert(0, str(Path(__file__).parent))
 import sides_batch127_browser as sb  # noqa: E402
+import start_week_window_helper as sww  # noqa: E402
+sww.register(sb.fixture)
 
 OUT = Path('/tmp/balanced')
 OUT.mkdir(parents=True, exist_ok=True)
@@ -45,6 +47,7 @@ def is_spread(seq, small):
 
 
 def start_next_week(p):
+    sww.enter_due_window(p)  # issue 130: only inside the due window
     p.locator('.start-week-text').first.click()
     p.get_by_role('button', name='Start next week →').last.click()
     p.wait_for_timeout(300)

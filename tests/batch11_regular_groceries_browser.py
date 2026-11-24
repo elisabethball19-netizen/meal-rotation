@@ -8,6 +8,8 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 sys.path.insert(0, str(Path(__file__).parent))
 import sides_batch127_browser as sb  # noqa: E402
+import start_week_window_helper as sww  # noqa: E402
+sww.register(sb.fixture)
 
 sb.fixture.HOOK += '''window.batch11={
  groceries:()=>{showTop=true;allMealsActive=false;groceryTabActive=true;render()},
@@ -63,6 +65,7 @@ def run(browser, name):
     p.locator('.manual-grocery-item', has_text='Eggs').locator('input').check()
     p.wait_for_timeout(150)
     p.evaluate('batch11.home()')
+    sww.enter_due_window(p)  # issue 130: only inside the due window
     p.locator('.start-week-text').first.click()
     sw_dialog = p.get_by_role('dialog', name='Start next week', exact=True)
     sw_dialog.wait_for(state='visible')

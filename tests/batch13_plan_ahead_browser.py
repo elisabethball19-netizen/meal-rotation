@@ -10,6 +10,8 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 sys.path.insert(0, str(Path(__file__).parent))
 import sides_batch127_browser as sb  # noqa: E402
+import start_week_window_helper as sww  # noqa: E402
+sww.register(sb.fixture)
 
 sb.fixture.HOOK += '''const b13Store=()=>typeof testStorage!=='undefined'?testStorage:localStorage;window.batch13={
  week:()=>{showMealPlanTabs=true;showTop=true;allMealsActive=true;groceryTabActive=false;overviewWeekOffset=0;render()},
@@ -231,6 +233,7 @@ def run(browser, name):
         assert 'Pizza night' not in p.evaluate('d=>batch13.named(d)', cur[1]), p.evaluate('d=>batch13.named(d)', cur[1])
     # A real Start next week keeps next week's planned meal in place.
     p.evaluate('batch13.home()')
+    sww.enter_due_window(p)  # issue 130: only inside the due window
     p.locator('.start-week-text').first.click()
     sw = p.get_by_role('dialog', name='Start next week', exact=True)
     sw.wait_for(state='visible')

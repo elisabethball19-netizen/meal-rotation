@@ -216,7 +216,10 @@ function weekSelector(offset,onChange){
 }
 function rotationWeekControls(){
  const controls=weekSelector(rotationWeekOffset,async value=>{if(!await confirmServingLeave()){renderList({readOnly:true});return}rotationWeekOffset=value;renderList({readOnly:true})});controls.classList.add('rotation-week-controls');
- const start=document.createElement('button');start.type='button';start.className='start-week-text';start.textContent='Start next week →';start.setAttribute('aria-label','Start next week');start.onclick=async()=>{if(await confirmServingLeave())openRotateOptions()};if(startNextWeekDue())start.classList.add('start-week-due');controls.append(start);return controls;
+ const start=document.createElement('button');start.type='button';start.className='start-week-text';start.textContent='Start next week →';start.setAttribute('aria-label','Start next week');start.onclick=async()=>{if(await confirmServingLeave())openStartNextWeek()};if(startNextWeekDue())start.classList.add('start-week-due');
+ // Issue #130: outside the due window (or once next week is started) show a quiet, non-interactive label instead.
+ if(!startWeekPlanIds().length){const done=document.createElement('span');done.className='start-week-text start-week-started';done.textContent='Next week started';done.setAttribute('aria-disabled','true');controls.append(done);return controls}
+ controls.append(start);return controls;
 }
 function appendWeekdayDate(heading,date){
  const label=document.createElement('small');label.className='weekday-date';label.textContent=' · '+date.toLocaleDateString(undefined,{month:'short',day:'numeric'});heading.append(label);
@@ -330,12 +333,14 @@ function projectedOccurrenceMultiplier(plan,entry,retainedKeys=null){const conte
 function pendingContext(plan,entry){return {...cookingContext(plan.id,entry.day,entry.cat,entry.meal,entry.linkedTo),scaleDate:cookingLocalDate(scheduledOccurrenceDate({...entry,planId:plan.id},plan.rotationCalendar))}}
 function appendFutureMealActions(body,card,plan,entry){return appendSharedMealActions(body,card,plan,entry,true)}
 
+// allTabs: false = active plan, true = every plan, array = those plan ids (issue #130 all-tabs roll).
+function advanceScopePlans(allTabs){return Array.isArray(allTabs)?mealPlans.filter(plan=>allTabs.includes(plan.id)):allTabs?mealPlans:mealPlans.filter(plan=>plan.id===activePlanId)}
 function advanceMealPlanWeek(selectedSlots=null,allTabs=false,markCooked=false,retainedSlots=null,beforeState=null,preview=false){
- const own=!rotationPendingCookTimes;if(own)rotationPendingCookTimes=outgoingWeekCookTimes(mealPlans.filter(plan=>allTabs||plan.id===activePlanId));
+ const own=!rotationPendingCookTimes;if(own)rotationPendingCookTimes=outgoingWeekCookTimes(advanceScopePlans(allTabs));
  try{return advanceMealPlanWeekCore(selectedSlots,allTabs,markCooked,retainedSlots,beforeState,preview)}finally{if(own)rotationPendingCookTimes=rotationRecentCookTimes=null}
 }
 function advanceMealPlanWeekCore(selectedSlots=null,allTabs=false,markCooked=false,retainedSlots=null,beforeState=null,preview=false){
- const scope=mealPlans.filter(plan=>allTabs||plan.id===activePlanId),anchors=new Map(scope.map(plan=>[plan.id,mealPlanWeekStart(plan)])),retainedKeys=new Set(),retainedGroups=new Set(),selectedByPlan=new Map();
+ const scope=advanceScopePlans(allTabs),anchors=new Map(scope.map(plan=>[plan.id,mealPlanWeekStart(plan)])),retainedKeys=new Set(),retainedGroups=new Set(),selectedByPlan=new Map();
  for(const plan of scope){const selected=rotationSelectionEntries(plan).filter(item=>rotationSelectable(item,plan)&&(!selectedSlots||selectedSlots.has((allTabs?plan.id+'||':'')+weekdaySlotKey(item.day,item.cat))));selectedByPlan.set(plan.id,selected);const entries=getDisplayedWeekdayMealsForPlan(plan),affected=cycleAffectedEntries(entries,selected,plan);for(const entry of entries)if(!affected.some(item=>rotationOccurrenceKey({...item,planId:plan.id})===rotationOccurrenceKey({...entry,planId:plan.id}))) {retainedKeys.add(rotationOccurrenceKey({...entry,planId:plan.id}));retainedGroups.add(JSON.stringify([plan.id,entry.day,entry.cat]))}}
  if(![...selectedByPlan.values()].some(items=>items.length)&&!preview){snapshot(beforeState?JSON.stringify(beforeState):captureState());retainDueMakeAheadTasks()}
  if(!preview){const problem=scope.map(p=>sequenceProblem(p)||servingProblem(p,getDisplayedWeekdayMealsForPlan(p))).find(Boolean);if(problem)throw Error(problem)}
@@ -1779,7 +1784,7 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  if(groceryCheckStorageInvalid){showAppMessage('Saved grocery check states could not be read. Export a backup before repairing this browser data.');return;}
  saveActiveMealPlan();
  const prior=new Map(mealPlans.map(plan=>[plan.id,rotationWeekEntries(plan)]));
- const scope=allTabs?mealPlans:mealPlans.filter(plan=>plan.id===activePlanId);
+ const scope=advanceScopePlans(allTabs);
  // Explicit cycling advances manual substitutions too. Unchecked slots and
  // automatic queue changes retain their existing manual-choice protections.
  const selected=[];
@@ -2237,7 +2242,7 @@ function populateAutoMoveSetting(parent){
 function pinIconNode(label){const span=document.createElement('span');span.className='plan-pin-mark';span.setAttribute('role','img');span.setAttribute('aria-label',label);span.innerHTML=pinSvgMarkup(true,16);span.style.cssText='display:inline-flex;align-items:center;margin-left:4px;color:#5c6670;vertical-align:middle';return span}
 function openRotateOptions(allTabs=false,auto=false){
  // Reuse the existing active-plan scope; hidden plans are never included implicitly.
- const plans=allTabs?mealPlans:mealPlans.filter(plan=>plan.id===activePlanId);
+ if(allTabs)saveActiveMealPlan();const plans=advanceScopePlans(allTabs);if(!plans.length)return;
  const shown=plans.flatMap(plan=>{const rows=displayedRotationSelectionEntries(plan.id===activePlanId?{...plan,weekdayCategories,weekdayMealOverrides}:plan).filter(item=>!item.emptyAssigned&&rotationSelectable(item,plan)&&!(item.emptyWeek&&item.cat!=='@day'&&!(plan.id===activePlanId?getDayCategories(item.day):[].concat(plan.weekdayCategories?.[item.day]||[])).includes(item.cat))),out=[];for(const day of orderedDays()){const own=rows.filter(item=>item.day===day);if(own.length)out.push(...own);else out.push({day,cat:'@day',dayPlaceholder:true,emptyWeek:true,scheduleOnly:true,meal:{id:'empty:'+plan.id+':'+day,name:'—',cat:'@day',ingredients:[]}})}return out.map(item=>({...item,planId:plan.id,planName:plan.name}))});
  const d=recipeBulkDialog('Start next week');d.overlay.classList.add('start-next-week-dialog');
  const header=document.createElement('div');header.className='start-week-header';header.append(d.panel.firstElementChild);
@@ -2254,9 +2259,11 @@ function openRotateOptions(allTabs=false,auto=false){
  const apply=document.createElement('button');apply.type='button';apply.className='smallbtn';apply.textContent='Start next week →';apply.disabled=!boxes.length;let busy=false;
  apply.onclick=async()=>{
   if(busy)return;busy=true;apply.disabled=true;
+  // Issue #130: re-check the due window at apply time so weeks never stack (e.g. a dialog left open past a roll).
+  if(advanceScopePlans(allTabs).some(plan=>!startNextWeekAllowed(plan))){d.close();renderList({readOnly:true});return}
   const key=item=>(allTabs?item.planId+'||':'')+weekdaySlotKey(item.day,item.cat),slots=new Set(boxes.filter(x=>x.check.checked).map(x=>key(x.item))),retained=new Set(boxes.filter(x=>!x.check.checked).map(x=>key(x.item)));
   // Unchecked meals carry forward; the explicit plan-week operation still advances.
-  const plans=mealPlans.filter(p=>allTabs||p.id===activePlanId),conflicts=pendingCarryConflicts(plans,retained,allTabs);
+  const plans=advanceScopePlans(allTabs),conflicts=pendingCarryConflicts(plans,retained,allTabs);
   for(const plan of plans){const problem=sequenceProblem(plan);if(problem){await showAppMessage(problem+' Open the weekday assignment to replace it.');busy=false;apply.disabled=false;return}}
   for(const {plan,choice}of conflicts)if(!await confirmPreferredSideReplacement(choice.day+' next week',meals.find(m=>String(m.id)===choice.mealId)?.name||'Your selected meal',plan.name)){busy=false;apply.disabled=false;return}
   const before=JSON.parse(captureState());before.manualGroceriesUndo=manualGroceryItems();const previous=history.at(-1),cookingBefore=JSON.parse(JSON.stringify({sessions:cookingSessions.occurrences,scales:occurrenceScales.occurrences}));
@@ -2279,12 +2286,20 @@ function openRotateOptions(allTabs=false,auto=false){
 // the plan has not been advanced yet. Not yet / X just close; the 'Start next week' link then shows a dot until it is done.
 const START_WEEK_PROMPT_KEY='mealRotationStartWeekPromptedV1';
 function startNextWeekDue(plan=mealPlans.find(p=>p.id===activePlanId)){return !!plan&&cookingLocalDate(cookingPlanningWeekStart())>cookingLocalDate(mealPlanWeekStart(plan))}
+// Due window (issue #130): Start next week is allowed from 2 days before the plan's displayed week ends, and any
+// time after (catching up). A roll moves the plan to the real upcoming week, which closes the window until then.
+const START_WEEK_WINDOW_DAYS=2;
+function startNextWeekAllowed(plan=mealPlans.find(p=>p.id===activePlanId),now=new Date()){if(!plan)return false;const open=new Date(mealPlanWeekStart(plan));open.setDate(open.getDate()+7-START_WEEK_WINDOW_DAYS);return cookingLocalDate(now)>=cookingLocalDate(open)}
+// With meal tabs on, one press rolls every tab whose window is open; single-tab mode keeps the active plan only.
+function startWeekRollsAllTabs(){return showMealPlanTabs&&mealPlans.length>1}
+function startWeekPlanIds(){return (startWeekRollsAllTabs()?mealPlans:mealPlans.filter(p=>p.id===activePlanId)).filter(p=>startNextWeekAllowed(p)).map(p=>p.id)}
+function openStartNextWeek(auto=false){const ids=startWeekPlanIds();if(!ids.length){renderList({readOnly:true});return}openRotateOptions(startWeekRollsAllTabs()?ids:false,auto)}
 function maybePromptStartNextWeek(){
  if(!showTop||editId!==null||recipeViewer||groceryTabActive||document.hidden||document.querySelector('[role="dialog"],.modal-overlay,.recipe-timer-dialog'))return;
  const plan=mealPlans.find(p=>p.id===activePlanId);if(!startNextWeekDue(plan))return;
  const week=plan.id+'|'+cookingLocalDate(cookingPlanningWeekStart());let saved={};try{saved=JSON.parse(localStorage.getItem(START_WEEK_PROMPT_KEY)||'{}')||{}}catch(e){}
  if(saved.week===week)return;try{localStorage.setItem(START_WEEK_PROMPT_KEY,JSON.stringify({week}))}catch(e){return}
- openRotateOptions(false,true);
+ openStartNextWeek(true);
 }
 function displayedRotationSelectionEntries(plan){
  const days=orderedDays();return rotationSelectionEntries(plan).sort((a,b)=>days.indexOf(a.day)-days.indexOf(b.day));
