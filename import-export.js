@@ -961,7 +961,7 @@ const AI_PENDING_KEY='mealRotationAskAiPendingV1';
 const AI_JOBS={fridge:'What’s in my fridge',write:'Write a recipe',convert:'Change a recipe',like:'Would my family like it?',out:'Out of an ingredient',scale:'Scale a recipe'};
 function aiPending(){try{const v=JSON.parse(localStorage.getItem(AI_PENDING_KEY)||'null');return v&&AI_JOBS[v.job]?v:null}catch(e){return null}}
 // Scale menu third option: send a "make N times" request for this recipe through Ask AI; the answer saves as the updated version.
-async function sendRecipeScaleToAi(meal,multiplier){const text=buildAiJobRequest('scale',{recipe:meal,multiplier});setAiPending({job:'scale',recipeId:String(meal.id),recipeName:meal.name+' ×'+multiplier,multiplier,at:Date.now()});const note=await sendAiRequest(text);aiToast(note);setTimeout(()=>{if(recipeViewer)closeRecipeViewer();showTop=true;groceryTabActive=false;allMealsActive=false;aiTabActive=true;editId=null;render();window.scrollTo(0,0)},0)}
+async function sendRecipeScaleToAi(meal,multiplier){const text=buildAiJobRequest('scale',{recipe:meal,multiplier});setAiPending({job:'scale',recipeId:String(meal.id),recipeName:meal.name+' ×'+multiplier,multiplier,at:Date.now()});const note=await sendAiRequest(text);aiToast(note);setTimeout(()=>{if(recipeViewer){recipeViewer.scroll=0;if(window.history.state?.mealRotationRecipeViewer)window.addEventListener('popstate',()=>setTimeout(()=>window.scrollTo(0,0),0),{once:true});closeRecipeViewer()}showTop=true;groceryTabActive=false;allMealsActive=false;aiTabActive=true;editId=null;render();const top=()=>window.scrollTo(0,0);top();requestAnimationFrame(()=>{top();requestAnimationFrame(top)});setTimeout(top,350)},0)}
 function setAiPending(value){try{if(value)localStorage.setItem(AI_PENDING_KEY,JSON.stringify(value));else localStorage.removeItem(AI_PENDING_KEY)}catch(e){}}
 function aiFindRecipe(id){return id==null?null:meals.find(m=>String(m.id)===String(id)&&!m._scheduledEditorDraft)||null}
 // Which AI the Ask AI flow opens (2026-11-23): Claude by default. The request is ALWAYS copied first; links that
@@ -1033,7 +1033,7 @@ function openAiJobDialog(job,recipe=null){
   // Close once sent, so coming back shows the page with its waiting-answer card.
   d.navigate=true;d.close();aiToast(note);
   // Started from a recipe page: go to Ask AI so the waiting-answer card is there when you come back.
-  if(job!=='out'&&fromRecipe)setTimeout(()=>{if(recipeViewer)closeRecipeViewer();showTop=true;groceryTabActive=false;allMealsActive=false;aiTabActive=true;editId=null;render();window.scrollTo(0,0)},0);
+  if(job!=='out'&&fromRecipe)setTimeout(()=>{if(recipeViewer){recipeViewer.scroll=0;if(window.history.state?.mealRotationRecipeViewer)window.addEventListener('popstate',()=>setTimeout(()=>window.scrollTo(0,0),0),{once:true});closeRecipeViewer()}showTop=true;groceryTabActive=false;allMealsActive=false;aiTabActive=true;editId=null;render();const top=()=>window.scrollTo(0,0);top();requestAnimationFrame(()=>{top();requestAnimationFrame(top)});setTimeout(top,350)},0);
   else if(job!=='out'&&aiTabActive)setTimeout(()=>renderList({readOnly:true}),0);
  };
  open.onclick=()=>send(true);copy.onclick=()=>send(false);for(const field of [input,sourceText,extra,missing])field.addEventListener('input',()=>{error.textContent=''});
