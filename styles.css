@@ -2604,3 +2604,5 @@ body.recipe-bulk-select .master-categories .shared-meal-name-line.has-name-badge
 .recipe-scale-menu .recipe-scale-choice{display:flex;flex-direction:column;gap:2px;margin:8px 0 2px}
 .recipe-scale-menu .recipe-scale-radio{display:flex;align-items:center;gap:10px;min-height:36px;font-size:15px}
 .recipe-scale-menu .recipe-scale-radio input{flex:none;width:20px;height:20px;margin:0}
+
+.plan-meal-card .plan-card-group-link{border:0;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;padding:0;margin:0;cursor:pointer;touch-action:manipulation;text-decoration:none}
