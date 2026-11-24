@@ -272,3 +272,4 @@ v361 (2026-11-23) (1) Grocery edit dialog: switch "Also update the recipe" (off 
 v362 (2026-11-23) Undo/Redo of 'Also update the recipe' now restores the grocery selection too (item no longer vanishes from the list). Awaiting phone test.
 v361/v362 phone-confirmed 2026-11-23: update-recipe switch with Undo/Redo, nested paren cleanup, Walmart links on Additional items.
 v363 (2026-11-23) Ask AI: project link field now follows the chosen AI (own saved link per AI; Claude keeps its old link). A saved link opens instead of the AI's home page. Awaiting phone test. Meal to-do stays-checked item: she chose to skip for now.
+v363 phone-confirmed 2026-11-23: per-AI project link.
