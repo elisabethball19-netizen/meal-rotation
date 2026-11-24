@@ -237,3 +237,5 @@ v345 (2026-11-23, code-complete, awaiting phone test): (1) Deleting a recipe fro
 v346 (2026-11-23, code-complete, awaiting phone test): carried-over sourdough reminders (Feed/Begin) are dropped once the day they were for has passed, so a leftover "Begin the bread for Wednesday" for a meal no longer planned no longer shows (tap said "planned meal is no longer available"). Found via her backup_16: Tuesday's "Begin the bread" was already checked at 3:26 pm, which is why it did not show.
 
 v347 (2026-11-23, code-complete, awaiting phone test): arriving at a meal group (e.g. tapping a group label on Meals) now opens it with Regulars expanded and Off menu collapsed; other sections keep their saved state.
+
+v342 phone-confirmed (scale radios work). v348 (2026-11-23, code-complete, awaiting phone test): recipe-viewer scale menu now matches the Meals scale dialog (five amount buttons in one row, grey fill; compact Other box). CSS only.

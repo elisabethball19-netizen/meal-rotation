@@ -2606,3 +2606,10 @@ body.recipe-bulk-select .master-categories .shared-meal-name-line.has-name-badge
 .recipe-scale-menu .recipe-scale-radio input{flex:none;width:20px;height:20px;margin:0}
 
 .plan-meal-card .plan-card-group-link{border:0;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;padding:0;margin:0;cursor:pointer;touch-action:manipulation;text-decoration:none}
+
+/* Recipe-viewer scale menu: same look as the Meals scale dialog (five amount buttons in one row, compact Other box). */
+#recipeViewer .recipe-scale-grid{display:flex!important;flex-wrap:nowrap!important;gap:6px!important;margin:2px 0 0!important}
+#recipeViewer .recipe-scale-grid .recipe-scale-option{flex:1 1 0!important;min-width:0!important;padding:10px 0!important;font-size:16px!important;min-height:44px!important;background:#f1f1f1!important}
+#recipeViewer .recipe-scale-grid .recipe-scale-option[aria-pressed=true]{background:#e5edf8!important}
+#recipeViewer .recipe-scale-custom{display:flex!important;align-items:center!important;gap:12px!important;margin:10px 0 0!important;padding:0 2px!important;font-size:16px!important}
+#recipeViewer .recipe-scale-custom input{width:7em!important;flex:none!important;min-height:0!important;padding:7px!important}
