@@ -8277,7 +8277,9 @@ function rotationWeekControls(){
 function appendWeekdayDate(heading,date){
  const label=document.createElement('small');label.className='weekday-date';label.textContent=' · '+date.toLocaleDateString(undefined,{month:'short',day:'numeric'});heading.append(label);
 }
-function mealPlanWeekStart(plan){return parseCookingLocalDate(plan.mealPlanWeekStartV1)||parseCookingLocalDate(plan.rotationCalendar?.weekStart)||cookingPlanningWeekStart()}
+// The displayed week always begins on the chosen start weekday: a stored start earlier than that (e.g. after the
+// start weekday was changed mid-week) moves forward to the next start weekday, so dates run in order.
+function mealPlanWeekStart(plan){const raw=parseCookingLocalDate(plan.mealPlanWeekStartV1)||parseCookingLocalDate(plan.rotationCalendar?.weekStart)||cookingPlanningWeekStart(),start=cookingWeekdays.indexOf(startWeekday),date=new Date(raw);date.setDate(date.getDate()+(((start<0?1:start)-date.getDay()+7)%7));return date}
 function carryRepairedPendingTasks(plan,key,oldDate,date){
  if(Array.isArray(plan.makeAheadPending))plan.makeAheadPending=plan.makeAheadPending.map(item=>{try{const parts=JSON.parse(item.key);if(parts[0]!==key||parts[1]!==oldDate||parts[2]==='preview'||item.scheduled!==oldDate||!item.task)return item;parts[1]=date;return {...item,key:JSON.stringify(parts),scheduled:date,due:cookingLocalDate(makeAheadDueDate(parseCookingLocalDate(date),item.task))}}catch(_){return item}});
 }
@@ -10086,7 +10088,7 @@ function rotationCalendarForPlan(plan,entries,now=new Date()){
  for(const item of entries){
   const key=rotationOccurrenceKey({...item,planId:plan.id}),stored=dated?parseCookingLocalDate(saved.occurrences?.[key]):null;
   const on=dated?parseCookingLocalDate(saved.assignedOn?.[key]):null;
-  const floor=parseCookingLocalDate(plan.mealPlanWeekStartV1),stale=!!(floor&&stored&&stored<floor);
+  const floor=plan.mealPlanWeekStartV1?mealPlanWeekStart(plan):null,stale=!!(floor&&stored&&stored<floor);
   let date=!stale&&stored&&on&&on<=stored&&cookingWeekdays[stored.getDay()]===item.day?cookingLocalDate(stored):null;
   const known=dated&&!stale&&Object.prototype.hasOwnProperty.call(saved.occurrences||{},key);
   if(!known&&canAssign){const prior=stale?null:parseCookingLocalDate(saved?.slots?.[rotationCalendarSlot(item)]);date=prior?cookingLocalDate(prior):cookingLocalDate(cookingDateInWeek(item.day,mealPlanWeekStart(plan)))}
