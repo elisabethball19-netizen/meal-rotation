@@ -1648,7 +1648,8 @@ function shopEarlyReminderRow(item){
  check.onchange=()=>{if(!check.checked)return;const before=JSON.parse(captureState());before.plannedMealsUndo=localStorage.getItem(PLANNED_MEALS_KEY);const list=plannedMealsFor();const target=list.find(p=>p.id===item.id);if(!target)return;target.shopDismissed=true;writePlannedMeals(activePlanId,list);snapshot(JSON.stringify(before));setTimeout(()=>renderTodayTodo(scheduledMakeAheadTasks(true)),450)};
  row.append(check,text);return row;
 }
-function stalePrepReminder(item,today=cookingLocalDate(new Date())){const due=realPreparationDue(item);return /^(defrost|marinating)$/.test(item.task?.autoPrep||'')&&!!due&&due<today}
+// A carried-over sourdough reminder is dropped once the day it was for has passed (its planned meal is gone).
+function stalePrepReminder(item,today=cookingLocalDate(new Date())){const due=realPreparationDue(item);if(/^sourdough-/.test(item.task?.autoPrep||''))return typeof item.scheduled==='string'&&item.scheduled<today;return /^(defrost|marinating)$/.test(item.task?.autoPrep||'')&&!!due&&due<today}
 function defrostPrepTask(item){return item.task?.autoPrep==='defrost'||/\b(defrost|thaw)\w*\b/i.test(item.task?.description||'')}
 function makeAheadTaskVisible(item,today=cookingLocalDate(new Date())){return typeof item.scheduled==='string'&&item.scheduled>=today&&!stalePrepReminder(item,today)}
 function makeAheadCardDate(item){return item.due}
