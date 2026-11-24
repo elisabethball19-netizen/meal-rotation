@@ -251,3 +251,5 @@ v351 (2026-11-23, code-complete, awaiting phone test): Needs Adjusting "!" on EX
 NOT BUILT 2026-11-23 (recipe-view pencil -> full editor): the old return-to-viewer scaffolding (recipeEditorReturn, returnToEditedRecipe, viewerTabs/previewProgress/pane scroll) has no producer any more, so wiring openViewedRecipeEditor to openEditor means rebuilding viewer state capture/restore (tabs, progress, scale, scroll, history entries). Treat as a multi-file Opus task; do it with the user, not unattended.
 
 v343-v351 phone-confirmed 2026-11-23 (Walmart links, expanded-card "!", cut names all worked). v352 (code-complete, awaiting phone test): the Needs Adjusting pop-up hides the trash button when no flag exists yet (shows only check and X); with an existing flag all three show.
+
+v352 phone-confirmed. v353 (2026-11-23, code-complete, awaiting phone test): Settings > Display switch 'Show Ask AI (tab and recipe sparkle)' (default ON; localStorage mealRotationAiFeaturesV1='off'). Off hides the Ask AI bottom tab and the recipe-page sparkle; family tastes/links stay saved; AI recipes group untouched.

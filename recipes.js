@@ -1199,7 +1199,7 @@ function buildRecipeTitleHeader(view,meal,multiplier){
  window.visualViewport?.addEventListener('resize',resizeScaleMenu,{signal:events.signal});
  view.scaleCleanup=()=>events.abort();
  decoratePreferenceSwitches(menu);wrap.append(scale,menu);const askAi=document.createElement('button');askAi.type='button';askAi.className='recipe-header-icon recipe-ask-ai';setRecipeToolbarIcon(askAi,'sparkle','Ask AI about this recipe');askAi.onclick=()=>openAiRecipeMenu(meal);
- actions.append(recipeFavoriteButton(meal),edit,askAi,wrap);header.append(title,actions,dismiss);view.content.append(header);
+ actions.append(...[recipeFavoriteButton(meal),edit,typeof aiFeaturesOn!=='function'||aiFeaturesOn()?askAi:null,wrap].filter(Boolean));header.append(title,actions,dismiss);view.content.append(header);
  // A recipe updated by Ask AI keeps its other version (2026-11-19): one quiet line to switch or discard it.
  if(meal.aiAltVersion){const version=document.createElement('div');version.className='recipe-version-note';const viewingChanged=meal.aiAltVersion.kind==='original';version.append(document.createTextNode(viewingChanged?'Changed · ':'Original · '));const versionLink=document.createElement('button');versionLink.type='button';versionLink.className='recipe-version-link';versionLink.textContent=viewingChanged?'Show original':'Show changed';versionLink.onclick=()=>openRecipeVersionDialog(meal,()=>{if(recipeViewer)renderRecipeViewer()});version.append(versionLink);view.content.append(version)}
  return {title,scale};

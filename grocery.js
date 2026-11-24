@@ -246,7 +246,7 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
    ['ai','Ask AI',appIconSvg.sparkle,()=>{showTop=true;allMealsActive=false;groceryTabActive=false;aiTabActive=true;editId=null;render()}]
   ];
   document.getElementById('mealBottomNav')?.remove();const nav=document.createElement('nav');nav.id='mealBottomNav';nav.setAttribute('aria-label','Main navigation');document.body.append(nav);
-  const order=['top','all','groups','grocery','ai'];const visibleDestinations=destinations.filter(d=>d[0]!=='all'||showMealPlanTabs).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
+  const order=['top','all','groups','grocery','ai'];const visibleDestinations=destinations.filter(d=>(d[0]!=='all'||showMealPlanTabs)&&(d[0]!=='ai'||typeof aiFeaturesOn!=='function'||aiFeaturesOn())).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
   visibleDestinations.forEach(([key,title,art,action])=>{
    const b=document.createElement('button');b.type='button';b.className='smallbtn unified-nav-fab';
    b.title=title;b.setAttribute('aria-label',title);b.dataset.destination=key;
