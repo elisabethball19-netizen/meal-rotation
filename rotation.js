@@ -888,7 +888,9 @@ function showSharedRecipeGroups(meal){
 }
 function openMasterCategories(focusCategory){
  setMasterCategoriesView(true);showTop=false;groceryTabActive=false,aiTabActive=false;allMealsActive=false;
- if(focusCategory)initializeMasterCategoryExpansion(focusCategory);
+ if(focusCategory){initializeMasterCategoryExpansion(focusCategory);
+  // Arriving at a group from elsewhere: Regulars open, Off menu closed (other sections keep their own state).
+  if(cats.includes(focusCategory)){setMasterRecipeSectionOpen(focusCategory,true,true);setMasterRecipeSectionOpen(focusCategory,false,false)}}
  else initializeMasterCategoryExpansion();
  editId=null;menuCat=null;render();
  if(!focusCategory)requestAnimationFrame(()=>window.scrollTo({top:0,behavior:'instant'}));
