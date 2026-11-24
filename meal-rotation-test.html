@@ -7398,6 +7398,12 @@ const AI_TARGET_KEY='mealRotationAiTargetV1';
 const AI_TARGETS={claude:{name:'Claude',url:t=>'https://claude.ai/new?q='+encodeURIComponent(t),home:'https://claude.ai/new'},chatgpt:{name:'ChatGPT',url:null,home:'https://chatgpt.com/'},copilot:{name:'Copilot',url:t=>'https://copilot.microsoft.com/?q='+encodeURIComponent(t),home:'https://copilot.microsoft.com/'},perplexity:{name:'Perplexity',url:t=>'https://www.perplexity.ai/search?q='+encodeURIComponent(t),home:'https://www.perplexity.ai/'},gemini:{name:'Gemini',url:null,home:'https://gemini.google.com/app'},copy:{name:'your AI',url:null,home:null}};
 function aiTargetKey(){try{const v=localStorage.getItem(AI_TARGET_KEY);return AI_TARGETS[v]?v:'claude'}catch(e){return 'claude'}}
 function aiTargetName(){return AI_TARGETS[aiTargetKey()].name}
+// Short self-removing message (used after sending an Ask AI request, since the dialog closes right away).
+function aiToast(message){
+ if(!message)return;document.getElementById('aiToast')?.remove();const t=document.createElement('div');t.id='aiToast';t.setAttribute('role','status');t.setAttribute('aria-live','polite');t.textContent=message;
+ t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom,0px));max-width:min(92vw,420px);background:#2f3a48;color:#fff;padding:11px 16px;border-radius:12px;font-size:15px;line-height:1.35;z-index:36000;box-shadow:0 6px 20px #0004;text-align:center';
+ document.body.append(t);setTimeout(()=>t.remove(),6000);
+}
 // Send: copy the request, then open the chosen AI (Claude: the saved project/chat link, or a new prefilled chat).
 async function sendAiRequest(text){
  const key=aiTargetKey(),target=AI_TARGETS[key],copied=await copyAskAiText(text),link=String(familyTastes.claudeLink||'').trim();
@@ -7450,10 +7456,10 @@ function openAiJobDialog(job,recipe=null){
  };
  const send=async viaLink=>{error.textContent='';let text;try{text=request()}catch(e){error.textContent=e.message;return}
   if(job!=='out')setAiPending({job,recipeId:chosen&&!(sourceMode==='found'&&!fromRecipe)?String(chosen.id):null,recipeName:chosen&&!(sourceMode==='found'&&!fromRecipe)?chosen.name:'',at:Date.now()});
-  let ok=true;if(viaLink)await sendAiRequest(text);else ok=await copyAskAiText(text);
+  let ok=true,note='';if(viaLink)note=await sendAiRequest(text);else ok=await copyAskAiText(text);
   if(!ok){status.textContent='Could not copy the request.';return}
   // Close once sent, so coming back shows the page with its waiting-answer card.
-  d.navigate=true;d.close();
+  d.navigate=true;d.close();aiToast(note);
   // Started from a recipe page: go to Ask AI so the waiting-answer card is there when you come back.
   if(job!=='out'&&fromRecipe)setTimeout(()=>{if(recipeViewer)closeRecipeViewer();showTop=true;groceryTabActive=false;allMealsActive=false;aiTabActive=true;editId=null;render();window.scrollTo(0,0)},0);
   else if(job!=='out'&&aiTabActive)setTimeout(()=>renderList({readOnly:true}),0);
