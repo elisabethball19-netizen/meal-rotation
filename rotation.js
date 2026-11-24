@@ -953,6 +953,7 @@ function captureHistoryCounterpart(target){
  const current=JSON.parse(captureState());
  if(target.scaleUndo)current.scaleUndo=JSON.parse(JSON.stringify(occurrenceScales));
  if(target.manualGroceriesUndo)current.manualGroceriesUndo=manualGroceryItems();
+ if(target.autoMoveUndo!==undefined)current.autoMoveUndo=autoMoveUndoState();
  if(target.startWeekUndo){current.startWeekUndo=true;current.skippedCookingState=JSON.parse(JSON.stringify({keys:target.skippedCookingState.keys,sessions:cookingSessions.occurrences,scales:occurrenceScales.occurrences}))}
  if(target.recipePhotoUndo)current.recipePhotoUndo={refs:recipePhotoReferences(Object.keys(target.recipePhotoUndo.refs))};
  if(target.scheduleChangeUndo){current.scheduleChangeUndo={...target.scheduleChangeUndo,checks:captureScheduleUndoChecks()};if(target.skippedCookingState)current.skippedCookingState=JSON.parse(JSON.stringify({keys:target.skippedCookingState.keys,sessions:cookingSessions.occurrences,scales:occurrenceScales.occurrences}))}

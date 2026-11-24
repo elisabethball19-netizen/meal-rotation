@@ -2628,3 +2628,10 @@ body.recipe-bulk-select .master-categories .shared-meal-name-line.has-name-badge
 #settingsPanel .settings-group-content>.ai-target-options.collapsed-card-options{margin:-6px 0 8px 54px!important;padding:0!important;border:0!important;min-width:0}
 #settingsPanel .ai-target-options .settings-display-option{display:flex!important;align-items:center;gap:10px!important;margin:0!important;padding:0!important;min-height:30px!important;font-size:14px;line-height:1.3}
 #settingsPanel .ai-target-options input[type=radio]{width:18px!important;height:18px!important;min-width:18px;min-height:18px;margin:0;flex:0 0 18px;accent-color:#315ba8}
+.off-menu-next-up{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:#e3ebf7;color:#3f5f93;font-size:calc(11px * var(--meal-text-factor, 1));font-weight:600;line-height:1.5;vertical-align:middle;white-space:nowrap}
+#settingsPanel .settings-group-content .auto-move-options.collapsed-card-options{margin:-6px 0 4px 54px!important;padding:0!important;border:0!important;min-width:0}
+#settingsPanel .auto-move-options .settings-display-option{display:flex!important;align-items:center;gap:10px;min-height:30px!important;padding:2px 0!important;margin:0!important}
+#settingsPanel .auto-move-options input[type=radio]{width:18px;height:18px;margin:0;flex:none}
+#settingsPanel .auto-move-setting p.auto-move-hint{margin:2px 0 8px 54px!important;font-size:13px}
+.group-auto-move-hint{margin:0 0 6px;font-size:13px}
+.group-auto-move-option{display:flex!important;align-items:center;gap:0}
