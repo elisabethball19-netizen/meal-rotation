@@ -442,25 +442,58 @@ function bindMealNamePress(name,entry,context=null){
  name.onclick=e=>{if(held){held=false;e.preventDefault();e.stopImmediatePropagation();return}openSavedMealRecipe(meal,context)};name.oncontextmenu=e=>e.preventDefault();
 }
 function previewNextWeekPlans(){return mealPlans.map(plan=>previewMealPlanAdvance(null,null,plan.id))}
+// Days (2026-11-24): rolling view of today, tomorrow and the next five days across all meal tabs, whatever week they fall in.
+// Today and Tomorrow are always open; the other five are collapsed rows that expand on tap. Each day also lists the
+// prep tasks DUE that day (checkable, same completion as Today's To-Do), worded with the meal they are for.
+const daysOpenDates=new Set();
+function daysViewTasks(today){
+ const seen=new Set();
+ return scheduledMakeAheadTasks(true).map(item=>({...item,due:realPreparationDue(item)})).filter(item=>{
+  const id=JSON.stringify([item.plan.id,item.key]),pending=item.plan.makeAheadPending?.some(saved=>saved.key===item.key);
+  if(!item.due||(!makeAheadTaskVisible(item,today)&&!pending)||stalePrepReminder(item,today)||seen.has(id))return false;
+  seen.add(id);return true;
+ });
+}
 function renderAllMealsOverview(list){
- const section=document.createElement('section');section.className='all-meals-overview';section.setAttribute('aria-label','Weekly Overview');const heading=document.createElement('h2');heading.textContent='Weekly Overview';section.append(heading);
- const scope=showMealPlanTabs?mealPlans:mealPlans.filter(p=>p.id===activePlanId),current=scope.map(p=>{const plan=p.id===activePlanId?{...p,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:p;return {plan,entries:getDisplayedWeekdayMealsForPlan(plan)}}),upcoming=scope.map(p=>previewMealPlanAdvance(null,null,p.id)),sources=overviewWeekOffset?upcoming:current;
- const week=weekSelector(overviewWeekOffset,value=>{overviewWeekOffset=value;renderList({readOnly:true})});week.classList.add('overview-week-sticky');section.append(week);
- const active=sources.find(s=>s.plan.id===activePlanId)||sources[0],start=active?mealPlanWeekStart(active.plan):cookingPlanningWeekStart(),dates=new Set(orderedDays().map(day=>cookingLocalDate(cookingDateInWeek(day,start))));
- for(const source of sources)for(const entry of source.entries)dates.add(cookingLocalDate(scheduledOccurrenceDate({...entry,planId:source.plan.id},source.plan.rotationCalendar)));
- for(const date of [...dates].sort()){
-  const day=weekdays[(parseCookingLocalDate(date).getDay()+6)%7],card=document.createElement('section');card.className='all-meals-day overview-calm';card.dataset.date=date;card.style.setProperty('--day-stripe','color-mix(in srgb,'+colorForDay(day)+' 75%,#5a6470)');{const today=cookingLocalDate(new Date());if(date===today)card.classList.add('overview-today');else if(date<today)card.classList.add('overview-past')}const title=document.createElement('h3');title.textContent=day;appendWeekdayDate(title,parseCookingLocalDate(date));card.append(title);
-  const onDate=source=>source.entries.filter(e=>cookingLocalDate(scheduledOccurrenceDate({...e,planId:source.plan.id},source.plan.rotationCalendar))===date),multi=sources.filter(s=>onDate(s).length).length>1;
-  for(const {plan,entries,preview,retainedKeys}of sources){const dishes=onDate({plan,entries}),seen=new Set();if(!dishes.length)continue
-   if(multi){const label=document.createElement('strong');label.className='overview-slot-label';label.textContent=plan.name;card.append(label)}
-   for(const entry of dishes){const identity=JSON.stringify([entry.cat,String(entry.meal.id),String(entry.linkedTo||'')]);if(seen.has(identity))continue;seen.add(identity);const row=document.createElement('div');row.className='overview-dish';row.dataset.mealId=String(entry.meal.id);const name=document.createElement('button');name.type='button';name.className='mealname';name.textContent=entry.meal.name;name.onclick=()=>openSavedMealRecipe(entry.meal,preview?pendingContext(plan,entry):cookingContext(plan.id,entry.day,entry.cat,entry.meal,entry.linkedTo));row.append(name);card.append(row);
-    for(const side of simpleSidesForEntry(plan,entry)){const simple=document.createElement('div');simple.className='overview-dish overview-side';simple.textContent=side.name;card.append(simple)}
+ overviewWeekOffset=0;
+ const section=document.createElement('section');section.className='all-meals-overview days-view';section.setAttribute('aria-label','Days');
+ const heading=document.createElement('h2');heading.textContent='Days';section.append(heading);
+ const scope=showMealPlanTabs?mealPlans:mealPlans.filter(p=>p.id===activePlanId),current=scope.map(p=>{const plan=p.id===activePlanId?{...p,weekdayCategories,weekdayMealOverrides,weekdayRecipeFilters}:p;return {plan,entries:getDisplayedWeekdayMealsForPlan(plan)}}),upcoming=scope.map(p=>previewMealPlanAdvance(null,null,p.id)).filter(Boolean);
+ const today=cookingLocalDate(new Date()),dates=[];for(let i=0;i<7;i++){const d=parseCookingLocalDate(today);d.setDate(d.getDate()+i);dates.push(cookingLocalDate(d))}
+ const tasks=makeAheadDisplayPrefs.showMakeAheadReminders?daysViewTasks(today):[];
+ const dishesFor=(plan,date)=>{const out=[],seen=new Set();for(const source of [...current,...upcoming]){if(source.plan.id!==plan.id)continue;for(const entry of source.entries){if(cookingLocalDate(scheduledOccurrenceDate({...entry,planId:source.plan.id},source.plan.rotationCalendar))!==date)continue;const identity=JSON.stringify([entry.cat,String(entry.meal.id),String(entry.linkedTo||'')]);if(seen.has(identity))continue;seen.add(identity);out.push({source,entry})}}return out};
+ const savedOffset=rotationWeekOffset;rotationWeekOffset=0;// task wording is relative to today, not to the Meals page's week choice
+ try{
+  const chip=(date)=>{const when=parseCookingLocalDate(date),day=weekdays[(when.getDay()+6)%7],c=document.createElement('div');c.className='days-chip';c.style.setProperty('--days-chip',colorForDay(day));const a=document.createElement('span');a.textContent=day.slice(0,3);const n=document.createElement('b');n.textContent=String(when.getDate());c.append(a,n);return c};
+  const body=(date)=>{
+   const box=document.createElement('div');box.className='days-body';
+   for(const plan of scope){
+    const row=document.createElement('div');row.className='days-row';const tab=document.createElement('span');tab.className='days-tab';tab.textContent=plan.name;const meals_=document.createElement('div');meals_.className='days-meals';
+    const dishes=dishesFor(plan,date);
+    if(!dishes.length){const none=document.createElement('span');none.className='days-none';none.textContent='—';meals_.append(none)}
+    for(const {source,entry} of dishes){const name=document.createElement('button');name.type='button';name.className='mealname days-mealname';name.dataset.mealId=String(entry.meal.id);name.textContent=entry.meal.name;name.onclick=()=>openSavedMealRecipe(entry.meal,source.preview?pendingContext(source.plan,entry):cookingContext(source.plan.id,entry.day,entry.cat,entry.meal,entry.linkedTo));meals_.append(name);
+     for(const side of simpleSidesForEntry(source.plan,entry)){const simple=document.createElement('div');simple.className='days-side';simple.textContent=side.name;meals_.append(simple)}}
+    row.append(tab,meals_);box.append(row);
    }
-  }
-  if(!card.querySelector('.overview-dish')){const none=document.createElement('div');none.className='overview-nothing';none.textContent='Nothing planned';card.append(none)}
-  section.append(card);
- }
- // No separate dated task list below the day cards; tasks stay in their own day cards and Today's To-Do.
+   const due=tasks.filter(item=>date===today?(item.due<=today&&!(item.due<today&&item.complete)):item.due===date).sort((a,b)=>Number(a.complete)-Number(b.complete)||a.due.localeCompare(b.due));
+   if(due.length){const prep=document.createElement('div');prep.className='days-prep';for(const item of due)prep.append(makeAheadReminderRow(item,true,{navigate:false}));box.append(prep)}
+   return box;
+  };
+  const summary=(date)=>{const names=[];for(const plan of scope){const first=dishesFor(plan,date)[0];if(first)names.push(first.entry.meal.name)}return names.join(' · ')||'Nothing planned'};
+  dates.forEach((date,index)=>{
+   if(index<2){
+    const card=document.createElement('section');card.className='days-card days-open';card.dataset.date=date;
+    const head=document.createElement('div');head.className='days-head';const title=document.createElement('div');title.className='days-name';title.textContent=index?'Tomorrow':'Today';head.append(chip(date),title);card.append(head,body(date));section.append(card);
+   }else{
+    const card=document.createElement('details');card.className='days-card days-collapsible';card.dataset.date=date;card.open=daysOpenDates.has(date);
+    const head=document.createElement('summary');head.className='days-head';const text=document.createElement('span');text.className='days-summary';text.textContent=summary(date);const chev=document.createElementNS('http://www.w3.org/2000/svg','svg');chev.setAttribute('class','days-chev');chev.setAttribute('viewBox','0 0 24 24');chev.setAttribute('aria-hidden','true');chev.innerHTML='<path d="m6 9 6 6 6-6"/>';head.append(chip(date),text,chev);
+    card.addEventListener('toggle',()=>{if(card.open)daysOpenDates.add(date);else daysOpenDates.delete(date)});card.append(head,body(date));
+    if(index===2){const label=document.createElement('p');label.className='days-label';label.textContent='Next five days';section.append(label)}
+    section.append(card);
+   }
+  });
+  for(const date of [...daysOpenDates])if(!dates.includes(date))daysOpenDates.delete(date);
+ }finally{rotationWeekOffset=savedOffset}
  list.append(section);
 }
 // From an empty weekday, take the user directly to the relevant recipe group.

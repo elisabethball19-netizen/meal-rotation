@@ -17,7 +17,7 @@ sb.fixture.HOOK += '''window.batch7={
  home:()=>{showTop=true;allMealsActive=false;groceryTabActive=false;rotationWeekOffset=0;render()},
  viewer:()=>!!recipeViewer,
  size:v=>{mealTextSize=v;document.body.dataset.mealTextSize=v;applyMealTextSize()},
- dish:()=>parseFloat(getComputedStyle(document.querySelector('.all-meals-day .overview-dish .mealname')).fontSize)
+ dish:()=>parseFloat(getComputedStyle(document.querySelector('.days-card .days-meals .mealname')).fontSize)
 };'''
 
 
@@ -29,10 +29,9 @@ def run(browser, name):
     # Week page.
     p.evaluate('batch7.week()')
     assert p.locator('.make-ahead-outside').count() == 0
-    # Part 2e: the Weekly Overview is read-only; make-ahead tasks live only in To-Do.
-    assert p.locator('.all-meals-day .make-ahead-reminder, .all-meals-day .overview-task-divider').count() == 0
-    sizes = p.evaluate("[...document.querySelectorAll('.all-meals-day .overview-dish')].map(e=>{const t=e.querySelector('.mealname')||e;const c=getComputedStyle(t);return c.fontSize+'/'+c.fontWeight})")
-    assert len(set(sizes)) == 1 and sizes[0].endswith('/400'), sizes
+    # Days page: dishes are plain weight.
+    sizes = p.evaluate("[...document.querySelectorAll('.days-card .days-meals .mealname')].map(e=>getComputedStyle(e).fontWeight)")
+    assert sizes and set(sizes) == {'400'}, sizes
     normal = p.evaluate('batch7.dish()')
     p.evaluate("batch7.size('extra')")
     assert p.evaluate('batch7.dish()') > normal + 2, 'Week dishes follow Text Size'

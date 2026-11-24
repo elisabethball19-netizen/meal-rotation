@@ -23,14 +23,9 @@ def run(browser, name):
     p.evaluate('p2e.tabs(true)')
     p.wait_for_timeout(400)
     assert p.locator('#mealBottomNav [data-destination="all"]').count() == 1
-    days = p.locator('.all-meals-day')
-    assert days.count() >= 7
-    bg = days.first.evaluate('e=>getComputedStyle(e).backgroundColor')
-    assert bg == 'rgb(255, 255, 255)', bg
-    assert p.locator('.all-meals-day .make-ahead-reminder, .all-meals-day input[type=checkbox]').count() == 0
-    assert p.locator('.all-meals-day:has-text("No meal planned")').count() == 0
-    assert p.locator('.all-meals-day.overview-today').count() == 1 and p.locator('.all-meals-day.overview-past').count() >= 1
-    assert p.locator('.all-meals-day .plan-ahead-open').count() == 0
+    days = p.locator('.days-card')
+    assert days.count() == 7
+    assert p.locator('.days-open').count() == 2 and p.locator('.all-meals-day').count() == 0
     sb.shot(p, name, 'part2e-overview')
     # Meal tabs off: no Week tab; landing on Week sends you to Meals; Plan ahead sits on the Meals title.
     p.evaluate('p2e.tabs(false)')

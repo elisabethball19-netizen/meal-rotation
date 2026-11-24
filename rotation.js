@@ -1163,7 +1163,7 @@ function openHelpModal(){
   ['Start next week','Select which scheduled meals to replace, then start next week. Unselected meals carry forward.'],
   ['Weekday group headings','Tap a group name in a weekday card to open that group in Meal Groups.'],
   ['Navigation buttons','Use the bottom bar to open Meals, Week, Groceries, or Meal Groups.'],
-  ['Weekly Overview','See weekday meals across tabs and expand their ingredient lists. Tap a meal to return to it on the Meals page.'],
+  ['Days','See today, tomorrow and the next five days across your meal tabs, with the prep due each day. Tap a day to expand it and check off prep tasks.'],
   ['Grocery List','Review ingredients from the tabs you include; select, deselect, or hide checked groceries.'],
   ['Settings and backups','Configure display and weekday options, export or restore backups. Review changes before saving or discarding.']
  ]:[

@@ -276,7 +276,7 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
   const destinations=[
    ['top','Meals','<path d="M3 10.2 12 3l9 7.2V21h-6.5v-7h-5v7H3z"/>',()=>{showTop=true;groceryTabActive=false,aiTabActive=false;allMealsActive=false;render()}],
    ['groups','Meal Groups','<path d="M4 6h16M4 12h16M4 18h16"/>',()=>openMasterCategories()],
-   ['all','Week',weekCalendarArtwork,()=>{showTop=true;groceryTabActive=false,aiTabActive=false;allMealsActive=true;render()}],
+   ['all','Days',weekCalendarArtwork,()=>{showTop=true;groceryTabActive=false,aiTabActive=false;allMealsActive=true;render()}],
    ['grocery','Groceries','<circle cx="9" cy="20" r="1"/><circle cx="19" cy="20" r="1"/><path d="M2 3h2l2.5 12h12L22 7H5"/>',()=>{showTop=true;allMealsActive=false;groceryTabActive=true,aiTabActive=false;render()}],
    ['ai','Ask AI',appIconSvg.sparkle,()=>{showTop=true;allMealsActive=false;groceryTabActive=false;aiTabActive=true;editId=null;render()}]
   ];
