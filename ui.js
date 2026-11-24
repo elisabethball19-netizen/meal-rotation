@@ -537,7 +537,7 @@ let actions=document.createElement('div');actions.className='tab-actions';let un
 topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.className='settings-sections';renderTopSettingsPanel=function(){
   topPanel.innerHTML='';
   const weekGroup=makeSettingsGroup('weekdays','Weekday Setup');
-  weekGroup.details.classList.toggle('hidden',!showTop);
+  weekGroup.details.classList.remove('hidden');
   topPanel.append(weekGroup.details);
   const hint=document.createElement('div');hint.textContent='Choose the groups each day can select meals from. Removing a group never deletes recipes.';
   hint.className='weekday-setup-hint';weekGroup.content.append(hint);
@@ -668,7 +668,7 @@ let closeSettings=document.createElement('button');closeSettings.textContent='Cl
  }
  if(settingsBaseline===null)settingsBaseline=captureSettingsDraft();
  activeSettingsPanel='upper';
- renderTopSettingsPanel();panel.insertBefore(topPanel,displayGroup.details);
+ renderTopSettingsPanel();topPanel.classList.remove('hidden');panel.insertBefore(topPanel,displayGroup.details);
  panel.classList.remove('hidden');settings.classList.add('active');settings.setAttribute('aria-expanded','true');
  };t.append(actions,panel,categoryRow);if(menuCat&&cats.includes(menuCat)){const menu=$('catmenu');categoryRow.append(menu)}if(splitPlanSettings()&&document.querySelector('#list .meal-plan-tabs'))document.querySelector('#list .meal-plan-tabs').after(categoryRow);if(keepSettingsOpen){settings.click();t.querySelectorAll('details[data-settings-group]').forEach(d=>{d.open=openSettingsGroups.has(d.dataset.settingsGroup)})}}// Capture the category before opening a dialog: a click on the dialog is outside
 // the category toolbar and will clear menuCat via the document pointer handler.
@@ -3291,7 +3291,7 @@ function renderList(options={}){mealSlotDragCleanup?.();mealSlotDragCleanup=null
  }
 
  if(allMealsActive&&!showMealPlanTabs)allMealsActive=false;// Week overview only exists with meal tabs on.
- document.body.classList.toggle('overview-without-category-pins',showTop&&(allMealsActive||groceryTabActive));if(!options.readOnly)resetGroceriesForNewTopMeals();document.querySelectorAll('.add-meal-floating').forEach(b=>b.remove());if(!options.readOnly)persist();let list=$('list');restorePlanCardScroll();const categoryRow=document.getElementById('categoryButtons');if(categoryRow&&categoryRow.parentNode!==$('tabs'))$('tabs').append(categoryRow);const editorEl=$('editor');if(editorEl&&list.contains(editorEl))document.body.insertBefore(editorEl,list);list.classList.toggle('top-summary',showTop);list.innerHTML='';if(aiTabActive&&(!showTop||groceryTabActive||allMealsActive))aiTabActive=false;if(aiTabActive&&editId===null){renderAskAiPage(list);addFloatingViewButtons();return}if(!showTop){groceryTabActive=false,aiTabActive=false;allMealsActive=false;topPanel.classList.add('hidden');addFloatingViewButtons()}if(showTop){if(showTop&&showMealPlanTabs&&!allMealsActive&&!groceryTabActive){
+ document.body.classList.toggle('overview-without-category-pins',showTop&&(allMealsActive||groceryTabActive));if(!options.readOnly)resetGroceriesForNewTopMeals();document.querySelectorAll('.add-meal-floating').forEach(b=>b.remove());if(!options.readOnly)persist();let list=$('list');restorePlanCardScroll();const categoryRow=document.getElementById('categoryButtons');if(categoryRow&&categoryRow.parentNode!==$('tabs'))$('tabs').append(categoryRow);const editorEl=$('editor');if(editorEl&&list.contains(editorEl))document.body.insertBefore(editorEl,list);list.classList.toggle('top-summary',showTop);list.innerHTML='';if(aiTabActive&&(!showTop||groceryTabActive||allMealsActive))aiTabActive=false;if(aiTabActive&&editId===null){renderAskAiPage(list);addFloatingViewButtons();return}if(!showTop){groceryTabActive=false,aiTabActive=false;allMealsActive=false;addFloatingViewButtons()}if(showTop){if(showTop&&showMealPlanTabs&&!allMealsActive&&!groceryTabActive){
  const tabBar=document.createElement('div');tabBar.className='meal-plan-tabs';tabBar.setAttribute('role','tablist');tabBar.setAttribute('aria-label','Meal plans');
  for(const plan of mealPlans){
   const tab=document.createElement('div');tab.className='meal-plan-tab'+(plan.id===activePlanId&&!groceryTabActive&&!allMealsActive?' selected':'');
