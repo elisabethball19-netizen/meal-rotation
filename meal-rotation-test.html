@@ -3639,7 +3639,7 @@ function configureRecipeSplit(v,divider,panes){
  })};
  const remember=()=>{if(!changing&&recipeViewingMode()==='split'){positions=snapshot();tab.splitPlace=positions;tab.paneScroll=children.map(p=>p.scrollTop)}};
  v.rememberSplitViewport=remember;
- const freeze=()=>{v.syncGeometryHold=true;v.syncRequested=false;v.cancelIngredientSync?.();cancelRecipeAdvance(v)};
+ const freeze=(keepAdvance=false)=>{v.syncGeometryHold=true;v.syncRequested=false;v.cancelIngredientSync?.();if(!keepAdvance)cancelRecipeAdvance(v)};
  const setRatio=(ratio,save=false)=>{
   const available=extent(),min=Math.min(axis()?180:96,available*(axis()?0.4:0.35));
   const clamped=Math.max(min/available,Math.min(1-min/available,ratio));
@@ -3652,7 +3652,10 @@ function configureRecipeSplit(v,divider,panes){
  const signature=()=>[landscape(),panes.clientWidth,panes.clientHeight,innerWidth,innerHeight].join(':');
  const reflow=()=>{
   if(recipeViewer!==v)return;const next=signature();if(next===geometry)return;
-  end();v.cancelTabDrag?.();freeze();const saved=positions||snapshot();changing=true;cancelAnimationFrame(frame);layout();geometry=signature();
+  // Tapping a step can show/hide the 'go to first unfinished step' bar, which resizes the panes; that must not cancel the scroll to the next step (2026-11-24). A real window resize still does.
+  const windowSize=innerWidth+':'+innerHeight,sameWindow=v.reflowWindowSize===undefined||windowSize===v.reflowWindowSize;v.reflowWindowSize=windowSize;
+  if(sameWindow&&Date.now()-(v.advanceStartedAt||0)<2000){geometry=next;return}
+  end();v.cancelTabDrag?.();freeze(sameWindow&&v.advanceTimer!=null);const saved=positions||snapshot();changing=true;cancelAnimationFrame(frame);layout();geometry=signature();
   if(recipeViewingMode()!=='split'){changing=false;return}
   // Keep semantic anchors through wrapping and Android viewport-bar settling.
   frame=requestAnimationFrame(()=>{restore(saved);frame=requestAnimationFrame(()=>{restore(saved);changing=false;if(tab.pendingSourceNavigation)applyPendingGroceryRecipeNavigation(v,tab,children[0],children[1]);remember();finishNavigation()})});
@@ -4400,7 +4403,7 @@ function scheduleRecipeAdvance(view,token){
  if(view.linkEdit||!recipeGuidanceEnabled())return;
  const pane=view.content.querySelector('.recipe-instructions-pane'),buttons=[...pane.querySelectorAll('[data-cooking-token]')];
  const index=buttons.findIndex(b=>b.dataset.cookingToken===token);if(index<0)return;
- view.advanceScrollTop=pane.scrollTop;
+ view.advanceScrollTop=pane.scrollTop;view.advanceStartedAt=Date.now();
  view.advanceTimer=setTimeout(()=>{
   view.advanceTimer=null;
   if(recipeViewer!==view||!recipeGuidanceEnabled()||!pane.isConnected||document.visibilityState!=='visible')return;
