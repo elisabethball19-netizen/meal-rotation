@@ -1130,11 +1130,11 @@ function switchRecipeVersion(meal){
  migrateVersionFlags(meal);const alt=meal?.aiAltVersion;if(!alt)return;snapshot();const current={kind:alt.kind==='original'?'converted':'original',flagsV1:true,savedAt:new Date().toISOString(),...aiRecipeContent(meal)},patch={...versionFlagPatch(alt)};
  for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(alt,key)?alt[key]:undefined;patch.aiAltVersion=current;
  // Cooking progress belongs to a version: stash this version's progress with it, bring back the other version's.
- const mealKey=String(meal.id),mine=Object.values(cookingSessions.occurrences).filter(e=>e.context.mealId===mealKey).map(e=>JSON.parse(JSON.stringify(e))),theirs=Array.isArray(alt.cookingStashV1)?alt.cookingStashV1:[];
+ const mealKeys=new Set(sharedRecipeMembers(meal,meals).map(r=>String(r.id)));mealKeys.add(String(meal.id));const mine=Object.values(cookingSessions.occurrences).filter(e=>mealKeys.has(e.context.mealId)).map(e=>JSON.parse(JSON.stringify(e))),theirs=Array.isArray(alt.cookingStashV1)?alt.cookingStashV1:[];
  if(mine.length)current.cookingStashV1=mine;
  const oldLines=[...(meal.ingredients||[])];assignSharedRecipeFields(meal,patch);remapSelectionsAfterContentChange(meal,oldLines);persist();
  try{const next=JSON.parse(JSON.stringify(cookingSessions));let dirty=false;
-  for(const [key,e] of Object.entries(next.occurrences))if(e.context.mealId===mealKey){delete next.occurrences[key];dirty=true}
+  for(const [key,e] of Object.entries(next.occurrences))if(mealKeys.has(e.context.mealId)){delete next.occurrences[key];dirty=true}
   for(const e of theirs){const key=cookingOccurrenceKey(e.context);next.occurrences[key]=e;dirty=true}
   if(dirty)writeCookingSessions(next)}catch(e){}
 }

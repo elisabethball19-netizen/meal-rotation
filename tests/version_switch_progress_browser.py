@@ -5,10 +5,10 @@ from playwright.sync_api import sync_playwright
 import start_week_window_browser as s  # registers shared fixture hooks
 
 s.fixture.HOOK += '''window.vsp={run:()=>{
- const m={id:9001,name:'Birria',cat:'',ingredients:['2 lb chuck roast','1 onion'],instructions:'1. Sear the chuck roast.\\n2. Add the onion.',rotation:false};meals.push(m);
+ const m={id:9001,name:'Birria',cat:'',ingredients:['2 lb chuck roast','1 onion'],instructions:'1. Sear the chuck roast.\\n2. Add the onion.',rotation:false,linkGroup:'lg1'};meals.push(m);const m2={...m,id:9002,cat:'Other'};delete m2.aiAltVersion;meals.push(m2);
  m.aiAltVersion={kind:'original',flagsV1:true,ingredients:['3 lb beef','2 bay leaves'],instructions:'1. Brown beef.\\n2. Add bay leaves.',savedAt:new Date().toISOString()};persist();
- const ctx=cookingContext('p1','Mon','c',m,'');cookingSession(ctx,true);const t=cookingItemTokens(m);const next=JSON.parse(JSON.stringify(cookingSessions));const e=next.occurrences[cookingOccurrenceKey(ctx)];e.steps=[t.steps.find(x=>x.token).token];e.ingredients=[t.ingredients[0].token];writeCookingSessions(next);
- const snap=()=>JSON.stringify(Object.values(cookingSessions.occurrences).filter(x=>x.context.mealId==='9001').map(x=>[x.steps,x.ingredients]));
+ const ctx=cookingContext('p1','Mon','c',m2,'');cookingSession(ctx,true);const t=cookingItemTokens(m);const next=JSON.parse(JSON.stringify(cookingSessions));const e=next.occurrences[cookingOccurrenceKey(ctx)];e.steps=[t.steps.find(x=>x.token).token];e.ingredients=[t.ingredients[0].token];writeCookingSessions(next);
+ const snap=()=>JSON.stringify(Object.values(cookingSessions.occurrences).filter(x=>['9001','9002'].includes(x.context.mealId)).map(x=>[x.steps,x.ingredients]));
  const before=snap();switchRecipeVersion(m);const mid=snap();switchRecipeVersion(m);const after=snap();
  return {before,mid,after}}};'''
 
