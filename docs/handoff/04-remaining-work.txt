@@ -1,5 +1,6 @@
 REMAINING WORK — ACTIVE LIST
 Trimmed 2026-11-21 (docs only). Finished, phone-tested and superseded history moved VERBATIM to docs/archive/04-remaining-work-archive-2026-11-21.txt - do not read the archive unless an issue names it. Everything below is open: awaiting phone test, held (do NOT build until the user asks), or undecided. Entries keep their original wording and dates.
+TERMINOLOGY (2026-11-25, v429): on screen Regulars = In rotation, Off menu = Not in rotation (saved values rotation / up-next unchanged; imports still accept the old words). Linked -> Shared only where one recipe lives in several groups (a side/related recipe attached to a meal is still 'linked'). Weekday Setup = Weekly schedule; Make Ahead = Make ahead. Older entries below keep the words in use when they were written.
 Statuses: proposed; approved; implemented/code-checked; awaiting phone test; phone-confirmed; deferred. A pushed commit is not phone confirmation. Items built 2026-11-17 to 2026-11-19 without a PHONE TESTED line in this file are unconfirmed; their details are in the archive.
 
 Original app: https://github.com/elisabethball19-netizen/meal-rotation
