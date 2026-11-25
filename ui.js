@@ -4373,13 +4373,16 @@ function recipeIngredientsFromMarkdown(markdown,loose=false){
       if(level&&(seenItem||!loose&&level<=startLevel))break;
       if(recipeTextJunkLine(line))continue;
       if(/^(?:directions|instructions|method|steps|preparation|nutrition|notes|equipment|reviews|you(?:'|’)ll need|how to make|print recipe|related recipes)\b/i.test(line.replace(/^#{1,6}\s*/,''))&&seenItem)break;
+      // v435: a bare section heading ('Instructions', 'Method:') ends the list even before any item.
+      if(/^(?:directions|instructions|method|steps|preparation|cooking instructions)\s*:?$/i.test(line.replace(/^#{1,6}\s*/,'').replace(/\*\*/g,'').trim()))break;
       if(!line){if(seenItem&&source.slice(j+1,j+4).every(x=>!x.trim()))break;continue}
       if(/^\*\*[\d./¼½¾⅓⅔⅛⅜⅝⅞]+\*\*\s+\S/.test(line)){candidates.push(line.replace(/\*\*/g,''));seenItem=true}
       else if(/^[-*+]\s+/.test(line)||/^\d+[.)]\s+/.test(line)){
         const item=line.replace(/^(?:[-*+]\s+|\d+[.)]\s+)/,'').replace(/^\[[ xX]\]\s*/, '').replace(/\*\*/g,'').replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').trim();
         if(item&&!/^(?:image|video|pin it|save|print)$/i.test(item)){candidates.push(item);seenItem=true}
-      }else if(seenItem&&/^\s*(?:[-–]|[0-9]|[¼½¾⅓⅔]|\d+\s*(?:cup|tbsp|tsp|oz|lb|g|ml|clove|pinch))/.test(line)&&!/^\d+\.\s+(?:preheat|heat|stir|mix|bake|cook|place)\b/i.test(line)){
-        candidates.push(line.replace(/^[-–]\s*/,''));
+      }else if((seenItem||line.split(/\s+/).length<=12&&/^[\d¼½¾⅓⅔⅛⅜⅝⅞]/.test(line))&&/^\s*(?:[-–]|[0-9]|[¼½¾⅓⅔⅛⅜⅝⅞]|\d+\s*(?:cup|tbsp|tsp|oz|lb|g|ml|clove|pinch))/.test(line)&&!/^\d+\.\s+(?:preheat|heat|stir|mix|bake|cook|place)\b/i.test(line)){
+        // v435: a plain amount line ('2 cups rice') may also start the list (pasted text, photos).
+        candidates.push(line.replace(/^[-–]\s*/,''));seenItem=true;
       }else if(seenItem&&/^(?:\w+[\s'-]*){1,6}:$/.test(line)){continue}
       else if(seenItem)break;
     }
@@ -4410,6 +4413,15 @@ function websiteImportWarning(lines){
  if((lines?.textOnly||lines?.recipeDetails?.textOnly)&&(lines?.doubtful||lines?.recipeDetails?.doubtful))return 'This website could only be partly read, so the ingredients or steps may be wrong or missing. Please check them before saving.';
  if(lines?.recipeDetails?.instructionWarning)return 'Ingredients were found, but the steps could not be read reliably. Please check them, or add the steps yourself.';
  return '';
+}
+// v435: a likely recipe name from photo text - the first short line that is not an amount or a section heading.
+function recipeTextTitleGuess(text){
+  for(const raw of String(text||'').split(/\r?\n/).slice(0,8)){
+    const line=raw.replace(/^#{1,6}\s*/,'').replace(/\*\*/g,'').trim();
+    if(!line||/^[\d¼½¾⅓⅔⅛⅜⅝⅞]/.test(line)||/:$/.test(line)||/^(?:ingredients|instructions|directions|method|steps|notes|serves|servings|yield|prep|cook|total)\b/i.test(line))continue;
+    const words=line.split(/\s+/).length;if(words>=1&&words<=9&&line.length<=70)return line;
+  }
+  return '';
 }
 async function importIngredientsFromWebsite(value,externalSignal,expectedName=''){
  let parsed;try{parsed=new URL(value)}catch(e){throw Error('Enter a valid recipe URL to import ingredients.')}
@@ -4611,9 +4623,9 @@ function selectIngredientImportSource(hasRecipeUrl){
     });
   });
 }
-function requestIngredientSourceUrl(previous,hasRecipeUrl=true){
+function requestIngredientSourceUrl(previous,hasRecipeUrl=true,title='Import ingredients from link'){
   return new Promise(resolve=>{
-    ingredientDialog('Import ingredients from link',(panel,close)=>{
+    ingredientDialog(title,(panel,close)=>{
       const field=document.createElement('input');field.type='url';field.placeholder='https://';field.value=previous||'';
       field.style.cssText='display:block;width:100%;padding:11px;border:1px solid #ccc;border-radius:9px;margin-bottom:15px;font-size:16px';panel.append(field);
       const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;justify-content:center';
@@ -5231,6 +5243,54 @@ $('ingredientLinkButton').onclick=async()=>{
     if(!progress.signal.aborted&&editId===m.id)showAppMessage(e.message||'Ingredients could not be imported. You can type them manually.');
   }finally{progress.close()}
 };
+// v435: import a whole recipe into this (new, empty) recipe - from the row under the name, or when a link is
+// added under 'No recipe link'. Fills only empty fields, then opens Recipe so the result can be checked.
+function wholeRecipeIsEmpty(){return !ingredientField.value.trim()&&!$('recipeInstructions').value.trim()}
+function finishWholeRecipeImport(notice){
+  document.querySelector('#editor .editor')?.refreshCard?.();revealViewedRecipeEditing();if(notice)setTimeout(()=>showAppMessage(notice),200);
+}
+async function importWholeRecipeFromLink(url){
+  url=url||await requestIngredientSourceUrl('',false,'Import recipe from link');
+  if(!url||editId!==m.id)return;
+  const progress=showImportProgressDialog('Importing recipe from website…');
+  try{
+    const result=await Promise.race([importIngredientsFromWebsite(url,progress.signal).then(lines=>({lines})),progress.cancelled]);
+    if(result.cancelled||editId!==m.id||!ingredientField.isConnected)return;
+    if(!$('url').value.trim()){$('url').value=url;$('url').dispatchEvent(new Event('input',{bubbles:true}))}
+    mergeIngredientDraft(result.lines.map(cleanImportedIngredientDescriptors));applyImportedRecipeDraft(result.lines.recipeDetails);
+    progress.close();finishWholeRecipeImport(websiteImportWarning(result.lines));
+  }catch(e){
+    if(!progress.signal.aborted&&editId===m.id)showAppMessage(e.message||'The recipe could not be imported. You can type it in instead.');
+  }finally{progress.close()}
+}
+async function importWholeRecipeFromPhoto(file){
+  if(!file||!file.type.startsWith('image/'))return;
+  const progress=showImportProgressDialog('Reading recipe from photo…');let deadline=null;
+  try{
+    const timedOut=new Promise(resolve=>{deadline=setTimeout(()=>resolve({timedOut:true}),60000)});
+    const result=await Promise.race([(async()=>{if(await ingredientPhotoIsBlank(file))return {blank:true};if(progress.signal.aborted)return {cancelled:true};return {text:await recognizeIngredientPhoto(file,progress.signal)}})(),progress.cancelled,timedOut]);
+    if(result.timedOut)progress.abort();progress.close();
+    if(result.cancelled||editId!==m.id||!ingredientField.isConnected)return;
+    if(result.timedOut){await showAppMessage('The photo could not be read in time. Try a closer, clearer photo.');return}
+    const text=String(result.text||'').trim();
+    if(result.blank||!text){await showAppMessage('No readable text was found in this photo. Try a clearer photo.');return}
+    const details=extractCompleteRecipe(text)||recipeTextSections(text),ingredients=(details.ingredients||[]).map(cleanPhotoIngredientLine).filter(Boolean);
+    if(!ingredients.length&&!details.instructions?.some(block=>block.type==='step')){await showAppMessage('No recipe could be read from this photo. Try a clearer photo, or use the buttons beside Ingredients and Steps.');return}
+    if(!details.name)details.name=recipeTextTitleGuess(text);
+    mergeIngredientDraft(ingredients);applyImportedRecipeDraft(details);
+    finishWholeRecipeImport('Recipes read from a photo can have mistakes. Please check the name, ingredients and steps before saving.');
+  }catch(e){
+    if(!progress.signal.aborted&&editId===m.id)showAppMessage(e.message||'The photo could not be read.');
+  }finally{clearTimeout(deadline);progress.close()}
+}
+{const editorRoot=document.querySelector('#editor .editor');if(editorRoot){editorRoot.wholeRecipeImport=(kind,file)=>kind==='link'?importWholeRecipeFromLink():importWholeRecipeFromPhoto(file);editorRoot.wholeRecipeIsEmpty=wholeRecipeIsEmpty}}
+// Adding a link under 'No recipe link' on an empty recipe offers to import it (asked once per link).
+{let offered='';$('url').addEventListener('change',async()=>{
+  const url=$('url').value.trim();let valid=false;try{valid=['http:','https:'].includes(new URL(url).protocol)}catch(_){}
+  if(!valid||url===offered||!wholeRecipeIsEmpty()||editId!==m.id)return;offered=url;
+  const yes=await new Promise(resolve=>ingredientDialog('Import this recipe?',(panel,close)=>{const p=document.createElement('p');p.textContent='Import the recipe from this link? Only empty parts are filled in.';p.style.cssText='font-size:16px;margin:0 0 16px';panel.append(p);const row=document.createElement('div');row.style.cssText='display:flex;gap:12px;justify-content:center';row.append(ingredientModalButton('Import',()=>{close();resolve(true)}),ingredientModalButton('Not now',()=>{close();resolve(false)}));panel.append(row)}));
+  if(yes&&editId===m.id&&wholeRecipeIsEmpty())importWholeRecipeFromLink(url);
+})}
 async function importFromIngredientPhoto(file){
   if(!file||!file.type.startsWith('image/'))return;
   const progress=showImportProgressDialog('Reading ingredients from photo…');
@@ -5386,10 +5446,22 @@ $('cancel').onclick=()=>{mealPersistence.cancelOwner('recipe:'+m.id);rollbackEdi
   const input=$(id);root.querySelector('label[for="'+id+'"]')?.remove();const slot=document.createElement('span');slot.className='meal-card-time-field';const button=document.createElement('button');button.type='button';button.className='meal-card-field-button';button.setAttribute('aria-label','Edit '+title.toLowerCase());slot.append(button,input);times.append(slot);bind(input,button,title,caption);
  }
  root.querySelector('.time-editor-grid')?.remove();const keyboard=root.querySelector('.time-keyboard-tools');keyboard?.addEventListener('pointerdown',event=>{if(event.target.closest('button'))event.preventDefault()});
- const cooked=info.querySelector('.meal-last-cooked');info.replaceChildren(nameSlot,times);if(keyboard)info.append(keyboard);const rotationControl=root.querySelector('#recipeStatus');if(rotationControl)info.append(rotationControl);if(cooked)info.append(cooked);
+ const cooked=info.querySelector('.meal-last-cooked');info.replaceChildren(nameSlot,times);
+ // v435: on a new, empty recipe, import the whole recipe from a link, a photo or the camera.
+ const importRow=document.createElement('div');importRow.className='meal-card-import';
+ if(!(meal.ingredients||[]).some(x=>String(x).trim())&&!instructionBlocks(meal.instructions).some(b=>b.type==='step')){
+  const label=document.createElement('span');label.className='meal-card-import-label';label.textContent='Import recipe';importRow.append(label);
+  for(const [kind,source,title] of [['link','ingredientLinkButton','Import recipe from a website link'],['photo','ingredientPhotoButton','Import recipe from a photo'],['camera','ingredientCameraButton','Import recipe with the camera']]){
+   const button=document.createElement('button');button.type='button';button.className='ingredient-tool';button.title=title;button.setAttribute('aria-label',title);button.innerHTML=$(source)?.innerHTML||'';
+   if(kind==='link')button.onclick=()=>root.wholeRecipeImport?.('link');
+   else{const input=document.createElement('input');input.type='file';input.accept='image/*';input.hidden=true;if(kind==='camera')input.setAttribute('capture','environment');input.onchange=()=>{const file=input.files?.[0];input.value='';if(file)root.wholeRecipeImport?.('photo',file)};button.onclick=()=>input.click();importRow.append(input)}
+   importRow.append(button);
+  }
+  info.append(importRow);
+ }if(keyboard)info.append(keyboard);const rotationControl=root.querySelector('#recipeStatus');if(rotationControl)info.append(rotationControl);if(cooked)info.append(cooked);
  if(newRecipeDraftId!==meal.id&&!meal._scheduledEditorDraft){const cookedEdit=document.createElement('button');cookedEdit.type='button';cookedEdit.className='meal-editor-last-cooked';const live=()=>meals.find(record=>record.id===meal.id)||meal;const sync=()=>{setLastCookedValue(cookedEdit,live());cookedEdit.setAttribute('aria-label',cookedEdit.textContent+' — Edit last cooked date')};sync();cookedEdit.onclick=()=>editMealCookedDate(live(),sync);info.append(cookedEdit)}
  function refresh(){
-  nameText.data=nameInput.value.trim()||'Untitled meal';warning.hidden=!$('editNeedsTweaking').checked;
+  nameText.data=nameInput.value.trim()||'Untitled meal';warning.hidden=!$('editNeedsTweaking').checked;if(importRow.isConnected)importRow.hidden=root.wholeRecipeIsEmpty?!root.wholeRecipeIsEmpty():false;
   for(const item of bindings)if(item.caption){const value=item.input.value.trim(),parsed=item.caption==='marinate'||item.caption==='serves'?null:parseDurationInput(value);if(item.caption==='serves'){item.button.textContent=value?'serves '+value:'— serves';continue}item.button.textContent=(value?(item.caption==='marinate'?(displayMarinateTime(value)||value):Number.isFinite(parsed)?time(parsed):value):'—')+' '+item.caption}
  }
  root.addEventListener('input',refresh);root.addEventListener('change',refresh);root.refreshCard=refresh;
