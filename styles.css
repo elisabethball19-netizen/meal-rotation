@@ -2680,3 +2680,6 @@ input[type="checkbox"]:not(.preference-switch):focus-visible{outline:2px solid #
 #editor .meal-editor-adjusting{padding:12px 0 8px!important}
 #editor .meal-editor-adjusting-row{min-height:44px}
 #editor .meal-group-editor-heading{min-height:48px!important}
+/* v404: the + buttons in the editor line up with the chevrons below them (same icon centre) */
+#editor .meal-group-editor-heading .meal-group-picker-button{right:-8px!important}
+#editor .meal-editor-serve>summary .meal-editor-serve-add{margin-right:-9px!important}
