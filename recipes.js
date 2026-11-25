@@ -976,7 +976,9 @@ function groceryRecipeNavigation(meal,source){
  if(String(meal.id)!==String(source.mealId)||typeof source.ingredientToken!=='string')return null;
  const items=cookingItemTokens(meal),ingredient=items.ingredients.find(item=>item.token===source.ingredientToken);if(!ingredient||syncIngredientHeading(ingredient.text))return null;
  const linked=new Set(validRecipeIngredientLinks(meal).filter(link=>link.ingredients.includes(ingredient.token)).map(link=>link.step));
- const step=items.steps.find(item=>linked.has(item.token));
+ let step=items.steps.find(item=>linked.has(item.token));
+ // No manual link: fall back to the first step the automatic matching says uses this ingredient (2026-11-24).
+ if(!step&&!linked.size)try{const matches=recipeIngredientMatches(meal);step=items.steps.find(item=>{const set=item.token&&matches.get(item.token);return set&&[...set].includes(ingredient.token)})}catch(e){}
  return {ingredientToken:ingredient.token,stepToken:step?.token||null,multiplier:source.multiplier||1,sourceId:source.id,planId:source.planId,day:source.day,scheduledDate:source.scheduledDate,preview:source.preview===true};
 }
 function applyPendingGroceryRecipeNavigation(view,tab,ingredientsPane,instructionsPane){

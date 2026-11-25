@@ -354,3 +354,4 @@ v402 PHONE (2026-11-24 18:47): Birria version switch PASS (jumping between origi
 [PHONE CONFIRMED 2026-11-24 18:59] v404 editor + buttons line up with chevrons.
 
 [CLOSED 2026-11-24, user] Birria step-1 ingredient auto-check question: no longer relevant, removed.
+BUILT v405 (AWAITING PHONE TEST) LINKED-STEP SCROLL FROM GROCERY: opening a recipe from a grocery item in split view now jumps the instruction pane to the first step that uses the ingredient by automatic matching when there is no manual ingredient-step link (manual links still win). Not reproducible with a manual link in the harness: both panes jump. Test: tests/nav_fallback_browser.py. Phone test: Groceries > open a recipe from an ingredient that has no manual link, split view: both panes should scroll.
