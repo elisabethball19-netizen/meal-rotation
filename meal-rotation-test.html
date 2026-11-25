@@ -2533,6 +2533,13 @@ input[type="checkbox"]:not(.preference-switch):focus-visible{outline:2px solid #
 /* v404: the + buttons in the editor line up with the chevrons below them (same icon centre) */
 #editor .meal-group-editor-heading .meal-group-picker-button{right:-8px!important}
 #editor .meal-editor-serve>summary .meal-editor-serve-add{margin-right:-9px!important}
+/* v410: app-wide control consistency. Radios match the checkboxes (dark gray ring, dark gray dot); selects share one look. */
+input[type="radio"]{-webkit-appearance:none!important;appearance:none!important;box-sizing:border-box!important;display:inline-block;position:relative;width:20px!important;height:20px!important;min-width:20px!important;min-height:20px!important;flex:0 0 20px;padding:0!important;border:2px solid #444!important;border-radius:50%!important;background:#fff!important;box-shadow:none!important;cursor:pointer;vertical-align:middle}
+input[type="radio"]::after{content:''!important;display:block!important;position:absolute;inset:3px;border-radius:50%;background:#444;transform:scale(0);transition:none}
+input[type="radio"]:checked::after{transform:scale(1)}
+input[type="radio"]:disabled{opacity:.45;cursor:default}
+input[type="radio"]:focus-visible{outline:2px solid #315ba8;outline-offset:2px}
+:where(select){min-height:44px;padding:8px 10px;border:1px solid #ccc;border-radius:8px;background-color:#fff;color:inherit;font:inherit}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
