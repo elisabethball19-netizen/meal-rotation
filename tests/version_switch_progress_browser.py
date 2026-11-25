@@ -11,7 +11,8 @@ s.fixture.HOOK += '''window.vsp={run:()=>{
  const snap=()=>JSON.stringify(Object.values(cookingSessions.occurrences).filter(x=>['9001','9002'].includes(x.context.mealId)).map(x=>[x.steps,x.ingredients]));
  const before=snap();switchRecipeVersion(m);const mid=snap();switchRecipeVersion(m);const after=snap();
  return {before,mid,after}},
- viewer:()=>{const m=meals.find(x=>x.id===9001);openSavedMealRecipe(m);const v=recipeViewer;const t=cookingItemTokens(m);v.previewProgress={ingredients:[t.ingredients[0].token],steps:[t.steps.find(x=>x.token).token]};const a=JSON.stringify(v.previewProgress);switchRecipeVersion(m);const mid=JSON.stringify(recipeViewer.previewProgress);switchRecipeVersion(m);return {a,mid,b:JSON.stringify(recipeViewer.previewProgress),ctx:!!v.context}}};'''
+ viewer:()=>{const m=meals.find(x=>x.id===9001);openSavedMealRecipe(m);const v=recipeViewer;const t=cookingItemTokens(m);v.previewProgress={ingredients:[t.ingredients[0].token],steps:[t.steps.find(x=>x.token).token]};const a=JSON.stringify(v.previewProgress);switchRecipeVersion(m);const mid=JSON.stringify(recipeViewer.previewProgress);switchRecipeVersion(m);return {a,mid,b:JSON.stringify(recipeViewer.previewProgress),ctx:!!v.context}},
+ ui:()=>{const m=meals.find(x=>x.id===9001);m.aiAltVersion={kind:'original',flagsV1:true,ingredients:['3 lb beef','2 bay leaves'],instructions:'1. Brown beef.\\n2. Add bay leaves.',savedAt:new Date().toISOString()};m.ingredients=['2 lb chuck roast','1 onion'];m.instructions='1. Sear the chuck roast.\\n2. Add the onion.';persist();openSavedMealRecipe(m);const v=recipeViewer;const t=cookingItemTokens(m);v.previewProgress={ingredients:[t.ingredients[0].token],steps:[t.steps.find(x=>x.token).token]};renderRecipeViewer();return {a:JSON.stringify(v.previewProgress),ctx:!!v.context,vm:v.mealId}}};'''
 
 
 def run(browser, name):
@@ -20,6 +21,19 @@ def run(browser, name):
     assert r['before'] != '[]' and r['mid'] == '[]' and r['after'] == r['before'], r
     v = p.evaluate('vsp.viewer()')
     assert not v['ctx'] and v['a'] == v['b'] and v['mid'] != v['a'], v
+    c.close()
+    if name != 'index.html':
+        print('PASS', name, 'direct switch only (viewer UI path checked on index.html)', flush=True); return
+    c, p, errors, prefix = s.fixture.setup(browser, name, navigation_timeout=30000)
+    p.evaluate('vsp.run()')
+    u = p.evaluate('vsp.ui()')
+    p.locator('.recipe-version-link').click(); p.wait_for_timeout(300)
+    p.locator('.ai-choice').first.click(); p.wait_for_timeout(500); p.wait_for_function('recipeViewer&&recipeViewer.activeTab')
+    mid = p.evaluate('JSON.stringify(recipeViewer.previewProgress)')
+    p.locator('.recipe-version-link').click(); p.wait_for_timeout(300)
+    p.locator('.ai-choice').first.click(); p.wait_for_timeout(500); p.wait_for_function('recipeViewer&&recipeViewer.activeTab')
+    b = p.evaluate('JSON.stringify(recipeViewer.previewProgress)')
+    assert b == u['a'], (u, mid, b)
     assert not errors, errors
     c.close()
     print('PASS', name, 'progress kept per version across switch and back', flush=True)

@@ -419,8 +419,12 @@ function recipeTabKey(meal,context){return context?'occurrence:'+scaleOccurrence
 function createRecipeTab(meal,context,mode=recipeViewPrefs.mode,ratio=recipeViewPrefs.ratio){
  return {key:recipeTabKey(meal,context),mealId:String(meal.id),context,mode,ratio,landscapeRatio:recipeViewPrefs.landscapeRatio??.5,previewProgress:{ingredients:[],steps:[]},previewScale:recipeDefaultMultiplier(meal.id),coverScroll:0,paneScroll:[0,0],recipeContent:{ingredients:meal.ingredients,instructions:meal.instructions}};
 }
+let pendingRecipeViewProgress=null;
 function installRecipeViewerTabs(view,meal,context,saved=null){
  const initial=createRecipeTab(meal,viewerRecipeContext(meal,context));
+ // A version switch rebuilds the viewer: hand the progress kept for the version now showing to the new viewer (2026-11-24).
+ if(typeof pendingRecipeViewProgress!=='undefined'&&pendingRecipeViewProgress&&pendingRecipeViewProgress.mealId===String(meal.id)&&!initial.context)initial.previewProgress=JSON.parse(JSON.stringify(pendingRecipeViewProgress.progress));
+ pendingRecipeViewProgress=null;
  view.tabs=[initial];view.anchorTab=initial;view.tabCache=new Map([[initial.key,initial]]);view.activeTab=initial;
  // Existing viewer logic continues to read/write these fields on the active tab.
  const fields=['mealId','context','previewProgress','previewScale','ingredientSyncState','syncMatches','syncMatchSignature','syncWasEnabled','syncRequested','syncPinnedStep','syncGeometryHold','advanceSpace','linkIngredientTailSpace','linkTailSpace','linkEdit','linkNotice','linkLayoutTransition','importMessage'];

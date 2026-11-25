@@ -1140,7 +1140,7 @@ function switchRecipeVersion(meal){
   for(const [key,e] of Object.entries(next.occurrences))if(mealKeys.has(e.context.mealId)){delete next.occurrences[key];dirty=true}
   for(const e of theirs){const key=cookingOccurrenceKey(e.context);next.occurrences[key]=e;dirty=true}
   if(dirty)writeCookingSessions(next)}catch(e){}
- if(viewer)viewer.previewProgress=alt.previewStashV1?JSON.parse(JSON.stringify(alt.previewStashV1)):{ingredients:[],steps:[]};
+ if(viewer){const restored=alt.previewStashV1?JSON.parse(JSON.stringify(alt.previewStashV1)):{ingredients:[],steps:[]};viewer.previewProgress=restored;pendingRecipeViewProgress={mealId:String(meal.id),progress:restored}}
 }
 // Discard the version being viewed: the saved other version becomes the recipe.
 function discardRecipeVersion(meal){migrateVersionFlags(meal);const alt=meal?.aiAltVersion;if(!alt)return;snapshot();const patch={...versionFlagPatch(alt)};for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(alt,key)?alt[key]:undefined;patch.aiAltVersion=undefined;const oldLines=[...(meal.ingredients||[])];assignSharedRecipeFields(meal,patch);remapSelectionsAfterContentChange(meal,oldLines);persist()}

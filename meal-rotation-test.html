@@ -2523,6 +2523,13 @@ input[type="checkbox"]:not(.preference-switch){-webkit-appearance:none!important
 input[type="checkbox"]:not(.preference-switch):checked{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5.5 12.5l4.2 4.2 8.8-9.4' fill='none' stroke='%23444' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")!important}
 input[type="checkbox"]:not(.preference-switch):disabled{opacity:.45;cursor:default}
 input[type="checkbox"]:not(.preference-switch):focus-visible{outline:2px solid #315ba8;outline-offset:2px}
+/* v401: editor rows share one rhythm (Meal Groups / Serve with / Recipe / Notes); Needs Adjusting gets room under its line */
+#editor .meal-editor-section>summary{min-height:52px!important;box-sizing:border-box!important;padding-top:0!important;padding-bottom:0!important;display:flex!important;align-items:center}
+#editor .meal-editor-serve>summary .meal-editor-serve-add{min-height:40px!important;height:40px!important;margin-top:0!important;margin-bottom:0!important}
+#editor .meal-editor-serve:not([open])>.settings-group-content,#editor .meal-editor-serve>.settings-group-content:not(:has(.inline-side-row,.serving-empty-sides)){display:none}
+#editor .meal-editor-adjusting{padding:12px 0 8px!important}
+#editor .meal-editor-adjusting-row{min-height:44px}
+#editor .meal-group-editor-heading{min-height:48px!important}
 </style></head><body><div id="test-banner" role="banner"><strong>TEST APP — SETUP & INITIAL USE</strong><button id="test-reset" type="button">Reset Test App</button></div><script>
 /* Dedicated test storage: never read or erase production app data. */
 const TEST_PREFIX='mealRotationTestSandboxV1:';
@@ -3711,8 +3718,12 @@ function recipeTabKey(meal,context){return context?'occurrence:'+scaleOccurrence
 function createRecipeTab(meal,context,mode=recipeViewPrefs.mode,ratio=recipeViewPrefs.ratio){
  return {key:recipeTabKey(meal,context),mealId:String(meal.id),context,mode,ratio,landscapeRatio:recipeViewPrefs.landscapeRatio??.5,previewProgress:{ingredients:[],steps:[]},previewScale:recipeDefaultMultiplier(meal.id),coverScroll:0,paneScroll:[0,0],recipeContent:{ingredients:meal.ingredients,instructions:meal.instructions}};
 }
+let pendingRecipeViewProgress=null;
 function installRecipeViewerTabs(view,meal,context,saved=null){
  const initial=createRecipeTab(meal,viewerRecipeContext(meal,context));
+ // A version switch rebuilds the viewer: hand the progress kept for the version now showing to the new viewer (2026-11-24).
+ if(typeof pendingRecipeViewProgress!=='undefined'&&pendingRecipeViewProgress&&pendingRecipeViewProgress.mealId===String(meal.id)&&!initial.context)initial.previewProgress=JSON.parse(JSON.stringify(pendingRecipeViewProgress.progress));
+ pendingRecipeViewProgress=null;
  view.tabs=[initial];view.anchorTab=initial;view.tabCache=new Map([[initial.key,initial]]);view.activeTab=initial;
  // Existing viewer logic continues to read/write these fields on the active tab.
  const fields=['mealId','context','previewProgress','previewScale','ingredientSyncState','syncMatches','syncMatchSignature','syncWasEnabled','syncRequested','syncPinnedStep','syncGeometryHold','advanceSpace','linkIngredientTailSpace','linkTailSpace','linkEdit','linkNotice','linkLayoutTransition','importMessage'];
@@ -7629,7 +7640,7 @@ function switchRecipeVersion(meal){
   for(const [key,e] of Object.entries(next.occurrences))if(mealKeys.has(e.context.mealId)){delete next.occurrences[key];dirty=true}
   for(const e of theirs){const key=cookingOccurrenceKey(e.context);next.occurrences[key]=e;dirty=true}
   if(dirty)writeCookingSessions(next)}catch(e){}
- if(viewer)viewer.previewProgress=alt.previewStashV1?JSON.parse(JSON.stringify(alt.previewStashV1)):{ingredients:[],steps:[]};
+ if(viewer){const restored=alt.previewStashV1?JSON.parse(JSON.stringify(alt.previewStashV1)):{ingredients:[],steps:[]};viewer.previewProgress=restored;pendingRecipeViewProgress={mealId:String(meal.id),progress:restored}}
 }
 // Discard the version being viewed: the saved other version becomes the recipe.
 function discardRecipeVersion(meal){migrateVersionFlags(meal);const alt=meal?.aiAltVersion;if(!alt)return;snapshot();const patch={...versionFlagPatch(alt)};for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(alt,key)?alt[key]:undefined;patch.aiAltVersion=undefined;const oldLines=[...(meal.ingredients||[])];assignSharedRecipeFields(meal,patch);remapSelectionsAfterContentChange(meal,oldLines);persist()}

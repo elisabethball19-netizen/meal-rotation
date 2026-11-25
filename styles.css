@@ -2673,3 +2673,10 @@ input[type="checkbox"]:not(.preference-switch){-webkit-appearance:none!important
 input[type="checkbox"]:not(.preference-switch):checked{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5.5 12.5l4.2 4.2 8.8-9.4' fill='none' stroke='%23444' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")!important}
 input[type="checkbox"]:not(.preference-switch):disabled{opacity:.45;cursor:default}
 input[type="checkbox"]:not(.preference-switch):focus-visible{outline:2px solid #315ba8;outline-offset:2px}
+/* v401: editor rows share one rhythm (Meal Groups / Serve with / Recipe / Notes); Needs Adjusting gets room under its line */
+#editor .meal-editor-section>summary{min-height:52px!important;box-sizing:border-box!important;padding-top:0!important;padding-bottom:0!important;display:flex!important;align-items:center}
+#editor .meal-editor-serve>summary .meal-editor-serve-add{min-height:40px!important;height:40px!important;margin-top:0!important;margin-bottom:0!important}
+#editor .meal-editor-serve:not([open])>.settings-group-content,#editor .meal-editor-serve>.settings-group-content:not(:has(.inline-side-row,.serving-empty-sides)){display:none}
+#editor .meal-editor-adjusting{padding:12px 0 8px!important}
+#editor .meal-editor-adjusting-row{min-height:44px}
+#editor .meal-group-editor-heading{min-height:48px!important}
