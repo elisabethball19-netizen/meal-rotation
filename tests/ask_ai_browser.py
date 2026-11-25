@@ -20,9 +20,9 @@ sb.fixture.HOOK += '''window.ai={
  stubOpen:()=>{window.__opened=[];window.open=(u)=>{window.__opened.push(u);return null};window.__copied=null;copyAskAiText=async t=>{window.__copied=t;return true}},
  opened:()=>window.__opened,copied:()=>window.__copied,
  editorOpen:()=>editId!==null,
- meal:name=>{const m=meals.find(x=>x.name===name&&!x._scheduledEditorDraft);return m&&{id:m.id,cat:m.cat,rotation:m.rotation,ingredients:m.ingredients,links:(m.ingredientStepLinks||[]).length}},
+ meal:name=>{const m=meals.find(x=>x.name===name&&!x._scheduledEditorDraft);return m&&{id:m.id,cat:m.cat,ai:m.aiRecipe===true,rotation:m.rotation,ingredients:m.ingredients,links:(m.ingredientStepLinks||[]).length}},
  count:()=>meals.filter(m=>!m._scheduledEditorDraft).length,
- pending:()=>aiPending(),aiWeekly:()=>groupUsesRotation('AI recipes'),
+ pending:()=>aiPending(),aiWeekly:()=>groupUsesRotation('AI recipes'),noAiGroup:()=>!cats.some(c=>c.toLocaleLowerCase()==='ai recipes'),
  viewer:name=>openSavedMealRecipe(meals.find(m=>m.name===name),null,null),
  closeViewer:()=>closeRecipeViewer(),
  onGroups:()=>!showTop,
@@ -159,7 +159,7 @@ def run(browser, name):
     assert p.evaluate('!!document.querySelector(".recipe-viewer, #recipeViewer, [data-recipe-viewer]")'), 'Open shows the recipe viewer'
     p.evaluate('ai.closeViewer()'); p.wait_for_timeout(300)
     saved = p.evaluate('n=>ai.meal(n)', 'Garlic Chicken Stir-Fry')
-    assert saved and saved['cat'] == 'AI recipes' and saved['rotation'] is False and saved['links'] == 2 and saved['ingredients'][0] == '1 lb chicken thighs', saved
+    assert saved and saved['cat'] == '' and saved['ai'] is True and saved['rotation'] is False and saved['links'] == 2 and saved['ingredients'][0] == '1 lb chicken thighs', saved
     assert p.evaluate('ai.pending()') is None
 
     # Several recipes in one paste -> checklist -> Off menu.
@@ -172,8 +172,8 @@ def run(browser, name):
     shot(p, tag, 'multi')
     multi.get_by_role('button', name='Save 2 recipes').click(); p.wait_for_timeout(400)
     assert p.evaluate('ai.count()') == before + 2
-    assert p.evaluate('n=>ai.meal(n)', 'Thai Basil Chicken')['links'] == 2 and p.evaluate('n=>ai.meal(n)', 'Thai Basil Chicken')['cat'] == 'AI recipes'
-    assert p.evaluate('ai.aiWeekly()') is False
+    assert p.evaluate('n=>ai.meal(n)', 'Thai Basil Chicken')['links'] == 2 and p.evaluate('n=>ai.meal(n)', 'Thai Basil Chicken')['cat'] == '' and p.evaluate('n=>ai.meal(n)', 'Thai Basil Chicken')['ai'] is True
+    assert p.evaluate('ai.noAiGroup()') is True  # no app-made AI recipes group any more (2026-11-24)
 
     # Recipe page -> Ask AI -> Convert -> Update original (one Undo restores it).
     target = 'Garlic Chicken Stir-Fry'

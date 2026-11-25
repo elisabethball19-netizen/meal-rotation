@@ -1154,6 +1154,7 @@ button.recipe-tweaking-edit{display:inline-flex;align-items:center;gap:5px;}
 #recipeViewer .recipe-toolbar-icon:focus-visible{outline:2px solid #5876ad;outline-offset:2px;}
 
 #recipeViewer .recipe-cooking-settings{flex:none;margin:2px 0 0;font-size:13px;color:#52657e;}
+.master-group-section-body .ai-recipes-empty{margin:6px 4px 10px;font-size:.9rem}
 #recipeViewer .recipe-auto-complete{display:flex;align-items:center;gap:9px;min-height:44px;padding:4px 0;}
 #recipeViewer .recipe-auto-complete input{width:20px;height:20px;flex:none;margin:0;}
 

@@ -825,7 +825,7 @@ async function reviewRecipeImportItems(items,filename){
  const raw=items[0],details=completeRecipeFields(raw),sourceId=recipeImportIdentity(raw);
  const record={...details,name:details.name||raw.name||'Imported recipe',labels:recipeImportTags(raw),...recipeImportStatus(raw,false),groceryDefaultAll:true,url:recipeImportUrl(raw),sourceUrl:recipeImportSourceUrl(raw),importSourceId:sourceId,recipeSageId:recipeSageUuidPattern.test(sourceId)?sourceId:'',recipeImportPending:false};
  if(raw.aiStepTags){const links=askAiStepLinks(record,raw.aiStepTags);if(links)record.ingredientStepLinks=links}
- if(raw.aiReplacesRecipeId){record.aiReplacesRecipeId=raw.aiReplacesRecipeId;record.aiReplaceMode=raw.aiReplaceMode==='replace'?'replace':'update'}if(raw.aiReturnToGroups)record.aiReturnToGroups=true;
+ if(raw.aiReplacesRecipeId){record.aiReplacesRecipeId=raw.aiReplacesRecipeId;record.aiReplaceMode=raw.aiReplaceMode==='replace'?'replace':'update'}if(raw.aiReturnToGroups)record.aiReturnToGroups=true;if(raw.aiRecipe)record.aiRecipe=true;
  // Creation, membership changes, Save, Cancel and Undo all use the ordinary editor.
  await navigateAfterSettings(()=>addRecipeToGroup(raw.aiTargetGroup&&cats.includes(raw.aiTargetGroup)?raw.aiTargetGroup:'',record));
  if(editId!==null){const missing=[];if(!record.ingredients?.length)missing.push('ingredients');if(!record.prep&&!record.cook&&!record.total)missing.push('cooking times');if(missing.length){const note=document.createElement('p');note.className='muted import-missing-fields';note.textContent='The source did not provide readable '+missing.join(' or ')+'. Review and add them before saving.';document.querySelector('#editor .meal-editor-fields')?.prepend(note)}}
@@ -1048,11 +1048,7 @@ function openAiRecipeMenu(recipe){
  d.panel.append(list);
 }
 // One record per pasted recipe, built like the import review, Off menu, with step tags as links.
-// New AI recipes go to an app-made "AI recipes" group under Other groups (not weekly), created on first use.
-function ensureAiRecipesGroup(){
- const existing=cats.find(cat=>cat.toLocaleLowerCase()==='ai recipes');if(existing)return existing;
- const name='AI recipes';cats=[...cats,name];persist();const values=JSON.parse(localStorage.getItem(GROUP_ROTATION_KEY)||'{}');values[groupIdentity(name,true)]=false;localStorage.setItem(GROUP_ROTATION_KEY,JSON.stringify(values));persist();return name;
-}
+// New AI recipes have no group: they carry an aiRecipe marker and appear in Meal Groups' AI recipes section (2026-11-24).
 function aiImportRecord(raw){
  const details=completeRecipeFields(raw),record={...details,name:details.name||raw.name||'AI recipe',labels:recipeImportTags(raw),...recipeImportStatus(raw,false),groceryDefaultAll:true,url:recipeImportUrl(raw),sourceUrl:recipeImportSourceUrl(raw),importSourceId:raw.importSourceId,recipeSageId:'',recipeImportPending:false};
  if(raw.aiStepTags){const links=askAiStepLinks(record,raw.aiStepTags);if(links)record.ingredientStepLinks=links}return record;
@@ -1067,7 +1063,7 @@ async function reviewAiAnswer(answer){
  const pending=aiPending(),original=items.length===1&&['convert','like','scale'].includes(pending?.job)?aiFindRecipe(pending.recipeId):null;
  if(items.length>1){openAiMultiReview(items);return}
  let replace=false,mode='copy';if(original&&pending.job==='scale'){mode='update';replace=true}else if(original){mode=await chooseAiSaveMode(original);if(!mode)return;replace=mode!=='copy'}
- const item=items[0];if(replace){item.aiReplacesRecipeId=String(original.id);item.aiReplaceMode=mode;item.name=original.name}else item.aiTargetGroup=ensureAiRecipesGroup();item.aiReturnToGroups=true;
+ const item=items[0];if(replace){item.aiReplacesRecipeId=String(original.id);item.aiReplaceMode=mode;item.name=original.name}else{item.aiTargetGroup='';item.aiRecipe=true}item.aiReturnToGroups=true;
  await groupHistorySettled;await editorHistorySettled;await reviewRecipeImportItems([item],'Ask AI');setAiPending(null);
  const flags=restrictionConflicts(item.ingredients);
  const place=()=>{const card=document.querySelector('#editor .meal-card-edit-mode'),fields=document.querySelector('#editor .meal-editor-fields');if(!card&&!fields)return;
@@ -1089,7 +1085,7 @@ function openAiMultiReview(items){
   const text=document.createElement('span');text.className='ai-multi-text';const name=document.createElement('strong');name.textContent=item.name;text.append(name);const flags=restrictionConflicts(item.ingredients);if(flags.length){const warn=document.createElement('span');warn.className='ai-multi-flag';warn.textContent='Check: '+flags.map(f=>f.line).join(', ');text.append(warn)}
   row.append(check,text);list.append(row)});
  const actions=document.createElement('div');actions.className='ai-send-actions';const add=document.createElement('button');add.type='button';add.className='smallbtn ai-primary';add.textContent='Save '+items.length+' recipes';actions.append(add);
- add.onclick=()=>{const picked=items.filter((_,i)=>chosen.has(i));if(!picked.length)return;snapshot();const cat=ensureAiRecipesGroup();for(const raw of picked){const record=aiImportRecord(raw);meals.push({...record,id:id++,cat,rotation:false})}persist();setAiPending(null);d.navigate=true;d.close();renderList();showServingUndoToast((picked.length===1?'Saved 1 recipe':'Saved '+picked.length+' recipes')+' to '+cat)};
+ add.onclick=()=>{const picked=items.filter((_,i)=>chosen.has(i));if(!picked.length)return;snapshot();for(const raw of picked){const record=aiImportRecord(raw);meals.push({...record,id:id++,cat:'',aiRecipe:true,rotation:false})}persist();setAiPending(null);d.navigate=true;d.close();renderList();showServingUndoToast((picked.length===1?'Saved 1 recipe':'Saved '+picked.length+' recipes')+' to AI recipes')};
  d.panel.append(list,actions);
 }
 // Editor save of an "Update <recipe>" draft: copy the reviewed content into the original (and its shared
