@@ -2367,14 +2367,24 @@ function placeViewToolbar(controls){
  if(tabBar){const tabMenu=document.querySelector('#list .meal-plan-menu');if(tabMenu){tabBar.after(tabMenu);tabMenu.after(controls)}else tabBar.after(controls);if(categoryRow)controls.after(categoryRow)}
  else document.querySelector('#list')?.prepend(controls);
 }
+// Groceries More menu (2026-11-24): Select all / Deselect all and Expand all / Collapse all live here; Filter, the eye and + stay on the toolbar.
+let groceryMenuState=null;
+function openGroceryMoreMenu(expandAll){
+ const dialog=compactMealDialog('Groceries','Grocery options');dialog.box.classList.add('meal-options-compact');dialog.box.querySelector('h3,strong')?.classList.add('meal-options-recipe-title');dialog.box.querySelector('button')?.setAttribute('aria-label','Close grocery options');
+ const row=(icon,label,action,off=false)=>{const button=document.createElement('button');button.type='button';button.className='smallbtn meal-full-action meal-option-row more-option-row';button.innerHTML='<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icon+'</svg><span class="more-option-text"><span class="more-option-label"></span></span>';button.querySelector('.more-option-label').textContent=label;if(off){button.disabled=true;button.setAttribute('aria-disabled','true');button.classList.add('select-all-muted')}else button.onclick=()=>dialog.run(action);dialog.box.append(button)};
+ const state=groceryMenuState||{tickAll:()=>{},selectOff:true,deselectOff:true};
+ row('<rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/>','Select all',()=>state.tickAll(true),state.selectOff);
+ row('<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 12h10"/>','Deselect all',()=>state.tickAll(false),state.deselectOff);
+ row(appIconSvg['chevrons-down'],'Expand all',()=>expandAll(true));
+ row(appIconSvg['chevrons-up'],'Collapse all',()=>expandAll(false));
+}
 function renderGroceryViewToolbar(list){
  const bar=document.createElement('div');bar.className='top-controls';
  function add(label,svg,handler){const b=document.createElement('button');b.type='button';b.className='iconbtn top-action-icon';b.title=label;b.setAttribute('aria-label',label);b.innerHTML=svg;b.onclick=handler;bar.append(b);return b}
  const keyset=()=>new Set(getMasterGroceryItems().keys());
  const tickAll=checked=>withGroceryCheckSchedules(()=>{const before=JSON.parse(captureState());before.manualGroceriesUndo=manualGroceryItems();snapshot(JSON.stringify(before));setGroceryItemsChecked(getMasterGroceryItems(),checked);setAllManualGroceries(checked);localStorage.setItem('mealRotationCheckedIngredientsV1',JSON.stringify([...checkedIngredients]));renderList({readOnly:true})});
  const groceryEntries=[...getMasterGroceryItems()],manualItems=manualGroceryItems(),allTicked=groceryEntries.every(([k,i])=>groceryItemChecked(k,i))&&manualItems.every(g=>g.checked),noneTicked=!groceryEntries.some(([k,i])=>groceryItemChecked(k,i))&&!manualItems.some(g=>g.checked),emptyList=!groceryEntries.length&&!manualItems.length;
- setSelectAllDisabled(add('Select all groceries',grocerySelectionIcon(true),()=>tickAll(true)),emptyList||allTicked);
- setSelectAllDisabled(add('Deselect all groceries',grocerySelectionIcon(false),()=>tickAll(false)),emptyList||noneTicked);
+ groceryMenuState={tickAll,selectOff:emptyList||allTicked,deselectOff:emptyList||noneTicked};
  const hide=localStorage.getItem('mealRotationHideCheckedGroceriesV1')==='true';
  add(hide?'Show checked groceries':'Hide checked groceries',hide?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',()=>{localStorage.setItem('mealRotationHideCheckedGroceriesV1',String(!hide));renderList()});
  appendMealPlanSettingsGear(bar);
