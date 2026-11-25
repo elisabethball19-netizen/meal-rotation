@@ -58,7 +58,9 @@ def run(browser, name):
     cards.nth(3).locator('summary').click()
     assert cards.nth(3).get_attribute('open') is not None
     prep.locator('input[type=checkbox]').click()
-    p.wait_for_timeout(300)
+    p.wait_for_timeout(150)
+    assert p.locator('.days-card').nth(0).locator('.days-prep input[type=checkbox]').first.is_checked(), 'check shows before the row leaves'
+    p.wait_for_timeout(500)
     assert p.evaluate('days.checks()') == 1
     assert p.locator('.days-card').nth(0).locator('.days-prep').count() == 0, 'completed prep hides (show-completed off)'
     assert p.locator('.days-card').nth(3).get_attribute('open') is not None, 'expanded day stays open after redraw'
