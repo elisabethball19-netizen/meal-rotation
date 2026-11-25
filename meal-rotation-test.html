@@ -8802,7 +8802,7 @@ topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.c
       // Yes also reorders pinned category buttons for the new weekday sequence.
       let answer=false;
       if(getDayCategories(day).length){
-        answer=await appDialog('Rotate pinned groups to match the new weekday order?',null,'yesnocancel');
+        answer=true; // 2026-11-25: no prompt; group order follows the new first day automatically.
       }
       if(answer===null){
         // No state was saved; restore the radio choice in the current editor.
@@ -10651,7 +10651,8 @@ function masterGroupDisplayOrder(){
  for(const entry of scheduledEntries)for(const id of (Array.isArray(entry.meal.linkedMealIds)?entry.meal.linkedMealIds:[])){const linked=meals.find(m=>String(m.id)===String(id));if(linked&&cats.includes(linked.cat))active.add(linked.cat)}
  const base=masterDisplayOrder(),automatic=[...base.filter(c=>active.has(c)),...base.filter(c=>!active.has(c))],manual=masterOrderedGroups(automatic),dayAssigned=[];
  for(const day of orderedDays())for(const c of masterDisplayCategories(day))if(manual.includes(c)&&!dayAssigned.includes(c))dayAssigned.push(c);
- return [...automatic.filter(c=>active.has(c)),...dayAssigned.filter(c=>!active.has(c)),...manual.filter(c=>!active.has(c)&&!dayAssigned.includes(c))];
+ // 2026-11-25: groups with a weekday always lead in weekday order (so Reset group order and the list agree); the saved manual order only orders the rest.
+ return [...dayAssigned,...manual.filter(c=>!dayAssigned.includes(c))];
 }
 // Group colors (user design, 2026-11-22): only groups showing on a card in the displayed week get a color; a group keeps one color all week. Order of choice: its remembered color, the color of its first day, then any free color. The Next week preview is read-only; memory is saved only from the current week.
 // The group shown for a card is the group of the meal on it (a slot can hold a meal from another group); empty and day-level cards have none.
@@ -11537,9 +11538,9 @@ function renderMasterCategories(list){
    if(linked&&cats.includes(linked.cat))activeGroupNames.add(linked.cat);
   }
  }
- const automaticGroups=[...baseGroupOrder.filter(cat=>activeGroupNames.has(cat)),...baseGroupOrder.filter(cat=>!activeGroupNames.has(cat))];
- // Active groups always sit on top in weekday order (a group newly given a day, like Pasta on Thursday, takes its place immediately); the saved manual order only orders the rest, and fully applies while reordering.
- const displayedGroups=groupReorderState?masterOrderedGroups(automaticGroups):(()=>{const manual=masterOrderedGroups(automaticGroups),dayAssigned=[];for(const day of orderedDays())for(const c of masterDisplayCategories(day))if(manual.includes(c)&&!dayAssigned.includes(c))dayAssigned.push(c);return [...automaticGroups.filter(cat=>activeGroupNames.has(cat)),...dayAssigned.filter(cat=>!activeGroupNames.has(cat)),...manual.filter(cat=>!activeGroupNames.has(cat)&&!dayAssigned.includes(cat))]})();
+ const automaticGroups=[...baseGroupOrder];
+ // Groups with a weekday lead in weekday order (a group newly given a day, like Pasta on Thursday, takes its place immediately); the saved manual order only orders the rest, and fully applies while reordering.
+ const displayedGroups=groupReorderState?masterOrderedGroups(automaticGroups):(()=>{const manual=masterOrderedGroups(automaticGroups),dayAssigned=[];for(const day of orderedDays())for(const c of masterDisplayCategories(day))if(manual.includes(c)&&!dayAssigned.includes(c))dayAssigned.push(c);return [...dayAssigned,...manual.filter(cat=>!dayAssigned.includes(cat))]})();
  if((hasUnassigned||hasAiRecipes)&&!groupReorderState)displayedGroups.unshift('');
  // Batch 4: Weekly groups / Other groups / Unassigned sections (flat while reordering groups).
  const sectioned=!groupReorderState,flatUnassigned=sectioned&&meals.length>1;
