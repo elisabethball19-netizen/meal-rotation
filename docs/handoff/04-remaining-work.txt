@@ -338,3 +338,4 @@ v394 PHONE-CONFIRMED 2026-11-24 (editor says AI recipes; Move pins to top of Off
 
 [v395 AWAITING PHONE TEST] Dialog footer divider: one thin light line (#e3e5e8) above every check/X row app-wide (styles.css + test HTML mirror). Phone test: open Meal groups picker, delete confirm, Start next week, editor, Settings, serving dialog; each should show the same line.
 [v395 PHONE CONFIRMED 2026-11-24] Divider items 1-3 passed (Meal groups picker, delete confirm, editor + Settings).
+[CLOSED 2026-11-24, user] Convert pop-up 'Anything else' box watch item dropped; she will report it if it recurs. No further work.
