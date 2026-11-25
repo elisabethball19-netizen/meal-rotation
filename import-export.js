@@ -37,6 +37,14 @@ function recipeInstructionContainerHtml(node){
  const copy=node.cloneNode(true);copy.querySelectorAll('script,style,nav,footer,[role="navigation"],.advertisement,.adsbygoogle,[data-ad-slot]').forEach(el=>el.remove());
  return copy.getAttribute('content')||copy.innerHTML;
 }
+// Serving size shown in a recipe card's own markup (v431). WP Recipe Maker keeps the number and the unit
+// apart ('8' + 'servings' / 'cookies'), so join them and let recipeImportServings decide.
+function recipeCardServingsText(node){
+ const wprm=node.querySelector('.wprm-recipe-servings');
+ if(wprm){const number=(wprm.getAttribute('data-servings')||wprm.textContent||'').trim(),unit=node.querySelector('.wprm-recipe-servings-unit')?.textContent?.trim()||'';if(number)return unit?number+' '+unit:number}
+ for(const selector of ['.tasty-recipes-yield','.mv-create-yield','.recipe-yield','.recipe-servings']){const text=node.querySelector(selector)?.textContent?.trim();if(text)return /serv|yield|people|person|portion/i.test(text)||/^\d/.test(text)?text:''}
+ return '';
+}
 function recipeCardRecords(doc){
  const scopes=[...doc.querySelectorAll('[itemscope][itemtype*="Recipe"],.h-recipe,.hrecipe,.wprm-recipe-container,.tasty-recipes,.recipe-card')];
  const nodes=scopes.filter(node=>!scopes.some(parent=>parent!==node&&parent.contains(node)));
@@ -48,7 +56,7 @@ function recipeCardRecords(doc){
   const instructionNodes=all.filter(el=>!all.some(parent=>parent!==el&&parent.contains(el)));
   const recipeInstructions=instructionNodes.map(recipeInstructionContainerHtml).join('\n');
   const ingredients=[...node.querySelectorAll('[itemprop~="recipeIngredient"],.p-ingredient,.ingredient,.wprm-recipe-ingredient,.tasty-recipes-ingredients li')].map(el=>el.getAttribute('content')||el.textContent.trim());
-  return [{name,recipeInstructions,recipeIngredient:ingredients,recipeCategory:[...node.querySelectorAll('[itemprop~="recipeCategory"]')].map(el=>el.textContent.trim()),notes:get('[itemprop~="recipeNotes"],.wprm-recipe-notes,.tasty-recipes-notes,.notes'),prepTime:get('[itemprop~="prepTime"]'),cookTime:get('[itemprop~="cookTime"]'),totalTime:get('[itemprop~="totalTime"]'),recipeYield:get('[itemprop~="recipeYield"]'),url:node.querySelector('[itemprop~="url"]')?.getAttribute('href')||doc.querySelector('link[rel="canonical"]')?.getAttribute('href')||''}];
+  return [{name,recipeInstructions,recipeIngredient:ingredients,recipeCategory:[...node.querySelectorAll('[itemprop~="recipeCategory"]')].map(el=>el.textContent.trim()),notes:get('[itemprop~="recipeNotes"],.wprm-recipe-notes,.tasty-recipes-notes,.notes'),prepTime:get('[itemprop~="prepTime"]'),cookTime:get('[itemprop~="cookTime"]'),totalTime:get('[itemprop~="totalTime"]'),recipeYield:get('[itemprop~="recipeYield"]')||recipeCardServingsText(node),url:node.querySelector('[itemprop~="url"]')?.getAttribute('href')||doc.querySelector('link[rel="canonical"]')?.getAttribute('href')||''}];
  });
 }
 function mergeRecipeCardInstructions(records,cards){
@@ -286,15 +294,26 @@ function completeRecipeFields(r,source=''){
  const cleanup=cleanupRecipeInstructions(recipeImportInstructionValue(r)),noteParts=cleanImportedRecipeNotes(r.recipeNotes??r.notes??r.note??r.description??'',typeof r.url==='string'?r.url:source||originalRecipeUrl);
  return {recipeImportReferences:mergeRecipeImportReferences(recipeImportLinkedReferences(r),cleanup.related,noteParts.related),name:normalizeRecipeText(r.name||r.title||''),ingredients:recipeImportIngredients(r).map(ingredientLine).filter(Boolean),instructions:cleanup.instructions.map(cleanInstructionBlock),notes:noteParts.notes,prep:recipeImportMinutes(r.prepTime??r.prep_time??r.activeTime??r.prep),cook:recipeImportMinutes(r.cookTime??r.cook_time??r.cook),total:recipeImportMinutes(r.totalTime??r.total_time??r.total),marinate,originalRecipeUrl,servings:recipeImportServings(r.recipeYield??r.yield??r.servings??r.serves)};
 }
+// Lines a reader service copies from ads, image placeholders and link-only widgets (v431).
+function recipeTextJunkLine(line){
+ const value=String(line||'').replace(/!\[[^\]]*\]\([^)]*\)/g,'').trim();
+ if(!value)return String(line||'').trim()!=='';
+ return /^\[[^\]]*\]\([^)]*\)$/.test(value)||/^(?:report ad|advertisement|sponsored(?: content)?|ad)$/i.test(value);
+}
 function recipeTextSections(text){
- const lines=String(text||'').split(/\r?\n/);let mode='',instructions=[],notes=[];
- for(const line of lines){const heading=line.trim().replace(/^#{1,6}\s*/, '').replace(/\*\*/g,'').replace(/:$/,'');
-  if(/^(?:instructions|directions|method|preparation|cooking instructions)$/i.test(heading)){mode='instructions';continue}
-  if(/^(?:notes|recipe notes|tips)$/i.test(heading)){mode='notes';continue}
+ const lines=String(text||'').split(/\r?\n/);let mode='',modeLevel=0,section=null,notes=[];const instructionSections=[];
+ for(const line of lines){const heading=line.trim().replace(/^#{1,6}\s*/, '').replace(/\*\*/g,'').replace(/:$/,''),level=(line.trim().match(/^(#{1,6})\s/)||[,''])[1].length;
+  if(/^(?:instructions|directions|method|preparation|cooking instructions)$/i.test(heading)){mode='instructions';modeLevel=level||7;section=[];instructionSections.push(section);continue}
+  if(/^(?:notes|recipe notes|tips)$/i.test(heading)){mode='notes';modeLevel=level||7;continue}
   if(/^(?:nutrition|nutrition facts|comments|reviews|equipment|ingredients)$/i.test(heading)){mode='';continue}
-  if(/^\s*[-=]{3,}\s*$/.test(line))continue;
-  if(mode==='instructions')instructions.push(line);else if(mode==='notes')notes.push(line);
+  // Any other Markdown heading at the same or a higher level starts a new part of the page (v431).
+  if(mode&&level&&level<=modeLevel){mode='';continue}
+  if(/^\s*[-=]{3,}\s*$/.test(line)||recipeTextJunkLine(line))continue;
+  if(mode==='instructions')section.push(line);else if(mode==='notes')notes.push(line);
  }
+ // A page can have a short method in the article and the full one in the recipe card: keep the fuller one.
+ const stepCount=part=>part.filter(line=>line.trim()&&!/^#{1,6}\s/.test(line.trim())).length;
+ const instructions=instructionSections.reduce((best,part)=>stepCount(part)>stepCount(best)?part:best,[]);
  if(!instructions.length&&/URL Source:\s*https?:\/\/(?:android\.)?recipesage\.com\//i.test(String(text))&&/Markdown Content:/i.test(String(text))){
   const body=String(text).split(/Markdown Content:\s*\n/i).slice(1).join('\n').trim();
   const numbered=[...body.matchAll(/^\s*(?:\*\*(\d+)\*\*|(\d+)[.)])\s*(\S.*)$/gm)];
@@ -328,8 +347,17 @@ function extractCompleteRecipe(payload,source='',expectedName=''){
  if(best){const fields=completeRecipeFields(best,source);if(!exact.length&&!byUrl.length&&usable.length>1){fields.instructions=[];fields.instructionWarning='Several recipes were found; instructions need manual review.'}if(fields.ingredients.length||fields.instructions.some(block=>block.type==='step'))return fields}
  const readerSource=(raw.match(/^URL Source:\s*(https?:\/\/\S+)/m)||[])[1];if(readerSource&&source&&recipeReferenceUrl(readerSource)!==recipeReferenceUrl(source))return null;
  const parts=recipeTextSections(raw),ingredients=extractRecipeIngredients(raw);
- if(parts.instructions.some(block=>block.type==='step')||ingredients.length)return {...parts,name:parts.name||'',ingredients,prep:'',cook:'',total:'',marinate:'',originalRecipeUrl:source};
+ // textOnly (v431): read from a plain-text version of the page, so the user is asked to check it.
+ if(parts.instructions.some(block=>block.type==='step')||ingredients.length)return {...parts,name:parts.name||'',ingredients,prep:'',cook:'',total:'',marinate:'',originalRecipeUrl:source,servings:recipeTextServings(raw),textOnly:!/<(?:!doctype|html|body)\b/i.test(raw.slice(0,20000))};
  return null;
+}
+// 'Servings 8', 'Serves: 4', 'Yield: 6 servings' lines in a plain-text page (v431).
+function recipeTextServings(text){
+ for(const raw of String(text||'').split(/\r?\n/).slice(0,6000)){
+  const line=raw.replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/[*_#]/g,'').trim(),match=/^(servings?|serves|yields?)\b\s*:?\s*(.{1,40})$/i.exec(line);
+  if(!match)continue;const value=recipeImportServings(/^serv/i.test(match[1])?'servings '+match[2]:match[2]);if(value!=='')return value;
+ }
+ return '';
 }
 function fillMissingRecipeContent(target,details){
  if(!details)return false;let changed=false;
@@ -873,12 +901,12 @@ function openRecipeImportSourcePicker(initial='website'){
  review.onclick=async()=>{
   const current=++generation;controller?.abort();controller=new AbortController();review.disabled=true;status.textContent='Reading recipe…';
   try{
-   let items=[],filename='import';
+   let items=[],filename='import',websiteNotice='';
    if(method==='file'){const file=fields.file.files?.[0];if(!file)throw Error('Choose a recipe file.');items=await recipeImportReadFile(file);filename=file.name}
    else if(method==='trello'){let url;try{url=new URL(fields.board.value.trim())}catch(_){throw Error('Enter a complete Trello board URL.')};if(url.protocol!=='https:'||!['trello.com','www.trello.com'].includes(url.hostname)||!/^\/b\/[a-z0-9]{6,}/i.test(url.pathname))throw Error('Enter a link beginning with https://trello.com/b/');const response=await fetch('https://trello.com/b/'+encodeURIComponent(url.pathname.split('/')[2])+'.json',{credentials:'omit',signal:controller.signal});if(!response.ok)throw Error('Trello blocked access. Export the board as JSON and use Recipe file.');items=recipeImportItems(await response.json());filename='Trello board'}
-   else if(method==='website'){const lines=await importIngredientsFromWebsite(fields.url.value.trim(),controller.signal);const details=lines.recipeDetails||{};items=[{...details,ingredients:lines.length?[...lines]:(details.ingredients||[]),name:details.name||'Imported recipe',url:fields.url.value.trim()}]}
+   else if(method==='website'){const lines=await importIngredientsFromWebsite(fields.url.value.trim(),controller.signal);const details=lines.recipeDetails||{};websiteNotice=websiteImportWarning(lines);items=[{...details,ingredients:lines.length?[...lines]:(details.ingredients||[]),name:details.name||'Imported recipe',url:fields.url.value.trim()}]}
    else{const text=fields.text.value.trim();if(!text)throw Error('Enter recipe text first.');const details=extractCompleteRecipe(text)||recipeTextSections(text);if(!details.ingredients?.length&&!details.instructions?.some(step=>step.type==='step'))details.notes=details.notes||text;items=[{...details,name:details.name||text.split(/\r?\n/)[0].replace(/^Title:\s*/i,'').trim()||'Imported recipe',ingredients:details.ingredients||extractRecipeIngredients(text)}]}
-   if(current!==generation||!d.overlay.isConnected)return;if(!items.length)throw Error('No recipes were found. Check the selected source.');d.navigate=true;d.close();await groupHistorySettled;await editorHistorySettled;await reviewRecipeImportItems(items,filename);
+   if(current!==generation||!d.overlay.isConnected)return;if(!items.length)throw Error('No recipes were found. Check the selected source.');d.navigate=true;d.close();await groupHistorySettled;await editorHistorySettled;if(websiteNotice)await showAppMessage(websiteNotice);await reviewRecipeImportItems(items,filename);
   }catch(e){if(current===generation&&d.overlay.isConnected)status.textContent=e.message||'Import could not be read. No recipes changed.'}finally{if(current===generation)review.disabled=false}
  };
  d.panel.append(methods,body,status,actions);show(initial);

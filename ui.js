@@ -4187,6 +4187,7 @@ function openTopIngredientChooser(meal,options={}){
         mergeGroceryImport(result.lines);pendingRecipeDetails=result.lines.recipeDetails;
         if(choice==='other')pendingIngredientImportUrl=url;
         else pendingIngredientImportUrl='';
+        const notice=websiteImportWarning(result.lines);if(notice)showAppMessage(notice);
       }
     }catch(e){
       if(!progress.signal.aborted&&overlay.isConnected)showAppMessage(e.message||'Ingredients could not be imported.');
@@ -4360,11 +4361,14 @@ function recipeIngredientsFromMarkdown(markdown){
   let best=[];
   for(let i=0;i<source.length;i++){
     const heading=source[i].trim().replace(/^#{1,6}\s*/, '').replace(/\*\*/g,'').replace(/:$/,'').trim();
-    if(!/^ingredients(?:\s+for\s+.{1,50})?$/i.test(heading))continue;
-    const candidates=[];let seenItem=false;
+    // v431: also the recipe-card heading with its unit/scale buttons ('Ingredients US Customary Metric 1x 2x').
+    if(!/^ingredients(?:\s+for\s+.{1,50}|\s+(?:us\s*customary|metric).*|\s+[\d.]+x\b.*)?$/i.test(heading))continue;
+    const candidates=[];let seenItem=false;const startLevel=(source[i].trim().match(/^#{1,6}(?=\s)/)||[''])[0].length||7;
     for(let j=i+1;j<Math.min(source.length,i+135);j++){
-      const line=source[j].trim();
-      if(/^#{1,6}\s/.test(line)&&seenItem)break;
+      const line=source[j].trim(),level=(line.match(/^(#{1,6})\s/)||[,''])[1].length;
+      // v431: a heading at the same or a higher level is the next section, even before any item.
+      if(level&&(seenItem||level<=startLevel))break;
+      if(recipeTextJunkLine(line))continue;
       if(/^(?:directions|instructions|method|steps|preparation|nutrition|notes|equipment|reviews|you(?:'|’)ll need|how to make|print recipe|related recipes)\b/i.test(line.replace(/^#{1,6}\s*/,''))&&seenItem)break;
       if(!line){if(seenItem&&source.slice(j+1,j+4).every(x=>!x.trim()))break;continue}
       if(/^\*\*[\d./¼½¾⅓⅔⅛⅜⅝⅞]+\*\*\s+\S/.test(line)){candidates.push(line.replace(/\*\*/g,''));seenItem=true}
@@ -4376,8 +4380,8 @@ function recipeIngredientsFromMarkdown(markdown){
       }else if(seenItem&&/^(?:\w+[\s'-]*){1,6}:$/.test(line)){continue}
       else if(seenItem)break;
     }
-    const lines=uniqueIngredientLines(candidates);
-    if(lines.length>best.length)best=lines;
+    const lines=uniqueIngredientLines(candidates),score=list=>list.filter(x=>/^(?:[\d¼½¾⅓⅔⅛⅜⅝⅞]|(?:a|an|one|two|three|half)\s)/i.test(x)).length*1000+list.length;
+    if(score(lines)>score(best))best=lines;
   }
   return best.length>=2?best:[];
 }
@@ -4395,6 +4399,12 @@ function extractRecipeIngredients(payload){
   }
   return recipeIngredientsFromMarkdown(value);
 }
+// v431: say so when a website import may be wrong or incomplete (shown after the import, never blocks it).
+function websiteImportWarning(lines){
+ if(lines?.textOnly||lines?.recipeDetails?.textOnly)return 'This website could only be read as plain text, so the ingredients and steps may be wrong or incomplete. Please check them before saving.';
+ if(lines?.recipeDetails?.instructionWarning)return 'Ingredients were found, but the steps could not be read reliably. Please check them, or add the steps yourself.';
+ return '';
+}
 async function importIngredientsFromWebsite(value,externalSignal,expectedName=''){
  let parsed;try{parsed=new URL(value)}catch(e){throw Error('Enter a valid recipe URL to import ingredients.')}
  if(!['http:','https:'].includes(parsed.protocol))throw Error('Enter a valid website URL.');
@@ -4405,7 +4415,7 @@ async function importIngredientsFromWebsite(value,externalSignal,expectedName=''
    const response=await fetch(endpoint,{signal:controller.signal,credentials:'omit'});if(!response.ok)throw Error('The recipe website could not be read.');const raw=await response.text();if(raw.length>2500000)throw Error('Recipe page too large.');
    const details=extractCompleteRecipe(raw,address,expectedName),ingredients=details?.ingredients?.length?uniqueIngredientLines(details.ingredients,Infinity):extractRecipeIngredients(raw);
    if(!ingredients.length&&!details?.instructions?.some(block=>block.type==='step'))throw Error('No supported recipe details found.');
-   ingredients.recipeDetails=details;return ingredients;
+   ingredients.recipeDetails=details;ingredients.textOnly=!!details?.textOnly||!details&&!/<(?:!doctype|html|body)\b/i.test(raw.slice(0,20000));return ingredients;
   }finally{clearTimeout(timer);externalSignal?.removeEventListener('abort',abort)}
  }
  const complete=result=>result?.length&&result?.recipeDetails?.instructions?.some(block=>block.type==='step');let partial=null;
@@ -4414,9 +4424,9 @@ async function importIngredientsFromWebsite(value,externalSignal,expectedName=''
  const results=await Promise.allSettled(readers.map(endpoint=>request(endpoint)));
  if(externalSignal?.aborted)throw Error('Recipe import cancelled.');
  const successes=results.filter(result=>result.status==='fulfilled').map(result=>result.value);
- const best=successes.find(complete)||partial||successes[0];
+ const best=successes.find(result=>complete(result)&&!result.textOnly)||(partial&&!partial.textOnly&&partial.length?partial:null)||successes.find(complete)||partial||successes[0];
  if(!best)throw Error('Recipe details could not be imported from this website. Your saved recipe is unchanged; you can add instructions manually.');
- if(!best.length&&partial?.length){const details={...best.recipeDetails,ingredients:[...partial]};const combined=[...partial];combined.recipeDetails=details;return combined}
+ if(!best.length&&partial?.length){const details={...best.recipeDetails,ingredients:[...partial]};const combined=[...partial];combined.recipeDetails=details;combined.textOnly=!!(best.textOnly||partial.textOnly);return combined}
  if(!complete(best)&&best.recipeDetails)best.recipeDetails.instructionWarning='Ingredients were retrieved, but reliable cooking instructions were unavailable. Retry from the saved URL or add them manually.';
  return best;
 }
@@ -5207,6 +5217,7 @@ $('ingredientLinkButton').onclick=async()=>{
       applyImportedRecipeDraft(result.lines.recipeDetails);
       // The import source remains independently editable from the recipe URL.
       ingredientImportUrl=choice==='other'?importUrl:'';
+      const notice=websiteImportWarning(result.lines);if(notice)showAppMessage(notice);
     }
   }catch(e){
     if(!progress.signal.aborted&&editId===m.id)showAppMessage(e.message||'Ingredients could not be imported. You can type them manually.');
