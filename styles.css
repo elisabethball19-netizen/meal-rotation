@@ -1875,11 +1875,12 @@ body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{
 .recipe-import-field textarea{resize:vertical;min-height:100px;max-height:35dvh;}
 .recipe-import-popup p{margin:0;}
 /* v435: 'Import recipe' row under the name and times of a new, empty recipe. */
-#editor .meal-card-import{display:flex;align-items:center;gap:8px;margin-top:10px;}
+#editor .meal-card-import{display:flex;align-items:center;gap:8px;margin:0 0 10px;}
 #editor .meal-card-import[hidden]{display:none;}
 #editor .meal-card-import-label{flex:1;font-weight:600;font-size:15px;}
 /* v435: the + buttons of Meal Groups / Serve with reach 9px past the box; never let the editor slide sideways. */
 #editor .meal-editor-fields{overflow-x:hidden;}
+#editor .meal-card-times>.meal-card-time-field.meal-card-time-wrapped{flex-grow:0!important;}
 /* v433: keep Review recipe visible above the phone keyboard (the dialog body scrolls behind it). */
 .recipe-import-popup .meal-unified-actions{position:sticky;bottom:0;background:#fff;z-index:1;padding-top:8px;}
 /* v434: the shared dialog rule hides overflow with !important; this dialog must scroll so the focused box can move above the sticky row. */

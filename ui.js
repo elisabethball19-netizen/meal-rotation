@@ -4427,24 +4427,28 @@ async function importIngredientsFromWebsite(value,externalSignal,expectedName=''
  let parsed;try{parsed=new URL(value)}catch(e){throw Error('Enter a valid recipe URL to import ingredients.')}
  if(!['http:','https:'].includes(parsed.protocol))throw Error('Enter a valid website URL.');
  const address=parsed.href,readers=['https://api.allorigins.win/raw?url='+encodeURIComponent(address),'https://r.jina.ai/'+address];
- async function request(endpoint,limit=14000){
+ // v436: readers get 25 s (large pages through r.jina.ai can take longer than 14 s); failures keep a short reason.
+ const failure=(message,reason)=>{const error=Error(message);error.importReason=reason;return error};
+ const reasonOf=error=>externalSignal?.aborted?'cancelled':error?.importReason||(error?.name==='AbortError'?'took too long':error instanceof TypeError?'blocked or could not connect':'could not be read');
+ async function request(endpoint,limit=25000){
   const controller=new AbortController(),abort=()=>controller.abort();if(externalSignal?.aborted)controller.abort();externalSignal?.addEventListener('abort',abort,{once:true});const timer=setTimeout(abort,limit);
   try{
-   const response=await fetch(endpoint,{signal:controller.signal,credentials:'omit'});if(!response.ok)throw Error('The recipe website could not be read.');const raw=await response.text();if(raw.length>2500000)throw Error('Recipe page too large.');
+   const response=await fetch(endpoint,{signal:controller.signal,credentials:'omit'});if(!response.ok)throw failure('The recipe website could not be read.','error '+response.status);const raw=await response.text();if(raw.length>2500000)throw failure('Recipe page too large.','page too large');
    const details=extractCompleteRecipe(raw,address,expectedName),ingredients=details?.ingredients?.length?uniqueIngredientLines(details.ingredients,Infinity):extractRecipeIngredients(raw);
-   if(!ingredients.length&&!details?.instructions?.some(block=>block.type==='step'))throw Error('No supported recipe details found.');
+   if(!ingredients.length&&!details?.instructions?.some(block=>block.type==='step'))throw failure('No supported recipe details found.','no recipe found');
    ingredients.recipeDetails=details;ingredients.textOnly=!!details?.textOnly||!details&&!/<(?:!doctype|html|body)\b/i.test(raw.slice(0,20000));
    ingredients.doubtful=!!details?.doubtful||!details&&ingredients.textOnly;return ingredients;
   }finally{clearTimeout(timer);externalSignal?.removeEventListener('abort',abort)}
  }
  const complete=result=>result?.length&&result?.recipeDetails?.instructions?.some(block=>block.type==='step');let partial=null;
- if(parsed.protocol==='https:'){try{const result=await request(address,4500);if(complete(result))return result;partial=result}catch(e){if(externalSignal?.aborted)throw e}}
+ let directReason='not tried';
+ if(parsed.protocol==='https:'){try{const result=await request(address,4500);if(complete(result))return result;partial=result;directReason='partly read'}catch(e){if(externalSignal?.aborted)throw e;directReason=reasonOf(e)}}
  if(externalSignal?.aborted)throw Error('Recipe import cancelled.');
  const results=await Promise.allSettled(readers.map(endpoint=>request(endpoint)));
  if(externalSignal?.aborted)throw Error('Recipe import cancelled.');
  const successes=results.filter(result=>result.status==='fulfilled').map(result=>result.value);
  const best=successes.find(result=>complete(result)&&!result.textOnly)||(partial&&!partial.textOnly&&partial.length?partial:null)||successes.find(complete)||partial||successes[0];
- if(!best)throw Error('Recipe details could not be imported from this website. Your saved recipe is unchanged; you can add instructions manually.');
+ if(!best){const reasons=results.map(result=>result.status==='fulfilled'?'read':reasonOf(result.reason));throw Error('Recipe details could not be imported from this website. Your saved recipe is unchanged; you can add instructions manually. (Website: '+directReason+'; reader 1: '+reasons[0]+'; reader 2: '+reasons[1]+'.)')}
  if(!best.length&&partial?.length){const details={...best.recipeDetails,ingredients:[...partial]};const combined=[...partial];combined.recipeDetails=details;combined.textOnly=!!(best.textOnly||partial.textOnly);combined.doubtful=!!(best.doubtful||partial.doubtful);return combined}
  if(!complete(best)&&best.recipeDetails)best.recipeDetails.instructionWarning='Ingredients were retrieved, but reliable cooking instructions were unavailable. Retry from the saved URL or add them manually.';
  return best;
@@ -4605,6 +4609,7 @@ function ingredientDialog(title,build){
   panel.setAttribute('aria-label',title);panel.style.cssText='background:#fff;color:#242424;border-radius:16px;padding:22px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 12px 36px #0003';
   const heading=document.createElement('div');heading.textContent=title;heading.style.cssText='font-size:19px;font-weight:600;margin-bottom:16px';panel.append(heading);
   const close=()=>shade.remove();build(panel,close);shade.append(panel);document.body.append(shade);
+  fitOneTimeMealViewport(shade,panel); // v436: stay above the phone keyboard
   return {close,panel};
 }
 function ingredientModalButton(label,onClick){
@@ -5284,13 +5289,7 @@ async function importWholeRecipeFromPhoto(file){
   }finally{clearTimeout(deadline);progress.close()}
 }
 {const editorRoot=document.querySelector('#editor .editor');if(editorRoot){editorRoot.wholeRecipeImport=(kind,file)=>kind==='link'?importWholeRecipeFromLink():importWholeRecipeFromPhoto(file);editorRoot.wholeRecipeIsEmpty=wholeRecipeIsEmpty}}
-// Adding a link under 'No recipe link' on an empty recipe offers to import it (asked once per link).
-{let offered='';$('url').addEventListener('change',async()=>{
-  const url=$('url').value.trim();let valid=false;try{valid=['http:','https:'].includes(new URL(url).protocol)}catch(_){}
-  if(!valid||url===offered||!wholeRecipeIsEmpty()||editId!==m.id)return;offered=url;
-  const yes=await new Promise(resolve=>ingredientDialog('Import this recipe?',(panel,close)=>{const p=document.createElement('p');p.textContent='Import the recipe from this link? Only empty parts are filled in.';p.style.cssText='font-size:16px;margin:0 0 16px';panel.append(p);const row=document.createElement('div');row.style.cssText='display:flex;gap:12px;justify-content:center';row.append(ingredientModalButton('Import',()=>{close();resolve(true)}),ingredientModalButton('Not now',()=>{close();resolve(false)}));panel.append(row)}));
-  if(yes&&editId===m.id&&wholeRecipeIsEmpty())importWholeRecipeFromLink(url);
-})}
+// v436: the 'Import the recipe from this link?' offer on the recipe link box was removed (the Import row covers it).
 async function importFromIngredientPhoto(file){
   if(!file||!file.type.startsWith('image/'))return;
   const progress=showImportProgressDialog('Reading ingredients from photo…');
@@ -5457,13 +5456,16 @@ $('cancel').onclick=()=>{mealPersistence.cancelOwner('recipe:'+m.id);rollbackEdi
    else{const input=document.createElement('input');input.type='file';input.accept='image/*';input.hidden=true;if(kind==='camera')input.setAttribute('capture','environment');input.onchange=()=>{const file=input.files?.[0];input.value='';if(file)root.wholeRecipeImport?.('photo',file)};button.onclick=()=>input.click();importRow.append(input)}
    importRow.append(button);
   }
-  info.append(importRow);
+  nameSlot.before(importRow); // v436: above the name - import first, or type a name below
  }if(keyboard)info.append(keyboard);const rotationControl=root.querySelector('#recipeStatus');if(rotationControl)info.append(rotationControl);if(cooked)info.append(cooked);
  if(newRecipeDraftId!==meal.id&&!meal._scheduledEditorDraft){const cookedEdit=document.createElement('button');cookedEdit.type='button';cookedEdit.className='meal-editor-last-cooked';const live=()=>meals.find(record=>record.id===meal.id)||meal;const sync=()=>{setLastCookedValue(cookedEdit,live());cookedEdit.setAttribute('aria-label',cookedEdit.textContent+' — Edit last cooked date')};sync();cookedEdit.onclick=()=>editMealCookedDate(live(),sync);info.append(cookedEdit)}
  function refresh(){
   nameText.data=nameInput.value.trim()||'Untitled meal';warning.hidden=!$('editNeedsTweaking').checked;if(importRow.isConnected)importRow.hidden=root.wholeRecipeIsEmpty?!root.wholeRecipeIsEmpty():false;
   for(const item of bindings)if(item.caption){const value=item.input.value.trim(),parsed=item.caption==='marinate'||item.caption==='serves'?null:parseDurationInput(value);if(item.caption==='serves'){item.button.textContent=value?'serves '+value:'— serves';continue}item.button.textContent=(value?(item.caption==='marinate'?(displayMarinateTime(value)||value):Number.isFinite(parsed)?time(parsed):value):'—')+' '+item.caption}
  }
+ // v436: mark chips that wrapped onto a later line so they keep their own width (no full-width 'serves').
+ const markWrapped=()=>{if(!root.isConnected){window.removeEventListener('resize',relayout);return}const chips=[...times.children];chips.forEach(chip=>chip.classList.remove('meal-card-time-wrapped'));const top=chips[0]?.offsetTop;for(const chip of chips)if(chip.offsetTop>top+2)chip.classList.add('meal-card-time-wrapped')};
+ const relayout=()=>requestAnimationFrame(markWrapped);root.addEventListener('input',relayout);root.addEventListener('focusout',relayout);window.addEventListener('resize',relayout);relayout();
  root.addEventListener('input',refresh);root.addEventListener('change',refresh);root.refreshCard=refresh;
  const originalRefresh=root.refreshIndicators;root.refreshIndicators=()=>{originalRefresh?.();refresh()};refresh();if(!meal.name?.trim())nameOpen();
 }

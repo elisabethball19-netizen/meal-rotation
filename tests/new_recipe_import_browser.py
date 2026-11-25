@@ -1,4 +1,4 @@
-"""v435: 'Import recipe' row (link / photo / camera) on a new, empty recipe; the recipe link box offers to import on an
+"""v435/v436: 'Import recipe' row (link / photo / camera) on a new, empty recipe; the recipe link box offers to import on an
 empty recipe; plain-text ingredient lists; the editor never slides sideways.
 Run: python3 -m http.server 8765 (repo root), then python3 tests/new_recipe_import_browser.py"""
 import asyncio, os, base64
@@ -69,14 +69,23 @@ async def check(page_name, browser):
     camera = await ev("()=>[...document.querySelectorAll('#editor .meal-card-import input[type=file]')].map(i=>i.getAttribute('capture'))")
     assert camera == [None, 'environment'], camera
 
-    # 3. The recipe link box offers to import on an empty recipe
+    # 3. (v436) No import offer on the recipe link box; the row sits above the name; failures say why.
     await new_recipe(103)
+    assert await ev("()=>{const row=document.querySelector('#editor .meal-card-import');return !!row&&row.nextElementSibling===document.querySelector('#editor .meal-card-name-field')}")
     await ev("()=>{const u=document.getElementById('url');u.hidden=false;u.value='%s';u.dispatchEvent(new Event('input',{bubbles:true}));u.dispatchEvent(new Event('change',{bubbles:true}))}" % URL)
     await pg.wait_for_timeout(300)
-    assert await pg.get_by_text('Import the recipe from this link?').count() == 1
-    await pg.get_by_role('button', name='Import', exact=True).click(); await pg.wait_for_timeout(1200)
-    s = await ev(state)
-    assert s['name'] == 'Chicken Fried Rice' and s['ing'].startswith('2 cups cooked rice'), s
+    assert await pg.get_by_text('Import the recipe from this link?').count() == 0
+    msg = await ev("""async ()=>{const real=window.fetch;window.fetch=async u=>{u=String(u);if(u.includes('allorigins'))return new Response('',{status:503});if(u.includes('r.jina.ai'))return new Response('Title: x\\n\\nNothing here.');throw new TypeError('Failed to fetch')};
+      try{await importIngredientsFromWebsite('%s');return 'no error'}catch(e){return e.message}finally{window.fetch=real}}""" % URL)
+    assert '(Website: blocked or could not connect; reader 1: error 503; reader 2: no recipe found.)' in msg, msg
+    # The link dialog stays above a keyboard-height screen
+    await pg.set_viewport_size({'width': 390, 'height': 300}); await pg.wait_for_timeout(300)
+    await ev("()=>document.querySelector('#editor .meal-card-import [aria-label=\\'Import recipe from a website link\\']').click()")
+    await pg.wait_for_timeout(500)
+    vis = await pg.evaluate("""()=>{const b=[...document.querySelectorAll('button')].find(x=>x.textContent.trim()==='Import'&&x.offsetParent);const r=b.getBoundingClientRect();return {bottom:Math.round(r.bottom),h:innerHeight,hit:b.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))}}""")
+    assert vis['bottom'] <= vis['h'] and vis['hit'], vis
+    await pg.locator('button:visible', has_text='Cancel').last.click(); await pg.wait_for_timeout(200)
+    await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
 
     # 4. A recipe with content: no row, no offer
     await pg.locator('#editor button[aria-label="Save"]:visible').first.click(); await pg.wait_for_timeout(700)
@@ -90,6 +99,13 @@ async def check(page_name, browser):
     # 5. The editor cannot slide sideways
     r = await ev("()=>{const f=document.querySelector('#editor .meal-editor-fields');f.scrollLeft=9;return [f.scrollLeft,getComputedStyle(f).overflowX]}")
     assert r == [0, 'hidden'], r
+    # 6. (v436) a chip that wraps to a second line keeps its own width
+    await pg.locator('#editor button[aria-label="Save"]:visible').first.click(); await pg.wait_for_timeout(600)
+    await pg.set_viewport_size({'width': 340, 'height': 844}); await pg.wait_for_timeout(300)
+    await ev("()=>{meals.push({id:105,cat:'Mains',name:'Ribs',rotation:true,prep:'20',total:'210',marinate:'4-12 hrs',ingredients:['x'],instructions:[{type:'step',text:'Cook.'}]});render();openEditor(105)}")
+    await pg.wait_for_timeout(800)
+    r = await ev("()=>{const t=document.querySelector('#editor .meal-card-times'),c=[...t.children];return {rows:new Set(c.map(x=>x.offsetTop)).size,wrapped:c.filter(x=>x.classList.contains('meal-card-time-wrapped')).map(x=>Math.round(x.getBoundingClientRect().width)),row:Math.round(t.getBoundingClientRect().width)}}")
+    assert r['rows'] == 2 and r['wrapped'] and all(w < r['row'] * 0.6 for w in r['wrapped']), r
     assert not errors, errors
     await pg.close()
     print('PASS', page_name)
