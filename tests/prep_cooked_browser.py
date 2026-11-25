@@ -1,5 +1,5 @@
 """2026-11-24: an automatic defrost/marinate/sourdough reminder disappears once its meal's Last cooked date is on or after
-the day it was scheduled; manual tasks stay; an older Last cooked date does not hide it. Run: python3 tests/prep_cooked_browser.py
+the day it was scheduled; manual tasks hide the same way; an older Last cooked date does not hide it. Run: python3 tests/prep_cooked_browser.py
 """
 from playwright.sync_api import sync_playwright
 import start_week_window_browser as s
@@ -11,7 +11,7 @@ s.fixture.HOOK += '''window.pc={check:()=>{const mk=(auto,scheduled,last)=>({tas
 def run(browser, name):
     c, p, errors, prefix = s.fixture.setup(browser, name, navigation_timeout=30000)
     r = p.evaluate('pc.check()')
-    assert r == {'sameDay': True, 'later': True, 'older': False, 'none': False, 'manual': False, 'sour': True}, r
+    assert r == {'sameDay': True, 'later': True, 'older': False, 'none': False, 'manual': True, 'sour': True}, r
     assert not errors, errors
     c.close()
     print('PASS', name, 'automatic prep reminders hide once the meal is marked cooked', flush=True)

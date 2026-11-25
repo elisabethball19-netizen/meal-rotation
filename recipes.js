@@ -1667,10 +1667,10 @@ function shopEarlyReminderRow(item){
  row.append(check,text);return row;
 }
 // A carried-over sourdough reminder is dropped once the day it was for has passed (its planned meal is gone).
-// An automatic reminder also goes once its meal is marked cooked: the meal's Last cooked date is on or after the day it was
-// scheduled (2026-11-24, her 2026-11-20 decision). Manual tasks are never hidden this way.
+// Any reminder, automatic or manual, also goes once its meal is marked cooked: the meal's Last cooked date is on or after
+// the day it was scheduled (2026-11-24: manual tasks work the same as automatic ones).
 function prepMealCookedOnOrAfter(item){
- if(!/^(defrost|marinating|sourdough-)/.test(item.task?.autoPrep||'')||typeof item.scheduled!=='string')return false;
+ if(typeof item.scheduled!=='string')return false;
  const when=item.entry?.meal?.lastCooked?new Date(item.entry.meal.lastCooked):null;return !!when&&!Number.isNaN(when.getTime())&&cookingLocalDate(when)>=item.scheduled;
 }
 function stalePrepReminder(item,today=cookingLocalDate(new Date())){if(prepMealCookedOnOrAfter(item))return true;const due=realPreparationDue(item);if(/^sourdough-/.test(item.task?.autoPrep||''))return typeof item.scheduled==='string'&&item.scheduled<today;return /^(defrost|marinating)$/.test(item.task?.autoPrep||'')&&!!due&&due<today}
