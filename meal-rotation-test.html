@@ -6230,7 +6230,7 @@ function installMasterGroupDragging(wrap,reset){
    const final=accepted?drag.order:drag.before,top=drag.card.getBoundingClientRect().top;
    for(const category of final){const card=drag.nodes.find(card=>card.dataset.category===category);if(card){card.style.removeProperty('order');card.style.removeProperty('--group-closed-height');wrap.append(card)}}
    wrap.classList.remove('master-group-drag-active');drag.card.classList.remove('master-group-dragging');drag.ghost?.remove();
-   reset.hidden=!!groupReorderState||!weekdayGroupOrderNeedsReset();
+   if(reset)reset.hidden=!!groupReorderState||!weekdayGroupOrderNeedsReset();
    if(accepted&&changed){window.scrollBy({top:drag.card.getBoundingClientRect().top-top,behavior:'instant'})}else window.scrollTo({top:drag.originalScroll,behavior:'instant'});
    drag.focus?.isConnected&&drag.focus.focus({preventScroll:true});
   }
@@ -10584,7 +10584,16 @@ function openMasterCategoryEditMenu(category,draft=null){
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
  const actions=document.createElement('div');actions.className='meal-unified-actions';
  for(const [kind,title,action]of [['save','Save group changes',()=>{try{saveMealGroupSettings(category,field.value.trim(),use.checked,use.checked&&auto.checked);d.close()}catch(problem){error.textContent=problem.message}}],['delete','Delete group',()=>{d.close();groupHistorySettled.then(()=>openCategoryDeleteDialog(category))}],['cancel','Cancel group editing',()=>d.close()]]){const button=document.createElement('button');button.type='button';setIconButton(button,kind,title);button.onclick=action;if(kind==='delete')button.disabled=isBuiltinSides(category);actions.append(button)}
- const reorder=organizeDragHandle('Reorder groups',()=>{});reorder.title='Save group changes and reorder groups';reorder.onclick=()=>{try{const name=field.value.trim();saveMealGroupSettings(category,name,use.checked,use.checked&&auto.checked);d.close();groupHistorySettled.then(()=>beginGroupReorder(name,null))}catch(problem){error.textContent=problem.message}};actions.insertBefore(reorder,actions.lastElementChild);d.panel.append(field,label,autoLabel,autoHint,error,actions);decoratePreferenceSwitches(d.panel);
+d.panel.append(field,label,autoLabel,autoHint,error,actions);decoratePreferenceSwitches(d.panel);
+}
+// Meal Groups title-bar More menu: layout, reorder groups and (only while a custom order is active) reset group order.
+function openGroupsPageMenu(){
+ const dialog=compactMealDialog('Meal Groups','Meal Groups options');dialog.box.classList.add('meal-options-compact');dialog.box.querySelector('h3,strong')?.classList.add('meal-options-recipe-title');dialog.box.querySelector('button')?.setAttribute('aria-label','Close meal groups options');
+ const row=(icon,label,action)=>{const button=document.createElement('button');button.type='button';button.className='smallbtn meal-full-action meal-option-row more-option-row';button.innerHTML='<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icon+'</svg><span class="more-option-text"><span class="more-option-label"></span></span>';button.querySelector('.more-option-label').textContent=label;button.onclick=()=>dialog.run(action);dialog.box.append(button)};
+ const two=groupsLayoutPref()==='two';
+ row(two?'<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/>':'<rect x="3" y="4" width="7.5" height="16" rx="1.5"/><rect x="13.5" y="4" width="7.5" height="16" rx="1.5"/>',two?'One column':'Two columns',()=>{try{localStorage.setItem('mealRotationGroupsLayoutV1',two?'compact':'two')}catch(e){}renderList({readOnly:true})});
+ row('<path d="M8 5h.01M16 5h.01M8 12h.01M16 12h.01M8 19h.01M16 19h.01" stroke-width="3.4"/>','Reorder groups',()=>beginGroupReorder('',null));
+ if(weekdayGroupOrderNeedsReset())row(appIconSvg.repeat,'Reset group order',()=>{if(resetWeekdayGroupOrder())renderList()});
 }
 let groupReorderState=null;
 function beginGroupReorder(category,draft){
@@ -11477,8 +11486,8 @@ function renderMasterCategories(list){
  const controls=document.createElement('div');controls.className='master-expansion-controls';
  const addGroup=document.createElement('button');addGroup.type='button';addGroup.className='iconbtn master-add-group';addGroup.textContent='+';addGroup.title='Add group';addGroup.setAttribute('aria-label','Add group');
  addGroup.onclick=async()=>{let n=await appDialog('New group name','','prompt');if(n&&n.trim()){try{n=createMealGroup(n)}catch(e){await showAppMessage(e.message);return}active=n;persist();const groupResult=await chooseExistingMealsForNewGroup(n.trim());if(groupResult==='delete'){cats=cats.filter(c=>c!==n.trim());active=cats[0]||'';persist();openMasterCategories()}else openMasterCategories(n.trim())}};
- const layoutBtn=document.createElement('button');layoutBtn.type='button';layoutBtn.className='iconbtn master-layout-toggle';{const two=groupsLayoutPref()==='two';layoutBtn.innerHTML=two?'<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>';layoutBtn.title=two?'Show groups in one column':'Show groups in two columns';layoutBtn.setAttribute('aria-label',layoutBtn.title);layoutBtn.onclick=()=>{try{localStorage.setItem('mealRotationGroupsLayoutV1',two?'compact':'two')}catch(e){}renderList({readOnly:true})}}wrap.dataset.groupsLayout=groupsLayoutPref();controls.append(layoutBtn,addGroup);if(groupReorderState){controls.replaceChildren();for(const [icon,label,commit]of [['save','Finish reordering groups',true],['cancel','Cancel reordering groups',false]]){const button=document.createElement('button');button.type='button';button.className='iconbtn';setIconButton(button,icon,label);if(commit){button.append(document.createTextNode('Done'));button.classList.add('group-reorder-done')}button.onclick=()=>finishGroupReorder(commit);controls.append(button)}}heading.append(controls);wrap.append(heading);if(!groupReorderState)appendRotationSetupPrompt(wrap);
- const resetOrder=document.createElement('button');resetOrder.type='button';resetOrder.className='master-order-reset';resetOrder.textContent='Reset to Weekday Order';resetOrder.hidden=!!groupReorderState||!weekdayGroupOrderNeedsReset();resetOrder.onclick=()=>{if(resetWeekdayGroupOrder())renderList()};wrap.append(resetOrder);
+ const layoutBtn=document.createElement('button');layoutBtn.type='button';layoutBtn.className='iconbtn master-layout-toggle';setIconButton(layoutBtn,'more','More options for Meal Groups');layoutBtn.onclick=openGroupsPageMenu;wrap.dataset.groupsLayout=groupsLayoutPref();controls.append(layoutBtn,addGroup);if(groupReorderState){controls.replaceChildren();for(const [icon,label,commit]of [['save','Finish reordering groups',true],['cancel','Cancel reordering groups',false]]){const button=document.createElement('button');button.type='button';button.className='iconbtn';setIconButton(button,icon,label);if(commit){button.append(document.createTextNode('Done'));button.classList.add('group-reorder-done')}button.onclick=()=>finishGroupReorder(commit);controls.append(button)}}heading.append(controls);wrap.append(heading);if(!groupReorderState)appendRotationSetupPrompt(wrap);
+
  // With visible tabs, group headers summarize the actual recipes scheduled
  // across all tabs. With tabs hidden, retain the existing single-plan display.
  const scheduledDaysByGroup=new Map();
@@ -11609,7 +11618,7 @@ function renderMasterCategories(list){
   (sectioned&&groupSections.get(sectionOf(category))||wrap).append(card);
  }
  if(!cats.length&&!hasUnassigned){const empty=document.createElement('div');empty.textContent='No groups yet. Tap + to add one.';wrap.append(empty)}
- list.append(wrap);restoreGroupReturnScroll();if(recipeBulkMode)updateRecipeBulkUI();installMasterGroupDragging(wrap,resetOrder);installUpNextDragging(wrap);
+ list.append(wrap);restoreGroupReturnScroll();if(recipeBulkMode)updateRecipeBulkUI();installMasterGroupDragging(wrap,null);installUpNextDragging(wrap);
 }
 let mealSlotDragCleanup=null;
 function saveMealSlotOrder(ids){

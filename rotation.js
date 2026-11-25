@@ -679,7 +679,7 @@ function installMasterGroupDragging(wrap,reset){
    const final=accepted?drag.order:drag.before,top=drag.card.getBoundingClientRect().top;
    for(const category of final){const card=drag.nodes.find(card=>card.dataset.category===category);if(card){card.style.removeProperty('order');card.style.removeProperty('--group-closed-height');wrap.append(card)}}
    wrap.classList.remove('master-group-drag-active');drag.card.classList.remove('master-group-dragging');drag.ghost?.remove();
-   reset.hidden=!!groupReorderState||!weekdayGroupOrderNeedsReset();
+   if(reset)reset.hidden=!!groupReorderState||!weekdayGroupOrderNeedsReset();
    if(accepted&&changed){window.scrollBy({top:drag.card.getBoundingClientRect().top-top,behavior:'instant'})}else window.scrollTo({top:drag.originalScroll,behavior:'instant'});
    drag.focus?.isConnected&&drag.focus.focus({preventScroll:true});
   }
