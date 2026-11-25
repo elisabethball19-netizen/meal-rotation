@@ -8925,16 +8925,12 @@ function openCategoryDeleteDialog(category){
  if(isBuiltinSides(category)){showAppMessage('This is the built-in Sides group. You can rename or reorder it, but cannot delete it.');return}
  if(!category||!cats.includes(category))return;
  const count=meals.filter(m=>m.cat===category).length;
- const overlay=document.createElement('div');
- overlay.id='categoryDeleteDialog';
- overlay.style.cssText='position:fixed;inset:0;z-index:16000;background:#0008;display:flex;align-items:center;justify-content:center;padding:16px';
- const panel=document.createElement('div');
- panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','categoryDeleteHeading');
- panel.style.cssText='width:100%;max-width:480px;max-height:90vh;overflow-y:auto;background:#fff;color:#242424;border-radius:16px;padding:20px;box-shadow:0 12px 36px #0003';
- const heading=document.createElement('div');heading.id='categoryDeleteHeading';heading.textContent='Delete “'+category+'” group?';heading.style.cssText='font-size:19px;font-weight:600;margin-bottom:10px';
- const explanation=document.createElement('p');explanation.textContent=count?count+' '+(count===1?'recipe':'recipes')+' in this group. Recipes that exist only here are deleted with it; shared recipes stay in their other groups.':'This group has no recipes.';explanation.style.cssText='font-size:14px;line-height:1.4;color:#666;margin:0 0 12px';
- const choices=document.createElement('div');choices.style.cssText='display:flex;flex-direction:column;gap:4px;margin-bottom:10px';
- const radio=(value,label)=>{const row=document.createElement('label');row.className='settings-display-option';row.style.cssText='min-height:44px;display:flex;align-items:center;gap:10px';const input=document.createElement('input');input.type='radio';input.name='categoryDeleteMode';input.style.cssText='margin:0;flex:0 0 20px';input.value=value;row.append(input,document.createTextNode(label));choices.append(row);return input};
+ const d=recipeBulkDialog('Delete “'+category+'” group?');d.overlay.id='categoryDeleteDialog';d.overlay.classList.add('recipe-delete-dialog');
+ const overlay=d.overlay,panel=d.panel,heading=null;
+ const explanation=document.createElement('p');explanation.textContent=count?count+' '+(count===1?'recipe':'recipes')+' in this group':'This group has no recipes.';explanation.className='recipe-bulk-names-line';explanation.style.cssText='font-size:17px;margin:4px 0 14px';
+ const info=document.createElement('p');info.className='muted recipe-bulk-note';info.textContent='Recipes that exist only here are deleted with it; shared recipes stay in their other groups.';
+ const choices=document.createElement('div');choices.className='recipe-delete-reasons';choices.setAttribute('role','radiogroup');choices.setAttribute('aria-label','What to do with the recipes');
+ const radio=(value,label)=>{const row=document.createElement('label');row.className='recipe-bulk-choice';const input=document.createElement('input');input.type='radio';input.name='categoryDeleteMode';input.value=value;row.append(input,document.createTextNode(label));choices.append(row);return input};
  const deleteRadio=radio('delete','Delete group and its recipes'),keepRadio=radio('keep','Delete group, but keep recipes');keepRadio.checked=true;
  const UNASSIGNED='__unassigned__',NEW_GROUP='__create_new_category__';
  const options=cats.filter(c=>c!==category);
@@ -8944,7 +8940,7 @@ function openCategoryDeleteDialog(category){
  const destButton=document.createElement('button');destButton.type='button';destButton.className='smallbtn';destButton.setAttribute('aria-label','Move recipes to group');destButton.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:9px 12px;font-size:16px;text-align:left';
  const destText=document.createElement('span');const destChevron=document.createElementNS('http://www.w3.org/2000/svg','svg');destChevron.setAttribute('viewBox','0 0 24 24');destChevron.setAttribute('width','20');destChevron.setAttribute('height','20');destChevron.setAttribute('fill','none');destChevron.setAttribute('stroke','currentColor');destChevron.setAttribute('stroke-width','2');destChevron.setAttribute('stroke-linecap','round');destChevron.setAttribute('stroke-linejoin','round');destChevron.innerHTML='<path d="m6 9 6 6 6-6"/>';destButton.append(destText,destChevron);
  const newName=document.createElement('input');newName.type='text';newName.setAttribute('aria-label','New group name');newName.placeholder='New group name';newName.style.cssText='display:none;width:100%;min-height:44px;padding:9px;border:1px solid #ccc;border-radius:9px;background:#fff;color:#242424';
- const moveControls=document.createElement('div');moveControls.style.cssText='display:flex;flex-direction:column;gap:10px;margin:0 0 10px 30px';
+ const moveControls=document.createElement('div');moveControls.style.cssText='display:flex;flex-direction:column;gap:10px;margin:8px 0 10px 30px';
  const error=document.createElement('div');error.setAttribute('role','alert');error.style.cssText='display:none;font-size:13px;color:#a33';
  const syncNew=()=>{destText.textContent=destLabel(destination.value);newName.style.display=destination.value===NEW_GROUP?'block':'none';error.style.display='none';moveControls.style.display=keepRadio.checked?'flex':'none'};
  destButton.onclick=()=>{
@@ -8954,24 +8950,22 @@ function openCategoryDeleteDialog(category){
  };
  keepRadio.onchange=deleteRadio.onchange=syncNew;syncNew();
  function finish(kind,target){
-  if(!cats.includes(category)){overlay.remove();return}
+  if(!cats.includes(category)){d.close();return}
   if(kind==='move'){
    if(target===NEW_GROUP){target=newName.value.trim();if(!target){error.textContent='Enter a name for the new group.';error.style.display='block';newName.focus();return}}
    if(target!==UNASSIGNED){const existing=cats.find(c=>c.toLowerCase()===target.toLowerCase());if(existing)target=existing;if(target===category){error.textContent='Choose a different group.';error.style.display='block';return}}
   }
   try{removeMealCategory(category,kind,target)}catch(e){error.textContent='Could not update group. No changes saved.';error.style.display='block';return}
-  overlay.remove();
+  d.close();
  }
  const confirm=document.createElement('button');confirm.type='button';confirm.className='smallbtn';setIconButton(confirm,'save','Confirm deleting group');
  const cancel=document.createElement('button');cancel.type='button';cancel.className='smallbtn';setIconButton(cancel,'cancel','Cancel group deletion');
- cancel.style.cssText='border:0;background:transparent;min-width:60px;min-height:44px';
- confirm.onclick=()=>count&&keepRadio.checked?finish('move',destination.value):finish('delete',null);
- cancel.onclick=()=>overlay.remove();
- overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};
- const actions=document.createElement('div');actions.className='category-delete-actions';actions.style.cssText='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:center;width:100%;margin-top:4px';actions.append(confirm,cancel);
+  confirm.onclick=()=>count&&keepRadio.checked?finish('move',destination.value):finish('delete',null);
+ cancel.onclick=()=>d.close();
+ const actions=document.createElement('div');actions.className='meal-unified-actions';actions.append(confirm,cancel);
  moveControls.append(moveLabel,destButton,newName,error);
- panel.append(heading,explanation);if(count){choices.append(moveControls);panel.append(choices)}else panel.append(error);panel.append(actions);overlay.append(panel);document.body.append(overlay);trackGroupPopup(overlay,()=>overlay.remove());if(typeof decoratePreferenceSwitches==='function')decoratePreferenceSwitches(panel);
- (count?keepRadio:confirm).focus({preventScroll:true});overlay.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();overlay.remove()}if(e.key==='Tab'){const controls=[...panel.querySelectorAll('button,input,select')].filter(el=>el.getClientRects().length&&!el.disabled),first=controls[0],last=controls.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}};
+ panel.append(explanation);if(count){choices.append(moveControls);panel.append(choices,info)}else panel.append(error);panel.append(actions);
+ (count?keepRadio:confirm).focus({preventScroll:true});overlay.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();d.close()}if(e.key==='Tab'){const controls=[...panel.querySelectorAll('button,input,select')].filter(el=>el.getClientRects().length&&!el.disabled),first=controls[0],last=controls.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}};
 }
 function removeMealCategory(category,action,target){
  if(isBuiltinSides(category))throw Error('The built-in Sides group can be renamed or reordered, but cannot be deleted.');

@@ -47,7 +47,7 @@ def run(browser, name):
     full = p.evaluate('ng.full()')
     p.evaluate("n=>ng.del(n)", full); p.wait_for_timeout(300)
     radios = p.locator('#categoryDeleteDialog input[type=radio]')
-    labels = p.locator('#categoryDeleteDialog label.settings-display-option').all_inner_texts()
+    labels = p.locator('#categoryDeleteDialog label.recipe-bulk-choice').all_inner_texts()
     assert labels == ['Delete group and its recipes', 'Delete group, but keep recipes'], labels
     assert radios.count() == 2 and not radios.nth(0).is_checked() and radios.nth(1).is_checked()
     btn = p.locator('#categoryDeleteDialog button[aria-label="Move recipes to group"]')
