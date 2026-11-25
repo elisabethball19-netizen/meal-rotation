@@ -20,7 +20,10 @@ s.fixture.HOOK += '''window.aisec={
  toGroup:name=>{const m=meals.find(x=>x.name===name);m.cat='Rice';persist();return Object.hasOwn(m,'aiRecipe')},
  backup:()=>{const b=recipeBulkBackupAPI.capture();recipeBulkBackupAPI.validate(b);return true},
  badBackup:()=>{const m=meals.find(x=>x.aiRecipe);m.aiRecipe='yes';try{validateBackupCore({...JSON.parse(captureState()),meals:[m]});return 'accepted'}catch(e){return e.message}finally{m.aiRecipe=true}},
- soup:()=>meals.filter(m=>m.name==='AI Soup').map(m=>[m.cat,!!m.aiRecipe]),
+ soup:()=>meals.filter(m=>m.name==='AI Soup').map(m=>[m.cat,!!m.aiRecipe,recipeStatus(m),m.upNextStar===true]),
+ oldPin:()=>{meals.push({id:41,name:'Old pinned',cat:'Rice',rotation:false,recipeStatus:'up-next',upNextStar:true,ingredients:[],groceryDefaultAll:true,url:''});persist();placeUpNextFirst(meals.find(m=>m.id===41))},
+ riceOffMenu:()=>normalizedUpNextOrder().map(id=>meals.find(m=>String(m.id)===id)).filter(m=>m&&m.cat==='Rice').map(m=>m.name),
+ editLabel:()=>{const m=meals.find(x=>x.aiRecipe);openEditor(m.id);const t=document.querySelector('.meal-group-assigned-list')?.textContent;return t},
  loose:()=>{aisec.store().setItem('mealRotationAiSectionMigratedV1','none');meals.push({id:30,name:'Loose recipe',cat:'',rotation:false,recipeStatus:'ideas',ingredients:[],groceryDefaultAll:true,url:''});persist()},
  pie:()=>{meals.push({id:40,name:'AI Pie',cat:'',aiRecipe:true,rotation:false,recipeStatus:'ideas',ingredients:[],groceryDefaultAll:true,url:''});persist();aisec.groups()},
  flag:()=>aisec.store().getItem('mealRotationAiSectionMigratedV1')
@@ -80,7 +83,11 @@ def run(browser, name):
     text = section(p, 'ai').text_content()
     assert 'AI Soup' in text and 'AI Salad' in text, text
 
-    # Move to a real group through the section's Move button: marker removed, recipe now in Rice.
+    # The editor names the section instead of 'Unassigned'.
+    assert p.evaluate('aisec.editLabel()') == 'AI recipes'
+    p.reload(); p.wait_for_function('window.aisec'); p.wait_for_timeout(300); p.evaluate('aisec.groups()'); open_section(p, 'ai')
+    # Move to a real group through the section's Move button: marker removed, lands PINNED at the top of its Off menu.
+    p.evaluate('aisec.oldPin()'); p.evaluate('aisec.groups()'); open_section(p, 'ai')
     row = section(p, 'ai').locator('.unassigned-row', has_text='AI Soup')
     row.locator('input.check').check()
     section(p, 'ai').locator('.unassigned-move').click()
@@ -88,7 +95,8 @@ def run(browser, name):
     dialog.get_by_role('checkbox', name='Rice', exact=True).check()
     dialog.get_by_role('button', name='Confirm meal groups', exact=True).click(); p.wait_for_timeout(400)
     soup = p.evaluate("aisec.soup()")
-    assert soup and all(cat == 'Rice' and not flag for cat, flag in soup), soup
+    assert soup and all(cat == 'Rice' and not flag and status == 'up-next' and star for cat, flag, status, star in soup), soup
+    assert p.evaluate('aisec.riceOffMenu()')[:2] == ['AI Soup', 'Old pinned'], p.evaluate('aisec.riceOffMenu()')
     p.evaluate('aisec.groups()'); open_section(p, 'ai')
     assert 'AI Soup' not in section(p, 'ai').text_content()
     # Giving a group from anywhere else (e.g. the editor) also clears the marker.
