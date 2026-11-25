@@ -34,6 +34,14 @@ async def check(page_name, browser):
       const top=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return {bottom:Math.round(r.bottom),h:innerHeight,hit:b.contains(top)}}""")
     assert vis['bottom'] <= vis['h'] and vis['hit'], vis
     await pg.screenshot(path=f'/tmp/v433_{page_name}_keyboard.png')
+    # v434: on a shorter visible area (keyboard + autofill bar) the link box must not hide under the sticky row.
+    for height in (360, 300):
+        await pg.set_viewport_size({'width': 390, 'height': height}); await pg.wait_for_timeout(500)
+        vis = await pg.evaluate("""()=>{const b=[...document.querySelectorAll('.recipe-import-popup button')].find(x=>x.textContent.trim()==='Review recipe');const u=document.querySelector('.recipe-import-popup input[type=url]');
+          const rb=b.getBoundingClientRect(),ru=u.getBoundingClientRect(),hit=document.elementFromPoint(ru.left+20,ru.top+ru.height/2);
+          return {fieldBottom:Math.round(ru.bottom),buttonTop:Math.round(rb.top),buttonBottom:Math.round(rb.bottom),h:innerHeight,fieldHit:hit===u}}""")
+        assert vis['fieldBottom'] <= vis['buttonTop'] and vis['buttonBottom'] <= vis['h'] and vis['fieldHit'], (height, vis)
+        await pg.screenshot(path=f'/tmp/v434_{page_name}_{height}.png')
     await url.fill('https://www.example.com/recipe/'); await url.press('Enter'); await pg.wait_for_timeout(400)
     assert await pg.get_by_text('Importing recipe from website…').count() == 1
     await pg.locator('[aria-label="Cancel ingredient import"]').click(); await pg.wait_for_timeout(300)

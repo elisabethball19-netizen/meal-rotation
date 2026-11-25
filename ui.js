@@ -1266,7 +1266,9 @@ function fitOneTimeMealViewport(shade,box){
   const active=document.activeElement;if(!box.contains(active))return;
   let scroller=active.parentElement;while(scroller!==box&&scroller&&(!/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)||scroller.scrollHeight<=scroller.clientHeight))scroller=scroller.parentElement;
   if(!scroller)return;const bounds=scroller.getBoundingClientRect(),field=active.getBoundingClientRect();
-  if(shade.hasAttribute('data-viewer-recipe-draft')&&field.height>bounds.height-16)scroller.scrollTop+=field.top-bounds.top-8;else if(field.bottom>bounds.bottom-8)scroller.scrollTop+=field.bottom-bounds.bottom+8;
+  // v434: a sticky action row (Import recipes' Review recipe) covers the bottom edge; keep the field above it.
+  let limit=bounds.bottom;for(const el of scroller.children){const style=getComputedStyle(el);if(el!==active&&!el.contains(active)&&style.position==='sticky'&&style.bottom!=='auto')limit=Math.min(limit,el.getBoundingClientRect().top)}
+  if(shade.hasAttribute('data-viewer-recipe-draft')&&field.height>bounds.height-16)scroller.scrollTop+=field.top-bounds.top-8;else if(field.bottom>limit-8)scroller.scrollTop+=field.bottom-limit+8;
   else if(field.top<bounds.top+8)scroller.scrollTop-=bounds.top+8-field.top;
  };
  const fit=()=>{
