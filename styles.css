@@ -1874,6 +1874,8 @@ body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{
 .recipe-import-field input,.recipe-import-field textarea{width:100%;min-width:0;border:1px solid #bbb;border-radius:8px;padding:10px;font:inherit;}
 .recipe-import-field textarea{resize:vertical;min-height:100px;max-height:35dvh;}
 .recipe-import-popup p{margin:0;}
+/* v433: keep Review recipe visible above the phone keyboard (the dialog body scrolls behind it). */
+.recipe-import-popup .meal-unified-actions{position:sticky;bottom:0;background:#fff;z-index:1;padding-top:8px;}
 .import-side-review{border:0;padding:0;margin:4px 0;max-height:24dvh;overflow:auto;}
 .import-side-review legend{font-size:14px;font-weight:600;}
 .recipe-import-popup .meal-unified-actions{flex-shrink:0;}

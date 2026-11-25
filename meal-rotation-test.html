@@ -1738,6 +1738,8 @@ body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{
 .recipe-import-field input,.recipe-import-field textarea{width:100%;min-width:0;border:1px solid #bbb;border-radius:8px;padding:10px;font:inherit;}
 .recipe-import-field textarea{resize:vertical;min-height:100px;max-height:35dvh;}
 .recipe-import-popup p{margin:0;}
+/* v433: keep Review recipe visible above the phone keyboard (the dialog body scrolls behind it). */
+.recipe-import-popup .meal-unified-actions{position:sticky;bottom:0;background:#fff;z-index:1;padding-top:8px;}
 .import-side-review{border:0;padding:0;margin:4px 0;max-height:24dvh;overflow:auto;}
 .import-side-review legend{font-size:14px;font-weight:600;}
 .recipe-import-popup .meal-unified-actions{flex-shrink:0;}
@@ -7466,7 +7468,7 @@ function openRecipeImportSourcePicker(initial='website'){
  function show(next){
   generation++;controller?.abort();method=next;body.replaceChildren();status.textContent='';review.disabled=false;selectedPhoto=null;
   review.textContent=next==='file'?'Read recipe file':next==='trello'?'Read board':'Review recipe';
-  if(next==='website'){fields.url=field('Website link',document.createElement('input'));fields.url.type='url';fields.url.placeholder='https://…'}
+  if(next==='website'){fields.url=field('Website link',document.createElement('input'));fields.url.type='url';fields.url.placeholder='https://…';fields.url.enterKeyHint='go';fields.url.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();if(!review.disabled)review.click()}})}
   if(next==='text'){fields.text=field('Recipe text',document.createElement('textarea'));fields.text.rows=8;fields.text.placeholder='Title: Recipe name\nIngredients\n1 cup rice\nInstructions\nCook the rice.'}
   if(next==='photo'){
    hint('Choose a clear recipe photo. Recognized text is editable before review.');fields.text=field('Recognized recipe text',document.createElement('textarea'));fields.text.rows=6;
@@ -7476,7 +7478,7 @@ function openRecipeImportSourcePicker(initial='website'){
   if(next==='trello'){fields.board=field('Trello board link',document.createElement('input'));fields.board.type='url';fields.board.placeholder='https://trello.com/b/…';hint('Public boards may be readable directly. For private or blocked boards, select Recipe file and use Trello’s JSON export.')}
  }
  async function readPhoto(){const current=++generation;controller?.abort();controller=new AbortController();review.disabled=true;status.textContent='Reading photo…';try{if(await ingredientPhotoIsBlank(selectedPhoto))throw Error('No readable text found. Choose a clearer photo.');const text=await recognizeIngredientPhoto(selectedPhoto,controller.signal);if(current!==generation||!d.overlay.isConnected)return;fields.text.value=text;status.textContent='Check the recognized text, then review your recipe.'}catch(e){if(current===generation&&d.overlay.isConnected)status.textContent=e.message}finally{if(current===generation)review.disabled=false}}
- for(const [value,label]of [['website','Website link'],['photo','Photo or camera'],['text','Paste text'],['file','Recipe file'],['trello','Trello board link']]){const row=document.createElement('label'),radio=document.createElement('input');radio.type='radio';radio.name='recipeImportMethod';radio.value=value;radio.checked=value===initial;radio.onchange=()=>{if(radio.checked)show(value)};row.append(radio,document.createTextNode(label));methods.append(row)}
+ for(const [value,label]of [['website','Website link'],['photo','Photo'],['text','Paste text'],['file','Recipe file'],['trello','Trello board link']]){const row=document.createElement('label'),radio=document.createElement('input');radio.type='radio';radio.name='recipeImportMethod';radio.value=value;radio.checked=value===initial;radio.onchange=()=>{if(radio.checked)show(value)};row.append(radio,document.createTextNode(label));methods.append(row)}
  review.onclick=async()=>{
   const current=++generation;controller?.abort();controller=new AbortController();review.disabled=true;status.textContent='Reading recipe…';
   try{
