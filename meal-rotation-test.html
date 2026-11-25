@@ -8119,14 +8119,25 @@ function openGroceryRecipeSource(source){
  const target=context||future?groceryRecipeNavigation(meal,source):null;
  openSavedMealRecipe(meal,context,null,target);
 }
+// Shopping-list merging (2026-11-24): lines for the same ingredient that differ only in prep wording ("Cilantro" / "Chopped
+// cilantro", "1 medium onion" / "1 large onion") combine. This only decides grouping on the list; saved recipe text, check
+// keys and baseKey are untouched. Words that change the product (ground, dried, canned, frozen, cooked...) are kept apart.
+const groceryMergePrep=new Set(syncIngredientWords('a an the of chopped diced sliced minced grated shredded crushed peeled seeded deseeded thinly finely roughly thickly lightly fresh freshly medium large small packed rinsed drained trimmed halved quartered smashed squeezed torn'));
+function groceryMergeName(text){
+ const raw=String(text??''),cut=raw.split(/[,(]/)[0],words=syncIngredientWords(cut).filter(w=>!groceryMergePrep.has(w));
+ return (words.length?words:syncIngredientWords(raw)).join(' ');
+}
 function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeriod)){
  const groceries=new Map(),overrides=groceryTextOverrides();
  for(const source of sources){
   const line=groceryContributionText(source,overrides),quantity=groceryQuantityParts(line),baseKey=source.baseKey;
   // Combining follows shopping wording; checks retain their canonical source quantities.
-  const key=quantity?.key||'unmeasured:'+ingredientKey(line);
+  const key=quantity?'quantity:'+JSON.stringify([quantity.unit,groceryMergeName(quantity.name)]):'unmeasured:'+groceryMergeName(line);
   if(!groceries.has(key))groceries.set(key,{line,recipes:[],checkKeys:[],checkGroups:[],quantity:quantity?{...quantity,lo:0,hi:0}:null,baseKey,contributions:[]});
   const item=groceries.get(key);item.contributions.push(source);
+  // Merged wording: show the plainest version (fewest words) so 'Cilantro' wins over 'Chopped cilantro'.
+  if(!quantity&&item.contributions.length>1&&String(line).split(/\s+/).length<String(item.line).split(/\s+/).length)item.line=line;
+  if(quantity&&item.quantity&&String(quantity.name).split(/\s+/).length<String(item.quantity.name).split(/\s+/).length)item.quantity.name=quantity.name;
   if(!item.recipes.includes(source.mealName))item.recipes.push(source.mealName);
   if(!item.checkGroups.some(group=>group[0]===source.checkKeys[0]))item.checkGroups.push(source.checkKeys);
   for(const checkKey of source.checkKeys)if(!item.checkKeys.includes(checkKey))item.checkKeys.push(checkKey);
