@@ -1165,7 +1165,8 @@ function openHelpModal(){
   ['Navigation buttons','Use the bottom bar to open Meals, Week, Groceries, or Meal Groups.'],
   ['Days','See today, tomorrow and the next five days across your meal tabs, with the prep due each day. Tap a day to expand it and check off prep tasks.'],
   ['Grocery List','Review ingredients from the tabs you include; select, deselect, or hide checked groceries.'],
-  ['Settings and backups','Configure display and weekday options, export or restore backups. Review changes before saving or discarding.']
+  ['Settings and backups','Configure display and weekday options, export or restore backups. Review changes before saving or discarding.'],
+  ['Ask AI','Turn on Show Ask AI in Settings to get recipe ideas and help from an AI of your choice.']
  ]:[
   ['Open a group','Tap its heading or chevron to expand or collapse it. Opening one section closes the others.'],
   ['Edit a group','Tap its pencil to rename or delete it. Long-press a group name or blank card area and drag to save a custom display order. Reset to Weekday Order restores automatic ordering without changing assignments.'],

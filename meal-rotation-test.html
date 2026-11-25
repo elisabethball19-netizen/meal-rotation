@@ -6713,7 +6713,8 @@ function openHelpModal(){
   ['Navigation buttons','Use the bottom bar to open Meals, Week, Groceries, or Meal Groups.'],
   ['Days','See today, tomorrow and the next five days across your meal tabs, with the prep due each day. Tap a day to expand it and check off prep tasks.'],
   ['Grocery List','Review ingredients from the tabs you include; select, deselect, or hide checked groceries.'],
-  ['Settings and backups','Configure display and weekday options, export or restore backups. Review changes before saving or discarding.']
+  ['Settings and backups','Configure display and weekday options, export or restore backups. Review changes before saving or discarding.'],
+  ['Ask AI','Turn on Show Ask AI in Settings to get recipe ideas and help from an AI of your choice.']
  ]:[
   ['Open a group','Tap its heading or chevron to expand or collapse it. Opening one section closes the others.'],
   ['Edit a group','Tap its pencil to rename or delete it. Long-press a group name or blank card area and drag to save a custom display order. Reset to Weekday Order restores automatic ordering without changing assignments.'],
@@ -12128,8 +12129,11 @@ function shoppingLinkNode(text,refresh=()=>renderList()){
 function populateShoppingLinksSetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=shoppingLinksOn();check.onchange=()=>{try{if(check.checked)localStorage.setItem(SHOPPING_LINKS_KEY,'walmart');else localStorage.removeItem(SHOPPING_LINKS_KEY)}catch(e){}renderList()};label.append(check,document.createTextNode('Show "Find at Walmart" links on grocery items'));parent.append(label)}
 // Optional switch (default on): off hides the Ask AI tab and the recipe-page sparkle; saved tastes/links stay.
 const AI_FEATURES_KEY='mealRotationAiFeaturesV1';
-function aiFeaturesOn(){try{return localStorage.getItem(AI_FEATURES_KEY)!=='off'}catch(e){return true}}
-function populateAiFeaturesSetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=aiFeaturesOn();check.onchange=()=>{try{if(check.checked)localStorage.removeItem(AI_FEATURES_KEY);else localStorage.setItem(AI_FEATURES_KEY,'off')}catch(e){}if(!check.checked)aiTabActive=false;render()};label.append(check,document.createTextNode('Show Ask AI'));parent.append(label)}
+// Ask AI is off for a brand-new (empty) install and on for any install that already has data; the first check saves the choice
+// so an existing collection keeps Ask AI exactly as it was. Unreadable or paused storage never counts as a new install.
+function aiFreshInstall(){try{if(typeof meals==='undefined'||meals.length||(typeof mealPersistence!=='undefined'&&mealPersistence.paused))return false;const raw=localStorage.getItem('mealRotationDataV1');if(raw===null)return true;const core=JSON.parse(raw);return Array.isArray(core.meals)&&!core.meals.length}catch(e){return false}}
+function aiFeaturesOn(){try{let value=localStorage.getItem(AI_FEATURES_KEY);if(value!=='on'&&value!=='off'){value=value===null&&aiFreshInstall()?'off':'on';localStorage.setItem(AI_FEATURES_KEY,value)}return value==='on'}catch(e){return true}}
+function populateAiFeaturesSetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=aiFeaturesOn();check.onchange=()=>{try{localStorage.setItem(AI_FEATURES_KEY,check.checked?'on':'off')}catch(e){}if(!check.checked)aiTabActive=false;render()};label.append(check,document.createTextNode('Show Ask AI'));const help=document.createElement('small');help.className='settings-display-option-help';help.textContent='Get recipe ideas and help from an AI of your choice.';label.append(help);parent.append(label)}
 function populateAiTargetSetting(parent){
  const set=document.createElement('fieldset');set.className='collapsed-card-options ai-target-options';set.setAttribute('aria-label','AI to open for Ask AI');set.hidden=!aiFeaturesOn();
  for(const [key,label]of [['claude','Claude'],['chatgpt','ChatGPT'],['copilot','Copilot'],['perplexity','Perplexity'],['gemini','Gemini (copy, then paste)'],['copy','Just copy the request']]){
