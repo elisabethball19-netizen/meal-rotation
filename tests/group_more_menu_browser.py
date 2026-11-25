@@ -18,7 +18,7 @@ def run(browser, name):
     more = p.locator('.group-section-organize').first
     assert more.get_attribute('aria-label').startswith('More options'), more.get_attribute('aria-label')
     items = lambda: p.locator('.compact-meal-dialog button.meal-option-row').all_inner_texts()
-    done = lambda: p.locator('.recipe-bulk-actions button', has_text='Done').click()
+    done = lambda: p.locator('.organize-mode-done, .recipe-bulk-actions button:has-text("Done")').first.click()
     more.click(); p.wait_for_timeout(300)
     assert items() == ['Move or copy to group', 'Reorder meals', 'Move to Off menu', 'Delete meals'], items()
     # select mode: checkboxes, Move or copy, no Delete

@@ -2698,3 +2698,14 @@ body.recipe-organize-left .master-categories .master-category-meal:not(.meal-car
 body.recipe-organize-left .master-categories .master-category-meal>.organize-row-status,body.recipe-organize-left .master-categories .master-category-meal>.organize-drag-handle,body.recipe-organize-left .master-categories .master-category-meal>.organize-row-delete{grid-column:1!important;grid-row:1!important;display:grid!important;place-items:center;width:44px!important;height:44px!important;min-width:44px;margin:0!important;justify-self:start!important;align-self:center}
 body.recipe-organize-left .master-categories .master-category-meal:has(>.organize-row-status,>.organize-drag-handle,>.organize-row-delete)>.master-meal-info{grid-column:2!important;grid-row:1}
 .organize-row-delete{border:0;background:transparent;color:#444;cursor:pointer;touch-action:manipulation}.organize-row-delete svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+/* v417: single-action Meal Groups modes show Done on the Regulars / Off menu row; the select bar is a compact pill */
+.organize-mode-bar{display:flex;align-items:center;gap:10px;margin-left:auto;padding-left:8px}
+.master-category-group-head>.organize-mode-bar{position:absolute;right:8px;top:0;height:44px;margin:0;padding:0}
+.organize-mode-label{font-size:13px;color:#555;white-space:nowrap}
+.organize-mode-done{min-height:36px;padding:0 16px;border:1px solid #8fa0b3;border-radius:999px;background:#fff;color:#263b50;font:inherit;font-weight:500;cursor:pointer}
+.master-category-header>.organize-mode-bar{margin-right:6px}
+#recipeBulkToolbar{width:auto!important;max-width:calc(100% - 24px)!important;display:flex!important;align-items:center;gap:6px;padding:4px 8px 4px 16px!important;border:1px solid #8fa0b3!important;border-radius:999px!important;box-shadow:0 3px 14px #0003!important}
+#recipeBulkToolbar .recipe-bulk-count{max-height:none;margin:0;font-size:14px;white-space:nowrap}
+#recipeBulkToolbar .recipe-bulk-actions{display:flex;flex-direction:row;gap:4px}
+#recipeBulkToolbar .recipe-bulk-actions>button.recipe-bulk-labeled-action{flex-direction:row!important;align-items:center;gap:6px!important;min-width:0!important;min-height:44px;padding:4px 12px!important;border-radius:999px;font-size:14px}
+#recipeBulkToolbar .recipe-bulk-actions>button svg{width:20px;height:20px}
