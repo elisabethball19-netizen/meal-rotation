@@ -3341,8 +3341,8 @@ function normalizeRecipeStatus(meal){
  meal.recipeStatus=recipeStatus(meal);return meal;
 }
 // Display names only (approved rename); saved status values are unchanged.
-function recipeStatusLabel(status){return status==='rotation'?'Regulars':'Off menu'}
-function recipeStatusChoices(){return [['rotation','Regulars'],['up-next','Off menu']]}
+function recipeStatusLabel(status){return status==='rotation'?'In rotation':'Not in rotation'}
+function recipeStatusChoices(){return [['rotation','In rotation'],['up-next','Not in rotation']]}
 
 const RECIPE_VIEW_PREFS_KEY='mealRotationRecipeViewPrefsV1';
 let recipeViewPrefs={mode:'full',ratio:.4,landscapeRatio:.5,syncIngredients:true,autoCompleteIngredients:true,keepScreenAwake:true,autoOpenLinkedRecipes:true,timerAlarmVolume:.8};
@@ -4755,7 +4755,7 @@ function saveMakeAheadDisplayPrefs(){try{testStorage.setItem(MAKE_AHEAD_DISPLAY_
 function populateMakeAheadSetting(parent){
  const add=(key,text,container)=>{const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=makeAheadDisplayPrefs[key];check.onchange=()=>{makeAheadDisplayPrefs[key]=check.checked;saveMakeAheadDisplayPrefs();children.hidden=!makeAheadDisplayPrefs.showMakeAheadReminders;renderList()};label.append(check,document.createTextNode(text));container.append(label)};
  const children=document.createElement('div');children.className='automatic-prep-settings';children.hidden=!makeAheadDisplayPrefs.showMakeAheadReminders;
- add('showMakeAheadReminders','Show Make Ahead Reminders',parent);add('automaticMarinating','Automatic marinating reminders',children);add('automaticDefrost','Automatic defrost reminders',children);
+ add('showMakeAheadReminders','Show make ahead reminders',parent);add('automaticMarinating','Automatic marinating reminders',children);add('automaticDefrost','Automatic defrost reminders',children);
  const hint=document.createElement('p');hint.className='muted';hint.textContent='Defrost reminders default to the night before.';children.append(hint);add('automaticSourdough','Automatic sourdough reminders',children);const sourdoughHint=document.createElement('p');sourdoughHint.className='muted';sourdoughHint.textContent='Feed your starter two days before, and start the bread the day before.';children.append(sourdoughHint);parent.append(children);
 }
 function setMakeAheadComplete(item,checked){
@@ -4879,15 +4879,15 @@ function preparationTaskDraft(meal,shown,drafts){
 }
 function makeAheadTiming(days,hours){return hours!==undefined?hours===0?'Same day':hours+' hour'+(hours===1?'':'s')+' before':days===0?'Same day':days===1?'1 day before':days+' days before'}
 function buildMakeAheadEditor(meal,before=$('editorNotesSection'),options={}){
- const group=mealEditorSubsection('ahead','Make Ahead','recipeMakeAhead',meal),box=group.details,body=group.content;body.classList.add('make-ahead-editor');
+ const group=mealEditorSubsection('ahead','Make ahead','recipeMakeAhead',meal),box=group.details,body=group.content;body.classList.add('make-ahead-editor');
  const changed=()=>box.dispatchEvent(new Event('change',{bubbles:true}));
  function taskRow(task={},after=null){
   const row=document.createElement('div');row.className='make-ahead-task-editor prep-task-row';row.dataset.taskId=task.id||'prep-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
-  const description=document.createElement('textarea');description.rows=3;description.className='make-ahead-description';description.placeholder='Preparation task';description.setAttribute('aria-label','Preparation task');description.value=task.description||'';
+  const description=document.createElement('textarea');description.rows=3;description.className='make-ahead-description';description.placeholder='What to prepare';description.setAttribute('aria-label','What to prepare');description.value=task.description||'';
   const timing=document.createElement('div');timing.className='make-ahead-lead';
-  const number=document.createElement('input');number.type='number';number.inputMode='decimal';number.min='0';number.step='any';number.className='make-ahead-days';number.setAttribute('aria-label','Preparation lead time');number.value=String(task.hoursBefore??task.daysBefore??0);
+  const number=document.createElement('input');number.type='number';number.inputMode='decimal';number.min='0';number.step='any';number.className='make-ahead-days';number.setAttribute('aria-label','Remind me this long ahead');number.value=String(task.hoursBefore??task.daysBefore??0);
   const unit=document.createElement('input');unit.type='hidden';unit.value=task.hoursBefore!==undefined?'hours':'days';
-  const units=document.createElement('div');units.className='meal-editor-segmented';units.setAttribute('role','group');units.setAttribute('aria-label','Preparation lead time unit');
+  const units=document.createElement('div');units.className='meal-editor-segmented';units.setAttribute('role','group');units.setAttribute('aria-label','Unit for the reminder time');
   for(const [value,text]of [['hours','Hours'],['days','Days']]){const option=document.createElement('button');option.type='button';option.textContent=text;option.dataset.leadUnit=value;option.setAttribute('aria-pressed',String(unit.value===value));option.onclick=()=>{unit.value=value;for(const button of units.querySelectorAll('button'))button.setAttribute('aria-pressed',String(button===option));changed()};units.append(option)}
   timing.append(number,unit,units);const hint=document.createElement('small');hint.className='muted make-ahead-timing-hint';hint.hidden=validMakeAheadLead(task)||task.id===undefined;hint.textContent=hint.hidden?'':'Saved lead time: '+String(task.hoursBefore??task.daysBefore)+' '+(task.hoursBefore!==undefined?'hours':'days')+' (retained until edited).';
   const initial={number:number.value,unit:unit.value},untouched=()=>number.value===initial.number&&unit.value===initial.unit;
@@ -6440,8 +6440,8 @@ function showRelatedMeals(meal){
  const unique=[...new Map(related.map(other=>[other.linkGroup||String(other.id),other])).values()];
  if(!unique.length)return;
  const shade=document.createElement('div');shade.className='shared-groups-shade';
- const panel=document.createElement('div');panel.className='shared-groups-panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Meals linked to '+(meal.name||'this recipe'));
- const heading=document.createElement('h3');heading.textContent='Meals linked to '+(meal.name||'this recipe');panel.append(heading);
+ const panel=document.createElement('div');panel.className='shared-groups-panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Shared meals: '+(meal.name||'this recipe'));
+ const heading=document.createElement('h3');heading.textContent='Shared meals: '+(meal.name||'this recipe');panel.append(heading);
  unique.forEach(target=>{const button=document.createElement('button');button.type='button';button.className='shared-groups-choice';button.textContent=(target.name||'Untitled meal')+' — '+target.cat;button.onclick=()=>{shade.remove();openMasterCategories(target.cat);requestAnimationFrame(()=>{const card=[...document.querySelectorAll('.master-category-card')].find(x=>x.dataset.category===target.cat);const row=card&&[...card.querySelectorAll('[data-meal-id]')].find(x=>x.dataset.mealId===String(target.id));if(row)row.scrollIntoView({block:'center',behavior:'smooth'})})};panel.append(button)});
  const close=document.createElement('button');close.type='button';close.className='shared-groups-close';setIconButton(close,'cancel','Close');close.setAttribute('aria-label','Close');close.onclick=()=>shade.remove();panel.append(close);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.append(panel);document.body.append(shade);close.focus();
 }
@@ -6737,7 +6737,7 @@ function openHelpModal(){
  const title=document.createElement('h2');title.textContent=top?'Meals help':'Meal Groups help';title.style.cssText='margin:0';
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close');close.style.flex='0 0 44px';close.onclick=()=>overlay.remove();header.append(title,close);
  const content=document.createElement('div');content.style.cssText='padding:10px 20px 20px;overflow-y:auto;overscroll-behavior:contain';
- const intro=document.createElement('p');intro.textContent=top?'The Meals page displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into Regulars and Off menu. Expand a group to manage its meals.';content.append(intro);
+ const intro=document.createElement('p');intro.textContent=top?'The Meals page displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into In rotation and Not in rotation. Expand a group to manage its meals.';content.append(intro);
  const items=top?[
   ['Meal-plan tabs','Choose a tab to see its own weekday assignments. Long-press a tab to rename, reorder, or delete it.'],
   ['Tap a displayed meal','Open the recipe. Use its chevron for planning, editing, groceries, sides, Favorite and Last cooked.'],
@@ -6754,9 +6754,9 @@ function openHelpModal(){
   ['Edit a group','Tap its pencil to rename or delete it. Long-press a group name or blank card area and drag to save a custom display order. Reset to Weekday Order restores automatic ordering without changing assignments.'],
   ['Add a meal','Tap + to add a meal to the selected group.'],
   ['Edit a meal','Choose Edit meal from its meal actions. The editor opens beneath the selected meal.'],
-  ['Move a regular meal','Tap its up or down arrow to move it to the top or bottom of the group; hold to move one position.'],
-  ['Recipe status','Choose Regulars or Off menu in the recipe status control.'],
-  ['Linked meals','Linked recipes can appear in more than one group; linked changes may affect their other appearances.'],
+  ['Move a meal in rotation','Tap its up or down arrow to move it to the top or bottom of the group; hold to move one position.'],
+  ['Recipe status','Choose In rotation or Not in rotation in the recipe status control.'],
+  ['Shared meals','Shared recipes can appear in more than one group; changes to one may affect their other appearances.'],
   ['Last cooked','Shows the latest recorded cooking date when enabled.'],
   ['Navigation','Use the bottom bar to open Meals, Week, Groceries, or Meal Groups.']
  ];
@@ -7127,7 +7127,7 @@ async function recipeImportReadFile(file){
 // Existing app exports retain saved status; other sources keep the importer's default.
 function recipeImportStatus(record,defaultRotation){
  const legacy=String(record.recipeStatus??record.status??'').trim().toLowerCase();
- const named={'ideas':'back-burner','back burner':'back-burner','back-burner':'back-burner','up next':'up-next','up-next':'up-next','in rotation':'rotation','rotation':'rotation','regulars':'rotation','regular':'rotation','off menu':'back-burner','off-menu':'back-burner'}[legacy];
+ const named={'ideas':'back-burner','back burner':'back-burner','back-burner':'back-burner','up next':'up-next','up-next':'up-next','in rotation':'rotation','rotation':'rotation','regulars':'rotation','regular':'rotation','off menu':'back-burner','not in rotation':'back-burner','off-menu':'back-burner'}[legacy];
  const status=named||(typeof record.rotation==='boolean'?(record.rotation?'rotation':'back-burner'):null);
  return status?{recipeStatus:status==='rotation'?'rotation':'up-next',upNextStar:typeof record.upNextStar==='boolean'?record.upNextStar:status==='up-next',rotation:status==='rotation',keepAsIdea:status!=='rotation'}:{rotation:defaultRotation,upNextStar:false,keepAsIdea:!defaultRotation};
 }
@@ -7882,7 +7882,7 @@ function displaySectionSave(key){try{if(key)testStorage.setItem(displaySectionKe
 function displaySectionsApplyExpiry(){const live=displaySectionLoad();for(const open of document.querySelectorAll('.settings-subgroup[open]'))if(open.dataset.displaySection!==live)open.open=false}
 function displaySubgroups(parent){
  const remembered=displaySectionLoad(),list=[],subs={};
- for(const [key,title,hasSwitch] of [['general','General',false],['cards','Meal cards',false],['make','Make Ahead reminders',true],['groceries','Groceries',false],['ai','Ask AI',true]]){
+ for(const [key,title,hasSwitch] of [['general','General',false],['cards','Meal cards',false],['make','Make ahead reminders',true],['groceries','Groceries',false],['ai','Ask AI',true]]){
   const details=document.createElement('details');details.className='settings-subgroup';details.dataset.displaySection=key;
   const summary=document.createElement('summary'),arrow=document.createElementNS('http://www.w3.org/2000/svg','svg');arrow.setAttribute('class','settings-subarrow');arrow.setAttribute('viewBox','0 0 24 24');arrow.setAttribute('aria-hidden','true');arrow.innerHTML='<path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/>';
   const name=document.createElement('span');name.className='settings-subname';name.textContent=title;const status=document.createElement('span');status.className='settings-substatus';
@@ -8337,7 +8337,7 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
      cb.onchange=()=>{if(cb.checked)excludedMeals.delete(key);else excludedMeals.add(key)};
      mealChecks.push(cb);label.append(cb,document.createTextNode(meal.name));section.append(label);
     }
-    if(!entries.size){const empty=document.createElement('p');empty.textContent='No regular meals';empty.className='muted';empty.style.margin='6px 0 6px 22px';section.append(empty)}
+    if(!entries.size){const empty=document.createElement('p');empty.textContent='No meals in rotation';empty.className='muted';empty.style.margin='6px 0 6px 22px';section.append(empty)}
     planCheck.onchange=()=>{if(planCheck.checked)excludedPlans.delete(String(plan.id));else excludedPlans.add(String(plan.id));mealChecks.forEach(cb=>cb.disabled=!planCheck.checked)};
     body.append(section);
    }
@@ -8783,7 +8783,7 @@ let actions=document.createElement('div');actions.className='tab-actions';let un
 
 topPanel=document.createElement('div');topPanel.id='topSettingsPanel';topPanel.className='settings-sections';renderTopSettingsPanel=function(){
   topPanel.innerHTML='';
-  const weekGroup=makeSettingsGroup('weekdays','Weekday Setup');
+  const weekGroup=makeSettingsGroup('weekdays','Weekly schedule');
   weekGroup.details.classList.remove('hidden');
   topPanel.append(weekGroup.details);
   const hint=document.createElement('div');hint.textContent='Choose the groups each day can select meals from. Removing a group never deletes recipes.';
@@ -9786,7 +9786,7 @@ function demoteMealToIdeas(meal,updateRecipe=null,prepared=null){
 }
 function recipeSectionMoveButton(meal){
  const button=document.createElement('button');button.type='button';button.className='recipe-section-move';
- const rotation=recipeStatus(meal)==='rotation',label='Move '+(meal.name||'recipe')+' to '+(rotation?'Off menu':'Regulars');button.title=label;button.setAttribute('aria-label',label);
+ const rotation=recipeStatus(meal)==='rotation',label='Move '+(meal.name||'recipe')+' to '+(rotation?'Not in rotation':'In rotation');button.title=label;button.setAttribute('aria-label',label);
  button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(rotation?'m6 10 6 6 6-6M12 16V3':'m6 14 6-6 6 6M12 8v13')+'"/></svg>';
  button.onclick=async e=>{e.preventDefault();e.stopPropagation();if(!rotation&&!await confirmRegularsMove([meal]))return;try{const organizing=recipeBulkMode,moved=selectedSharedRecipeIds([String(meal.id)]);applyRecipeBulk([String(meal.id)],rotation?{status:'up-next',upNextStar:true}:{status:'rotation'},{...(rotation?{upNextFirst:String(meal.id)}:{promoteQueue:true}),...(organizing?{render:false}:{})});if(organizing)for(const id of moved)recipeBulkIds.delete(String(id));setMasterRecipeSectionOpen(meal.cat,rotation?'up-next':'rotation',true);if(organizing)bulkRecipeRender({readOnly:true});else renderList()}catch(error){showAppMessage('Recipe could not be moved. '+error.message)}};return button;
 }
@@ -10427,11 +10427,11 @@ function runAutoMoveOffMenu(){
  }
  saveAutoMoveSettings(settings);return null;
 }
-function nextUpChip(){const chip=document.createElement('span');chip.className='off-menu-next-up';chip.textContent='Next up';chip.title='Moves to Regulars at the next automatic turn';return chip}
+function nextUpChip(){const chip=document.createElement('span');chip.className='off-menu-next-up';chip.textContent='Next up';chip.title='Goes into rotation at the next automatic turn';return chip}
 function populateAutoMoveSetting(parent){
  const wrap=document.createElement('div');wrap.className='auto-move-setting';
  const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';
- const settings=autoMoveSettings();check.checked=settings.on;label.append(check,document.createTextNode('Enable auto-move for Off Menu meals'));
+ const settings=autoMoveSettings();check.checked=settings.on;label.append(check,document.createTextNode('Enable auto-move for meals not in rotation'));
  const set=document.createElement('fieldset');set.className='collapsed-card-options auto-move-options';set.setAttribute('aria-label','How often');set.hidden=!settings.on;
  for(const [value,text] of [[1,'Every week'],[2,'Every 2 weeks'],[4,'Every 4 weeks']]){const row=document.createElement('label');row.className='settings-display-option';const radio=document.createElement('input');radio.type='radio';radio.name='autoMoveEvery';radio.checked=settings.every===value;radio.onchange=()=>{const next=autoMoveSettings();next.every=value;next.count=0;saveAutoMoveSettings(next)};row.append(radio,document.createTextNode(text));set.append(row)}
  const hint=document.createElement('p');hint.className='muted auto-move-hint';hint.textContent='Turn auto-move on for a group in its Edit menu.';hint.hidden=!settings.on;
@@ -10600,7 +10600,7 @@ function openMasterCategoryEditMenu(category,draft=null){
  if(!cats.includes(category))return;
  const d=recipeBulkDialog('Edit group'),field=document.createElement('input');field.type='text';field.value=draft?.name??category;field.setAttribute('aria-label','Group name');field.className='recipe-bulk-new-group';
  const label=document.createElement('label');label.className='settings-display-option';const use=document.createElement('input');use.type='checkbox';use.className='preference-switch';use.setAttribute('role','switch');use.checked=draft?.use??groupUsesRotation(category);label.append(use,document.createTextNode('Use for weekly meals'));
- const autoLabel=document.createElement('label');autoLabel.className='settings-display-option group-auto-move-option';const auto=document.createElement('input');auto.type='checkbox';auto.className='preference-switch';auto.setAttribute('role','switch');auto.checked=draft?.auto??autoMoveGroupOn(category);autoLabel.append(auto,document.createTextNode('Automatically move pinned Off Menu meals to Regulars'));const autoHint=document.createElement('p');autoHint.className='muted group-auto-move-hint';const paintAuto=()=>{autoLabel.hidden=!use.checked;autoHint.hidden=!use.checked||!auto.checked||autoMoveSettings().on;autoHint.textContent='Also turn this on in Settings › Weekday Setup.'};use.addEventListener('change',paintAuto);auto.addEventListener('change',paintAuto);paintAuto();
+ const autoLabel=document.createElement('label');autoLabel.className='settings-display-option group-auto-move-option';const auto=document.createElement('input');auto.type='checkbox';auto.className='preference-switch';auto.setAttribute('role','switch');auto.checked=draft?.auto??autoMoveGroupOn(category);autoLabel.append(auto,document.createTextNode('Automatically move pinned meals into rotation'));const autoHint=document.createElement('p');autoHint.className='muted group-auto-move-hint';const paintAuto=()=>{autoLabel.hidden=!use.checked;autoHint.hidden=!use.checked||!auto.checked||autoMoveSettings().on;autoHint.textContent='Also turn this on in Settings › Weekly schedule.'};use.addEventListener('change',paintAuto);auto.addEventListener('change',paintAuto);paintAuto();
  const error=document.createElement('p');error.className='recipe-bulk-error';error.setAttribute('role','status');
  const actions=document.createElement('div');actions.className='meal-unified-actions';
  for(const [kind,title,action]of [['save','Save group changes',()=>{try{saveMealGroupSettings(category,field.value.trim(),use.checked,use.checked&&auto.checked);d.close()}catch(problem){error.textContent=problem.message}}],['delete','Delete group',()=>{d.close();groupHistorySettled.then(()=>openCategoryDeleteDialog(category))}],['cancel','Cancel group editing',()=>d.close()]]){const button=document.createElement('button');button.type='button';setIconButton(button,kind,title);button.onclick=action;if(kind==='delete')button.disabled=isBuiltinSides(category);actions.append(button)}
@@ -10734,7 +10734,7 @@ function organizeDragHandle(label,move){
 // Meal Groups "More" menu on each Regulars / Off menu row (and on groups without Regulars): four single-purpose modes.
 // Each mode shows one control per row on the left; Select meals keeps the checkbox flow, so bulk delete is gone (trash mode instead).
 function organizeModeTitle(){
- const status=recipeBulkSubgroup==='up-next'?'Move to Regulars':'Move to Off menu';
+ const status=recipeBulkSubgroup==='up-next'?'Put in rotation':'Take out of rotation';
  return {reorder:'Reorder meals',status,delete:'Delete meals'}[recipeOrganizeKind]||'';
 }
 function organizeModeBar(){
@@ -10748,11 +10748,11 @@ function organizeDeleteButton(meal){
  return button;
 }
 function openGroupMealsMenu(category,rot){
- const rotating=!!category&&groupUsesRotation(category)&&(rot==='rotation'||rot==='up-next'),sub=rotating?(rot==='rotation'?'Regulars':'Off menu'):'';
+ const rotating=!!category&&groupUsesRotation(category)&&(rot==='rotation'||rot==='up-next'),sub=rotating?(rot==='rotation'?'In rotation':'Not in rotation'):'';
  const dialog=compactMealDialog((category||'Unassigned')+(sub?': '+sub:''),'Meal options');dialog.box.classList.add('meal-options-compact');dialog.box.querySelector('h3,strong')?.classList.add('meal-options-recipe-title');dialog.box.querySelector('button')?.setAttribute('aria-label','Close meal options');
  const row=(icon,label,kind)=>{const button=document.createElement('button');button.type='button';button.className='smallbtn meal-full-action meal-option-row more-option-row';button.innerHTML='<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icon+'</svg><span class="more-option-text"><span class="more-option-label"></span></span>';button.querySelector('.more-option-label').textContent=label;button.onclick=()=>dialog.run(()=>beginRecipeBulkGroup(category,null,rotating?rot:null,kind));dialog.box.append(button)};
  row('<rect x="2" y="2" width="8" height="8" rx="1"/><path d="m3.8 6 1.6 1.6 2.8-3M15 6h7"/><rect x="2" y="14" width="8" height="8" rx="1"/><path d="m3.8 18 1.6 1.6 2.8-3M15 18h7"/>','Move or copy to group','select');
- if(rotating){row('<path d="M8 5h.01M16 5h.01M8 12h.01M16 12h.01M8 19h.01M16 19h.01" stroke-width="3.4"/>','Reorder meals','reorder');row(rot==='rotation'?appIconSvg.down:appIconSvg.up,rot==='rotation'?'Move to Off menu':'Move to Regulars','status')}
+ if(rotating){row('<path d="M8 5h.01M16 5h.01M8 12h.01M16 12h.01M8 19h.01M16 19h.01" stroke-width="3.4"/>','Reorder meals','reorder');row(rot==='rotation'?appIconSvg.down:appIconSvg.up,rot==='rotation'?'Take out of rotation':'Put in rotation','status')}
  row(appIconSvg.delete,'Delete meals','delete');centerMoreRows(dialog.box);
 }
 // Turning meal tabs off: the person picks which meal stays on the Meals page (current one first). Cancel keeps tabs on.
@@ -10993,7 +10993,7 @@ async function confirmDeleteRecipes(ids){
  const noteWrap=document.createElement('label');noteWrap.className='recipe-delete-note';const noteText=document.createElement('span');noteText.textContent='What didn’t you like? (optional)';const note=document.createElement('textarea');note.rows=2;note.maxLength=300;note.placeholder='e.g. too spicy, the kids skipped it';noteWrap.append(noteText,note);
  for(const [key,text]of [['disliked','Didn’t like it'],['cleanup','Just cleaning up']]){const label=document.createElement('label');label.className='recipe-bulk-choice';const radio=document.createElement('input');radio.type='radio';radio.name='recipe-delete-reason';radio.value=key;radio.checked=reason===key;radio.onchange=()=>{reason=key;noteWrap.hidden=key!=='disliked'};label.append(radio,document.createTextNode(text));why.append(label)}
  noteWrap.hidden=reason!=='disliked';
- const info=document.createElement('p');info.className='muted recipe-bulk-note';info.textContent='You can restore '+them+' from Settings › Deleted recipes for 30 days.'+(chosen.some(m=>m.linkGroup)?' Unselected linked recipes will not be deleted.':'');
+ const info=document.createElement('p');info.className='muted recipe-bulk-note';info.textContent='You can restore '+them+' from Settings › Deleted recipes for 30 days.'+(chosen.some(m=>m.linkGroup)?' Unselected shared recipes will not be deleted.':'');
  const actions=document.createElement('div');actions.className='meal-unified-actions';const yes=document.createElement('button'),no=document.createElement('button');yes.type=no.type='button';setIconButton(yes,'save','Confirm deletion');setIconButton(no,'cancel','Cancel deletion');let settled=false;const finish=value=>{if(settled)return;settled=true;d.close();resolve(value)};yes.onclick=()=>finish({ids:expanded,reason,note:reason==='disliked'?note.value.trim():''});no.onclick=()=>finish(null);actions.append(yes,no);d.panel.append(why,noteWrap,info,actions);const observer=new MutationObserver(()=>{if(!d.overlay.isConnected){observer.disconnect();if(!settled){settled=true;resolve(null)}}});observer.observe(document.body,{childList:true});no.focus({preventScroll:true});});
 }
 async function deleteRecipeBulk(){const choice=await confirmDeleteRecipes(bulkRecipeSelected().map(m=>String(m.id)));if(!choice)return;try{deleteRecipesToBin(choice)}catch(error){await showAppMessage('Bulk delete could not be completed: '+error.message)}}
@@ -11119,7 +11119,7 @@ function reorderUpNextRecipe(meal,target,before){
  const state=captureState(),order=normalizedUpNextOrder(),ids=upNextPeerIds(meal),targets=upNextPeerIds(target),block=order.filter(id=>ids.has(id)),rest=order.filter(id=>!ids.has(id));
  const indexes=rest.map((id,i)=>targets.has(id)?i:-1).filter(i=>i>=0);if(!indexes.length)return;
  rest.splice(before?Math.min(...indexes):Math.max(...indexes)+1,0,...block);
- try{testStorage.setItem(UP_NEXT_ORDER_KEY,JSON.stringify(rest));snapshot(state);renderList()}catch(error){showAppMessage('Off menu order could not be saved. '+error.message)}
+ try{testStorage.setItem(UP_NEXT_ORDER_KEY,JSON.stringify(rest));snapshot(state);renderList()}catch(error){showAppMessage('Order of meals not in rotation could not be saved. '+error.message)}
 }
 function upNextStarButton(meal){
  const button=document.createElement('button');button.type='button';button.className='recipe-personal-icon recipe-up-next-star';button.dataset.upNextStar=String(meal.id);button.setAttribute('aria-pressed',String(meal.upNextStar===true));
@@ -11608,7 +11608,7 @@ function renderMasterCategories(list){
      const name=document.createElement('button');name.type='button';name.className='master-category-meal-name';name.textContent=m.name||'Untitled meal';bindGroupMealPress(name,m);const mealInfo=document.createElement('div');mealInfo.className='master-meal-info';const nameLine=document.createElement('div');nameLine.className='shared-meal-name-line';nameLine.append(name);
      const hasOutgoing=Array.isArray(m.linkedMealIds)&&m.linkedMealIds.some(id=>meals.some(other=>String(other.id)===String(id)));
      const hasIncoming=meals.some(other=>other!==m&&Array.isArray(other.linkedMealIds)&&other.linkedMealIds.some(id=>String(id)===String(m.id)));
-     if(hasIncoming&&!hasOutgoing){const fullName=String(m.name||'Untitled meal');const lastSpace=fullName.lastIndexOf(' ');if(lastSpace>0){name.textContent=fullName.slice(0,lastSpace);nameLine.append(document.createTextNode(' '));const ending=document.createElement('span');ending.className='linked-name-ending';const lastWord=document.createElement('button');lastWord.type='button';lastWord.className='master-category-meal-name';lastWord.textContent=fullName.slice(lastSpace+1);bindGroupMealPress(lastWord,m);ending.append(lastWord);nameLine.append(ending)}const relatedButton=document.createElement('button');relatedButton.type='button';relatedButton.className='related-meal-indicator';relatedButton.textContent='↗';relatedButton.title='View linked meals';relatedButton.setAttribute('aria-label','View meals linked to '+(m.name||'this recipe'));relatedButton.onclick=e=>{e.preventDefault();e.stopPropagation();showRelatedMeals(m)};if(lastSpace>0){nameLine.lastElementChild.append(relatedButton)}else{nameLine.append(relatedButton)}}if(m.needsTweaking===true){const flag=needsTweakingIndicator(m);flag.classList.add('group-row-flag');nameLine.classList.add('has-group-flag');nameLine.append(flag)}if(recipeStatus(m)==='up-next'&&m.upNextStar===true&&autoMoveActive(category)&&autoMoveNextUp(category)===m)nameLine.append(nextUpChip());bindRecipeTimerName(nameLine.querySelector('.linked-name-ending .master-category-meal-name')||name,m,false);if(rot==='up-next'||rot==='all'){row.append(upNextStarButton(m));row.dataset.upNextStar=String(m.upNextStar===true)}else if(rot==='rotation'&&category&&groupUsesRotation(category)&&!showTop)row.dataset.queueRow='rotation';mealInfo.append(nameLine);
+     if(hasIncoming&&!hasOutgoing){const fullName=String(m.name||'Untitled meal');const lastSpace=fullName.lastIndexOf(' ');if(lastSpace>0){name.textContent=fullName.slice(0,lastSpace);nameLine.append(document.createTextNode(' '));const ending=document.createElement('span');ending.className='linked-name-ending';const lastWord=document.createElement('button');lastWord.type='button';lastWord.className='master-category-meal-name';lastWord.textContent=fullName.slice(lastSpace+1);bindGroupMealPress(lastWord,m);ending.append(lastWord);nameLine.append(ending)}const relatedButton=document.createElement('button');relatedButton.type='button';relatedButton.className='related-meal-indicator';relatedButton.textContent='↗';relatedButton.title='View shared meals';relatedButton.setAttribute('aria-label','View meals linked to '+(m.name||'this recipe'));relatedButton.onclick=e=>{e.preventDefault();e.stopPropagation();showRelatedMeals(m)};if(lastSpace>0){nameLine.lastElementChild.append(relatedButton)}else{nameLine.append(relatedButton)}}if(m.needsTweaking===true){const flag=needsTweakingIndicator(m);flag.classList.add('group-row-flag');nameLine.classList.add('has-group-flag');nameLine.append(flag)}if(recipeStatus(m)==='up-next'&&m.upNextStar===true&&autoMoveActive(category)&&autoMoveNextUp(category)===m)nameLine.append(nextUpChip());bindRecipeTimerName(nameLine.querySelector('.linked-name-ending .master-category-meal-name')||name,m,false);if(rot==='up-next'||rot==='all'){row.append(upNextStarButton(m));row.dataset.upNextStar=String(m.upNextStar===true)}else if(rot==='rotation'&&category&&groupUsesRotation(category)&&!showTop)row.dataset.queueRow='rotation';mealInfo.append(nameLine);
      if(Array.isArray(m.linkedMealIds)&&m.linkedMealIds.length){
       const linkedTargets=[...new Map(m.linkedMealIds.map(targetId=>meals.find(x=>String(x.id)===String(targetId))).filter(Boolean).map(target=>[String(target.id),target])).values()];
       if(linkedTargets.length){
@@ -12214,7 +12214,7 @@ function populateAiTargetSetting(parent){
  }
  parent.append(set);
 }
-function populateAutoIngredientSelectorSetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=autoIngredientSelectorOn();check.onchange=()=>{try{localStorage.setItem(AUTO_INGREDIENT_SELECTOR_KEY,check.checked?'on':'off')}catch(e){}};label.append(check,document.createTextNode('Auto open ingredient selector when a recipe is moved to Regulars'));parent.append(label)}
+function populateAutoIngredientSelectorSetting(parent){const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=autoIngredientSelectorOn();check.onchange=()=>{try{localStorage.setItem(AUTO_INGREDIENT_SELECTOR_KEY,check.checked?'on':'off')}catch(e){}};label.append(check,document.createTextNode('Auto open ingredient selector when a recipe is put in rotation'));parent.append(label)}
 function openTopIngredientChooser(meal,options={}){
  if(meal.temporaryMeal){const entry=getDisplayedWeekdayMeals().find(item=>String(item.meal.id)===String(meal.id));if(entry)openOneTimeMealEditor(entry.day,entry.cat,meal);return}
   meal={...meal,ingredients:Array.isArray(meal.ingredients)?[...meal.ingredients]:[]};
@@ -12452,7 +12452,7 @@ function openTopIngredientChooser(meal,options={}){
   cancel.onclick=requestClose;trackGroupPopup(overlay,requestClose);
   [selectAll,deselectAll,deleteSelected,cancel,save].forEach(btn=>{btn.style.cssText='border:0;background:transparent;color:inherit;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:7px;cursor:pointer'});actions.append(selectAll,deselectAll,save,cancel);actions.style.justifyContent='flex-start';actions.style.gap='2px';save.style.marginLeft='auto';cancel.style.marginLeft='auto';selectAll.style.marginLeft='3px';selectAll.style.paddingLeft='0';
   // Batch 2: importing stays in Edit recipe; this dialog only chooses what to shop for.
-  const movedBanner=options.regularsMove?document.createElement('div'):null;if(movedBanner){movedBanner.className='regulars-moved-banner';movedBanner.setAttribute('role','status');movedBanner.textContent='✓ '+(meal.name||'Recipe')+' moved to Regulars';box.append(movedBanner)}
+  const movedBanner=options.regularsMove?document.createElement('div'):null;if(movedBanner){movedBanner.className='regulars-moved-banner';movedBanner.setAttribute('role','status');movedBanner.textContent='✓ '+(meal.name||'Recipe')+' put in rotation';box.append(movedBanner)}
   box.append(title,intro,list,addRow,actions);overlay.append(box);
   const chooserOpenedAt=Date.now();
   overlay.addEventListener('click',e=>{
@@ -13549,7 +13549,7 @@ $('save').onclick=async()=>{
   const nextIngredientLinks=$('recipeIngredientLinks').getLinks({...m,ingredients:nextIngredients,instructions:nextInstructions});
   const cookValue=prepValue===String(m.prep??'')&&totalValue===String(m.total!==undefined&&m.total!==''?m.total:(m.prep!==''||m.cook!==''?(Number(m.prep)||0)+(Number(m.cook)||0):''))?(m.cook??''):'';
 
-  const nextMakeAhead=$('recipeMakeAhead').readDraft();if(!$('recipeMakeAhead').validDraft()){await showAppMessage('Enter a valid preparation lead time: positive hours or days, or 0 days for the same day (up to 36600 days).');revealMealEditorField($('recipeMakeAhead'));return}
+  const nextMakeAhead=$('recipeMakeAhead').readDraft();if(!$('recipeMakeAhead').validDraft()){await showAppMessage('Enter a valid reminder time: positive hours or days, or 0 days for the same day (up to 36600 days).');revealMealEditorField($('recipeMakeAhead'));return}
   const next={...m,name:$('name').value.trim()||'Untitled meal',prep:prepValue,total:totalValue,marinate:marinateValue,cook:cookValue,url:$('url').value.trim(),ingredientImportUrl,ingredients:nextIngredients,instructions:nextInstructions,notes:nextNotes,linkedMealIds:[...linkedMealDraft],serveWith:[...serveWithDraft]};if(simpleSidesDraft.length||Object.hasOwn(m,'simpleSides'))next.simpleSides=copySimpleSides(simpleSidesDraft);if(JSON.stringify(servingDraft.sides)!==initialServeRules){const rules=servingDraft.sides.filter(side=>side.always!==false).map(side=>side.type==='fixed'?{id:side.id,type:'fixed',recipeId:String(side.mealId||side.recipeId),always:true}:side.type==='rotating'?{id:side.id,type:'rotating',groupIds:[...side.groupIds],always:true}:{id:side.id,type:'simple',name:side.name,ingredients:copySimpleSides(side.ingredients),always:true});validateServingSides(m,rules.map(rule=>chooseServingRule(mealPlans.find(p=>p.id===activePlanId),{meal:m},rule)));if(servingDefinitionSignature(rules)!==servingDefinitionSignature(servingRules(m)))next.serveWithEntriesV1=rules}
   if(next.url!==String(m.url||'')){next.originalRecipeUrl=next.url;next.recipeSourceHidden=!next.url}
   if(nextIngredientLinks.length||Array.isArray(m.ingredientStepLinks))next.ingredientStepLinks=nextIngredientLinks;

@@ -551,7 +551,7 @@ async function recipeImportReadFile(file){
 // Existing app exports retain saved status; other sources keep the importer's default.
 function recipeImportStatus(record,defaultRotation){
  const legacy=String(record.recipeStatus??record.status??'').trim().toLowerCase();
- const named={'ideas':'back-burner','back burner':'back-burner','back-burner':'back-burner','up next':'up-next','up-next':'up-next','in rotation':'rotation','rotation':'rotation','regulars':'rotation','regular':'rotation','off menu':'back-burner','off-menu':'back-burner'}[legacy];
+ const named={'ideas':'back-burner','back burner':'back-burner','back-burner':'back-burner','up next':'up-next','up-next':'up-next','in rotation':'rotation','rotation':'rotation','regulars':'rotation','regular':'rotation','off menu':'back-burner','not in rotation':'back-burner','off-menu':'back-burner'}[legacy];
  const status=named||(typeof record.rotation==='boolean'?(record.rotation?'rotation':'back-burner'):null);
  return status?{recipeStatus:status==='rotation'?'rotation':'up-next',upNextStar:typeof record.upNextStar==='boolean'?record.upNextStar:status==='up-next',rotation:status==='rotation',keepAsIdea:status!=='rotation'}:{rotation:defaultRotation,upNextStar:false,keepAsIdea:!defaultRotation};
 }

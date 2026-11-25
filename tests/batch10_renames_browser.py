@@ -26,12 +26,12 @@ def run(browser, name):
     assert p.locator('.meal-plan-title').text_content() == 'Next Week’s Meals'
     p.evaluate('batch10.groups()')
     text = p.locator('#list').inner_text()
-    assert 'Regulars' in text and 'In Rotation' not in text and 'Ideas' not in text, text[:500]
+    assert 'In rotation' in text and 'In Rotation' not in text and 'Ideas' not in text, text[:500]
     sb.shot(p, name, 'batch10-groups')
     status_before, rot_before = p.evaluate('batch10.status()'), p.evaluate('batch10.rotation()')
     p.evaluate('batch10.editor()')
     ed = p.locator('#editor')
-    assert ed.get_by_text('Regulars', exact=True).count() >= 1 and ed.get_by_text('Off menu', exact=True).count() >= 1, ed.inner_text()[:400]
+    assert ed.get_by_text('In rotation', exact=True).count() >= 1 and ed.get_by_text('Not in rotation', exact=True).count() >= 1, ed.inner_text()[:400]
     assert 'In Rotation' not in ed.inner_text() and 'Ideas' not in ed.inner_text()
     sb.shot(p, name, 'batch10-editor')
     assert p.evaluate('batch10.status()') == status_before and p.evaluate('batch10.rotation()') == rot_before

@@ -1,5 +1,5 @@
 """Meal Groups: each Regulars / Off menu row has a More menu with four single-purpose modes.
-Select (checkboxes, Move or copy, no bulk delete), Reorder (handles), Move to Off menu (arrows), Delete (trash + existing dialog).
+Select (checkboxes, Move or copy, no bulk delete), Reorder (handles), Take out of rotation (arrows), Delete (trash + existing dialog).
 Run: python3 tests/group_more_menu_browser.py
 """
 import sys
@@ -20,7 +20,7 @@ def run(browser, name):
     items = lambda: p.locator('.compact-meal-dialog button.meal-option-row').all_inner_texts()
     done = lambda: p.locator('.organize-mode-done, .recipe-bulk-actions button:has-text("Done")').first.click()
     more.click(); p.wait_for_timeout(300)
-    assert items() == ['Move or copy to group', 'Reorder meals', 'Move to Off menu', 'Delete meals'], items()
+    assert items() == ['Move or copy to group', 'Reorder meals', 'Take out of rotation', 'Delete meals'], items()
     # select mode: checkboxes, Move or copy, no Delete
     p.get_by_role('button', name='Move or copy to group').click(); p.wait_for_timeout(400)
     assert p.locator('.recipe-bulk-check').count() >= 2 and p.locator('.organize-drag-handle,.organize-row-status,.organize-row-delete').count() == 0
@@ -35,17 +35,17 @@ def run(browser, name):
     done(); p.wait_for_timeout(300)
     # move to Off menu: arrow moves one meal
     before = p.evaluate('gp.names()')
-    more.click(); p.get_by_role('button', name='Move to Off menu').click(); p.wait_for_timeout(400)
+    more.click(); p.get_by_role('button', name='Take out of rotation').click(); p.wait_for_timeout(400)
     assert p.locator('.organize-row-status').count() >= 2 and p.locator('.recipe-bulk-check,.organize-drag-handle,.organize-row-delete').count() == 0
     p.locator('.organize-row-status').nth(1).click(); p.wait_for_timeout(600)
     after = p.evaluate('gp.names()')
     assert sum(1 for n in after if n[1] == 'up-next') == sum(1 for n in before if n[1] == 'up-next') + 1, (before, after)
     done(); p.wait_for_timeout(300)
-    # rows without a left control keep their full-width names (Move to Regulars mode from the Off menu row)
+    # rows without a left control keep their full-width names (Put in rotation mode from the Off menu row)
     sec = p.locator('.master-recipe-section[data-recipe-section="up-next"]')
     if sec.locator('.master-recipe-section-recipes').first.is_hidden():
         sec.locator('.master-category-group-label').click(); p.wait_for_timeout(400)
-    sec.locator('.group-section-organize').click(); p.get_by_role('button', name='Move to Regulars').click(); p.wait_for_timeout(500)
+    sec.locator('.group-section-organize').click(); p.get_by_role('button', name='Put in rotation').click(); p.wait_for_timeout(500)
     widths = p.evaluate("[...document.querySelectorAll('.master-recipe-section[data-recipe-section=rotation] .master-category-meal')].map(r=>r.querySelector('.master-meal-info').getBoundingClientRect().width)")
     assert widths and min(widths) > 200, widths
     done(); p.wait_for_timeout(300)

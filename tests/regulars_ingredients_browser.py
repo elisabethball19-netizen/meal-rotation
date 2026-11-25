@@ -94,7 +94,7 @@ def run(browser, name):
     # Recipe editor: switching to Regulars and saving moves the meal, then opens the selector.
     p.evaluate('([n,l])=>reg.setSaved(n,l)', [recipe, ['2 tsp dried oregano']])
     p.evaluate('n=>reg.edit(n)', recipe)
-    p.locator('#recipeStatus label', has_text='Regulars').click()
+    p.locator('#recipeStatus label', has_text='In rotation').click()
     p.locator('#save').click()
     chooser(p).wait_for(timeout=8000)
     chooser(p).get_by_role('button', name='Save').click()

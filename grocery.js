@@ -388,7 +388,7 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
      cb.onchange=()=>{if(cb.checked)excludedMeals.delete(key);else excludedMeals.add(key)};
      mealChecks.push(cb);label.append(cb,document.createTextNode(meal.name));section.append(label);
     }
-    if(!entries.size){const empty=document.createElement('p');empty.textContent='No regular meals';empty.className='muted';empty.style.margin='6px 0 6px 22px';section.append(empty)}
+    if(!entries.size){const empty=document.createElement('p');empty.textContent='No meals in rotation';empty.className='muted';empty.style.margin='6px 0 6px 22px';section.append(empty)}
     planCheck.onchange=()=>{if(planCheck.checked)excludedPlans.delete(String(plan.id));else excludedPlans.add(String(plan.id));mealChecks.forEach(cb=>cb.disabled=!planCheck.checked)};
     body.append(section);
    }

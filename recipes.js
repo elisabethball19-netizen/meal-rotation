@@ -1409,7 +1409,7 @@ function saveMakeAheadDisplayPrefs(){try{localStorage.setItem(MAKE_AHEAD_DISPLAY
 function populateMakeAheadSetting(parent){
  const add=(key,text,container)=>{const label=document.createElement('label');label.className='settings-display-option';const check=document.createElement('input');check.type='checkbox';check.setAttribute('role','switch');check.className='preference-switch';check.checked=makeAheadDisplayPrefs[key];check.onchange=()=>{makeAheadDisplayPrefs[key]=check.checked;saveMakeAheadDisplayPrefs();children.hidden=!makeAheadDisplayPrefs.showMakeAheadReminders;renderList()};label.append(check,document.createTextNode(text));container.append(label)};
  const children=document.createElement('div');children.className='automatic-prep-settings';children.hidden=!makeAheadDisplayPrefs.showMakeAheadReminders;
- add('showMakeAheadReminders','Show Make Ahead Reminders',parent);add('automaticMarinating','Automatic marinating reminders',children);add('automaticDefrost','Automatic defrost reminders',children);
+ add('showMakeAheadReminders','Show make ahead reminders',parent);add('automaticMarinating','Automatic marinating reminders',children);add('automaticDefrost','Automatic defrost reminders',children);
  const hint=document.createElement('p');hint.className='muted';hint.textContent='Defrost reminders default to the night before.';children.append(hint);add('automaticSourdough','Automatic sourdough reminders',children);const sourdoughHint=document.createElement('p');sourdoughHint.className='muted';sourdoughHint.textContent='Feed your starter two days before, and start the bread the day before.';children.append(sourdoughHint);parent.append(children);
 }
 function setMakeAheadComplete(item,checked){
@@ -1533,15 +1533,15 @@ function preparationTaskDraft(meal,shown,drafts){
 }
 function makeAheadTiming(days,hours){return hours!==undefined?hours===0?'Same day':hours+' hour'+(hours===1?'':'s')+' before':days===0?'Same day':days===1?'1 day before':days+' days before'}
 function buildMakeAheadEditor(meal,before=$('editorNotesSection'),options={}){
- const group=mealEditorSubsection('ahead','Make Ahead','recipeMakeAhead',meal),box=group.details,body=group.content;body.classList.add('make-ahead-editor');
+ const group=mealEditorSubsection('ahead','Make ahead','recipeMakeAhead',meal),box=group.details,body=group.content;body.classList.add('make-ahead-editor');
  const changed=()=>box.dispatchEvent(new Event('change',{bubbles:true}));
  function taskRow(task={},after=null){
   const row=document.createElement('div');row.className='make-ahead-task-editor prep-task-row';row.dataset.taskId=task.id||'prep-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
-  const description=document.createElement('textarea');description.rows=3;description.className='make-ahead-description';description.placeholder='Preparation task';description.setAttribute('aria-label','Preparation task');description.value=task.description||'';
+  const description=document.createElement('textarea');description.rows=3;description.className='make-ahead-description';description.placeholder='What to prepare';description.setAttribute('aria-label','What to prepare');description.value=task.description||'';
   const timing=document.createElement('div');timing.className='make-ahead-lead';
-  const number=document.createElement('input');number.type='number';number.inputMode='decimal';number.min='0';number.step='any';number.className='make-ahead-days';number.setAttribute('aria-label','Preparation lead time');number.value=String(task.hoursBefore??task.daysBefore??0);
+  const number=document.createElement('input');number.type='number';number.inputMode='decimal';number.min='0';number.step='any';number.className='make-ahead-days';number.setAttribute('aria-label','Remind me this long ahead');number.value=String(task.hoursBefore??task.daysBefore??0);
   const unit=document.createElement('input');unit.type='hidden';unit.value=task.hoursBefore!==undefined?'hours':'days';
-  const units=document.createElement('div');units.className='meal-editor-segmented';units.setAttribute('role','group');units.setAttribute('aria-label','Preparation lead time unit');
+  const units=document.createElement('div');units.className='meal-editor-segmented';units.setAttribute('role','group');units.setAttribute('aria-label','Unit for the reminder time');
   for(const [value,text]of [['hours','Hours'],['days','Days']]){const option=document.createElement('button');option.type='button';option.textContent=text;option.dataset.leadUnit=value;option.setAttribute('aria-pressed',String(unit.value===value));option.onclick=()=>{unit.value=value;for(const button of units.querySelectorAll('button'))button.setAttribute('aria-pressed',String(button===option));changed()};units.append(option)}
   timing.append(number,unit,units);const hint=document.createElement('small');hint.className='muted make-ahead-timing-hint';hint.hidden=validMakeAheadLead(task)||task.id===undefined;hint.textContent=hint.hidden?'':'Saved lead time: '+String(task.hoursBefore??task.daysBefore)+' '+(task.hoursBefore!==undefined?'hours':'days')+' (retained until edited).';
   const initial={number:number.value,unit:unit.value},untouched=()=>number.value===initial.number&&unit.value===initial.unit;

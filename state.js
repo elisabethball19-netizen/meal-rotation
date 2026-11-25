@@ -835,5 +835,5 @@ function normalizeRecipeStatus(meal){
  meal.recipeStatus=recipeStatus(meal);return meal;
 }
 // Display names only (approved rename); saved status values are unchanged.
-function recipeStatusLabel(status){return status==='rotation'?'Regulars':'Off menu'}
-function recipeStatusChoices(){return [['rotation','Regulars'],['up-next','Off menu']]}
+function recipeStatusLabel(status){return status==='rotation'?'In rotation':'Not in rotation'}
+function recipeStatusChoices(){return [['rotation','In rotation'],['up-next','Not in rotation']]}

@@ -871,8 +871,8 @@ function showRelatedMeals(meal){
  const unique=[...new Map(related.map(other=>[other.linkGroup||String(other.id),other])).values()];
  if(!unique.length)return;
  const shade=document.createElement('div');shade.className='shared-groups-shade';
- const panel=document.createElement('div');panel.className='shared-groups-panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Meals linked to '+(meal.name||'this recipe'));
- const heading=document.createElement('h3');heading.textContent='Meals linked to '+(meal.name||'this recipe');panel.append(heading);
+ const panel=document.createElement('div');panel.className='shared-groups-panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Shared meals: '+(meal.name||'this recipe'));
+ const heading=document.createElement('h3');heading.textContent='Shared meals: '+(meal.name||'this recipe');panel.append(heading);
  unique.forEach(target=>{const button=document.createElement('button');button.type='button';button.className='shared-groups-choice';button.textContent=(target.name||'Untitled meal')+' — '+target.cat;button.onclick=()=>{shade.remove();openMasterCategories(target.cat);requestAnimationFrame(()=>{const card=[...document.querySelectorAll('.master-category-card')].find(x=>x.dataset.category===target.cat);const row=card&&[...card.querySelectorAll('[data-meal-id]')].find(x=>x.dataset.mealId===String(target.id));if(row)row.scrollIntoView({block:'center',behavior:'smooth'})})};panel.append(button)});
  const close=document.createElement('button');close.type='button';close.className='shared-groups-close';setIconButton(close,'cancel','Close');close.setAttribute('aria-label','Close');close.onclick=()=>shade.remove();panel.append(close);shade.onclick=e=>{if(e.target===shade)shade.remove()};shade.append(panel);document.body.append(shade);close.focus();
 }
@@ -1155,7 +1155,7 @@ function openHelpModal(){
  const title=document.createElement('h2');title.textContent=top?'Meals help':'Meal Groups help';title.style.cssText='margin:0';
  const close=document.createElement('button');close.type='button';setIconButton(close,'cancel','Close');close.style.flex='0 0 44px';close.onclick=()=>overlay.remove();header.append(title,close);
  const content=document.createElement('div');content.style.cssText='padding:10px 20px 20px;overflow-y:auto;overscroll-behavior:contain';
- const intro=document.createElement('p');intro.textContent=top?'The Meals page displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into Regulars and Off menu. Expand a group to manage its meals.';content.append(intro);
+ const intro=document.createElement('p');intro.textContent=top?'The Meals page displays the meals assigned to weekdays in the selected Breakfast, Lunch, or Dinner tab.':'Meal Groups contains your recipes, organized into In rotation and Not in rotation. Expand a group to manage its meals.';content.append(intro);
  const items=top?[
   ['Meal-plan tabs','Choose a tab to see its own weekday assignments. Long-press a tab to rename, reorder, or delete it.'],
   ['Tap a displayed meal','Open the recipe. Use its chevron for planning, editing, groceries, sides, Favorite and Last cooked.'],
@@ -1172,9 +1172,9 @@ function openHelpModal(){
   ['Edit a group','Tap its pencil to rename or delete it. Long-press a group name or blank card area and drag to save a custom display order. Reset to Weekday Order restores automatic ordering without changing assignments.'],
   ['Add a meal','Tap + to add a meal to the selected group.'],
   ['Edit a meal','Choose Edit meal from its meal actions. The editor opens beneath the selected meal.'],
-  ['Move a regular meal','Tap its up or down arrow to move it to the top or bottom of the group; hold to move one position.'],
-  ['Recipe status','Choose Regulars or Off menu in the recipe status control.'],
-  ['Linked meals','Linked recipes can appear in more than one group; linked changes may affect their other appearances.'],
+  ['Move a meal in rotation','Tap its up or down arrow to move it to the top or bottom of the group; hold to move one position.'],
+  ['Recipe status','Choose In rotation or Not in rotation in the recipe status control.'],
+  ['Shared meals','Shared recipes can appear in more than one group; changes to one may affect their other appearances.'],
   ['Last cooked','Shows the latest recorded cooking date when enabled.'],
   ['Navigation','Use the bottom bar to open Meals, Week, Groceries, or Meal Groups.']
  ];
