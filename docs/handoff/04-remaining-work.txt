@@ -352,3 +352,4 @@ v402 PHONE (2026-11-24 18:47): Birria version switch PASS (jumping between origi
 
 [PHONE CONFIRMED 2026-11-24 18:55] v403 step-tap scroll to next step passes. Birria scheduling from Meal Groups worked on retry; schedule-dialog report REMOVED (not reproducible). Birria version-switch (v396-v402) and checkbox style (v397) closed; v400 Days to-do check delay and v401 editor spacing still to be confirmed.
 [PHONE CONFIRMED 2026-11-24 18:57] v400 Days to-do check delay and v401 editor spacing pass. BUILT v404 (AWAITING PHONE TEST): editor + buttons (Meal Groups, Serve with) shifted so their icon centres line up with the chevrons below (measured 341px centre for all at 393px width).
+[PHONE CONFIRMED 2026-11-24 18:59] v404 editor + buttons line up with chevrons.
