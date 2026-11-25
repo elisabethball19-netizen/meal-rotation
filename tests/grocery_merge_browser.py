@@ -1,5 +1,5 @@
-"""2026-11-24: shopping-list lines for the same ingredient that differ only in prep wording merge ('Cilantro' +
-'Chopped cilantro'; '1 medium onion' + '2 large onions'); products that differ (ground beef vs beef, cheeses) stay apart.
+"""2026-11-24: shopping-list lines for the same ingredient that differ only in prep wording stay separate but are listed
+next to each other ('Cilantro' / 'Chopped cilantro'; '1 medium onion' / '2 large onions'); products that differ stay apart.
 Run: python3 tests/grocery_merge_browser.py
 """
 from datetime import datetime, timezone
@@ -11,7 +11,7 @@ s.fixture.HOOK += '''window.gm={names:()=>[["Cilantro","Chopped cilantro"],["1 m
  run:()=>{meals.find(m=>m.id===2).ingredients=['Cilantro','1 medium onion','2 cups orange juice, freshly squeezed','ground beef'];
   meals.find(m=>m.id===3).ingredients=['Chopped cilantro','2 large onions','1 cup orange juice','beef'];persist();
   const plan=mealPlans[0];const entries=getDisplayedWeekdayMealsForPlan(plan);
-  const items=[...getMasterGroceryItems(getGroceryContributions(false,'both')).values()].map(i=>i.line);return {items,n:entries.length}}};'''
+  const items=[...groceryAdjacentOrder(getMasterGroceryItems(getGroceryContributions(false,'both'))).values()].map(i=>i.line);return {items,n:entries.length}}};'''
 
 
 def run(browser, name):
@@ -26,10 +26,15 @@ def run(browser, name):
     assert n[4][0] == n[4][1], n[4]            # orange juice, prep after the comma ignored
     assert n[5][0] == n[5][1], n[5]            # garlic cloves
     r = p.evaluate('gm.run()')
+    items = r['items']
+    assert 'Cilantro' in items and 'Chopped cilantro' in items, items
+    assert abs(items.index('Cilantro') - items.index('Chopped cilantro')) == 1, items
+    assert items.index('ground beef') != items.index('beef') and abs(items.index('ground beef') - items.index('beef')) != 0
+    assert len(items) >= 8, items   # nothing merged away
     print(name, r)
     assert not errors, errors
     c.close()
-    print('PASS', name, 'prep-wording merge keys', flush=True)
+    print('PASS', name, 'similar ingredients listed next to each other, none merged', flush=True)
 
 
 if __name__ == '__main__':
