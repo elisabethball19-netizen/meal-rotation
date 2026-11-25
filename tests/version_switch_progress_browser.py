@@ -10,13 +10,16 @@ s.fixture.HOOK += '''window.vsp={run:()=>{
  const ctx=cookingContext('p1','Mon','c',m2,'');cookingSession(ctx,true);const t=cookingItemTokens(m);const next=JSON.parse(JSON.stringify(cookingSessions));const e=next.occurrences[cookingOccurrenceKey(ctx)];e.steps=[t.steps.find(x=>x.token).token];e.ingredients=[t.ingredients[0].token];writeCookingSessions(next);
  const snap=()=>JSON.stringify(Object.values(cookingSessions.occurrences).filter(x=>['9001','9002'].includes(x.context.mealId)).map(x=>[x.steps,x.ingredients]));
  const before=snap();switchRecipeVersion(m);const mid=snap();switchRecipeVersion(m);const after=snap();
- return {before,mid,after}}};'''
+ return {before,mid,after}},
+ viewer:()=>{const m=meals.find(x=>x.id===9001);openSavedMealRecipe(m);const v=recipeViewer;const t=cookingItemTokens(m);v.previewProgress={ingredients:[t.ingredients[0].token],steps:[t.steps.find(x=>x.token).token]};const a=JSON.stringify(v.previewProgress);switchRecipeVersion(m);const mid=JSON.stringify(recipeViewer.previewProgress);switchRecipeVersion(m);return {a,mid,b:JSON.stringify(recipeViewer.previewProgress),ctx:!!v.context}}};'''
 
 
 def run(browser, name):
     c, p, errors, prefix = s.fixture.setup(browser, name, navigation_timeout=30000)
     r = p.evaluate('vsp.run()')
     assert r['before'] != '[]' and r['mid'] == '[]' and r['after'] == r['before'], r
+    v = p.evaluate('vsp.viewer()')
+    assert not v['ctx'] and v['a'] == v['b'] and v['mid'] != v['a'], v
     assert not errors, errors
     c.close()
     print('PASS', name, 'progress kept per version across switch and back', flush=True)

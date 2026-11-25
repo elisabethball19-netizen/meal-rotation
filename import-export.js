@@ -1132,11 +1132,15 @@ function switchRecipeVersion(meal){
  // Cooking progress belongs to a version: stash this version's progress with it, bring back the other version's.
  const mealKeys=new Set(sharedRecipeMembers(meal,meals).map(r=>String(r.id)));mealKeys.add(String(meal.id));const mine=Object.values(cookingSessions.occurrences).filter(e=>mealKeys.has(e.context.mealId)).map(e=>JSON.parse(JSON.stringify(e))),theirs=Array.isArray(alt.cookingStashV1)?alt.cookingStashV1:[];
  if(mine.length)current.cookingStashV1=mine;
+ // Opened from Meal Groups there is no scheduled occurrence: progress lives in the open viewer, so keep that per version too.
+ const viewer=typeof recipeViewer!=='undefined'&&recipeViewer&&!recipeViewer.context&&String(recipeViewer.mealId)===String(meal.id)?recipeViewer:null;
+ if(viewer)current.previewStashV1=JSON.parse(JSON.stringify(viewer.previewProgress));
  const oldLines=[...(meal.ingredients||[])];assignSharedRecipeFields(meal,patch);remapSelectionsAfterContentChange(meal,oldLines);persist();
  try{const next=JSON.parse(JSON.stringify(cookingSessions));let dirty=false;
   for(const [key,e] of Object.entries(next.occurrences))if(mealKeys.has(e.context.mealId)){delete next.occurrences[key];dirty=true}
   for(const e of theirs){const key=cookingOccurrenceKey(e.context);next.occurrences[key]=e;dirty=true}
   if(dirty)writeCookingSessions(next)}catch(e){}
+ if(viewer)viewer.previewProgress=alt.previewStashV1?JSON.parse(JSON.stringify(alt.previewStashV1)):{ingredients:[],steps:[]};
 }
 // Discard the version being viewed: the saved other version becomes the recipe.
 function discardRecipeVersion(meal){migrateVersionFlags(meal);const alt=meal?.aiAltVersion;if(!alt)return;snapshot();const patch={...versionFlagPatch(alt)};for(const key of AI_VERSION_FIELDS)patch[key]=Object.hasOwn(alt,key)?alt[key]:undefined;patch.aiAltVersion=undefined;const oldLines=[...(meal.ingredients||[])];assignSharedRecipeFields(meal,patch);remapSelectionsAfterContentChange(meal,oldLines);persist()}
