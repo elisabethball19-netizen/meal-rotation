@@ -449,6 +449,7 @@ function renderPlanMealCard(plan,entry,{preview=false,linked=[],tasks=null}={}){
 function scaleBadgeText(value){const n=Number(value);if(!(n>0)||n===1)return '';const whole=Math.floor(n),frac=n-whole,named={.25:'¼',.5:'½',.75:'¾'}[Math.round(frac*100)/100];return '×'+(frac===0?String(whole):named?(whole?String(whole):'')+named:String(Math.round(n*100)/100))}
 function planEntryMultiplier(plan,entry,preview){return preview?projectedOccurrenceMultiplier(plan,entry):occurrenceMultiplier(cookingContext(plan.id,entry.day,entry.cat,entry.meal,entry.linkedTo))}
 function openPlanCardScale(plan,entry,preview){
+ markCardControlUsed('scale');
  if(scaleStorageInvalid||groceryCheckStorageInvalid||!entry.meal)return;
  const context=preview?pendingContext(plan,entry):cookingContext(plan.id,entry.day,entry.cat,entry.meal,entry.linkedTo),current=planEntryMultiplier(plan,entry,preview);
  const d=recipeBulkDialog('Scale '+(entry.meal.name||'meal'),null,true);d.panel.classList.add('serving-add-dialog');
@@ -976,7 +977,7 @@ function restoreFavoriteRotationTurns(previous,desired){
 }
 function refreshFavoriteButtons(){for(const b of document.querySelectorAll('[data-recipe-favorite]')){const meal=meals.find(m=>String(m.id)===b.dataset.recipeFavorite);if(!meal)continue;b.setAttribute('aria-pressed',String(meal.favorite===true));const label=(meal.favorite===true?'Remove from favorites: ':'Add to favorites: ')+(meal.name||'Recipe');b.setAttribute('aria-label',label);b.title=label}}
 function toggleRecipeFavorite(meal){
- snapshot();preserveOtherMealPlanChoices(null,null);assignSharedRecipeFields(meal,{favorite:meal.favorite===true?undefined:true});
+ markCardControlUsed('favorite');snapshot();preserveOtherMealPlanChoices(null,null);assignSharedRecipeFields(meal,{favorite:meal.favorite===true?undefined:true});
  persist();renderList();refreshFavoriteButtons();if(recipeViewer)recipeViewer.contentChanged=true;
 }
 function recipeFavoriteButton(meal){

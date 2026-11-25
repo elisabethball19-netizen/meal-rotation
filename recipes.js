@@ -1709,6 +1709,7 @@ function buildRecipeTweakingEditor(meal){
 }
 function openNeedsTweaking(meal,updated=null,editing=false){
  if(document.getElementById('needsTweakingDialog'))return;
+ markCardControlUsed('needs');
  // Closing an editor can restore cloned records before the original icon tap runs.
  meal=meals.find(current=>String(current.id)===String(meal?.id));if(!meal)return;
  if(recipeViewer?.linkEdit){recipeLinkMessage(recipeViewer,'Save or cancel ingredient links before editing Needs Adjusting.');return}
