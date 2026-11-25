@@ -12,7 +12,7 @@ s.fixture.HOOK += '''window.vsp={run:()=>{
  const before=snap();switchRecipeVersion(m);const mid=snap();switchRecipeVersion(m);const after=snap();
  return {before,mid,after}},
  viewer:()=>{const m=meals.find(x=>x.id===9001);openSavedMealRecipe(m);const v=recipeViewer;const t=cookingItemTokens(m);v.previewProgress={ingredients:[t.ingredients[0].token],steps:[t.steps.find(x=>x.token).token]};const a=JSON.stringify(v.previewProgress);switchRecipeVersion(m);const mid=JSON.stringify(recipeViewer.previewProgress);switchRecipeVersion(m);return {a,mid,b:JSON.stringify(recipeViewer.previewProgress),ctx:!!v.context}},
- ui:()=>{const m=meals.find(x=>x.id===9001);m.aiAltVersion={kind:'original',flagsV1:true,ingredients:['3 lb beef','2 bay leaves'],instructions:'1. Brown beef.\\n2. Add bay leaves.',savedAt:new Date().toISOString()};m.ingredients=['2 lb chuck roast','1 onion'];m.instructions='1. Sear the chuck roast.\\n2. Add the onion.';persist();openSavedMealRecipe(m);const v=recipeViewer;const t=cookingItemTokens(m);v.previewProgress={ingredients:[t.ingredients[0].token],steps:[t.steps.find(x=>x.token).token]};renderRecipeViewer();return {a:JSON.stringify(v.previewProgress),ctx:!!v.context,vm:v.mealId}}};'''
+ ui:()=>{const m=meals.find(x=>x.id===9001);m.aiAltVersion={kind:'original',flagsV1:true,ingredients:['3 lb beef','2 bay leaves'],instructions:'1. Brown beef.\\n2. Add bay leaves.',savedAt:new Date().toISOString()};m.ingredients=['2 lb chuck roast','1 onion'];const fill=Array.from({length:60},(_,i)=>(i+3)+'. Simmer step number '+i+' for a while.').join('\\n');m.instructions='1. Sear the chuck roast.\\n2. Add the onion.\\n'+fill;m.aiAltVersion.instructions='1. Brown beef.\\n2. Add bay leaves.\\n'+fill;persist();openSavedMealRecipe(m);const v=recipeViewer;const t=cookingItemTokens(m);v.previewProgress={ingredients:[t.ingredients[0].token],steps:t.steps.filter(x=>x.token).slice(0,40).map(x=>x.token)};renderRecipeViewer();return {a:JSON.stringify(v.previewProgress),ctx:!!v.context,vm:v.mealId}}};'''
 
 
 def run(browser, name):
@@ -34,6 +34,9 @@ def run(browser, name):
     p.locator('.ai-choice').first.click(); p.wait_for_timeout(500); p.wait_for_function('recipeViewer&&recipeViewer.activeTab')
     b = p.evaluate('JSON.stringify(recipeViewer.previewProgress)')
     assert b == u['a'], (u, mid, b)
+    p.wait_for_timeout(600)
+    top = p.evaluate('()=>{const v=recipeViewer;const el=[...v.content.querySelectorAll("[data-cooking-token]")].find(e=>e.textContent.includes("step number 38 "));const b=(el.closest(".recipe-pane")||v.cover).getBoundingClientRect(),r=el.getBoundingClientRect();return [r.top,b.top,b.bottom,r.bottom]}')
+    assert top[0] >= top[1]-2 and top[3] <= top[2]+2, ('first unfinished step not in view', top)
     assert not errors, errors
     c.close()
     print('PASS', name, 'progress kept per version across switch and back', flush=True)

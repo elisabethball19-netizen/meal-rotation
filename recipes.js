@@ -423,7 +423,9 @@ let pendingRecipeViewProgress=null;
 function installRecipeViewerTabs(view,meal,context,saved=null){
  const initial=createRecipeTab(meal,viewerRecipeContext(meal,context));
  // A version switch rebuilds the viewer: hand the progress kept for the version now showing to the new viewer (2026-11-24).
- if(typeof pendingRecipeViewProgress!=='undefined'&&pendingRecipeViewProgress&&pendingRecipeViewProgress.mealId===String(meal.id)&&!initial.context)initial.previewProgress=JSON.parse(JSON.stringify(pendingRecipeViewProgress.progress));
+ if(typeof pendingRecipeViewProgress!=='undefined'&&pendingRecipeViewProgress&&pendingRecipeViewProgress.mealId===String(meal.id)&&!initial.context&&pendingRecipeViewProgress.progress)initial.previewProgress=JSON.parse(JSON.stringify(pendingRecipeViewProgress.progress));
+ if(typeof pendingRecipeViewProgress!=='undefined'&&pendingRecipeViewProgress&&pendingRecipeViewProgress.mealId===String(meal.id)&&pendingRecipeViewProgress.scroll){initial.coverScroll=pendingRecipeViewProgress.scroll.cover||0;initial.paneScroll=pendingRecipeViewProgress.scroll.panes||[];view.restoreTabScroll=true}
+ if(typeof pendingRecipeViewProgress!=='undefined'&&pendingRecipeViewProgress&&pendingRecipeViewProgress.mealId===String(meal.id))view.returnToStepAfterRender=true;
  pendingRecipeViewProgress=null;
  view.tabs=[initial];view.anchorTab=initial;view.tabCache=new Map([[initial.key,initial]]);view.activeTab=initial;
  // Existing viewer logic continues to read/write these fields on the active tab.
@@ -1207,7 +1209,7 @@ function buildRecipeTitleHeader(view,meal,multiplier){
  decoratePreferenceSwitches(menu);wrap.append(scale,menu);const askAi=document.createElement('button');askAi.type='button';askAi.className='recipe-header-icon recipe-ask-ai';setRecipeToolbarIcon(askAi,'sparkle','Ask AI about this recipe');askAi.onclick=()=>openAiRecipeMenu(meal);
  actions.append(...[recipeFavoriteButton(meal),edit,typeof aiFeaturesOn!=='function'||aiFeaturesOn()?askAi:null,wrap].filter(Boolean));header.append(title,actions,dismiss);view.content.append(header);
  // A recipe updated by Ask AI keeps its other version (2026-11-19): one quiet line to switch or discard it.
- if(meal.aiAltVersion){const version=document.createElement('div');version.className='recipe-version-note';const viewingChanged=meal.aiAltVersion.kind==='original';version.append(document.createTextNode(viewingChanged?'Changed · ':'Original · '));const versionLink=document.createElement('button');versionLink.type='button';versionLink.className='recipe-version-link';versionLink.textContent=viewingChanged?'Show original':'Show changed';versionLink.onclick=()=>openRecipeVersionDialog(meal,()=>{if(recipeViewer)renderRecipeViewer()});version.append(versionLink);view.content.append(version)}
+ if(meal.aiAltVersion){const version=document.createElement('div');version.className='recipe-version-note';const viewingChanged=meal.aiAltVersion.kind==='original';version.append(document.createTextNode(viewingChanged?'Changed · ':'Original · '));const versionLink=document.createElement('button');versionLink.type='button';versionLink.className='recipe-version-link';versionLink.textContent=viewingChanged?'Show original':'Show changed';versionLink.onclick=()=>{rememberRecipeVersionScroll(meal);openRecipeVersionDialog(meal,()=>{if(recipeViewer)renderRecipeViewer()})};version.append(versionLink);view.content.append(version)}
  return {title,scale};
 }
 
@@ -1761,6 +1763,8 @@ function renderRecipeViewer(){
  configureRecipeSplit(v,divider,panes);[ingredientsPane,instructionsPane].forEach((p,i)=>p.scrollTop=paneScroll[i]||0);v.cover.scrollTop=scroll;if(active){const target=[...v.content.querySelectorAll('[data-cooking-token]')].find(e=>e.dataset.cookingToken===active);target?.focus({preventScroll:true})}else if(scaleFocused)scale.focus({preventScroll:true});
  renderRecipeLinkBar(v);restoreRecipeLinkViewport(v,ingredientsPane,instructionsPane,scroll,paneScroll);
  configureRecipeIngredientSync(v,meal,ingredientsPane,instructionsPane);configureGuidedCooking(v,ingredientsPane,instructionsPane);configureCurrentRecipeStep(v,meal,session);v.restoreTabScroll=false;
+ // After a version switch the viewer is rebuilt at the top: go back to the first unfinished step (2026-11-24).
+ if(v.returnToStepAfterRender){v.returnToStepAfterRender=false;if(session?.steps?.length)setTimeout(()=>{if(recipeViewer===v)returnToCurrentRecipeStep()},80)}
 }
 
 const cookingRecipeStates=new Map();
