@@ -22,7 +22,7 @@ def run(browser, name):
     sb.shot(p, name, 'more-closed')
     p.get_by_role('button', name='More', exact=True).first.click(); p.wait_for_timeout(300)
     opts = p.locator('.compact-meal-dialog button.meal-option-row').all_inner_texts()
-    assert opts == ['Add to favorites', 'Needs adjusting', 'Scale'], opts
+    assert [o.split(chr(10))[0] for o in opts] == ['Add to favorites', 'Needs adjusting', 'Scale'], opts
     sb.shot(p, name, 'more-open')
     p.get_by_role('button', name='Add to favorites').click(); p.wait_for_timeout(500)
     assert p.locator('.expanded-name-heart:visible').count() == 1

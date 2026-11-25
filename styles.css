@@ -2690,3 +2690,6 @@ input[type="radio"]:checked::after{transform:scale(1)}
 input[type="radio"]:disabled{opacity:.45;cursor:default}
 input[type="radio"]:focus-visible{outline:2px solid #315ba8;outline-offset:2px}
 :where(select){min-height:44px;padding:8px 10px;border:1px solid #ccc;border-radius:8px;background-color:#fff;color:inherit;font:inherit}
+/* v412: More dialog rows carry the control's icon and one line of explanation */
+.more-option-row{display:flex!important;align-items:center;gap:14px;text-align:left!important;justify-content:flex-start!important;height:auto!important;min-height:56px;padding:10px 14px!important}
+.more-option-row>svg{flex:0 0 24px}.more-option-text{display:flex;flex-direction:column;gap:2px;min-width:0}.more-option-label{font-size:16px}.more-option-note{font-size:12.5px;color:#6b7280;line-height:1.3}

@@ -158,10 +158,12 @@ function appendSharedMealActions(body,card,plan,entry,preview=false){
 }
 function openMoreMealOptions(plan,entry,preview,shown){
  const meal=entry.meal,dialog=compactMealDialog(meal.name||'Meal','More options');dialog.box.classList.add('meal-options-compact');dialog.box.querySelector('h3')?.classList.add('meal-options-recipe-title');dialog.box.querySelector('button')?.setAttribute('aria-label','Close more options');
- const row=(label,action)=>compactMealButton(dialog,label,action).classList.add('meal-option-row'),current=()=>meals.find(m=>String(m.id)===String(meal.id));
- if(!shown.showHeart)row(meal.favorite===true?'Remove from favorites':'Add to favorites',()=>{const m=current();if(m)toggleRecipeFavorite(m)});
- if(!shown.showFlag)row('Needs adjusting',()=>{const m=current();if(m)openNeedsTweaking(m)});
- if(!shown.showScale)row('Scale',()=>openPlanCardScale(plan,entry,preview));
+ const current=()=>meals.find(m=>String(m.id)===String(meal.id)),heartPath='<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/>';
+ // Each row shows the same icon the control gets on the card once it has been used, with one short line of explanation.
+ const row=(icon,label,note,action)=>{const button=document.createElement('button');button.type='button';button.className='smallbtn meal-full-action meal-option-row more-option-row';button.innerHTML='<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icon+'</svg><span class="more-option-text"><span class="more-option-label"></span><span class="more-option-note"></span></span>';button.querySelector('.more-option-label').textContent=label;button.querySelector('.more-option-note').textContent=note;button.onclick=()=>dialog.run(action);dialog.box.append(button)};
+ if(!shown.showHeart)row(heartPath,meal.favorite===true?'Remove from favorites':'Add to favorites',meal.favorite===true?'This meal will come up less often in your meal plan.':'Favorites come up more often in your meal plan.',()=>{const m=current();if(m)toggleRecipeFavorite(m)});
+ if(!shown.showFlag)row('<circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 4h.01"/>','Needs adjusting','Make a note of what to change next time.',()=>{const m=current();if(m)openNeedsTweaking(m)});
+ if(!shown.showScale)row(appIconSvg.scale,'Scale','Adjust the meal size.',()=>openPlanCardScale(plan,entry,preview));
 }
 // "Mix it up": checked groups float to the top in the order they were checked.
 function servingGroupChecklist(ids){
