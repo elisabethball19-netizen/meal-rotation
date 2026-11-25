@@ -17,14 +17,15 @@ def run(browser, name):
     more = p.locator('.master-layout-toggle')
     assert more.get_attribute('aria-label') == 'More options for Meal Groups'
     assert p.locator('.master-order-reset').count() == 0
+    assert p.locator('#search').count() == 0  # Search moved into the menu
     items = lambda: p.locator('.compact-meal-dialog button.meal-option-row').all_inner_texts()
     more.click(); p.wait_for_timeout(300)
-    assert items() == ['Two columns', 'Reorder groups'], items()
+    assert items() == ['Search meals', 'Two columns', 'Reorder groups'], items()
     sb.shot(p, name, 'groups-menu')
     p.get_by_role('button', name='Two columns').click(); p.wait_for_timeout(400)
     assert p.locator('.master-categories').get_attribute('data-groups-layout') == 'two'
     more.click(); p.wait_for_timeout(300)
-    assert items()[0] == 'One column'
+    assert items()[1] == 'One column'
     p.get_by_role('button', name='One column').click(); p.wait_for_timeout(400)
     assert p.locator('.master-categories').get_attribute('data-groups-layout') == 'compact'
     # reorder groups opens the existing reorder mode (finish / cancel controls, drag handles on every group)
@@ -34,7 +35,7 @@ def run(browser, name):
     p.get_by_role('button', name='Cancel reordering groups').click(); p.wait_for_timeout(500)
     # Reset group order is listed only while a custom order is active (stubbed: the fixture has one weekday group)
     p.evaluate('gp.stub()'); more.click(); p.wait_for_timeout(300)
-    assert items() == ['Two columns', 'Reorder groups', 'Reset group order'], items()
+    assert items() == ['Search meals', 'Two columns', 'Reorder groups', 'Reset group order'], items()
     p.get_by_role('button', name='Reset group order').click(); p.wait_for_timeout(400)
     p.evaluate('gp.unstub()')
     assert not errors, errors

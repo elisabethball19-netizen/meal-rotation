@@ -31,7 +31,12 @@ def run(browser, name):
     p.get_by_role('button', name='Deselect all', exact=True).click(); p.wait_for_timeout(500)
     assert p.evaluate('gm.checked()').startswith('0/')
     more.click(); p.get_by_role('button', name='Expand all', exact=True).click(); p.wait_for_timeout(400)
-    more.click(); p.get_by_role('button', name='Collapse all', exact=True).click(); p.wait_for_timeout(400)
+    more.click(); p.wait_for_timeout(300)
+    assert rows.nth(2).is_disabled() and not rows.nth(3).is_disabled()  # all open: Expand all is muted
+    p.get_by_role('button', name='Collapse all', exact=True).click(); p.wait_for_timeout(400)
+    more.click(); p.wait_for_timeout(300)
+    assert rows.nth(3).is_disabled() and not rows.nth(2).is_disabled()  # all closed: Collapse all is muted
+    p.keyboard.press('Escape'); p.get_by_role('button', name='Close grocery options').click(); p.wait_for_timeout(200)
     assert not errors, errors
     c.close()
     print('PASS', name, 'Groceries More menu: select / deselect / expand / collapse')

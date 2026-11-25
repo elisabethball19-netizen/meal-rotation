@@ -156,6 +156,8 @@ function appendSharedMealActions(body,card,plan,entry,preview=false){
  // Collapsing the card saves a typed side name and forgets which sides were open.
  toggle.onclick=event=>{event.preventDefault();event.stopPropagation();const open=panel.hidden;let saved=false;if(fillSides){if(open)fillSides();else{const ui=servingUi.get(uiKey);if(ui?.dirty){commitServingSession(ui);saved=true}servingUi.delete(uiKey)}}togglePlanCard(card,open);if(saved){keepPlanCardScroll();renderList({readOnly:true})}};card.append(panel);setPlanCardExpanded(card,expandedPlanCards.has(card.dataset.cardIdentity));
 }
+// v421: every More menu keeps its rows in one stack that is only as wide as its widest row and centered in the popup.
+function centerMoreRows(box){const rows=[...box.querySelectorAll(':scope > .more-option-row')];if(!rows.length)return;const list=document.createElement('div');list.className='more-option-list';rows[0].before(list);list.append(...rows)}
 function openMoreMealOptions(plan,entry,preview,shown){
  const meal=entry.meal,dialog=compactMealDialog(meal.name||'Meal','More options');dialog.box.classList.add('meal-options-compact');dialog.box.querySelector('h3')?.classList.add('meal-options-recipe-title');dialog.box.querySelector('button')?.setAttribute('aria-label','Close more options');
  const current=()=>meals.find(m=>String(m.id)===String(meal.id)),heartPath='<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/>';
@@ -164,6 +166,7 @@ function openMoreMealOptions(plan,entry,preview,shown){
  if(!shown.showHeart)row(heartPath,meal.favorite===true?'Remove from favorites':'Add to favorites',meal.favorite===true?'This meal will come up less often in your meal plan.':'Favorites come up more often in your meal plan.',()=>{const m=current();if(m)toggleRecipeFavorite(m)});
  if(!shown.showFlag)row('<circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 4h.01"/>','Needs adjusting','Make a note of what to change next time.',()=>{const m=current();if(m)openNeedsTweaking(m)});
  if(!shown.showScale)row(appIconSvg.scale,'Scale','Adjust the meal size.',()=>openPlanCardScale(plan,entry,preview));
+ centerMoreRows(dialog.box);
 }
 // "Mix it up": checked groups float to the top in the order they were checked.
 function servingGroupChecklist(ids){
