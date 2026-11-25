@@ -4356,7 +4356,8 @@ function recipeIngredientsFromMarkup(html){
   }
   return [];
 }
-function recipeIngredientsFromMarkdown(markdown){
+// v432: strict reading first; if it finds nothing, the pre-v431 looser reading (result marked .loose = doubtful).
+function recipeIngredientsFromMarkdown(markdown,loose=false){
   const source=String(markdown).split(/\r?\n/).slice(0,12000);
   let best=[];
   for(let i=0;i<source.length;i++){
@@ -4367,7 +4368,7 @@ function recipeIngredientsFromMarkdown(markdown){
     for(let j=i+1;j<Math.min(source.length,i+135);j++){
       const line=source[j].trim(),level=(line.match(/^(#{1,6})\s/)||[,''])[1].length;
       // v431: a heading at the same or a higher level is the next section, even before any item.
-      if(level&&(seenItem||level<=startLevel))break;
+      if(level&&(seenItem||!loose&&level<=startLevel))break;
       if(recipeTextJunkLine(line))continue;
       if(/^(?:directions|instructions|method|steps|preparation|nutrition|notes|equipment|reviews|you(?:'|’)ll need|how to make|print recipe|related recipes)\b/i.test(line.replace(/^#{1,6}\s*/,''))&&seenItem)break;
       if(!line){if(seenItem&&source.slice(j+1,j+4).every(x=>!x.trim()))break;continue}
@@ -4381,9 +4382,11 @@ function recipeIngredientsFromMarkdown(markdown){
       else if(seenItem)break;
     }
     const lines=uniqueIngredientLines(candidates),score=list=>list.filter(x=>/^(?:[\d¼½¾⅓⅔⅛⅜⅝⅞]|(?:a|an|one|two|three|half)\s)/i.test(x)).length*1000+list.length;
-    if(score(lines)>score(best))best=lines;
+    if(loose?lines.length>best.length:score(lines)>score(best))best=lines;
   }
-  return best.length>=2?best:[];
+  if(best.length>=2)return best;
+  if(loose)return [];
+  const fallback=recipeIngredientsFromMarkdown(markdown,true);if(fallback.length)fallback.loose=true;return fallback;
 }
 function extractRecipeIngredients(payload){
   const value=String(payload||'').trim();if(!value)return [];
@@ -4399,9 +4402,10 @@ function extractRecipeIngredients(payload){
   }
   return recipeIngredientsFromMarkdown(value);
 }
-// v431: say so when a website import may be wrong or incomplete (shown after the import, never blocks it).
+// v431/v432: say so when a website import may be wrong or incomplete (shown after the import, never blocks it).
+// Only for a plain-text read that looks doubtful (looser fallback, no steps, or ingredients mostly without amounts).
 function websiteImportWarning(lines){
- if(lines?.textOnly||lines?.recipeDetails?.textOnly)return 'This website could only be read as plain text, so the ingredients and steps may be wrong or incomplete. Please check them before saving.';
+ if((lines?.textOnly||lines?.recipeDetails?.textOnly)&&(lines?.doubtful||lines?.recipeDetails?.doubtful))return 'This website could only be partly read, so the ingredients or steps may be wrong or missing. Please check them before saving.';
  if(lines?.recipeDetails?.instructionWarning)return 'Ingredients were found, but the steps could not be read reliably. Please check them, or add the steps yourself.';
  return '';
 }
@@ -4415,7 +4419,8 @@ async function importIngredientsFromWebsite(value,externalSignal,expectedName=''
    const response=await fetch(endpoint,{signal:controller.signal,credentials:'omit'});if(!response.ok)throw Error('The recipe website could not be read.');const raw=await response.text();if(raw.length>2500000)throw Error('Recipe page too large.');
    const details=extractCompleteRecipe(raw,address,expectedName),ingredients=details?.ingredients?.length?uniqueIngredientLines(details.ingredients,Infinity):extractRecipeIngredients(raw);
    if(!ingredients.length&&!details?.instructions?.some(block=>block.type==='step'))throw Error('No supported recipe details found.');
-   ingredients.recipeDetails=details;ingredients.textOnly=!!details?.textOnly||!details&&!/<(?:!doctype|html|body)\b/i.test(raw.slice(0,20000));return ingredients;
+   ingredients.recipeDetails=details;ingredients.textOnly=!!details?.textOnly||!details&&!/<(?:!doctype|html|body)\b/i.test(raw.slice(0,20000));
+   ingredients.doubtful=!!details?.doubtful||!details&&ingredients.textOnly;return ingredients;
   }finally{clearTimeout(timer);externalSignal?.removeEventListener('abort',abort)}
  }
  const complete=result=>result?.length&&result?.recipeDetails?.instructions?.some(block=>block.type==='step');let partial=null;
@@ -4426,7 +4431,7 @@ async function importIngredientsFromWebsite(value,externalSignal,expectedName=''
  const successes=results.filter(result=>result.status==='fulfilled').map(result=>result.value);
  const best=successes.find(result=>complete(result)&&!result.textOnly)||(partial&&!partial.textOnly&&partial.length?partial:null)||successes.find(complete)||partial||successes[0];
  if(!best)throw Error('Recipe details could not be imported from this website. Your saved recipe is unchanged; you can add instructions manually.');
- if(!best.length&&partial?.length){const details={...best.recipeDetails,ingredients:[...partial]};const combined=[...partial];combined.recipeDetails=details;combined.textOnly=!!(best.textOnly||partial.textOnly);return combined}
+ if(!best.length&&partial?.length){const details={...best.recipeDetails,ingredients:[...partial]};const combined=[...partial];combined.recipeDetails=details;combined.textOnly=!!(best.textOnly||partial.textOnly);combined.doubtful=!!(best.doubtful||partial.doubtful);return combined}
  if(!complete(best)&&best.recipeDetails)best.recipeDetails.instructionWarning='Ingredients were retrieved, but reliable cooking instructions were unavailable. Retry from the saved URL or add them manually.';
  return best;
 }
@@ -4435,7 +4440,8 @@ function showImportProgressDialog(message="Importing ingredients from website…
   let resolveCancel;
   const cancelled=new Promise(resolve=>{resolveCancel=()=>resolve({cancelled:true})});
   const overlay=document.createElement('div');
-  overlay.style.cssText='position:fixed;inset:0;z-index:13020;background:#0008;display:flex;align-items:center;justify-content:center;padding:18px';
+  // v432: above the Import recipes dialog (36000) so the Settings website import shows it too.
+  overlay.style.cssText='position:fixed;inset:0;z-index:36500;background:#0008;display:flex;align-items:center;justify-content:center;padding:18px';
   const panel=document.createElement('div');
   panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Import ingredients');
   panel.style.cssText='background:#fff;color:#242424;border-radius:16px;padding:22px;width:100%;max-width:480px;box-shadow:0 12px 36px #0003';

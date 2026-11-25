@@ -5464,20 +5464,20 @@ function recipeTextJunkLine(line){
  if(!value)return String(line||'').trim()!=='';
  return /^\[[^\]]*\]\([^)]*\)$/.test(value)||/^(?:report ad|advertisement|sponsored(?: content)?|ad)$/i.test(value);
 }
-function recipeTextSections(text){
+function recipeTextSections(text,loose=false){
  const lines=String(text||'').split(/\r?\n/);let mode='',modeLevel=0,section=null,notes=[];const instructionSections=[];
  for(const line of lines){const heading=line.trim().replace(/^#{1,6}\s*/, '').replace(/\*\*/g,'').replace(/:$/,''),level=(line.trim().match(/^(#{1,6})\s/)||[,''])[1].length;
   if(/^(?:instructions|directions|method|preparation|cooking instructions)$/i.test(heading)){mode='instructions';modeLevel=level||7;section=[];instructionSections.push(section);continue}
   if(/^(?:notes|recipe notes|tips)$/i.test(heading)){mode='notes';modeLevel=level||7;continue}
   if(/^(?:nutrition|nutrition facts|comments|reviews|equipment|ingredients)$/i.test(heading)){mode='';continue}
   // Any other Markdown heading at the same or a higher level starts a new part of the page (v431).
-  if(mode&&level&&level<=modeLevel){mode='';continue}
+  if(!loose&&mode&&level&&level<=modeLevel){mode='';continue}
   if(/^\s*[-=]{3,}\s*$/.test(line)||recipeTextJunkLine(line))continue;
   if(mode==='instructions')section.push(line);else if(mode==='notes')notes.push(line);
  }
  // A page can have a short method in the article and the full one in the recipe card: keep the fuller one.
  const stepCount=part=>part.filter(line=>line.trim()&&!/^#{1,6}\s/.test(line.trim())).length;
- const instructions=instructionSections.reduce((best,part)=>stepCount(part)>stepCount(best)?part:best,[]);
+ const instructions=loose?instructionSections.flat():instructionSections.reduce((best,part)=>stepCount(part)>stepCount(best)?part:best,[]);
  if(!instructions.length&&/URL Source:\s*https?:\/\/(?:android\.)?recipesage\.com\//i.test(String(text))&&/Markdown Content:/i.test(String(text))){
   const body=String(text).split(/Markdown Content:\s*\n/i).slice(1).join('\n').trim();
   const numbered=[...body.matchAll(/^\s*(?:\*\*(\d+)\*\*|(\d+)[.)])\s*(\S.*)$/gm)];
@@ -5510,9 +5510,14 @@ function extractCompleteRecipe(payload,source='',expectedName=''){
  const best=usable.length===1?usable[0]:pool[0];
  if(best){const fields=completeRecipeFields(best,source);if(!exact.length&&!byUrl.length&&usable.length>1){fields.instructions=[];fields.instructionWarning='Several recipes were found; instructions need manual review.'}if(fields.ingredients.length||fields.instructions.some(block=>block.type==='step'))return fields}
  const readerSource=(raw.match(/^URL Source:\s*(https?:\/\/\S+)/m)||[])[1];if(readerSource&&source&&recipeReferenceUrl(readerSource)!==recipeReferenceUrl(source))return null;
- const parts=recipeTextSections(raw),ingredients=extractRecipeIngredients(raw);
- // textOnly (v431): read from a plain-text version of the page, so the user is asked to check it.
- if(parts.instructions.some(block=>block.type==='step')||ingredients.length)return {...parts,name:parts.name||'',ingredients,prep:'',cook:'',total:'',marinate:'',originalRecipeUrl:source,servings:recipeTextServings(raw),textOnly:!/<(?:!doctype|html|body)\b/i.test(raw.slice(0,20000))};
+ let parts=recipeTextSections(raw),loose=false;const ingredients=extractRecipeIngredients(raw),hasSteps=p=>p.instructions.some(block=>block.type==='step');
+ if(ingredients.loose)loose=true;
+ // v432: if the strict reading finds no steps, try the pre-v431 looser reading and mark the result doubtful.
+ if(!hasSteps(parts)){const fallback=recipeTextSections(raw,true);if(hasSteps(fallback)){parts=fallback;loose=true}}
+ const withAmounts=ingredients.filter(x=>/^(?:[\d¼½¾⅓⅔⅛⅜⅝⅞]|(?:a|an|one|two|three|half)\s)/i.test(String(x).trim())).length;
+ const doubtful=loose||!hasSteps(parts)||!ingredients.length||withAmounts*2<ingredients.length;
+ // textOnly (v431): read from a plain-text version of the page; doubtful (v432) decides whether to warn.
+ if(hasSteps(parts)||ingredients.length)return {...parts,name:parts.name||'',ingredients,prep:'',cook:'',total:'',marinate:'',originalRecipeUrl:source,servings:recipeTextServings(raw),textOnly:!/<(?:!doctype|html|body)\b/i.test(raw.slice(0,20000)),doubtful};
  return null;
 }
 // 'Servings 8', 'Serves: 4', 'Yield: 6 servings' lines in a plain-text page (v431).
@@ -7478,7 +7483,13 @@ function openRecipeImportSourcePicker(initial='website'){
    let items=[],filename='import',websiteNotice='';
    if(method==='file'){const file=fields.file.files?.[0];if(!file)throw Error('Choose a recipe file.');items=await recipeImportReadFile(file);filename=file.name}
    else if(method==='trello'){let url;try{url=new URL(fields.board.value.trim())}catch(_){throw Error('Enter a complete Trello board URL.')};if(url.protocol!=='https:'||!['trello.com','www.trello.com'].includes(url.hostname)||!/^\/b\/[a-z0-9]{6,}/i.test(url.pathname))throw Error('Enter a link beginning with https://trello.com/b/');const response=await fetch('https://trello.com/b/'+encodeURIComponent(url.pathname.split('/')[2])+'.json',{credentials:'omit',signal:controller.signal});if(!response.ok)throw Error('Trello blocked access. Export the board as JSON and use Recipe file.');items=recipeImportItems(await response.json());filename='Trello board'}
-   else if(method==='website'){const lines=await importIngredientsFromWebsite(fields.url.value.trim(),controller.signal);const details=lines.recipeDetails||{};websiteNotice=websiteImportWarning(lines);items=[{...details,ingredients:lines.length?[...lines]:(details.ingredients||[]),name:details.name||'Imported recipe',url:fields.url.value.trim()}]}
+   else if(method==='website'){
+    // v432: the same progress pop-up (with X to cancel) as the Meal Groups + flow.
+    const progress=showImportProgressDialog('Importing recipe from website…'),stop=()=>progress.abort();controller.signal.addEventListener('abort',stop,{once:true});let result;
+    try{result=await Promise.race([importIngredientsFromWebsite(fields.url.value.trim(),progress.signal).then(lines=>({lines})),progress.cancelled])}
+    finally{controller.signal.removeEventListener('abort',stop);progress.close()}
+    if(result.cancelled){if(current===generation)status.textContent='';return}
+    const lines=result.lines;const details=lines.recipeDetails||{};websiteNotice=websiteImportWarning(lines);items=[{...details,ingredients:lines.length?[...lines]:(details.ingredients||[]),name:details.name||'Imported recipe',url:fields.url.value.trim()}]}
    else{const text=fields.text.value.trim();if(!text)throw Error('Enter recipe text first.');const details=extractCompleteRecipe(text)||recipeTextSections(text);if(!details.ingredients?.length&&!details.instructions?.some(step=>step.type==='step'))details.notes=details.notes||text;items=[{...details,name:details.name||text.split(/\r?\n/)[0].replace(/^Title:\s*/i,'').trim()||'Imported recipe',ingredients:details.ingredients||extractRecipeIngredients(text)}]}
    if(current!==generation||!d.overlay.isConnected)return;if(!items.length)throw Error('No recipes were found. Check the selected source.');d.navigate=true;d.close();await groupHistorySettled;await editorHistorySettled;if(websiteNotice)await showAppMessage(websiteNotice);await reviewRecipeImportItems(items,filename);
   }catch(e){if(current===generation&&d.overlay.isConnected)status.textContent=e.message||'Import could not be read. No recipes changed.'}finally{if(current===generation)review.disabled=false}
@@ -12666,7 +12677,8 @@ function recipeIngredientsFromMarkup(html){
   }
   return [];
 }
-function recipeIngredientsFromMarkdown(markdown){
+// v432: strict reading first; if it finds nothing, the pre-v431 looser reading (result marked .loose = doubtful).
+function recipeIngredientsFromMarkdown(markdown,loose=false){
   const source=String(markdown).split(/\r?\n/).slice(0,12000);
   let best=[];
   for(let i=0;i<source.length;i++){
@@ -12677,7 +12689,7 @@ function recipeIngredientsFromMarkdown(markdown){
     for(let j=i+1;j<Math.min(source.length,i+135);j++){
       const line=source[j].trim(),level=(line.match(/^(#{1,6})\s/)||[,''])[1].length;
       // v431: a heading at the same or a higher level is the next section, even before any item.
-      if(level&&(seenItem||level<=startLevel))break;
+      if(level&&(seenItem||!loose&&level<=startLevel))break;
       if(recipeTextJunkLine(line))continue;
       if(/^(?:directions|instructions|method|steps|preparation|nutrition|notes|equipment|reviews|you(?:'|’)ll need|how to make|print recipe|related recipes)\b/i.test(line.replace(/^#{1,6}\s*/,''))&&seenItem)break;
       if(!line){if(seenItem&&source.slice(j+1,j+4).every(x=>!x.trim()))break;continue}
@@ -12691,9 +12703,11 @@ function recipeIngredientsFromMarkdown(markdown){
       else if(seenItem)break;
     }
     const lines=uniqueIngredientLines(candidates),score=list=>list.filter(x=>/^(?:[\d¼½¾⅓⅔⅛⅜⅝⅞]|(?:a|an|one|two|three|half)\s)/i.test(x)).length*1000+list.length;
-    if(score(lines)>score(best))best=lines;
+    if(loose?lines.length>best.length:score(lines)>score(best))best=lines;
   }
-  return best.length>=2?best:[];
+  if(best.length>=2)return best;
+  if(loose)return [];
+  const fallback=recipeIngredientsFromMarkdown(markdown,true);if(fallback.length)fallback.loose=true;return fallback;
 }
 function extractRecipeIngredients(payload){
   const value=String(payload||'').trim();if(!value)return [];
@@ -12709,9 +12723,10 @@ function extractRecipeIngredients(payload){
   }
   return recipeIngredientsFromMarkdown(value);
 }
-// v431: say so when a website import may be wrong or incomplete (shown after the import, never blocks it).
+// v431/v432: say so when a website import may be wrong or incomplete (shown after the import, never blocks it).
+// Only for a plain-text read that looks doubtful (looser fallback, no steps, or ingredients mostly without amounts).
 function websiteImportWarning(lines){
- if(lines?.textOnly||lines?.recipeDetails?.textOnly)return 'This website could only be read as plain text, so the ingredients and steps may be wrong or incomplete. Please check them before saving.';
+ if((lines?.textOnly||lines?.recipeDetails?.textOnly)&&(lines?.doubtful||lines?.recipeDetails?.doubtful))return 'This website could only be partly read, so the ingredients or steps may be wrong or missing. Please check them before saving.';
  if(lines?.recipeDetails?.instructionWarning)return 'Ingredients were found, but the steps could not be read reliably. Please check them, or add the steps yourself.';
  return '';
 }
@@ -12725,7 +12740,8 @@ async function importIngredientsFromWebsite(value,externalSignal,expectedName=''
    const response=await fetch(endpoint,{signal:controller.signal,credentials:'omit'});if(!response.ok)throw Error('The recipe website could not be read.');const raw=await response.text();if(raw.length>2500000)throw Error('Recipe page too large.');
    const details=extractCompleteRecipe(raw,address,expectedName),ingredients=details?.ingredients?.length?uniqueIngredientLines(details.ingredients,Infinity):extractRecipeIngredients(raw);
    if(!ingredients.length&&!details?.instructions?.some(block=>block.type==='step'))throw Error('No supported recipe details found.');
-   ingredients.recipeDetails=details;ingredients.textOnly=!!details?.textOnly||!details&&!/<(?:!doctype|html|body)\b/i.test(raw.slice(0,20000));return ingredients;
+   ingredients.recipeDetails=details;ingredients.textOnly=!!details?.textOnly||!details&&!/<(?:!doctype|html|body)\b/i.test(raw.slice(0,20000));
+   ingredients.doubtful=!!details?.doubtful||!details&&ingredients.textOnly;return ingredients;
   }finally{clearTimeout(timer);externalSignal?.removeEventListener('abort',abort)}
  }
  const complete=result=>result?.length&&result?.recipeDetails?.instructions?.some(block=>block.type==='step');let partial=null;
@@ -12736,7 +12752,7 @@ async function importIngredientsFromWebsite(value,externalSignal,expectedName=''
  const successes=results.filter(result=>result.status==='fulfilled').map(result=>result.value);
  const best=successes.find(result=>complete(result)&&!result.textOnly)||(partial&&!partial.textOnly&&partial.length?partial:null)||successes.find(complete)||partial||successes[0];
  if(!best)throw Error('Recipe details could not be imported from this website. Your saved recipe is unchanged; you can add instructions manually.');
- if(!best.length&&partial?.length){const details={...best.recipeDetails,ingredients:[...partial]};const combined=[...partial];combined.recipeDetails=details;combined.textOnly=!!(best.textOnly||partial.textOnly);return combined}
+ if(!best.length&&partial?.length){const details={...best.recipeDetails,ingredients:[...partial]};const combined=[...partial];combined.recipeDetails=details;combined.textOnly=!!(best.textOnly||partial.textOnly);combined.doubtful=!!(best.doubtful||partial.doubtful);return combined}
  if(!complete(best)&&best.recipeDetails)best.recipeDetails.instructionWarning='Ingredients were retrieved, but reliable cooking instructions were unavailable. Retry from the saved URL or add them manually.';
  return best;
 }
@@ -12745,7 +12761,8 @@ function showImportProgressDialog(message="Importing ingredients from website…
   let resolveCancel;
   const cancelled=new Promise(resolve=>{resolveCancel=()=>resolve({cancelled:true})});
   const overlay=document.createElement('div');
-  overlay.style.cssText='position:fixed;inset:0;z-index:13020;background:#0008;display:flex;align-items:center;justify-content:center;padding:18px';
+  // v432: above the Import recipes dialog (36000) so the Settings website import shows it too.
+  overlay.style.cssText='position:fixed;inset:0;z-index:36500;background:#0008;display:flex;align-items:center;justify-content:center;padding:18px';
   const panel=document.createElement('div');
   panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Import ingredients');
   panel.style.cssText='background:#fff;color:#242424;border-radius:16px;padding:22px;width:100%;max-width:480px;box-shadow:0 12px 36px #0003';

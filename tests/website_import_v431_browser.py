@@ -1,4 +1,4 @@
-"""v431 website import fixes (v430 phone test item 5, askchefdennis coleslaw).
+"""v431/v432 website import fixes (v430 phone test item 5, askchefdennis coleslaw).
 Run: python3 -m http.server 8765 (repo root), then python3 tests/website_import_v431_browser.py
 Optional BASE env var (default http://localhost:8765). Checks index.html and meal-rotation-test.html.
 Fixtures are synthetic but follow the real page's shape: an article 'Ingredients' photo section followed by an
@@ -66,6 +66,23 @@ Better after a day.
 Calories 246
 """
 
+DOUBTFUL = """Title: Best Coleslaw
+
+URL Source: https://www.example.com/best-coleslaw/
+
+Markdown Content:
+## Ingredients
+
+![Ingredients to make the recipe.](data:image/svg+xml,abc)
+
+Let's start by gathering the ingredients.
+
+## Ingredient Substitutions
+
+* Replace apple cider vinegar with white vinegar for a different tang.
+* Swap granulated sugar for honey if you prefer.
+"""
+
 HTML = """<!doctype html><html><head><link rel="canonical" href="https://www.example.com/best-coleslaw/"></head><body>
 <h1>Best Coleslaw</h1><h2>Ingredient Substitutions</h2><ul><li>Replace apple cider vinegar with white vinegar.</li></ul>
 <div class="wprm-recipe-container"><h2 class="wprm-recipe-name">Best Coleslaw</h2>
@@ -124,8 +141,31 @@ async def check(page_name, browser):
           try{const lines=await importIngredientsFromWebsite('%s');return {lines:[...lines],textOnly:!!lines.textOnly,warning:websiteImportWarning(lines),servings:lines.recipeDetails?.servings}}finally{window.fetch=real}}""" % URL, [MARKDOWN, HTML, mode])
         if mode == 'html':
             assert r['textOnly'] is False and r['warning'] == '' and r['lines'] == ['1 small cabbage shredded', '1 cup mayonnaise'] and r['servings'] == 8, r
-        else:
-            assert r['textOnly'] is True and 'plain text' in r['warning'] and r['lines'][0] == '1 small cabbage shredded' and r['servings'] == 8, r
+        else:  # v432: a clean plain-text read gives no warning
+            assert r['textOnly'] is True and r['warning'] == '' and r['lines'][0] == '1 small cabbage shredded' and r['servings'] == 8, r
+
+    # v432: a page where the strict reading finds nothing falls back to the looser reading, with a warning.
+    r = await ev("""async md=>{const real=window.fetch;window.fetch=async u=>{u=String(u);if(u.includes('r.jina.ai'))return new Response(md);throw new TypeError('Failed to fetch')};
+      try{const lines=await importIngredientsFromWebsite('%s');return {lines:[...lines],warning:websiteImportWarning(lines)}}finally{window.fetch=real}}""" % URL, DOUBTFUL)
+    assert r['lines'][0].startswith('Replace apple cider vinegar') and 'partly read' in r['warning'], r
+    r = await ev("""()=>recipeIngredientsFromMarkdown('## Ingredients\\nSome intro text.\\n## Substitutions\\n* Use honey instead of sugar.\\n* Use lemon instead of vinegar.')""")
+    assert r == ['Use honey instead of sugar.', 'Use lemon instead of vinegar.'], r
+
+    # v432: Settings > Import recipes > Website link shows the progress pop-up, and its X cancels.
+    await ev("""()=>{window.__realFetch=window.fetch;window.fetch=(u,o)=>new Promise((res,rej)=>{o?.signal?.addEventListener('abort',()=>rej(new DOMException('Aborted','AbortError')))})}""")
+    opened = await ev("()=>typeof openRecipeImportSourcePicker==='function'")
+    if opened:
+        if await pg.locator('[aria-label="Dismiss startup prompt"]').count():
+            await pg.locator('[aria-label="Dismiss startup prompt"]').click()
+        await ev("()=>openRecipeImportSourcePicker()"); await pg.wait_for_timeout(400)
+        await pg.locator('input[type=url]:visible').last.fill(URL)
+        await pg.get_by_role('button', name='Review recipe').click(); await pg.wait_for_timeout(400)
+        assert await pg.get_by_text('Importing recipe from website…').count() == 1
+        await pg.locator('[aria-label="Cancel ingredient import"]').click(); await pg.wait_for_timeout(400)
+        assert await pg.get_by_text('Importing recipe from website…').count() == 0
+        assert await pg.get_by_role('button', name='Review recipe').is_enabled()
+    await ev("()=>{window.fetch=window.__realFetch}")
+    print('  settings pop-up checked' if opened else '  settings pop-up: openRecipeImportSourcePicker not found')
     assert not errors, errors
     await pg.close()
     print('PASS', page_name)
