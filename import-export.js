@@ -48,7 +48,7 @@ function recipeCardRecords(doc){
   const instructionNodes=all.filter(el=>!all.some(parent=>parent!==el&&parent.contains(el)));
   const recipeInstructions=instructionNodes.map(recipeInstructionContainerHtml).join('\n');
   const ingredients=[...node.querySelectorAll('[itemprop~="recipeIngredient"],.p-ingredient,.ingredient,.wprm-recipe-ingredient,.tasty-recipes-ingredients li')].map(el=>el.getAttribute('content')||el.textContent.trim());
-  return [{name,recipeInstructions,recipeIngredient:ingredients,recipeCategory:[...node.querySelectorAll('[itemprop~="recipeCategory"]')].map(el=>el.textContent.trim()),notes:get('[itemprop~="recipeNotes"],.wprm-recipe-notes,.tasty-recipes-notes,.notes'),prepTime:get('[itemprop~="prepTime"]'),cookTime:get('[itemprop~="cookTime"]'),totalTime:get('[itemprop~="totalTime"]'),url:node.querySelector('[itemprop~="url"]')?.getAttribute('href')||doc.querySelector('link[rel="canonical"]')?.getAttribute('href')||''}];
+  return [{name,recipeInstructions,recipeIngredient:ingredients,recipeCategory:[...node.querySelectorAll('[itemprop~="recipeCategory"]')].map(el=>el.textContent.trim()),notes:get('[itemprop~="recipeNotes"],.wprm-recipe-notes,.tasty-recipes-notes,.notes'),prepTime:get('[itemprop~="prepTime"]'),cookTime:get('[itemprop~="cookTime"]'),totalTime:get('[itemprop~="totalTime"]'),recipeYield:get('[itemprop~="recipeYield"]'),url:node.querySelector('[itemprop~="url"]')?.getAttribute('href')||doc.querySelector('link[rel="canonical"]')?.getAttribute('href')||''}];
  });
 }
 function mergeRecipeCardInstructions(records,cards){
@@ -61,6 +61,7 @@ function mergeRecipeCardInstructions(records,cards){
    if(!cleanupRecipeInstructions(recipeImportInstructionValue(target)).instructions.some(block=>block.type==='step'))target.recipeInstructions=card.recipeInstructions;
    if(!recipeImportIngredients(target).length&&recipeImportIngredients(card).length)target.recipeIngredient=card.recipeIngredient;
    for(const key of ['prepTime','cookTime','totalTime'])if(recipeImportMinutes(target[key])===''&&recipeImportMinutes(card[key])!=='')target[key]=card[key];
+   if(recipeImportServings(target.recipeYield)===''&&recipeImportServings(card.recipeYield)!=='')target.recipeYield=card.recipeYield;
   }
   else if(!matches.length)result.push(card);
  }return result;
@@ -265,6 +266,17 @@ function recipeUrlRepairPlan(items,library=meals,urlRepairs=new Map(),allowWeb=f
  }
  plan.ready=plan.rows.filter(row=>row.instructions!==null||row.notes!==null);plan.restoring=plan.ready.filter(row=>row.kind.includes('restore')).length;plan.cleaning=plan.ready.filter(row=>row.kind.includes('cleanup')).length;plan.matched=plan.rows.filter(row=>row.match).length;plan.uncertain=plan.rows.filter(row=>row.uncertain.length||row.cleanup.reason).length;return plan;
 }
+// Serving size from a recipe's yield (v430): a bare number ('4', '4-6') or text about servings/people
+// ('4 servings', 'Serves 4'). 'Makes 12 cookies' is not a serving count, so it is left empty.
+function recipeImportServings(value){
+ for(const item of Array.isArray(value)?value:[value]){
+  if(typeof item==='number'&&Number.isFinite(item)){const n=Math.round(item);if(n>=1&&n<=999)return n;continue}
+  if(typeof item!=='string')continue;const text=item.trim();
+  const match=/^(\d{1,3})(?:\s*(?:-|–|to)\s*\d{1,3})?$/i.exec(text)||(/serv|people|person|portion/i.test(text)?/(\d{1,3})/.exec(text):null);
+  if(match){const n=Number(match[1]);if(n>=1&&n<=999)return n}
+ }
+ return '';
+}
 function completeRecipeFields(r,source=''){
  const props=Array.isArray(r.additionalProperty)?r.additionalProperty:[];
  const rawMarinate=r.marinateTime??r.marinatingTime??r.marinate_time??r.marinate??props.find(p=>/marinat/i.test(p.name||''))?.value??'';
@@ -272,7 +284,7 @@ function completeRecipeFields(r,source=''){
  const original=r.originalRecipeUrl||r.sourceUrl||r.source_url||(typeof r.isBasedOn==='object'?r.isBasedOn?.url:r.isBasedOn)||(typeof r.url==='object'?r.url?.url:r.url)||source;
  let originalRecipeUrl='';try{if(original){const u=new URL(original,source||undefined);if(['http:','https:'].includes(u.protocol))originalRecipeUrl=u.href}}catch(e){}
  const cleanup=cleanupRecipeInstructions(recipeImportInstructionValue(r)),noteParts=cleanImportedRecipeNotes(r.recipeNotes??r.notes??r.note??r.description??'',typeof r.url==='string'?r.url:source||originalRecipeUrl);
- return {recipeImportReferences:mergeRecipeImportReferences(recipeImportLinkedReferences(r),cleanup.related,noteParts.related),name:normalizeRecipeText(r.name||r.title||''),ingredients:recipeImportIngredients(r).map(ingredientLine).filter(Boolean),instructions:cleanup.instructions.map(cleanInstructionBlock),notes:noteParts.notes,prep:recipeImportMinutes(r.prepTime??r.prep_time??r.activeTime??r.prep),cook:recipeImportMinutes(r.cookTime??r.cook_time??r.cook),total:recipeImportMinutes(r.totalTime??r.total_time??r.total),marinate,originalRecipeUrl};
+ return {recipeImportReferences:mergeRecipeImportReferences(recipeImportLinkedReferences(r),cleanup.related,noteParts.related),name:normalizeRecipeText(r.name||r.title||''),ingredients:recipeImportIngredients(r).map(ingredientLine).filter(Boolean),instructions:cleanup.instructions.map(cleanInstructionBlock),notes:noteParts.notes,prep:recipeImportMinutes(r.prepTime??r.prep_time??r.activeTime??r.prep),cook:recipeImportMinutes(r.cookTime??r.cook_time??r.cook),total:recipeImportMinutes(r.totalTime??r.total_time??r.total),marinate,originalRecipeUrl,servings:recipeImportServings(r.recipeYield??r.yield??r.servings??r.serves)};
 }
 function recipeTextSections(text){
  const lines=String(text||'').split(/\r?\n/);let mode='',instructions=[],notes=[];
@@ -301,7 +313,7 @@ function extractCompleteRecipe(payload,source='',expectedName=''){
   const type=String(value['@type']||'');
   if((/recipe/i.test(type)||((value.name||value.title)&&(value.recipeIngredient||value.ingredients||value.instructions||value.recipeInstructions||value.directions)))&&!/ItemList/i.test(type))candidates.push({...value,recipeInstructions:resolve(recipeImportInstructionValue(value))});
   for(const key of ['@graph','@included','recipes','recipe','data','items','mainEntity','mainEntityOfPage','itemListElement','item','result'])if(value[key]&&typeof value[key]==='object')collect(value[key],depth+1,resolve);
-  for(const key of ['contents','content'])if(typeof value[key]==='string'&&value[key].trim()){const nested=extractCompleteRecipe(value[key],source,expectedName);if(nested)candidates.push({name:nested.name,recipeIngredient:nested.ingredients,recipeInstructions:nested.instructions,notes:nested.notes,prepTime:nested.prep,cookTime:nested.cook,totalTime:nested.total,marinate:nested.marinate,originalRecipeUrl:nested.originalRecipeUrl,recipeImportReferences:nested.recipeImportReferences})}
+  for(const key of ['contents','content'])if(typeof value[key]==='string'&&value[key].trim()){const nested=extractCompleteRecipe(value[key],source,expectedName);if(nested)candidates.push({name:nested.name,recipeIngredient:nested.ingredients,recipeInstructions:nested.instructions,notes:nested.notes,prepTime:nested.prep,cookTime:nested.cook,totalTime:nested.total,marinate:nested.marinate,recipeYield:nested.servings,originalRecipeUrl:nested.originalRecipeUrl,recipeImportReferences:nested.recipeImportReferences})}
  }
  if(raw[0]==='{'||raw[0]==='['){try{collect(JSON.parse(raw))}catch(e){}}
  if(/<\w|<!doctype/i.test(raw)){
@@ -327,7 +339,7 @@ function fillMissingRecipeContent(target,details){
  if(recipeRepairEmpty(target.instructions)&&(!target.ingredientStepLinks||Array.isArray(target.ingredientStepLinks)&&!target.ingredientStepLinks.length)&&!Object.values(cookingSessions.occurrences).some(session=>session.context.mealId===String(target.id)&&session.steps.length)&&details.instructions?.some(b=>b.type==='step')){target.instructions=JSON.parse(JSON.stringify(details.instructions));changed=true}
  if(!target.notes&&details.notes){target.notes=details.notes;changed=true}
  if((!Array.isArray(target.ingredients)||!target.ingredients.length)&&details.ingredients?.length){target.ingredients=[...details.ingredients];changed=true}
- for(const key of ['prep','cook','total','marinate','originalRecipeUrl'])set(key,details[key]);return changed;
+ for(const key of ['prep','cook','total','marinate','originalRecipeUrl','servings'])set(key,details[key]);return changed;
 }
 function recipeImportTargetSignature(meal){return JSON.stringify([String(meal.id),String(meal.importSourceId||''),String(meal.url||''),String(meal.ingredientImportUrl||''),String(meal.sourceUrl||'')])}
 function saveEnrichedRecipe(mealId,details){
@@ -603,7 +615,7 @@ function showRecipeImportSelection(items,filename){
    const cook=recipeImportMinutes(r.cookTime);
    const importedLabels=[...new Set(recipeImportTags(r).map(tag=>{const key=labelKey(tag);if(!canonicalLabels.has(key))canonicalLabels.set(key,tag.trim().replace(/\s+/g,' '));return canonicalLabels.get(key)}))];
    const importedDetails=completeRecipeFields(r);
-   const base={recipeImportReferences:importedDetails.recipeImportReferences,recipeImportPending:!importedDetails.instructions.some(b=>b.type==='step')&&!!(recipeImportUrl(r)||importedDetails.originalRecipeUrl),instructions:importedDetails.instructions,notes:importedDetails.notes,originalRecipeUrl:importedDetails.originalRecipeUrl,name:r.name.trim(),labels:importedLabels,...recipeImportStatus(r,importRotation.checked),groceryDefaultAll:true,prep,cook,total:total!==''?total:(prep!==''&&cook!==''?Number(prep)+Number(cook):''),marinate:importedDetails.marinate,url:recipeImportUrl(r),sourceUrl:recipeImportSourceUrl(r),recipeSageId:/^[0-9a-f]{8}-/.test(sourceId)?sourceId:'',importSourceId:sourceId,ingredients:importedDetails.ingredients};
+   const base={recipeImportReferences:importedDetails.recipeImportReferences,recipeImportPending:!importedDetails.instructions.some(b=>b.type==='step')&&!!(recipeImportUrl(r)||importedDetails.originalRecipeUrl),instructions:importedDetails.instructions,notes:importedDetails.notes,originalRecipeUrl:importedDetails.originalRecipeUrl,name:r.name.trim(),labels:importedLabels,...recipeImportStatus(r,importRotation.checked),groceryDefaultAll:true,prep,cook,total:total!==''?total:(prep!==''&&cook!==''?Number(prep)+Number(cook):''),marinate:importedDetails.marinate,...(importedDetails.servings?{servings:importedDetails.servings}:{}),url:recipeImportUrl(r),sourceUrl:recipeImportSourceUrl(r),recipeSageId:/^[0-9a-f]{8}-/.test(sourceId)?sourceId:'',importSourceId:sourceId,ingredients:importedDetails.ingredients};
    const group=categories.length>1?'imported-'+(sourceId||nextId):'';
    categories.forEach(cat=>{const meal={...base,id:nextId++,cat,linkGroup:group,ingredients:[...base.ingredients]};if(!cat){meal.rotation=false;meal.keepAsIdea=true}newMeals.push(meal);enrichIds.push(meal.id)});
    if(sourceId)existingIds.add(sourceId);

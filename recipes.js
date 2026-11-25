@@ -317,6 +317,7 @@ function installRecipeIngredientLinkEditor(meal){
   }
  }
  for(const id of ['ingredients','recipeInstructions'])$(id).addEventListener('change',()=>{if(!picker)render()});
+ root.showIngredientText=()=>{textMode=true;picker=null;section.open=true;render()};
  render();
 }
 
@@ -1153,6 +1154,12 @@ function toggleCookingItem(kind,token){
  if(kind==='steps'&&completing)scheduleRecipeAdvance(view,token);
 }
 function toggleRecipeHeaderCollapse(collapse){const view=recipeViewer;if(!view)return;view.headerCollapsed=!!collapse;recipeViewPrefs.headerCollapsed=!!collapse;saveRecipeViewPrefs();view.cover.classList.toggle('recipe-header-collapsed',!!collapse);const t=view.cover.querySelector('.recipe-collapsed-bar .recipe-collapse-toggle');if(t)t.setAttribute('aria-expanded',String(!collapse));(view.cover.querySelector(collapse?'.recipe-collapsed-bar .recipe-collapse-toggle':'.recipe-collapse-hide'))?.focus?.({preventScroll:true});view.syncGeometry?.()}
+// Serving size (v430): 'Serves 4', following the Scale multiplier.
+function recipeServingsLine(meal,multiplier){
+ const base=Number(meal?.servings);if(!Number.isFinite(base)||base<=0)return null;
+ const factor=Number(multiplier)>0?Number(multiplier):1,line=document.createElement('p');line.className='recipe-servings';
+ line.textContent='Serves '+formatRecipeQuantity(Math.round(base*factor*100)/100);return line;
+}
 function buildRecipeTitleHeader(view,meal,multiplier){
  const header=document.createElement('div');header.className='recipe-header';
 
@@ -1212,7 +1219,7 @@ function buildRecipeTitleHeader(view,meal,multiplier){
  window.visualViewport?.addEventListener('resize',resizeScaleMenu,{signal:events.signal});
  view.scaleCleanup=()=>events.abort();
  decoratePreferenceSwitches(menu);wrap.append(scale,menu);const askAi=document.createElement('button');askAi.type='button';askAi.className='recipe-header-icon recipe-ask-ai';setRecipeToolbarIcon(askAi,'sparkle','Ask AI about this recipe');askAi.onclick=()=>openAiRecipeMenu(meal);
- actions.append(...[recipeFavoriteButton(meal),edit,typeof aiFeaturesOn!=='function'||aiFeaturesOn()?askAi:null,wrap].filter(Boolean));header.append(title,actions,dismiss);view.content.append(header);
+ actions.append(...[recipeFavoriteButton(meal),edit,typeof aiFeaturesOn!=='function'||aiFeaturesOn()?askAi:null,wrap].filter(Boolean));header.append(title,actions,dismiss);const servesLine=recipeServingsLine(meal,multiplier);if(servesLine)header.append(servesLine);view.content.append(header);
  // A recipe updated by Ask AI keeps its other version (2026-11-19): one quiet line to switch or discard it.
  if(meal.aiAltVersion){const version=document.createElement('div');version.className='recipe-version-note';const viewingChanged=meal.aiAltVersion.kind==='original';version.append(document.createTextNode(viewingChanged?'Changed · ':'Original · '));const versionLink=document.createElement('button');versionLink.type='button';versionLink.className='recipe-version-link';versionLink.textContent=viewingChanged?'Show original':'Show changed';versionLink.onclick=()=>{rememberRecipeVersionScroll(meal);openRecipeVersionDialog(meal,()=>{if(recipeViewer)renderRecipeViewer()})};version.append(versionLink);view.content.append(version)}
  return {title,scale};
