@@ -40,6 +40,13 @@ def run(browser, name):
     p.locator('.organize-row-status').nth(1).click(); p.wait_for_timeout(600)
     after = p.evaluate('gp.names()')
     assert sum(1 for n in after if n[1] == 'up-next') == sum(1 for n in before if n[1] == 'up-next') + 1, (before, after)
+    # rows without a left control keep their full-width names (Move to Regulars mode from the Off menu row)
+    sec = p.locator('.master-recipe-section[data-recipe-section="up-next"]')
+    if sec.locator('.master-recipe-section-recipes').first.is_hidden():
+        sec.locator('.master-category-group-label').click(); p.wait_for_timeout(400)
+    sec.locator('.group-section-organize').click(); p.get_by_role('button', name='Move to Regulars').click(); p.wait_for_timeout(500)
+    widths = p.evaluate("[...document.querySelectorAll('.master-recipe-section[data-recipe-section=rotation] .master-category-meal')].map(r=>r.querySelector('.master-meal-info').getBoundingClientRect().width)")
+    assert widths and min(widths) > 200, widths
     done(); p.wait_for_timeout(300)
     # delete: trash opens the existing delete dialog; cancel keeps the meal
     more.click(); p.get_by_role('button', name='Delete meals').click(); p.wait_for_timeout(400)
