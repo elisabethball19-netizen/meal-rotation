@@ -1745,6 +1745,8 @@ body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{
 /* v435: the + buttons of Meal Groups / Serve with reach 9px past the box; never let the editor slide sideways. */
 #editor .meal-editor-fields{overflow-x:hidden;}
 #editor .meal-card-times>.meal-card-time-field.meal-card-time-wrapped{flex-grow:0!important;}
+/* v437: a little space between the name box and the time boxes (same as between rows of chips). */
+#editor .meal-card-name-field+.meal-card-times{margin-top:6px;}
 /* v433: keep Review recipe visible above the phone keyboard (the dialog body scrolls behind it). */
 .recipe-import-popup .meal-unified-actions{position:sticky;bottom:0;background:#fff;z-index:1;padding-top:8px;}
 /* v434: the shared dialog rule hides overflow with !important; this dialog must scroll so the focused box can move above the sticky row. */
@@ -5305,6 +5307,8 @@ function cleanupRecipeInstructions(value,{conservative=false}={}){
    const plain=line.trim().replace(/^\s*(?:(?:step\s+)?\d+[.)]\s*|[-*•]\s+)/i,'').replace(/\*\*|__/g,'').trim();
    const heading=plain.replace(/^\d+\s+(?=(?:linked|related)\s+(?:recipes?|meals?))/i,'').replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').replace(/^#{1,6}\s*/,'').replace(/:\s*$/,'').trim();
    const drop=reason=>removed.push({text:line,reason});
+   // v437: blog sign-offs that are not cooking steps ('Please take a moment to leave a comment & rating').
+   if(!conservative&&/\b(?:leave|drop|add|write)\s+(?:a\s+|me\s+a\s+|us\s+a\s+)?(?:comment|review|rating|star rating)s?\b|\b(?:rate|review)\s+(?:this|the)\s+recipe\b|\b(?:tag|follow)\s+(?:me|us)\b.{0,60}\b(?:instagram|pinterest|facebook|tiktok|youtube)\b|\bdid\s+you\s+(?:make|try)\s+(?:this|it)\b|\bpin\s+(?:this|it)\b.{0,40}\b(?:later|pinterest)\b|\bsubscribe\b.{0,60}\b(?:newsletter|email|inbox|youtube|channel)\b|\b(?:it'?s|it\s+is)\s+(?:much\s+|so\s+|greatly\s+)?appreciated\b/i.test(plain)){drop('Website sign-off');continue}
    if(!conservative&&(/^(?:linked|related)\s+(?:recipes?|meals?)$|^(?:see also|more recipes)$/i.test(heading))){flush();inRelated=true;drop('Related recipe section');continue}
    const uncertainImage=conservative&&(/\[!\[/.test(line)||[...line.matchAll(/!\[([^\]]*)\]/g)].some(m=>m[1].trim()&&!/^(?:image|photo|picture|thumbnail|img)(?:\s*\d+)?$|^recipe (?:image|photo)$/i.test(m[1].trim())));
    const withoutImages=uncertainImage?line.trim():line.replace(/\[(!\[[^\]]*\]\([^\n]*?\))\]\([^\n]*?\)/g,'$1').replace(/!\[[^\]]*\]\((?:<[^>]*>|[^)\n]*)\)|!\[[^\]]*\]\[[^\]]*\]/g,'').trim();
@@ -12969,6 +12973,7 @@ function requestIngredientSourceUrl(previous,hasRecipeUrl=true,title='Import ing
       const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;justify-content:center';
       const submit=()=>{const url=field.value.trim();try{const parsed=new URL(url);if(!['https:','http:'].includes(parsed.protocol))throw Error()}catch(e){field.setCustomValidity('Enter a valid website link.');field.reportValidity();return}field.setCustomValidity('');close();resolve(url)};
       field.oninput=()=>field.setCustomValidity('');field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();submit()}};
+      field.enterKeyHint='go';queueMicrotask(()=>field.focus({preventScroll:true})); // v437: ready to type, keyboard opens
       actions.append(ingredientModalButton('Import',submit),ingredientModalButton('Cancel',()=>{close();resolve(null)}));panel.append(actions);
     });
   });

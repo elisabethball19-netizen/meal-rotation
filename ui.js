@@ -4636,6 +4636,7 @@ function requestIngredientSourceUrl(previous,hasRecipeUrl=true,title='Import ing
       const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;justify-content:center';
       const submit=()=>{const url=field.value.trim();try{const parsed=new URL(url);if(!['https:','http:'].includes(parsed.protocol))throw Error()}catch(e){field.setCustomValidity('Enter a valid website link.');field.reportValidity();return}field.setCustomValidity('');close();resolve(url)};
       field.oninput=()=>field.setCustomValidity('');field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();submit()}};
+      field.enterKeyHint='go';queueMicrotask(()=>field.focus({preventScroll:true})); // v437: ready to type, keyboard opens
       actions.append(ingredientModalButton('Import',submit),ingredientModalButton('Cancel',()=>{close();resolve(null)}));panel.append(actions);
     });
   });

@@ -1,4 +1,4 @@
-"""v435/v436: 'Import recipe' row (link / photo / camera) on a new, empty recipe; the recipe link box offers to import on an
+"""v435/v436/v437: 'Import recipe' row (link / photo / camera) on a new, empty recipe; the recipe link box offers to import on an
 empty recipe; plain-text ingredient lists; the editor never slides sideways.
 Run: python3 -m http.server 8765 (repo root), then python3 tests/new_recipe_import_browser.py"""
 import asyncio, os, base64
@@ -51,6 +51,7 @@ async def check(page_name, browser):
     assert s['row'] and s['icons'] == [True, True, True], s
     await pg.locator('#editor .meal-card-import [aria-label="Import recipe from a website link"]').click(); await pg.wait_for_timeout(300)
     assert await pg.get_by_text('Import recipe from link').count() == 1
+    assert await pg.evaluate("()=>document.activeElement?.type==='url'"), 'link box should have focus (v437)'
     await pg.locator('input[type=url]:visible').last.fill(URL); await pg.get_by_role('button', name='Import', exact=True).click(); await pg.wait_for_timeout(1200)
     s = await ev(state)
     assert s['name'] == 'Chicken Fried Rice' and s['ing'].split('\n') == ['2 cups cooked rice', '2 eggs'] and 'Scramble the eggs' in s['steps'], s
@@ -99,6 +100,11 @@ async def check(page_name, browser):
     # 5. The editor cannot slide sideways
     r = await ev("()=>{const f=document.querySelector('#editor .meal-editor-fields');f.scrollLeft=9;return [f.scrollLeft,getComputedStyle(f).overflowX]}")
     assert r == [0, 'hidden'], r
+    # 7. (v437) blog sign-offs are dropped from steps; real steps stay; small gap under the name box
+    r = await ev("""()=>cleanupRecipeInstructions('1. Leave to rest for 10 minutes.\\n2. Stir in the coriander and serve.\\nPlease take a moment to leave a comment & rating. It\\'s appreciated and so helpful.\\nDid you make this recipe? Tag me on Instagram @cook!').instructions.filter(b=>b.type==='step').map(b=>b.text.replace(/^\\d+\\.\\s*/,''))""")
+    assert r == ['Leave to rest for 10 minutes.', 'Stir in the coriander and serve.'], r
+    gap = await ev("()=>{const n=document.querySelector('#editor .meal-card-name-field').getBoundingClientRect(),t=document.querySelector('#editor .meal-card-times').getBoundingClientRect();return Math.round(t.top-n.bottom)}")
+    assert 5 <= gap <= 10, gap
     # 6. (v436) a chip that wraps to a second line keeps its own width
     await pg.locator('#editor button[aria-label="Save"]:visible').first.click(); await pg.wait_for_timeout(600)
     await pg.set_viewport_size({'width': 340, 'height': 844}); await pg.wait_for_timeout(300)

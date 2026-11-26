@@ -129,6 +129,8 @@ function cleanupRecipeInstructions(value,{conservative=false}={}){
    const plain=line.trim().replace(/^\s*(?:(?:step\s+)?\d+[.)]\s*|[-*•]\s+)/i,'').replace(/\*\*|__/g,'').trim();
    const heading=plain.replace(/^\d+\s+(?=(?:linked|related)\s+(?:recipes?|meals?))/i,'').replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').replace(/^#{1,6}\s*/,'').replace(/:\s*$/,'').trim();
    const drop=reason=>removed.push({text:line,reason});
+   // v437: blog sign-offs that are not cooking steps ('Please take a moment to leave a comment & rating').
+   if(!conservative&&/\b(?:leave|drop|add|write)\s+(?:a\s+|me\s+a\s+|us\s+a\s+)?(?:comment|review|rating|star rating)s?\b|\b(?:rate|review)\s+(?:this|the)\s+recipe\b|\b(?:tag|follow)\s+(?:me|us)\b.{0,60}\b(?:instagram|pinterest|facebook|tiktok|youtube)\b|\bdid\s+you\s+(?:make|try)\s+(?:this|it)\b|\bpin\s+(?:this|it)\b.{0,40}\b(?:later|pinterest)\b|\bsubscribe\b.{0,60}\b(?:newsletter|email|inbox|youtube|channel)\b|\b(?:it'?s|it\s+is)\s+(?:much\s+|so\s+|greatly\s+)?appreciated\b/i.test(plain)){drop('Website sign-off');continue}
    if(!conservative&&(/^(?:linked|related)\s+(?:recipes?|meals?)$|^(?:see also|more recipes)$/i.test(heading))){flush();inRelated=true;drop('Related recipe section');continue}
    const uncertainImage=conservative&&(/\[!\[/.test(line)||[...line.matchAll(/!\[([^\]]*)\]/g)].some(m=>m[1].trim()&&!/^(?:image|photo|picture|thumbnail|img)(?:\s*\d+)?$|^recipe (?:image|photo)$/i.test(m[1].trim())));
    const withoutImages=uncertainImage?line.trim():line.replace(/\[(!\[[^\]]*\]\([^\n]*?\))\]\([^\n]*?\)/g,'$1').replace(/!\[[^\]]*\]\((?:<[^>]*>|[^)\n]*)\)|!\[[^\]]*\]\[[^\]]*\]/g,'').trim();
