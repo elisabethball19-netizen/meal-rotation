@@ -2125,6 +2125,8 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 #editor:has(#scheduledOneTime:checked) .side-always-toggle{display:none!important}
 /* v452: nor the (empty) Meal Group heading */
 #editor:has(#scheduledOneTime:checked) .meal-group-editor-heading,#editor:has(#scheduledOneTime:checked) #categoryRows{display:none!important}
+/* v453: nor In rotation / Not in rotation */
+#editor:has(#scheduledOneTime:checked) #recipeStatus{display:none!important}
 /* v446: AI recipes / Unassigned - Move/Delete as the floating pill used in a group's select mode, kept above the bottom bar */
 .unassigned-bulk-bar.unassigned-float{position:sticky!important;top:auto!important;bottom:calc(var(--unassigned-float-gap,86px) + env(safe-area-inset-bottom,0px));z-index:20;width:max-content;max-width:calc(100% - 8px);margin:8px auto 0!important;display:flex;align-items:center;gap:6px!important;padding:4px 8px 4px 16px!important;background:#edf3fa;border:1px solid #7294c2;border-radius:999px;box-shadow:0 3px 14px rgba(49,91,168,.28)}
 .unassigned-bulk-bar.unassigned-float[hidden]{display:none!important}

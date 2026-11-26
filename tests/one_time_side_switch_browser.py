@@ -30,11 +30,13 @@ async def check(page_name, browser):
     visible = await pg.evaluate("()=>[...document.querySelectorAll('#editor .side-always-toggle')].map(x=>getComputedStyle(x).display)")
     assert all(v == 'none' for v in visible), visible
     assert await pg.evaluate("()=>getComputedStyle(document.querySelector('#editor .meal-group-editor-heading')).display") == 'none'  # v452
+    assert await pg.evaluate("()=>getComputedStyle(document.getElementById('recipeStatus')).display") == 'none'  # v453
     await pg.evaluate("()=>{const c=document.getElementById('scheduledOneTime');c.click()}"); await pg.wait_for_timeout(200)
     visible = await pg.evaluate("()=>[...document.querySelectorAll('#editor .side-always-toggle')].map(x=>[getComputedStyle(x).display,x.textContent])")
     print(visible)
     assert all(v[0] != 'none' and 'with Test?' in v[1] for v in visible), visible
     assert await pg.evaluate("()=>getComputedStyle(document.querySelector('#editor .meal-group-editor-heading')).display") != 'none'
+    assert await pg.evaluate("()=>getComputedStyle(document.getElementById('recipeStatus')).display") != 'none'
     assert not errors, errors
     await pg.close(); print('PASS', page_name, n)
 
