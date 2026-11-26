@@ -5219,7 +5219,9 @@ serveButton.hidden=true;linkedButton.hidden=true;linkedButton.classList.add('hid
 function updateServingEditor(){
  linkedMealDraft=servingDraft.sides.filter(side=>side.always!==false&&side.type==='fixed').map(side=>Number(side.mealId||side.recipeId));simpleSidesDraft=servingDraft.sides.filter(side=>side.always!==false&&side.type==='simple').map(({id,name,ingredients})=>({id,name,ingredients}));document.querySelector('#editor .editor')?.refreshIndicators?.();
 }
-servingDraft.onChange=updateServingEditor;serveButton.addServingSide=()=>servingDraft.addSide?.();const servingHost=document.createElement('div');servingHost.className='recipe-serving-defaults';serveBody.append(servingHost);
+servingDraft.onChange=updateServingEditor;
+// v451: the 'Always serve this side with …?' switch names the meal as it is typed (it showed '?' for a new meal).
+servingDraft.parentName=()=>$('name')?.value||m.name;$('name')?.addEventListener('input',()=>{const n=$('name').value.trim()||'this meal';document.querySelectorAll('#editor .side-always-name').forEach(s=>{s.textContent=n})});serveButton.addServingSide=()=>servingDraft.addSide?.();const servingHost=document.createElement('div');servingHost.className='recipe-serving-defaults';serveBody.append(servingHost);
 function drawServingEditor(){servingHost.replaceChildren();renderServingDraft(servingHost,servingDraft,()=>{updateServingEditor();drawServingEditor()})}drawServingEditor();
 if(serveWithDraft.length){const legacyNote=document.createElement('small');legacyNote.className='muted';legacyNote.textContent='Existing side preferences retained: '+serveWithDraft.join(', ');serveBody.append(legacyNote)}
 let ingredientImportUrl=String(m.ingredientImportUrl||'');let importedRecipeDetailsDraft=null;
