@@ -1980,6 +1980,13 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .unassigned-bulk-actions{display:flex;gap:4px}
 .unassigned-bulk-actions button{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:54px;min-height:48px;padding:4px;background:transparent;border:0;border-radius:8px;color:#2f3b48;font-size:12px}
 .unassigned-bulk-actions button:disabled{opacity:.45}
+/* v446: AI recipes / Unassigned - Move/Delete as the floating pill used in a group's select mode, kept above the bottom bar */
+.unassigned-bulk-bar.unassigned-float{position:sticky!important;top:auto!important;bottom:calc(var(--unassigned-float-gap,86px) + env(safe-area-inset-bottom,0px));z-index:20;width:max-content;max-width:calc(100% - 8px);margin:8px auto 0!important;display:flex;align-items:center;gap:6px!important;padding:4px 8px 4px 16px!important;background:#edf3fa;border:1px solid #7294c2;border-radius:999px;box-shadow:0 3px 14px rgba(49,91,168,.28)}
+.unassigned-bulk-bar.unassigned-float[hidden]{display:none!important}
+.unassigned-float .unassigned-bulk-count{flex:none;color:#315ba8;font-size:14px;white-space:nowrap;padding-left:0}
+.unassigned-float .unassigned-bulk-actions button{display:flex!important;width:auto!important;height:auto!important;flex-direction:row!important;align-items:center;gap:6px;min-height:44px;padding:4px 12px;border-radius:999px;font-size:14px;color:inherit}
+.unassigned-float .unassigned-bulk-actions button svg{width:20px;height:20px}
+.unassigned-bulk-tick{display:flex;gap:4px;padding:2px 0 6px}
 .unassigned-row{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px}.unassigned-row .unassigned-name{flex:1 1 auto;min-width:0;text-align:left}.unassigned-row .unassigned-edit{flex:none;margin-left:auto}
 .unassigned-check{display:flex;align-items:center;justify-content:center;min-width:32px;min-height:44px}
 #recipeBulkToolbar{background:#fff!important;border-top:2px solid #8fa0b3!important;box-shadow:0 -4px 14px #2633423a!important}
@@ -11779,14 +11786,15 @@ function renderUnassignedChecklist(body,list,selection=unassignedSelection,aiMod
  const bar=document.createElement('div');bar.className='unassigned-bulk-bar';const count=document.createElement('span');count.className='unassigned-bulk-count';count.setAttribute('role','status');
  const move=document.createElement('button');move.type='button';move.className='recipe-bulk-labeled-action unassigned-move';setIconButton(move,'move','Move');const moveText=document.createElement('span');moveText.textContent='Move';move.append(moveText);
  const remove=document.createElement('button');remove.type='button';remove.className='recipe-bulk-labeled-action unassigned-delete';setIconButton(remove,'delete','Delete');const removeText=document.createElement('span');removeText.textContent='Delete';remove.append(removeText);
- const tickButtons=[];const refresh=()=>{count.textContent=selection.size+' selected';move.disabled=remove.disabled=!selection.size;for(const [b,checked] of tickButtons)setSelectAllDisabled(b,checked?selection.size>=list.length:!selection.size)};
+ const tickButtons=[];const refresh=()=>{count.textContent=selection.size+' selected';move.disabled=remove.disabled=!selection.size;bar.hidden=!selection.size;for(const [b,checked] of tickButtons)setSelectAllDisabled(b,checked?selection.size>=list.length:!selection.size)};
  const chosen=()=>[...selection].filter(id=>meals.some(m=>String(m.id)===id));
  // The shared group dialog reads its source and picks once, at open; borrow the bulk globals only for that moment.
  move.onclick=()=>{const picked=chosen();if(!picked.length||recipeBulkMode)return;const saved=[recipeBulkSourceGroup,new Set(recipeBulkIds)];recipeBulkSourceGroup='';recipeBulkIds=new Set(picked);try{chooseBulkGroups(null,change=>{if(bulkGroupChangePending(picked,change)){applyRecipeBulk(picked,aiMode?{status:'up-next',upNextStar:true}:{}, {bulkGroups:change});if(aiMode)for(const id of [...picked].reverse())placeUpNextFirst(meals.find(m=>String(m.id)===id));picked.forEach(id=>selection.delete(id));renderList({readOnly:true})}},move)}finally{[recipeBulkSourceGroup,recipeBulkIds]=saved}};
  remove.onclick=async()=>{const picked=await confirmDeleteRecipes(chosen());if(!picked)return;try{deleteRecipesToBin(picked);picked.ids.forEach(id=>selection.delete(String(id)));renderList({readOnly:true})}catch(error){await showAppMessage('Delete could not be completed: '+error.message)}};
  const tick=document.createElement('div');tick.className='unassigned-bulk-tick';
  for(const checked of [true,false]){const button=document.createElement('button');button.type='button';button.className='iconbtn unassigned-tick-all';button.innerHTML=grocerySelectionIcon(checked);button.title=button.ariaLabel=checked?'Select all':'Deselect all';button.onclick=()=>{selection.clear();if(checked)for(const m of list)selection.add(String(m.id));rows.querySelectorAll('input.check').forEach(box=>{box.checked=checked});refresh()};tickButtons.push([button,checked]);tick.append(button)}
- const actions=document.createElement('div');actions.className='unassigned-bulk-actions';actions.append(move,remove);bar.append(tick,count,actions);body.append(bar);
+ const actions=document.createElement('div');actions.className='unassigned-bulk-actions';actions.append(move,remove);bar.append(count,actions);body.append(tick); // v446: select icons at the top (no box); Move/Delete float at the bottom while something is selected, like a group's select mode
+ bar.classList.add('unassigned-float');
  const rows=document.createElement('div');rows.className='unassigned-checklist';
  for(const m of list){const row=document.createElement('div');row.className='unassigned-row';row.dataset.mealId=String(m.id);
   const label=document.createElement('label');label.className='unassigned-check';const check=document.createElement('input');check.type='checkbox';check.className='check';check.setAttribute('aria-label','Select '+(m.name||'Untitled meal'));check.checked=selection.has(String(m.id));check.onchange=()=>{if(check.checked)selection.add(String(m.id));else selection.delete(String(m.id));refresh()};label.append(check);
@@ -11794,7 +11802,7 @@ function renderUnassignedChecklist(body,list,selection=unassignedSelection,aiMod
   // Unassigned recipes can be edited in place (2026-11-19), like rows in other groups.
   const edit=document.createElement('button');edit.type='button';edit.className='iconbtn unassigned-edit';setIconButton(edit,'rename','Edit '+(m.name||'Untitled meal'));edit.onclick=()=>openEditor(m.id,false,captureMealEditorOrigin());
   row.append(label,name,edit);rows.append(row)}
- body.append(rows);refresh();
+ body.append(rows,bar);refresh();
 }
 function renderMasterCategories(list){
  if(!meals.length){renderEmptyMealGroups(list);return}

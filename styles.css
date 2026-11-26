@@ -2121,6 +2121,13 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .unassigned-bulk-actions{display:flex;gap:4px}
 .unassigned-bulk-actions button{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:54px;min-height:48px;padding:4px;background:transparent;border:0;border-radius:8px;color:#2f3b48;font-size:12px}
 .unassigned-bulk-actions button:disabled{opacity:.45}
+/* v446: AI recipes / Unassigned - Move/Delete as the floating pill used in a group's select mode, kept above the bottom bar */
+.unassigned-bulk-bar.unassigned-float{position:sticky!important;top:auto!important;bottom:calc(var(--unassigned-float-gap,86px) + env(safe-area-inset-bottom,0px));z-index:20;width:max-content;max-width:calc(100% - 8px);margin:8px auto 0!important;display:flex;align-items:center;gap:6px!important;padding:4px 8px 4px 16px!important;background:#edf3fa;border:1px solid #7294c2;border-radius:999px;box-shadow:0 3px 14px rgba(49,91,168,.28)}
+.unassigned-bulk-bar.unassigned-float[hidden]{display:none!important}
+.unassigned-float .unassigned-bulk-count{flex:none;color:#315ba8;font-size:14px;white-space:nowrap;padding-left:0}
+.unassigned-float .unassigned-bulk-actions button{display:flex!important;width:auto!important;height:auto!important;flex-direction:row!important;align-items:center;gap:6px;min-height:44px;padding:4px 12px;border-radius:999px;font-size:14px;color:inherit}
+.unassigned-float .unassigned-bulk-actions button svg{width:20px;height:20px}
+.unassigned-bulk-tick{display:flex;gap:4px;padding:2px 0 6px}
 .unassigned-row{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px}.unassigned-row .unassigned-name{flex:1 1 auto;min-width:0;text-align:left}.unassigned-row .unassigned-edit{flex:none;margin-left:auto}
 .unassigned-check{display:flex;align-items:center;justify-content:center;min-width:32px;min-height:44px}
 #recipeBulkToolbar{background:#fff!important;border-top:2px solid #8fa0b3!important;box-shadow:0 -4px 14px #2633423a!important}
