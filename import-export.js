@@ -1240,7 +1240,8 @@ function aiSuggestTick(now=Date.now()){
  if(state.shownAt&&now<aiSuggestNextAt(state))return state;
  aiSuggestShowNext(state,now);return state;
 }
-function aiSuggestShowNext(state,now=Date.now()){state.current=state.queue.shift()||null;state.shownAt=now;state.seen=!state.current;if(state.current)state.suggested=[...state.suggested,state.current.name].slice(-80);saveAiSuggestState(state)}
+// v439: an idea that was shown but not acted on goes to the back of the queue (it circles back later).
+function aiSuggestShowNext(state,now=Date.now()){if(state.current)state.queue.push(state.current);state.current=state.queue.shift()||null;state.shownAt=now;state.seen=!state.current;if(state.current)state.suggested=[...state.suggested.filter(n=>n!==state.current.name),state.current.name].slice(-80);saveAiSuggestState(state)}
 function aiSuggestDot(){try{if(typeof aiFeaturesOn==='function'&&!aiFeaturesOn())return false;const state=aiSuggestTick();return !!state.current&&!state.seen}catch(e){return false}}
 function addAiSuggestionsFromAnswer(answer){
  const state=aiSuggestState(),known=new Set([...state.queue.map(x=>x.name),...(state.current?[state.current.name]:[]),...state.rejected,...meals.filter(m=>m.name&&!m._scheduledEditorDraft).map(m=>m.name)].map(x=>String(x).trim().toLowerCase()));
@@ -1291,6 +1292,7 @@ function renderAiSuggestionCard(){
   act('Save','ai-suggest-save',()=>{saveAiSuggestionMeal(item);done('Saved to AI recipes')});
   act('Pin to a group','ai-suggest-pin',b=>{const meal=saveAiSuggestionMeal(item);const s=aiSuggestState();s.current=null;saveAiSuggestState(s);aiSuggestRecipeOpen=false;card.classList.add('ai-suggest-done');actions.replaceChildren();const note=document.createElement('p');note.className='muted';note.textContent='Saved to AI recipes. Choose a group to pin it to.';actions.append(note);pinAiSuggestionMeal(meal,b,ok=>{renderList({readOnly:true});showServingUndoToast(ok?'Pinned to the top of Not in rotation':'Saved to AI recipes')})});
   act('Try this week','ai-suggest-try',()=>{const meal=saveAiSuggestionMeal(item);done('');openScheduleMealDialog(meal)});
+  act('Later','ai-suggest-later',()=>{const s=aiSuggestState();if(s.current)s.queue.push(s.current);s.current=null;saveAiSuggestState(s);aiSuggestRecipeOpen=false;renderList({readOnly:true});aiToast('It’ll come back after the others.')});
   act('Not for us','ai-suggest-no',()=>{const s=aiSuggestState();s.rejected=[...s.rejected,item.name].slice(-80);s.current=null;saveAiSuggestState(s);aiSuggestRecipeOpen=false;renderList({readOnly:true});aiToast('Got it. Ideas like this won’t come again.')});
   card.append(actions);
  }else if(state.queue.length){

@@ -1886,6 +1886,7 @@ body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{
 .ai-suggest-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;}
 .ai-suggest-actions .smallbtn{min-height:44px;}
 .ai-suggest-actions p{grid-column:1/-1;margin:0;}
+.ai-suggest-actions .ai-suggest-try{grid-column:1/-1;} /* v439: Save | Pin, Try this week, then Later | Not for us */
 .ai-suggest-foot{display:flex;flex-direction:column;gap:6px;border-top:1px solid #0001;padding-top:8px;margin-top:2px;}
 .ai-suggest-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
 .ai-suggest-pace{font:inherit;font-size:14px;padding:6px 8px;border:1px solid #7776;border-radius:8px;background:#fff;}

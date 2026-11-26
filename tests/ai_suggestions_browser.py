@@ -1,4 +1,4 @@
-"""v438: Ask AI recipe ideas - refill request, paste into the queue, one idea at a time, Save / Pin / Try this week /
+"""v438/v439: Ask AI recipe ideas - refill request, paste into the queue, one idea at a time, Save / Pin / Try this week /
 Not for us, pace + pause, and the dot on the Ask AI tab.
 Run: python3 -m http.server 8765 (repo root), then python3 tests/ai_suggestions_browser.py"""
 import asyncio, os
@@ -84,6 +84,16 @@ async def check(page_name, browser):
     assert await ev("()=>meals.some(m=>m.name==='Shrimp Tacos'&&m.aiRecipe)")
     await pg.locator('[aria-label="Cancel scheduling"]').click(); await pg.wait_for_timeout(300)
 
+    # v439: an ignored idea circles back; Later puts it at the back of the queue
+    await ev("""()=>{const one=n=>({name:n,ingredients:['1 a'],instructions:[{type:'step',text:'Cook.'}]});saveAiSuggestState({...aiSuggestState(),queue:[one('B idea')],current:one('A idea'),shownAt:Date.now()-8*864e5,seen:true});renderList({readOnly:true})}""")
+    await pg.wait_for_timeout(300)
+    st = await ev("()=>{const s=aiSuggestState();return {current:s.current?.name,queue:s.queue.map(x=>x.name)}}")
+    assert st == {'current': 'B idea', 'queue': ['A idea']}, st
+    await pg.locator('.ai-suggest-later').click(); await pg.wait_for_timeout(300)
+    st = await ev("()=>{const s=aiSuggestState();return {current:s.current?.name||null,queue:s.queue.map(x=>x.name)}}")
+    assert st == {'current': None, 'queue': ['A idea', 'B idea']}, st
+    assert 'Next idea' in await card.inner_text()
+    await ev("()=>{const s=aiSuggestState();s.queue=[];saveAiSuggestState(s)}")
     # Pace + pause persist
     await ev("()=>{const s=aiSuggestState();s.queue.push({name:'Pea Soup',ingredients:['1 cup peas'],instructions:[{type:'step',text:'Simmer.'}]});saveAiSuggestState(s);renderList({readOnly:true})}")
     await pg.wait_for_timeout(300)
