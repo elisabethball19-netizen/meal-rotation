@@ -303,7 +303,10 @@ function getMasterGroceryItems(sources=getGroceryContributions(false,groceryPeri
    const b=document.createElement('button');b.type='button';b.className='smallbtn unified-nav-fab';
    b.title=title;b.setAttribute('aria-label',title);b.dataset.destination=key;
    if(key===current){b.classList.add('current-view');b.setAttribute('aria-current','page');}
-   b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+art+'</svg>';const label=document.createElement('span');label.textContent=key==='groups'&&visibleDestinations.length>=5?'Groups':title;b.append(label);
+   b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+art+'</svg>';
+   // v438: a dot on Ask AI when a new recipe idea is waiting.
+   if(key==='ai'&&typeof aiSuggestDot==='function'&&aiSuggestDot()){const dot=document.createElement('span');dot.className='ai-suggest-dot';dot.setAttribute('aria-hidden','true');b.append(dot);b.setAttribute('aria-label',title+', new recipe idea')}
+   const label=document.createElement('span');label.textContent=key==='groups'&&visibleDestinations.length>=5?'Groups':title;b.append(label);
    b.onclick=()=>navigateAfterSettings(()=>{if(key==='groups'&&tutorialStage==='1')setTutorialStage('2');action();window.scrollTo(0,0);requestAnimationFrame(()=>{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0})});nav.append(b);
   });
  }

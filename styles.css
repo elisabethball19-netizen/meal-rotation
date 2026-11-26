@@ -1874,6 +1874,24 @@ body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{
 .recipe-import-field input,.recipe-import-field textarea{width:100%;min-width:0;border:1px solid #bbb;border-radius:8px;padding:10px;font:inherit;}
 .recipe-import-field textarea{resize:vertical;min-height:100px;max-height:35dvh;}
 .recipe-import-popup p{margin:0;}
+/* v438: Ask AI recipe ideas card and the tab dot. */
+.ai-suggest-card{padding:14px 16px;margin:0 0 14px;display:flex;flex-direction:column;gap:8px;}
+.ai-suggest-label{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b6f78;}
+.ai-suggest-name{margin:0;font-size:19px;line-height:1.25;}
+.ai-suggest-why{margin:0;font-size:15px;line-height:1.4;}
+.ai-suggest-meta,.ai-suggest-status{margin:0;font-size:13px;}
+.ai-suggest-link{align-self:flex-start;background:none;border:0;padding:4px 0;color:#315ba8;font:inherit;font-size:15px;text-decoration:underline;cursor:pointer;}
+.ai-suggest-recipe{display:flex;flex-direction:column;gap:4px;font-size:15px;}
+.ai-suggest-recipe ul,.ai-suggest-recipe ol{margin:0 0 6px;padding-left:22px;}
+.ai-suggest-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;}
+.ai-suggest-actions .smallbtn{min-height:44px;}
+.ai-suggest-actions p{grid-column:1/-1;margin:0;}
+.ai-suggest-foot{display:flex;flex-direction:column;gap:6px;border-top:1px solid #0001;padding-top:8px;margin-top:2px;}
+.ai-suggest-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.ai-suggest-pace{font:inherit;font-size:14px;padding:6px 8px;border:1px solid #7776;border-radius:8px;background:#fff;}
+.ai-suggest-pause{display:flex;align-items:center;gap:8px;font-size:14px;}
+#mealBottomNav .unified-nav-fab:has(.ai-suggest-dot){position:relative!important;}
+#mealBottomNav .ai-suggest-dot{position:absolute;top:6px;right:calc(50% - 18px);width:10px;height:10px;border-radius:50%;background:#d9534f;box-shadow:0 0 0 2px #fff;}
 /* v435: 'Import recipe' row under the name and times of a new, empty recipe. */
 #editor .meal-card-import{display:flex;align-items:center;gap:8px;margin:0 0 10px;}
 #editor .meal-card-import[hidden]{display:none;}
