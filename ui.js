@@ -988,6 +988,14 @@ function deferPlannedRecipes(plan,list){
  try{const start=mealPlanWeekStart(plan),end=new Date(start);end.setDate(end.getDate()+20);const from=cookingLocalDate(start),to=cookingLocalDate(end),soon=new Set(plannedMealsFor(plan.id).filter(p=>p.date>=from&&p.date<=to).map(p=>String(p.mealId)));
   return soon.size?[...list.filter(m=>!soon.has(String(m.id))),...list.filter(m=>soon.has(String(m.id)))]:list}catch(e){return list}
 }
+// v447: while next week is being chosen, a recipe that is on the outgoing week in ANY slot (even a manual choice
+// on another group's day, e.g. a Weekend recipe put on a Rice day) goes last for automatic picks: a soft preference,
+// so small groups still fill. Regulars that were scheduled normally are already sent to the back of their queue.
+function deferOutgoingWeekRecipes(list){
+ const recent=rotationRecentCookTimes;if(!recent?.size||!list.length)return list;
+ const onWeek=m=>recent.has(String(m.id))||!!(m.linkGroup&&recent.has('linked:'+m.linkGroup));
+ return [...list.filter(m=>!onWeek(m)),...list.filter(onWeek)];
+}
 // While next week is being chosen, a meal on the outgoing week's plan counts as cooked on its scheduled day,
 // so it goes behind waiting recipes instead of repeating straight away. Never stored; Last cooked is unchanged.
 let rotationRecentCookTimes=null,rotationPendingCookTimes=null;
@@ -1055,7 +1063,7 @@ function automaticRecipeCandidates(category,labels=[],library=meals,plan=null,de
  const cacheKey=derived&&JSON.stringify([plan?.id||'',category,labels]);if(derived?.candidates.has(cacheKey))return [...derived.candidates.get(cacheKey)];
  if(!groupUsesRotation(category))return [];
  const ordered=regularsQueue(category,library).filter(meal=>recipeMatchesFilters(meal,labels));
- {const result=deferPlannedRecipes(plan,ordered);if(derived)derived.candidates.set(cacheKey,result);return [...result]}
+ {const result=deferOutgoingWeekRecipes(deferPlannedRecipes(plan,ordered));if(derived)derived.candidates.set(cacheKey,result);return [...result]}
  const credit=m=>(Number.isFinite(weighted.scores[String(m.id)])?weighted.scores[String(m.id)]:0)+(m.favorite===true?2:1);
  const result=deferPlannedRecipes(plan,ordered.sort((a,b)=>credit(b)-credit(a)));if(derived)derived.candidates.set(cacheKey,result);return [...result];
 }
