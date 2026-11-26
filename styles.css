@@ -2790,6 +2790,14 @@ body.recipe-organize-left .master-categories .master-category-meal:has(>.organiz
 .grocery-header-icons{justify-content:flex-start!important}
 .grocery-header-icons>button{flex:0 0 44px!important;max-width:none!important}
 .grocery-header-icons>button:nth-last-child(2){margin-left:auto!important}
+/* v449: Groceries header like Meal Groups - title row: Groceries ... ⋯ +; row below: filter, eye ... Group by meal switch */
+#list .meal-plan-grocery .grocery-compact-header{flex-wrap:nowrap!important}
+.grocery-title-actions{display:flex;align-items:center;gap:2px;margin-left:auto;flex:0 0 auto}
+.grocery-title-actions>button{min-width:44px!important;min-height:44px!important;margin:0!important}
+.grocery-header-icons>button:nth-last-child(2){margin-left:0!important}
+.grocery-header-icons>.grocery-view-control{margin:0 0 0 auto!important;flex:0 1 auto;display:flex;align-items:center;gap:8px;font-size:15px}
+/* v449: the row icons (shop/link, edit, open) sit close together so names get more room */
+.master-grocery-item>.grocery-shopping-link+.grocery-item-edit,.master-grocery-item>.grocery-item-edit+.grocery-expand{margin-left:-10px!important}
 .select-all-muted,.select-all-muted:disabled{opacity:.45}
 .more-option-row.select-all-muted{opacity:1;color:#9a9fa6;border-color:#dde1e6;background:#fff}
 .more-option-list{display:grid;gap:8px;width:fit-content;max-width:100%;margin:0 auto}

@@ -16,7 +16,10 @@ def run(browser, name):
     icons = p.locator('.grocery-header-icons > button')
     labels = icons.evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label")||x.title)')
     assert not any(l and ('Select all' in l or 'Deselect all' in l or 'Expand all' in l or 'Collapse all' in l) for l in labels), labels
-    assert labels[-1] == 'More grocery options' and len(labels) == 4, labels
+    # v449: filter + eye in the icon row (Group by meal switch at its right); ⋯ and + in the title row like Meal Groups
+    assert len(labels) == 2 and p.locator('.grocery-header-icons > .grocery-view-control').count() == 1, labels
+    title = p.locator('.grocery-title-actions > button').evaluate_all('xs=>xs.map(x=>x.getAttribute("aria-label")||x.title)')
+    assert title == ['More grocery options', 'Add grocery item'], title
     sb.shot(p, name, 'grocery-toolbar')
     more = p.get_by_role('button', name='More grocery options')
     more.click(); p.wait_for_timeout(300)
