@@ -1076,6 +1076,10 @@ window.addEventListener('popstate',e=>{
   window.history.pushState({...e.state,mealRotationRecipeViewer:{mealId:recipeEditorReturn.mealId,context:recipeEditorReturn.context}},'');
   rollbackEditorCategories();editId=null;restoreMealEditorScroll();e.stopImmediatePropagation();return;
  }
+ if(typeof aiRecipeReturn!=='undefined'&&aiRecipeReturn&&!recipeViewer&&aiTabActive&&!e.state?.mealRotationAiFromRecipe){
+  // v440: Back on Ask AI after starting from a recipe page goes back to that recipe view.
+  window.history.pushState({...e.state,mealRotationRecipeViewer:{mealId:aiRecipeReturn.mealId,context:aiRecipeReturn.context}},'');returnFromAiToRecipe();e.stopImmediatePropagation();return;
+ }
  if(recipeViewerHistoryClosing){recipeViewerHistoryClosing=false;restoreRecipeViewerHistory(e.state?.mealRotationRecipeViewer);e.stopImmediatePropagation();return}
  if(recipeViewer){finishRecipeViewerClose();restoreRecipeViewerHistory(e.state?.mealRotationRecipeViewer);e.stopImmediatePropagation();return}
  if(e.state?.mealRotationRecipeViewer){const m=meals.find(m=>String(m.id)===String(e.state.mealRotationRecipeViewer.mealId));if(m){openRecipeViewer(m,e.state.mealRotationRecipeViewer.context,false);e.stopImmediatePropagation()}}

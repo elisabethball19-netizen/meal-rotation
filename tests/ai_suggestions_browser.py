@@ -1,4 +1,4 @@
-"""v438/v439: Ask AI recipe ideas - refill request, paste into the queue, one idea at a time, Save / Pin / Try this week /
+"""v438/v439/v440: Ask AI recipe ideas - refill request, paste into the queue, one idea at a time, Save / Pin / Try this week /
 Not for us, pace + pause, and the dot on the Ask AI tab.
 Run: python3 -m http.server 8765 (repo root), then python3 tests/ai_suggestions_browser.py"""
 import asyncio, os
@@ -37,6 +37,7 @@ async def check(page_name, browser):
       cats=['Sides','Mains','Soup'];meals=[{id:1,cat:'Mains',name:'Thai Garlic Pork',rotation:true,ingredients:['1 lb pork'],instructions:[{type:'step',text:'Cook.'}]}];id=2;
       showTop=true;allMealsActive=false;groceryTabActive=false;aiTabActive=true;editId=null;render()}""")
     await pg.wait_for_timeout(500)
+    await pg.locator('[data-ai-card="idea"] .ai-job-card-head').click(); await pg.wait_for_timeout(300)  # v440: card opens in place
     card = pg.locator('.ai-suggest-card')
     assert await card.count() == 1 and 'Get recipe ideas' in await card.inner_text()
 
@@ -97,8 +98,8 @@ async def check(page_name, browser):
     # Pace + pause persist
     await ev("()=>{const s=aiSuggestState();s.queue.push({name:'Pea Soup',ingredients:['1 cup peas'],instructions:[{type:'step',text:'Simmer.'}]});saveAiSuggestState(s);renderList({readOnly:true})}")
     await pg.wait_for_timeout(300)
-    await pg.locator('.ai-suggest-pace').select_option('2weeks'); await pg.wait_for_timeout(200)
-    await ev("()=>{const s=aiSuggestState();s.paused=true;saveAiSuggestState(s);renderList({readOnly:true})}"); await pg.wait_for_timeout(200)
+    await pg.locator('.ai-suggest-pace input[value="2weeks"]').check(); await pg.wait_for_timeout(200)
+    await pg.locator('.ai-suggest-pace input[value="paused"]').check(); await pg.wait_for_timeout(200)
     st = await ev("()=>({pace:aiSuggestState().pace,paused:aiSuggestState().paused})")
     assert st == {'pace': '2weeks', 'paused': True}, st
     assert 'paused' in (await card.inner_text()).lower()

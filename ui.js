@@ -5045,6 +5045,8 @@ function restoreMealEditorScroll(){
  // Render only after restoring the origin, avoiding a flash of the editor's host page.
  render();
  if(returnToEditedRecipe())return;
+ // v440: the editor reviewed an AI answer for a recipe opened from its recipe page - go back to that recipe view.
+ if(typeof aiReturnAfterEditor!=='undefined'&&aiReturnAfterEditor){aiRecipeReturn=aiReturnAfterEditor;aiReturnAfterEditor=null;returnFromAiToRecipe();return}
  origin?.resumeDialog?.();
  if(position===null)return;
  window.scrollTo({top:position,behavior:'instant'});

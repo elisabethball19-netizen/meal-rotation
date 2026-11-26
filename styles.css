@@ -1883,8 +1883,25 @@ body.group-reorder-active .tab-actions,body.group-reorder-active #mealBottomNav{
 .ai-suggest-link{align-self:flex-start;background:none;border:0;padding:4px 0;color:#315ba8;font:inherit;font-size:15px;text-decoration:underline;cursor:pointer;}
 .ai-suggest-recipe{display:flex;flex-direction:column;gap:4px;font-size:15px;}
 .ai-suggest-recipe ul,.ai-suggest-recipe ol{margin:0 0 6px;padding-left:22px;}
-.ai-suggest-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;}
+.ai-suggest-actions{display:flex;flex-direction:column;gap:6px;margin-top:4px;}
 .ai-suggest-actions .smallbtn{min-height:44px;}
+/* v440: one-tap list of choices for a recipe idea */
+.ai-suggest-choice{display:block;width:100%;text-align:left;background:#fff;border:1px solid #7774;border-radius:12px;padding:11px 14px;font:inherit;font-size:16px;color:inherit;min-height:46px;cursor:pointer;}
+.ai-suggest-choice:active{background:#f2f4f8;}
+.ai-suggest-choice.ai-suggest-no{color:#8a3b37;}
+.ai-suggest-inline{padding:0;margin:0;border:0;box-shadow:none;background:none;}
+fieldset.ai-suggest-pace{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px 16px;}
+fieldset.ai-suggest-pace legend{padding:0;margin:0 0 4px;font-size:13px;color:#6b6f78;}
+.ai-suggest-pace-choice{display:flex;align-items:center;gap:8px;font-size:15px;min-height:36px;}
+/* v440: Ask AI jobs as cards that open in place */
+.ai-job-card{padding:0;margin:0 0 10px;overflow:hidden;}
+.ai-job-card-head{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;padding:14px 16px;font:inherit;font-size:18px;color:inherit;text-align:left;cursor:pointer;min-height:56px;}
+.ai-job-card-title{flex:0 1 auto;}
+.ai-job-card-summary{flex:1;min-width:0;color:#6b6f78;font-size:14px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ai-job-card-head .ai-chevron{margin-left:auto;flex:0 0 auto;display:inline-flex;transition:none;}
+.ai-job-card-summary+.ai-chevron{margin-left:0;}
+.ai-job-card.open .ai-job-card-head .ai-chevron{transform:rotate(180deg);}
+.ai-job-card-body{padding:0 16px 16px;display:flex;flex-direction:column;gap:10px;}
 .ai-suggest-actions p{grid-column:1/-1;margin:0;}
 .ai-suggest-actions .ai-suggest-try{grid-column:1/-1;} /* v439: Save | Pin, Try this week, then Later | Not for us */
 .ai-suggest-foot{display:flex;flex-direction:column;gap:6px;border-top:1px solid #0001;padding-top:8px;margin-top:2px;}
