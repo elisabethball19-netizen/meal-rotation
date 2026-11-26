@@ -1903,6 +1903,7 @@ fieldset.ai-suggest-choices legend{padding:0;margin:0 0 4px;font-size:13px;color
 .ai-suggest-option{display:flex;align-items:center;gap:10px;font-size:16px;min-height:42px;}
 .ai-suggest-option.ai-suggest-no{color:#8a3b37;}
 .ai-suggest-confirm{padding-top:4px;}
+.ai-suggest-choices .ai-suggest-option:last-child{border-bottom:0!important;} /* v445: no double line above check / X */
 /* v444: a subtle line under the open New recipe idea header */
 .ai-job-card.open[data-ai-card="idea"] .ai-job-card-head{border-bottom:1px solid #0001;margin-bottom:10px;}
 .ai-suggest-last{margin:0;font-size:13px;}
