@@ -1,5 +1,6 @@
-"""v438/v439/v440: Ask AI recipe ideas - refill request, paste into the queue, one idea at a time, Save / Pin / Try this week /
-Not for us, pace + pause, and the dot on the Ask AI tab.
+"""v438-v443: Ask AI recipe ideas - refill request, paste into the queue, one idea at a time. v443: no schedule (the next
+idea comes in once the current one is used), recipe shown straight away, choices are radio buttons with check / X,
+'Last idea · Get more', 'No ideas waiting', no dot on the Ask AI tab.
 Run: python3 -m http.server 8765 (repo root), then python3 tests/ai_suggestions_browser.py"""
 import asyncio, os
 from playwright.async_api import async_playwright
@@ -37,76 +38,75 @@ async def check(page_name, browser):
       cats=['Sides','Mains','Soup'];meals=[{id:1,cat:'Mains',name:'Thai Garlic Pork',rotation:true,ingredients:['1 lb pork'],instructions:[{type:'step',text:'Cook.'}]}];id=2;
       showTop=true;allMealsActive=false;groceryTabActive=false;aiTabActive=true;editId=null;render()}""")
     await pg.wait_for_timeout(500)
-    await pg.locator('[data-ai-card="idea"] .ai-job-card-head').click(); await pg.wait_for_timeout(300)  # v440: card opens in place
+    head = pg.locator('[data-ai-card="idea"] .ai-job-card-head')
+    async def open_idea():
+        if not await pg.locator('[data-ai-card="idea"].open').count():
+            await head.click(); await pg.wait_for_timeout(300)
+    async def choose(value):
+        await open_idea()
+        await pg.locator(f'.ai-suggest-option input[value="{value}"]').check(); await pg.wait_for_timeout(100)
+        await pg.locator('.ai-suggest-ok').click(); await pg.wait_for_timeout(500)
+    await open_idea()
     card = pg.locator('.ai-suggest-card')
-    assert await card.count() == 1 and 'Get recipe ideas' in await card.inner_text()
+    assert await card.count() == 1 and 'No ideas waiting' in await card.inner_text()
 
     # Refill: request copied/opened, pending 'suggest'
-    await pg.locator('.ai-suggest-refill').click(); await pg.wait_for_timeout(500)
+    await pg.locator('.ai-suggest-refill', has_text='Get 10 more ideas').click(); await pg.wait_for_timeout(500)
     r = await ev("()=>({job:aiPending()?.job,req:buildAiJobRequest('suggest',{count:10})})")
     assert r['job'] == 'suggest' and 'Suggest 10 new dinner recipes' in r['req'] and '"Why: "' in r['req'], r
-    assert 'Waiting for your recipe ideas' in await card.inner_text()
+    assert 'Waiting for new ideas' in await card.inner_text()
 
-    # Paste the answer -> queue of 3, first one shown
+    # Paste the answer -> queue of 3, first one shown with its recipe straight away; no count, no pace
     await pg.locator('.ai-paste-card textarea').fill(ANSWER)
     await pg.locator('.ai-paste-card button', has_text='Review recipe').click(); await pg.wait_for_timeout(600)
-    st = await ev("()=>{const s=aiSuggestState();return {queue:s.queue.map(x=>x.name),current:s.current?.name,why:s.current?.aiWhy,seen:s.seen,pending:aiPending()}}")
-    assert st['current'] == 'Lemon Chicken Orzo' and st['queue'] == ['Beef and Broccoli', 'Shrimp Tacos'] and st['why'].startswith('Bright and quick') and st['seen'] and st['pending'] is None, st
+    st = await ev("()=>{const s=aiSuggestState();return {queue:s.queue.map(x=>x.name),current:s.current?.name,why:s.current?.aiWhy,pending:aiPending()}}")
+    assert st['current'] == 'Lemon Chicken Orzo' and st['queue'] == ['Beef and Broccoli', 'Shrimp Tacos'] and st['why'].startswith('Bright and quick') and st['pending'] is None, st
+    await open_idea()
     text = await card.inner_text()
-    assert 'Lemon Chicken Orzo' in text and '15m prep' in text and 'serves 4' in text and '2 more waiting' in text, text
-    await pg.locator('.ai-suggest-see').click(); await pg.wait_for_timeout(200)
-    assert '1 lb chicken thighs' in await card.inner_text()
-    await pg.screenshot(path=f'/tmp/v438_{page_name}_card.png', full_page=False)
+    assert 'Lemon Chicken Orzo' in text and '15m prep' in text and 'serves 4' in text and '1 lb chicken thighs' in text, text
+    assert 'waiting' not in text and 'Every week' not in text and 'Last idea' not in text, text
+    assert await pg.locator('.ai-suggest-option').count() == 5
+    assert await pg.locator('.ai-suggest-ok').is_disabled()
+    assert await pg.locator('[data-ai-card="idea"] .ai-job-card-summary').inner_text() == 'Lemon Chicken Orzo'
+    await pg.screenshot(path=f'/tmp/v443_{page_name}_card.png', full_page=True)
+    # X closes the card and changes nothing
+    await pg.locator('.ai-suggest-cancel').click(); await pg.wait_for_timeout(300)
+    assert await pg.locator('[data-ai-card="idea"].open').count() == 0
+    assert await ev("()=>aiSuggestState().current?.name") == 'Lemon Chicken Orzo'
 
-    # Save -> AI recipes; next idea waits for its date; Show one now
-    await pg.locator('.ai-suggest-save').click(); await pg.wait_for_timeout(400)
+    # Save -> AI recipes; the next idea is there right away (no date)
+    await choose('save')
     assert await ev("()=>meals.some(m=>m.name==='Lemon Chicken Orzo'&&m.aiRecipe&&m.cat===''&&m.ingredients.length===2)")
-    assert 'Next idea' in await card.inner_text()
-    await pg.locator('.ai-suggest-now').click(); await pg.wait_for_timeout(300)
-    assert 'Beef and Broccoli' in await card.inner_text()
+    assert await ev("()=>aiSuggestState().current?.name") == 'Beef and Broccoli'
 
-    # Not for us -> remembered and sent with the next refill
-    await pg.locator('.ai-suggest-no').click(); await pg.wait_for_timeout(300)
-    assert await ev("()=>aiSuggestState().rejected.includes('Beef and Broccoli')&&buildAiJobRequest('suggest').includes('Beef and Broccoli')")
+    # Show me later -> to the back; the next one shows
+    await choose('later')
+    st = await ev("()=>{const s=aiSuggestState();return {current:s.current?.name,queue:s.queue.map(x=>x.name)}}")
+    assert st == {'current': 'Shrimp Tacos', 'queue': ['Beef and Broccoli']}, st
 
-    # Time passes -> the next idea arrives by itself and the Ask AI tab shows a dot (on another page)
-    await ev("()=>{const s=aiSuggestState();s.shownAt=Date.now()-8*864e5;saveAiSuggestState(s);aiTabActive=false;render()}")
-    await pg.wait_for_timeout(300)
-    assert await pg.locator('#mealBottomNav [data-destination="ai"] .ai-suggest-dot').count() == 1
-    await pg.locator('#mealBottomNav [data-destination="ai"]').click(); await pg.wait_for_timeout(500)
-    assert 'Shrimp Tacos' in await card.inner_text()
-    await pg.wait_for_timeout(200)
+    # Not for us -> remembered and sent with the next refill; Beef comes back in
+    await choose('no')
+    assert await ev("()=>aiSuggestState().rejected.includes('Shrimp Tacos')&&buildAiJobRequest('suggest').includes('Shrimp Tacos')")
+    await open_idea()
+    text = await card.inner_text()
+    assert 'Beef and Broccoli' in text and 'Last idea' in text and 'Get more' in text, text
+
+    # No dot on the Ask AI tab, even with an unseen idea
+    await ev("()=>{const s=aiSuggestState();s.seen=false;saveAiSuggestState(s);aiTabActive=false;render()}"); await pg.wait_for_timeout(300)
     assert await pg.locator('#mealBottomNav .ai-suggest-dot').count() == 0
-    assert 'Refill recipe ideas' in await card.inner_text()  # running low
+    await pg.locator('#mealBottomNav [data-destination="ai"]').click(); await pg.wait_for_timeout(500)
 
     # Try this week -> saved and the Schedule dialog opens
-    await pg.locator('.ai-suggest-try').click(); await pg.wait_for_timeout(500)
-    assert await pg.get_by_text('Schedule Shrimp Tacos').count() == 1
-    assert await ev("()=>meals.some(m=>m.name==='Shrimp Tacos'&&m.aiRecipe)")
+    await choose('try')
+    assert await pg.get_by_text('Schedule Beef and Broccoli').count() == 1
+    assert await ev("()=>meals.some(m=>m.name==='Beef and Broccoli'&&m.aiRecipe)")
     await pg.locator('[aria-label="Cancel scheduling"]').click(); await pg.wait_for_timeout(300)
-
-    # v439: an ignored idea circles back; Later puts it at the back of the queue
-    await ev("""()=>{const one=n=>({name:n,ingredients:['1 a'],instructions:[{type:'step',text:'Cook.'}]});saveAiSuggestState({...aiSuggestState(),queue:[one('B idea')],current:one('A idea'),shownAt:Date.now()-8*864e5,seen:true});renderList({readOnly:true})}""")
-    await pg.wait_for_timeout(300)
-    st = await ev("()=>{const s=aiSuggestState();return {current:s.current?.name,queue:s.queue.map(x=>x.name)}}")
-    assert st == {'current': 'B idea', 'queue': ['A idea']}, st
-    await pg.locator('.ai-suggest-later').click(); await pg.wait_for_timeout(300)
-    st = await ev("()=>{const s=aiSuggestState();return {current:s.current?.name||null,queue:s.queue.map(x=>x.name)}}")
-    assert st == {'current': None, 'queue': ['A idea', 'B idea']}, st
-    assert 'Next idea' in await card.inner_text()
-    await ev("()=>{const s=aiSuggestState();s.queue=[];saveAiSuggestState(s)}")
-    # Pace + pause persist
-    await ev("()=>{const s=aiSuggestState();s.queue.push({name:'Pea Soup',ingredients:['1 cup peas'],instructions:[{type:'step',text:'Simmer.'}]});saveAiSuggestState(s);renderList({readOnly:true})}")
-    await pg.wait_for_timeout(300)
-    await pg.locator('.ai-suggest-pace input[value="2weeks"]').check(); await pg.wait_for_timeout(200)
-    await pg.locator('.ai-suggest-pace input[value="paused"]').check(); await pg.wait_for_timeout(200)
-    st = await ev("()=>({pace:aiSuggestState().pace,paused:aiSuggestState().paused})")
-    assert st == {'pace': '2weeks', 'paused': True}, st
-    assert 'paused' in (await card.inner_text()).lower()
+    await open_idea()
+    assert 'No ideas waiting' in await card.inner_text()
 
     # Pin -> saved to AI recipes and the group chooser opens
-    await ev("()=>{const s=aiSuggestState();s.paused=false;saveAiSuggestState(s);aiSuggestShowNext(s);renderList({readOnly:true})}"); await pg.wait_for_timeout(300)
-    await pg.locator('.ai-suggest-pin').click(); await pg.wait_for_timeout(500)
+    await ev("()=>{const s=aiSuggestState();s.queue.push({name:'Pea Soup',ingredients:['1 cup peas'],instructions:[{type:'step',text:'Simmer.'}]});saveAiSuggestState(s);renderList({readOnly:true})}"); await pg.wait_for_timeout(300)
+    await choose('pin')
     assert await pg.get_by_text('Meal groups', exact=True).count() >= 1
     assert await ev("()=>meals.some(m=>m.name==='Pea Soup'&&m.aiRecipe)")
     assert not errors, errors

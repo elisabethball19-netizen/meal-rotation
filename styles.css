@@ -1894,8 +1894,17 @@ fieldset.ai-suggest-pace{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap
 fieldset.ai-suggest-pace legend{padding:0;margin:0 0 4px;font-size:13px;color:#6b6f78;}
 .ai-suggest-pace-choice{display:flex;align-items:center;gap:8px;font-size:15px;min-height:36px;}
 /* v440: Ask AI jobs as cards that open in place */
-.ai-job-card{padding:0;margin:0 0 10px;overflow:hidden;}
-.ai-job-card-head{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;padding:14px 16px;font:inherit;font-size:18px;color:inherit;text-align:left;cursor:pointer;min-height:56px;}
+.ai-job-card{padding:0;margin:0;overflow:hidden;scroll-margin-top:8px;}
+.ai-job-card-head{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;padding:11px 16px;font:inherit;font-size:18px;color:inherit;text-align:left;cursor:pointer;min-height:50px;}
+/* v443: room to lift an open card above the keyboard while typing */
+.ask-ai-page:has(.ai-job-card.open :is(textarea,input)){padding-bottom:60vh}
+fieldset.ai-suggest-choices{border:0;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:2px;}
+fieldset.ai-suggest-choices legend{padding:0;margin:0 0 4px;font-size:13px;color:#6b6f78;}
+.ai-suggest-option{display:flex;align-items:center;gap:10px;font-size:16px;min-height:42px;}
+.ai-suggest-option.ai-suggest-no{color:#8a3b37;}
+.ai-suggest-confirm{display:flex;justify-content:flex-end;gap:8px;}
+.ai-suggest-last{margin:0;font-size:13px;}
+.ai-suggest-last .ai-suggest-link{font-size:13px;padding:0;display:inline;}
 .ai-job-card-title{flex:0 1 auto;}
 .ai-job-card-summary{flex:1;min-width:0;color:#6b6f78;font-size:14px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ai-job-card-head .ai-chevron{margin-left:auto;flex:0 0 auto;display:inline-flex;transition:none;}
@@ -2288,6 +2297,7 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 .ask-ai-page>.view-page-title{margin-bottom:0}
 .ai-section-head{border-bottom:1px solid #d5dce4;cursor:default}
 .ai-job-list{display:flex;flex-direction:column;gap:8px;padding-top:8px}
+.ai-job-list{gap:6px}
 .ai-job{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:52px;padding:10px 14px;border:1px solid #d8dce1;border-radius:12px;background:#fff;color:inherit;font:inherit;font-size:calc(17px * var(--meal-text-factor, 1));text-align:left}
 .ai-job:active{background:#f3f6fa}
 .ai-job-arrow svg,.ai-chevron svg{width:20px;height:20px;fill:none;stroke:#637080;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block}
