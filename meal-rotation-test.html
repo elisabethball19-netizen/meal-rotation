@@ -8717,7 +8717,9 @@ function carryDatedGroceryChecks(before,retained){
 // Optional plan-owned future choices and ordered assignment sequences. They travel
 // through the existing plan backup/history, without changing the current week.
 function sequenceGroup(id){const identities=readGroupIdentities();return cats.find(cat=>(identities[cat]||cat)===id)}
-function sequenceProblem(plan){for(const choice of Object.values(plan.pendingNextWeekV1?.choices||{})){if(choice.provenance!=='automatic'&&(choice.groupId!=='@day'&&!sequenceGroup(choice.groupId)||!meals.some(m=>String(m.id)===choice.mealId)))return 'A saved next-week meal or group needs a replacement.'}for(const seq of Object.values(plan.alternatingGroupsV1||{}))for(const id of seq.groups){const cat=sequenceGroup(id);if(!cat||!groupUsesRotation(cat)||!automaticRecipeCandidates(cat).length)return 'Alternating group '+(cat||'deleted group')+' needs a replacement with eligible recipes.'}return ''}
+// v448: a one-time meal (id 'once-...', e.g. Leftovers) is never in the recipe library and needs no group, so a saved
+// next-week choice for one is valid (it used to show 'needs a replacement' and block Start next week).
+function sequenceProblem(plan){for(const choice of Object.values(plan.pendingNextWeekV1?.choices||{})){if(String(choice.mealId||'').startsWith('once-'))continue;if(choice.provenance!=='automatic'&&(choice.groupId!=='@day'&&!sequenceGroup(choice.groupId)||!meals.some(m=>String(m.id)===choice.mealId)))return 'A saved next-week meal or group needs a replacement.'}for(const seq of Object.values(plan.alternatingGroupsV1||{}))for(const id of seq.groups){const cat=sequenceGroup(id);if(!cat||!groupUsesRotation(cat)||!automaticRecipeCandidates(cat).length)return 'Alternating group '+(cat||'deleted group')+' needs a replacement with eligible recipes.'}return ''}
 // Balanced day groups (2026-11-19): each of a day's groups gets turns in proportion to its
 // distinct Regulars (a recipe shared by two of the day's groups counts once, split between them),
 // with every group getting at least 1 in 4 of that day's meals. Smooth weighted round-robin keeps
@@ -10317,7 +10319,8 @@ function moveDisplayedMealsToBottom(selectedSlots=null,allTabs=false,markCooked=
  }
  for(const item of affected)if(item.meal.cat===item.cat&&rotationAdvancesRecipe(item,mealPlans.find(p=>p.id===item.planId),prior.get(item.planId)||[]))linkedIds.add(String(item.meal.id));
  // Queue: any served Regular that leaves (hand-picked ones too) goes down its group's list.
- for(const item of selected)if(!item.scheduleOnly&&item.meal&&item.meal.cat===item.cat&&recipeStatus(item.meal)==='rotation')linkedIds.add(String(item.meal.id));
+ // v448: also when it was served on another group's day (e.g. a Weekend Regular put by hand on a Rice day).
+ for(const item of selected)if(!item.scheduleOnly&&item.meal&&!item.meal.temporaryMeal&&item.meal.cat&&recipeStatus(item.meal)==='rotation')linkedIds.add(String(item.meal.id));
  const groceryBefore=captureGroceryCheckStates();
  const beforeIds=new Set(getDisplayedWeekdayMeals().map(({meal})=>String(meal.id)));
  if(!preview){if(!transactional)snapshot(JSON.stringify(undoBefore));retainDueMakeAheadTasks()}
