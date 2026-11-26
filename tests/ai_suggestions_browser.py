@@ -63,16 +63,21 @@ async def check(page_name, browser):
     assert st['current'] == 'Lemon Chicken Orzo' and st['queue'] == ['Beef and Broccoli', 'Shrimp Tacos'] and st['why'].startswith('Bright and quick') and st['pending'] is None, st
     await open_idea()
     text = await card.inner_text()
-    assert 'Lemon Chicken Orzo' in text and '15m prep' in text and 'serves 4' in text and '1 lb chicken thighs' in text, text
+    assert 'Lemon Chicken Orzo' in text and '15m prep' in text and 'serves 4' in text and '1 lb chicken thighs' not in text, text
+    await pg.locator('.ai-suggest-see').click(); await pg.wait_for_timeout(200)
+    text = await card.inner_text()
+    assert '1 lb chicken thighs' in text and 'Hide recipe' in text, text
     assert 'waiting' not in text and 'Every week' not in text and 'Last idea' not in text, text
     assert await pg.locator('.ai-suggest-option').count() == 5
     assert await pg.locator('.ai-suggest-ok').is_disabled()
-    assert await pg.locator('[data-ai-card="idea"] .ai-job-card-summary').inner_text() == 'Lemon Chicken Orzo'
+    assert await pg.locator('[data-ai-card="idea"] .ai-job-card-summary').count() == 0  # v444: no name beside the open header
+    assert await pg.locator('.ai-suggest-confirm.meal-unified-actions').count() == 1
     await pg.screenshot(path=f'/tmp/v443_{page_name}_card.png', full_page=True)
     # X closes the card and changes nothing
     await pg.locator('.ai-suggest-cancel').click(); await pg.wait_for_timeout(300)
     assert await pg.locator('[data-ai-card="idea"].open').count() == 0
     assert await ev("()=>aiSuggestState().current?.name") == 'Lemon Chicken Orzo'
+    assert await pg.locator('[data-ai-card="idea"] .ai-job-card-summary').inner_text() == 'Lemon Chicken Orzo'
 
     # Save -> AI recipes; the next idea is there right away (no date)
     await choose('save')

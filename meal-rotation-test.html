@@ -1766,7 +1766,9 @@ fieldset.ai-suggest-choices{border:0;margin:4px 0 0;padding:0;display:flex;flex-
 fieldset.ai-suggest-choices legend{padding:0;margin:0 0 4px;font-size:13px;color:#6b6f78;}
 .ai-suggest-option{display:flex;align-items:center;gap:10px;font-size:16px;min-height:42px;}
 .ai-suggest-option.ai-suggest-no{color:#8a3b37;}
-.ai-suggest-confirm{display:flex;justify-content:flex-end;gap:8px;}
+.ai-suggest-confirm{padding-top:4px;}
+/* v444: a subtle line under the open New recipe idea header */
+.ai-job-card.open[data-ai-card="idea"] .ai-job-card-head{border-bottom:1px solid #0001;margin-bottom:10px;}
 .ai-suggest-last{margin:0;font-size:13px;}
 .ai-suggest-last .ai-suggest-link{font-size:13px;padding:0;display:inline;}
 .ai-job-card-title{flex:0 1 auto;}
@@ -7920,7 +7922,7 @@ function aiSuggestTimes(item){
  const parts=[];const t=v=>{const n=Number(v);return Number.isFinite(n)&&n>0?(n>=60?Math.floor(n/60)+'h'+(n%60?' '+n%60+'m':''):n+'m'):''};
  if(t(item.prep))parts.push(t(item.prep)+' prep');if(t(item.cook))parts.push(t(item.cook)+' cook');if(Number(item.servings)>0)parts.push('serves '+item.servings);return parts.join(' · ');
 }
-let aiSuggestChoice='';
+let aiSuggestChoice='',aiSuggestRecipeOpen=false;
 function renderAiSuggestionCard(inline=false){
  const state=aiSuggestTick(),card=document.createElement(inline?'div':'section');card.className=inline?'ai-suggest-card ai-suggest-inline':'ai-suggest-card master-category-card';
  if(!inline){const head=document.createElement('div');head.className='ai-suggest-head';const label=document.createElement('span');label.className='ai-suggest-label';label.textContent='Recipe idea';head.append(label);card.append(head)}
@@ -7936,8 +7938,10 @@ function renderAiSuggestionCard(inline=false){
  const name=document.createElement('h3');name.className='ai-suggest-name';name.textContent=item.name;card.append(name);
  if(item.aiWhy){const why=document.createElement('p');why.className='ai-suggest-why';why.textContent=item.aiWhy;card.append(why)}
  const times=aiSuggestTimes(item);if(times){const meta=document.createElement('p');meta.className='muted ai-suggest-meta';meta.textContent=times;card.append(meta)}
- {const body=document.createElement('div');body.className='ai-suggest-recipe';const ing=document.createElement('ul');for(const line of item.ingredients||[]){const li=document.createElement('li');li.textContent=String(typeof line==='string'?line:line?.text||'');ing.append(li)}const steps=document.createElement('ol');for(const block of item.instructions||[]){if(block?.type!=='step'||!String(block.text||'').trim())continue;const li=document.createElement('li');li.textContent=block.text;steps.append(li)}const h1=document.createElement('strong');h1.textContent='Ingredients';const h2=document.createElement('strong');h2.textContent='Steps';if(ing.children.length)body.append(h1,ing);if(steps.children.length)body.append(h2,steps);if(body.children.length)card.append(body)}
- const closeCard=()=>{aiSuggestChoice='';if(typeof aiOpenCard!=='undefined'&&aiOpenCard==='idea')aiOpenCard=null;renderList({readOnly:true})};
+ // v444: the recipe stays behind 'See recipe' (only name, why and times show).
+ const see=document.createElement('button');see.type='button';see.className='ai-suggest-link ai-suggest-see';see.setAttribute('aria-expanded',String(aiSuggestRecipeOpen));see.textContent=aiSuggestRecipeOpen?'Hide recipe':'See recipe';see.onclick=()=>{aiSuggestRecipeOpen=!aiSuggestRecipeOpen;renderList({readOnly:true})};card.append(see);
+ if(aiSuggestRecipeOpen){const body=document.createElement('div');body.className='ai-suggest-recipe';const ing=document.createElement('ul');for(const line of item.ingredients||[]){const li=document.createElement('li');li.textContent=String(typeof line==='string'?line:line?.text||'');ing.append(li)}const steps=document.createElement('ol');for(const block of item.instructions||[]){if(block?.type!=='step'||!String(block.text||'').trim())continue;const li=document.createElement('li');li.textContent=block.text;steps.append(li)}const h1=document.createElement('strong');h1.textContent='Ingredients';const h2=document.createElement('strong');h2.textContent='Steps';if(ing.children.length)body.append(h1,ing);if(steps.children.length)body.append(h2,steps);if(body.children.length)card.append(body)}
+ const closeCard=()=>{aiSuggestChoice='';aiSuggestRecipeOpen=false;if(typeof aiOpenCard!=='undefined'&&aiOpenCard==='idea')aiOpenCard=null;renderList({readOnly:true})};
  const used=()=>{const s=aiSuggestState();s.current=null;saveAiSuggestState(s);aiSuggestChoice=''};
  const choices=document.createElement('fieldset');choices.className='ai-suggest-choices';const legend=document.createElement('legend');legend.textContent='What would you like to do?';choices.append(legend);
  const ok=document.createElement('button');ok.type='button';ok.className='iconbtn ai-suggest-ok';setIconButton(ok,'save','Do it');ok.disabled=!aiSuggestChoice;
@@ -7949,10 +7953,10 @@ function renderAiSuggestionCard(inline=false){
   if(value==='save'){saveAiSuggestionMeal(item);used();closeCard();showServingUndoToast('Saved to AI recipes')}
   else if(value==='pin'){const meal=saveAiSuggestionMeal(item);used();pinAiSuggestionMeal(meal,ok,done=>{closeCard();showServingUndoToast(done?'Pinned to the top of Not in rotation':'Saved to AI recipes')})}
   else if(value==='try'){const meal=saveAiSuggestionMeal(item);used();closeCard();openScheduleMealDialog(meal)}
-  else if(value==='later'){const s=aiSuggestState(),last=!s.queue.length;if(s.current)s.queue.push(s.current);s.current=null;saveAiSuggestState(s);aiSuggestChoice='';renderList({readOnly:true});aiToast(last?'This is your last idea, so it stays.':'It’ll come back after the others.')}
+  else if(value==='later'){const s=aiSuggestState(),last=!s.queue.length;if(s.current)s.queue.push(s.current);s.current=null;saveAiSuggestState(s);aiSuggestChoice='';aiSuggestRecipeOpen=false;renderList({readOnly:true});aiToast(last?'This is your last idea, so it stays.':'It’ll come back after the others.')}
   else if(value==='no'){const s=aiSuggestState();s.rejected=[...s.rejected,item.name].slice(-80);s.current=null;saveAiSuggestState(s);closeCard();aiToast('Got it. Ideas like this won’t come again.')}};
  const cancel=document.createElement('button');cancel.type='button';cancel.className='iconbtn ai-suggest-cancel';setIconButton(cancel,'cancel','Close');cancel.onclick=closeCard;
- const row=document.createElement('div');row.className='ai-suggest-confirm';row.append(ok,cancel);card.append(row);
+ const row=document.createElement('div');row.className='ai-suggest-confirm meal-unified-actions';row.append(ok,cancel);card.append(row);
  // Last idea: one quiet line to fetch more before running out.
  if(!state.queue.length){const last=document.createElement('p');last.className='muted ai-suggest-last';if(pending)last.textContent='Last idea · Waiting for more (Paste an answer)';else{last.append('Last idea · ');last.append(refill('Get more',false))}card.append(last)}
  return card;
@@ -8004,7 +8008,7 @@ function renderAskAiPage(list){
  const when=at=>new Date(at).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
  const card=(key,title,summary,build)=>{const open=aiOpenCard===key,box=document.createElement('section');box.className='ai-job-card master-category-card'+(open?' open':'');box.dataset.aiCard=key;
   const head=document.createElement('button');head.type='button';head.className='ai-job-card-head';head.setAttribute('aria-expanded',String(open));const t=document.createElement('span');t.className='ai-job-card-title';t.textContent=title;head.append(t);
-  if(summary){const sum=document.createElement('span');sum.className='ai-job-card-summary';sum.textContent=summary;head.append(sum)}
+  if(summary&&!(open&&key==='idea')){const sum=document.createElement('span');sum.className='ai-job-card-summary';sum.textContent=summary;head.append(sum)}
   const chev=document.createElement('span');chev.className='ai-chevron';chev.setAttribute('aria-hidden','true');chev.innerHTML='<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>';head.append(chev);
   head.onclick=()=>{aiOpenCardTouched=true;if(open){aiOpenCard=null;if(aiRecipeReturn&&aiCardRecipe?.job===key&&returnFromAiToRecipe())return;aiCardRecipe=null}else{aiOpenCard=key;aiTastesOpen=false;aiSuggestChoice='';if(aiCardRecipe?.job!==key)aiCardRecipe=null}renderList({readOnly:true});if(!open)aiRevealOpenCard()};
   box.append(head);if(open){const body=document.createElement('div');body.className='ai-job-card-body';build(body);box.append(body)}return box};
