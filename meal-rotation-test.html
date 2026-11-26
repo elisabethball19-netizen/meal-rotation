@@ -2632,7 +2632,10 @@ input[type="checkbox"]:not(.preference-switch):focus-visible{outline:2px solid #
 .grocery-header-icons>button:nth-last-child(2){margin-left:0!important}
 .grocery-header-icons>.grocery-view-control{margin:0 0 0 auto!important;flex:0 1 auto;display:flex;align-items:center;gap:8px;font-size:15px}
 /* v449: the row icons (shop/link, edit, open) sit close together so names get more room */
-.master-grocery-item>.grocery-shopping-link+.grocery-item-edit,.master-grocery-item>.grocery-item-edit+.grocery-expand{margin-left:-10px!important}
+/* v450: tighter still - each row icon 32px wide, touching, and less space before them */
+.master-grocery-item{column-gap:8px!important}
+.master-grocery-item>.grocery-shopping-link,.master-grocery-item>.grocery-item-edit,.master-grocery-item>.grocery-expand{flex:0 0 32px!important;width:32px!important;min-width:32px!important;padding:0!important}
+.master-grocery-item>.grocery-shopping-link+.grocery-item-edit,.master-grocery-item>.grocery-item-edit+.grocery-expand{margin-left:-8px!important}
 .select-all-muted,.select-all-muted:disabled{opacity:.45}
 .more-option-row.select-all-muted{opacity:1;color:#9a9fa6;border-color:#dde1e6;background:#fff}
 .more-option-list{display:grid;gap:8px;width:fit-content;max-width:100%;margin:0 auto}
