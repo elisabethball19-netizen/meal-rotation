@@ -1984,6 +1984,8 @@ body[data-meal-text-size] .shared-meal-action-grid .meal-inline-action{font-size
 #editor:has(#scheduledOneTime:checked) .side-always-toggle{display:none!important}
 /* v452: nor the (empty) Meal Group heading */
 #editor:has(#scheduledOneTime:checked) .meal-group-editor-heading,#editor:has(#scheduledOneTime:checked) #categoryRows{display:none!important}
+/* v454: headings under the name card line up with the card's contents (they sat 8px further left) */
+#editor .meal-editor-fields>.meal-checkbox-option,#editor .meal-editor-fields>.meal-group-editor-heading,#editor .meal-editor-sections>details>summary{padding-left:8px!important}
 /* v453: nor In rotation / Not in rotation */
 #editor:has(#scheduledOneTime:checked) #recipeStatus{display:none!important}
 /* v446: AI recipes / Unassigned - Move/Delete as the floating pill used in a group's select mode, kept above the bottom bar */
